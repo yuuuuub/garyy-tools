@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个税计算器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+.form-row{display:flex;gap:12px;margin-bottom:12px}
+.form-row .group{flex:1}
+.form-row label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+.result-big{text-align:center;padding:18px}
+.result-big .label{font-size:.85rem;color:var(--text2);margin-bottom:4px}
+.result-big .value{font-size:2rem;font-weight:700}
+.result-big .value.red{color:var(--red)}
+.result-big .value.gold{color:var(--gold)}
+.result-big .value.green{color:var(--green)}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+.stat-card{text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius)}
+.stat-card .label{font-size:.75rem;color:var(--text2);margin-bottom:4px}
+.stat-card .value{font-size:1.1rem;font-weight:700}
+.section-title{font-size:.95rem;font-weight:600;margin-bottom:12px;color:var(--text)}
+.tax-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.tax-table th,.tax-table td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.tax-table th{color:var(--text2);font-weight:500;background:var(--bg);text-align:center}
+.tax-table td{text-align:center}
+.tax-table td:first-child{text-align:center}
+.tax-table .active-row{background:rgba(59,130,246,.1);font-weight:600}
+.tax-table tr:last-child td{border-bottom:none}
+.chart-bar-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+.chart-bar-row .label{min-width:70px;font-size:.75rem;color:var(--text2)}
+.chart-bar-row .bar-track{flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden}
+.chart-bar-row .bar-fill{height:100%;border-radius:4px;transition:width .5s}
+.chart-bar-row .val{min-width:60px;text-align:right;font-size:.75rem;font-weight:600}
+.preset-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.preset-btn{padding:4px 12px;border:1px solid var(--border);border-radius:20px;font-size:.78rem;background:var(--card);color:var(--text);cursor:pointer;transition:all .2s}
+.preset-btn:hover{border-color:var(--blue);color:var(--blue)}
+.breakdown-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.breakdown-item:last-child{border-bottom:none}
+.breakdown-item .bl{color:var(--text2)}
+.breakdown-item .br{font-weight:600}
+@media(max-width:640px){.form-row{flex-direction:column}.grid-3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📋 个税计算器</h1>
+    <p>年度个人所得税计算</p>
+  </header>
+
+  <div class="card">
+    <div class="form-row">
+      <div class="group">
+        <label>年收入 (元)</label>
+        <input type="number" id="annualIncome" value="300000" min="0" step="any">
+      </div>
+      <div class="group">
+        <label>专项扣除 (元/年)</label>
+        <input type="number" id="deductions" value="48000" min="0" step="any">
+      </div>
+    </div>
+    <div class="preset-group" id="incomePresets"></div>
+    <div class="preset-group" id="deductPresets"></div>
+    <div style="font-size:.75rem;color:var(--text2);margin-top:4px">专项扣除包含：五险一金、专项附加扣除（子女教育、赡养老人、房贷利息等）</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📊 计算结果</div>
+    <div class="grid-3">
+      <div class="stat-card"><div class="label">应纳税所得额</div><div class="value" id="taxableDisplay" style="color:var(--blue)">¥--</div></div>
+      <div class="stat-card"><div class="label">应纳个税</div><div class="value" id="taxDisplay" style="color:var(--red)">¥--</div></div>
+      <div class="stat-card"><div class="label">实际税率</div><div class="value" id="rateDisplay" style="color:var(--gold)">--%</div></div>
+    </div>
+    <div style="text-align:center;margin-top:10px">
+      <div style="font-size:.8rem;color:var(--text2)">税后年收入</div>
+      <div style="font-size:1.8rem;font-weight:700;color:var(--green)" id="afterTaxDisplay">¥--</div>
+      <div style="font-size:.78rem;color:var(--text2)" id="monthlyDisplay"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 累进税率明细</div>
+    <div id="taxBracketTable"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📊 收入与税负</div>
+    <div id="taxChart"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const incomeInp = $('annualIncome');
+const deductInp = $('deductions');
+const taxableDisplay = $('taxableDisplay');
+const taxDisplay = $('taxDisplay');
+const rateDisplay = $('rateDisplay');
+const afterTaxDisplay = $('afterTaxDisplay');
+const monthlyDisplay = $('monthlyDisplay');
+const taxBracketTable = $('taxBracketTable');
+const taxChart = $('taxChart');
+
+// 年度累进税率表
+const brackets = [
+  {limit: 36000, rate: 0.03, quick: 0, label: '不超过36,000元'},
+  {limit: 144000, rate: 0.10, quick: 2520, label: '36,000~144,000元'},
+  {limit: 300000, rate: 0.20, quick: 16920, label: '144,000~300,000元'},
+  {limit: 420000, rate: 0.25, quick: 31920, label: '300,000~420,000元'},
+  {limit: 660000, rate: 0.30, quick: 52920, label: '420,000~660,000元'},
+  {limit: 960000, rate: 0.35, quick: 85920, label: '660,000~960,000元'},
+  {limit: Infinity, rate: 0.45, quick: 181920, label: '超过960,000元'}
+];
+
+const incomePresets = [100000, 200000, 300000, 500000, 1000000, 2000000];
+const deductPresets = [0, 12000, 24000, 36000, 48000, 60000];
+
+function renderPresets(container, values, input){
+  container.innerHTML = values.map(v => {
+    return `<button class="preset-btn${parseFloat(input.value) === v ? ' active' : ''}" data-val="${v}">${v.toLocaleString()}</button>`;
+  }).join('');
+  container.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      input.value = btn.dataset.val;
+      container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      calc();
+    });
+  });
+}
+
+function calcTax(taxable){
+  for(const b of brackets){
+    if(taxable <= b.limit){
+      return Math.max(0, taxable * b.rate - b.quick);
+    }
+  }
+  return taxable * 0.45 - 181920;
+}
+
+function getBracketInfo(taxable){
+  for(let i = 0; i < brackets.length; i++){
+    if(taxable <= brackets[i].limit){
+      return {index: i, ...brackets[i]};
+    }
+  }
+  return {index: brackets.length - 1, ...brackets[brackets.length - 1]};
+}
+
+function calc(){
+  const income = parseFloat(incomeInp.value) || 0;
+  const deductions = parseFloat(deductInp.value) || 0;
+  const basicDeduction = 60000; // 年度基本减除费用
+  const taxable = Math.max(0, income - basicDeduction - deductions);
+  const tax = calcTax(taxable);
+  const afterTax = income - tax;
+  const effectiveRate = income > 0 ? (tax / income * 100) : 0;
+
+  taxableDisplay.textContent = '¥' + taxable.toLocaleString('zh-CN',{minimumFractionDigits:2});
+  taxDisplay.textContent = '¥' + tax.toLocaleString('zh-CN',{minimumFractionDigits:2});
+  rateDisplay.textContent = effectiveRate.toFixed(2) + '%';
+  afterTaxDisplay.textContent = '¥' + afterTax.toLocaleString('zh-CN',{minimumFractionDigits:2});
+  monthlyDisplay.textContent = '月均税后: ¥' + (afterTax / 12).toLocaleString('zh-CN',{minimumFractionDigits:2});
+
+  // 税率明细表
+  const activeBracket = getBracketInfo(taxable);
+  let tableHtml = `<table class="tax-table">
+    <thead><tr><th>级数</th><th>应纳税所得额</th><th>税率</th><th>速算扣除数</th></tr></thead>
+    <tbody>`;
+  brackets.forEach((b, i) => {
+    const prevLimit = i === 0 ? 0 : brackets[i-1].limit;
+    const limitStr = b.limit === Infinity ? '超过' + prevLimit.toLocaleString() : prevLimit.toLocaleString() + '~' + b.limit.toLocaleString();
+    const cls = i === activeBracket.index ? 'active-row' : '';
+    tableHtml += `<tr class="${cls}">
+      <td>${i+1}</td>
+      <td>${b.label}</td>
+      <td>${(b.rate * 100)}%</td>
+      <td>${b.quick.toLocaleString()}</td>
+    </tr>`;
+  });
+  tableHtml += '</tbody></table>';
+  tableHtml += `<div style="text-align:center;font-size:.75rem;color:var(--text2);margin-top:6px">当前适用第${activeBracket.index+1}级税率 ${(activeBracket.rate*100)}%</div>`;
+  taxBracketTable.innerHTML = tableHtml;
+
+  // 收入与税负图
+  const maxVal = Math.max(income, 1);
+  const afterPct = (afterTax / maxVal * 100);
+  const taxPct = (tax / maxVal * 100);
+  const deductPct = (deductions / maxVal * 100);
+  const basicPct = (basicDeduction / maxVal * 100);
+
+  taxChart.innerHTML = `
+    <div class="chart-bar-row">
+      <div class="label">税后收入</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${afterPct}%;background:var(--green)"></div></div>
+      <div class="val" style="color:var(--green)">¥${afterTax.toLocaleString('zh-CN',{minimumFractionDigits:0})}</div>
+    </div>
+    <div class="chart-bar-row">
+      <div class="label">个税</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${taxPct}%;background:var(--red)"></div></div>
+      <div class="val" style="color:var(--red)">¥${tax.toLocaleString('zh-CN',{minimumFractionDigits:0})}</div>
+    </div>
+    <div class="chart-bar-row">
+      <div class="label">专项扣除</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${deductPct}%;background:var(--gold)"></div></div>
+      <div class="val" style="color:var(--gold)">¥${deductions.toLocaleString('zh-CN',{minimumFractionDigits:0})}</div>
+    </div>
+    <div class="chart-bar-row">
+      <div class="label">基本减除</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${basicPct}%;background:var(--blue)"></div></div>
+      <div class="val" style="color:var(--blue)">¥${basicDeduction.toLocaleString()}</div>
+    </div>
+    <div style="text-align:center;font-size:.75rem;color:var(--text2);margin-top:8px">年度总收入 ¥${income.toLocaleString()} | 实际税率 ${effectiveRate.toFixed(2)}%</div>
+  `;
+
+  renderPresets($('incomePresets'), incomePresets, incomeInp);
+  renderPresets($('deductPresets'), deductPresets, deductInp);
+}
+
+[incomeInp, deductInp].forEach(el => {
+  el.addEventListener('input', calc);
+  el.addEventListener('change', calc);
+});
+
+calc();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

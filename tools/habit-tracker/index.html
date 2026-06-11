@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>习惯追踪 - garyy-tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.85rem}
+button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+button:hover{opacity:.85}
+input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-gold{background:var(--gold);color:#000}
+.input-row{display:flex;gap:10px;margin-bottom:16px}
+.input-row input{flex:1}
+.habit-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px}
+.habit-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.habit-name{font-size:.95rem;font-weight:500}
+.habit-streak{font-size:.8rem;color:var(--gold)}
+.habit-actions{display:flex;gap:6px}
+.habit-actions button{font-size:.78rem;padding:5px 12px}
+.dots{display:flex;gap:3px;flex-wrap:wrap;margin-top:8px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--border);flex-shrink:0;position:relative;cursor:default}
+.dot.done{background:var(--green)}
+.dot.today{border:2px solid var(--blue)}
+.empty-text{text-align:center;color:var(--text2);padding:30px 0;font-size:.9rem}
+.range-tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--bg);border-radius:6px;padding:4px;max-width:200px}
+.range-tab{flex:1;text-align:center;padding:5px 0;border-radius:4px;cursor:pointer;font-size:.8rem;color:var(--text2);transition:all .2s}
+.range-tab.active{background:var(--blue);color:#fff}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🔄 习惯追踪</h1>
+<div class="sub">每日习惯打卡</div>
+</header>
+
+<div class="card">
+<div class="input-row">
+<input type="text" id="inputHabit" placeholder="输入习惯名称..." maxlength="50">
+<button class="btn-green" id="btnAdd">添加习惯</button>
+</div>
+<div id="habitList"></div>
+</div>
+</div>
+
+<script src="../i18n.js"></script>
+<script>
+(function(){
+'use strict';
+const inputHabit=document.getElementById('inputHabit');
+const btnAdd=document.getElementById('btnAdd');
+const habitList=document.getElementById('habitList');
+
+let habits=JSON.parse(localStorage.getItem('garyy_habits')||'[]');
+let range=7;
+
+function save(){
+localStorage.setItem('garyy_habits',JSON.stringify(habits));
+render();
+}
+
+function todayStr(){
+return new Date().toISOString().slice(0,10);
+}
+
+function getDates(n){
+const dates=[];
+const d=new Date();
+for(let i=n-1;i>=0;i--){
+const t=new Date(d);
+t.setDate(t.getDate()-i);
+dates.push(t.toISOString().slice(0,10));
+}
+return dates;
+}
+
+function calcStreak(records){
+const dates=Object.keys(records).sort().reverse();
+let streak=0;
+const today=todayStr();
+for(let i=0;i<dates.length;i++){
+if(i===0&&dates[i]!==today)break;
+const expected=new Date(today);
+expected.setDate(expected.getDate()-i);
+if(dates[i]===expected.toISOString().slice(0,10)&&records[dates[i]]){
+streak++;
+}else{
+break;
+}
+}
+return streak;
+}
+
+function escHtml(s){
+return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function render(){
+if(habits.length===0){
+habitList.innerHTML='<div class="empty-text">还没有习惯，添加一个开始追踪吧</div>';
+return;
+}
+let html='';
+const today=todayStr();
+const dates=getDates(range);
+habits.forEach(function(h,idx){
+const streak=calcStreak(h.records);
+const isChecked=!!(h.records[today]);
+html+='<div class="habit-item">'+
+'<div class="habit-header">'+
+'<span class="habit-name">'+escHtml(h.name)+'</span>'+
+'<div class="habit-actions">'+
+'<button class="'+(isChecked?'btn-gold':'btn-green')+'" data-idx="'+idx+'">'+(isChecked?'已打卡':'打卡')+'</button>'+
+'<button class="btn-red" data-idx="'+idx+'" data-del="1">删除</button>'+
+'</div>'+
+'</div>'+
+'<div style="font-size:.8rem;color:var(--text2);margin-bottom:6px">连续打卡: <span style="color:var(--gold)">'+streak+'</span> 天</div>'+
+'<div class="range-tabs">'+
+'<div class="range-tab'+(range===7?' active':'')+'" data-range="7">7天</div>'+
+'<div class="range-tab'+(range===30?' active':'')+'" data-range="30">30天</div>'+
+'</div>'+
+'<div class="dots">';
+dates.forEach(function(d){
+const done=!!(h.records[d]);
+const isToday=d===today;
+html+='<div class="dot'+(done?' done':'')+(isToday?' today':'')+'" title="'+d+(done?' ✓':'')+'"></div>';
+});
+html+='</div></div>';
+});
+habitList.innerHTML=html;
+
+habitList.querySelectorAll('[data-idx]:not([data-del])').forEach(function(btn){
+btn.addEventListener('click',function(){
+const idx=parseInt(this.dataset.idx);
+const h=habits[idx];
+const today=todayStr();
+if(h.records[today]){
+delete h.records[today];
+}else{
+h.records[today]=true;
+}
+save();
+});
+});
+habitList.querySelectorAll('[data-del]').forEach(function(btn){
+btn.addEventListener('click',function(){
+const idx=parseInt(this.dataset.idx);
+if(confirm('确定删除习惯"'+habits[idx].name+'"吗？')){
+habits.splice(idx,1);
+save();
+}
+});
+});
+habitList.querySelectorAll('.range-tab').forEach(function(tab){
+tab.addEventListener('click',function(){
+range=parseInt(this.dataset.range);
+render();
+});
+});
+}
+
+function addHabit(){
+const name=inputHabit.value.trim();
+if(!name)return;
+if(habits.some(function(h){return h.name===name;}))return;
+habits.push({name:name,records:{}});
+inputHabit.value='';
+save();
+}
+
+btnAdd.addEventListener('click',addHabit);
+inputHabit.addEventListener('keydown',function(e){
+if(e.key==='Enter')addHabit();
+});
+
+render();
+})();
+</script>
+</body>
+</html>

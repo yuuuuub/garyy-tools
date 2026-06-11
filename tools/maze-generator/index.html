@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>迷宫生成器 - Maze Generator</title>
+  <style>
+    /* ===== 全局暗色主题 ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #0a0a14;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px 10px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* ===== 标题 ===== */
+    .header {
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4ff, #7b61ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 2px;
+    }
+
+    .header .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    /* ===== 控制面板 ===== */
+    .controls {
+      background: #141428;
+      border: 1px solid #2a2a45;
+      border-radius: 12px;
+      padding: 16px 20px;
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .control-group input[type="range"] {
+      width: 120px;
+      accent-color: #00d4ff;
+      cursor: pointer;
+    }
+
+    .control-group .range-value {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #00d4ff;
+    }
+
+    .control-group select {
+      background: #1a1a35;
+      color: #e0e0e0;
+      border: 1px solid #3a3a55;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .control-group select:focus {
+      border-color: #00d4ff;
+    }
+
+    .btn {
+      background: #1a1a35;
+      color: #e0e0e0;
+      border: 1px solid #3a3a55;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+    }
+
+    .btn:hover {
+      background: #252550;
+      border-color: #5a5a88;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #00d4ff, #7b61ff);
+      border: none;
+      color: #0a0a14;
+      font-weight: 700;
+    }
+
+    .btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn.hint-active {
+      background: rgba(0, 212, 255, 0.2);
+      border-color: #00d4ff;
+      color: #00d4ff;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* ===== 画布容器 ===== */
+    .canvas-container {
+      background: #141428;
+      border: 1px solid #2a2a45;
+      border-radius: 12px;
+      padding: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 4px;
+      background: #1a1a2e;
+    }
+
+    /* ===== 统计信息 ===== */
+    .stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .stat-card {
+      background: #141428;
+      border: 1px solid #2a2a45;
+      border-radius: 10px;
+      padding: 10px 18px;
+      text-align: center;
+      min-width: 100px;
+      flex: 1;
+    }
+
+    .stat-card .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #00d4ff;
+    }
+
+    .stat-card .stat-label {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 游戏信息 ===== */
+    .play-info {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .timer {
+      background: #141428;
+      border: 1px solid #2a2a45;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #ffdd57;
+      letter-spacing: 2px;
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .status-text.success {
+      color: #00e676;
+    }
+
+    /* ===== 操作提示 ===== */
+    .instructions {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    .instructions span {
+      color: #00d4ff;
+      font-weight: 600;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 500px) {
+      .header h1 {
+        font-size: 22px;
+      }
+      .controls {
+        gap: 8px;
+        padding: 12px;
+      }
+      .control-group input[type="range"] {
+        width: 90px;
+      }
+      .btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      .stat-card {
+        padding: 8px 10px;
+        min-width: 70px;
+      }
+      .stat-card .stat-value {
+        font-size: 16px;
+      }
+      .timer {
+        font-size: 16px;
+        padding: 6px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 标题 -->
+    <div class="header">
+      <h1>迷宫生成器</h1>
+      <p class="subtitle">递归回溯算法 · Canvas 实时绘制</p>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="controls" id="controls">
+      <div class="control-group">
+        <label>网格大小</label>
+        <input type="range" id="gridSize" min="10" max="50" value="20" step="1">
+        <div class="range-value" id="gridSizeVal">20 × 20</div>
+      </div>
+
+      <div class="control-group">
+        <label>难度</label>
+        <select id="difficulty">
+          <option value="easy">简单</option>
+          <option value="medium" selected>中等</option>
+          <option value="hard">困难</option>
+        </select>
+      </div>
+
+      <button class="btn primary" id="btnGenerate">生成迷宫</button>
+      <button class="btn" id="btnHint">路径提示</button>
+      <button class="btn" id="btnExport">导出 PNG</button>
+    </div>
+
+    <!-- 画布 -->
+    <div class="canvas-container">
+      <canvas id="mazeCanvas"></canvas>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="statPathLength">--</div>
+        <div class="stat-label">最短路径步数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statDeadEnds">--</div>
+        <div class="stat-label">死胡同数量</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statSolveTime">--</div>
+        <div class="stat-label">求解耗时 (ms)</div>
+      </div>
+    </div>
+
+    <!-- 游戏信息 -->
+    <div class="play-info">
+      <div class="timer" id="timer">00:00</div>
+      <div class="status-text" id="statusText">点击「生成迷宫」开始</div>
+    </div>
+
+    <!-- 操作提示 -->
+    <div class="instructions">
+      键盘：<span>↑ ↓ ← →</span> 或 <span>W A S D</span> 移动 &nbsp;|&nbsp;
+      触屏：<span>滑动</span> 控制方向 &nbsp;|&nbsp;
+      目标：从 <span>左上角</span> 走到 <span>右下角</span>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    // ===== DOM 元素引用 =====
+    const canvas = document.getElementById('mazeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const gridSizeInput = document.getElementById('gridSize');
+    const gridSizeVal = document.getElementById('gridSizeVal');
+    const difficultySelect = document.getElementById('difficulty');
+    const btnGenerate = document.getElementById('btnGenerate');
+    const btnHint = document.getElementById('btnHint');
+    const btnExport = document.getElementById('btnExport');
+    const timerEl = document.getElementById('timer');
+    const statusText = document.getElementById('statusText');
+
+    const statPathLength = document.getElementById('statPathLength');
+    const statDeadEnds = document.getElementById('statDeadEnds');
+    const statSolveTime = document.getElementById('statSolveTime');
+
+    // ===== 常量 =====
+    const CANVAS_MAX = 560;
+    const PLAYER_COLOR = '#ffdd57';
+    const PLAYER_BORDER = '#c9a830';
+    const GOAL_COLOR = '#00e676';
+    const GOAL_BORDER = '#00a844';
+    const WALL_COLOR = '#00d4ff';
+    const PATH_BG = '#1a1a2e';
+    const SOLUTION_COLOR = 'rgba(123, 97, 255, 0.35)';
+    const CURRENT_CELL_COLOR = 'rgba(0, 212, 255, 0.25)';
+
+    // ===== 迷宫状态 =====
+    let rows = 20;
+    let cols = 20;
+    let cellSize = 0;
+    let canvasSize = 0;
+    let grid = [];            // grid[r][c] = { top, right, bottom, left, visited }
+    let mazeReady = false;
+    let generating = false;
+    let genAbort = false;
+
+    // ===== 生成动画状态 =====
+    let genStack = [];
+    let genCurrent = null;   // { r, c }
+
+    // ===== 游戏状态 =====
+    let playerR = 0, playerC = 0;
+    let goalR, goalC;
+    let playing = false;
+    let solved = false;
+    let timerSec = 0;
+    let timerInterval = null;
+
+    // ===== 求解状态 =====
+    let solutionPath = [];
+    let showHint = false;
+    let solveTimeMs = 0;
+    let deadEndCount = 0;
+
+    // ===== 触摸状态 =====
+    let touchStartX = 0, touchStartY = 0;
+
+    // ===== 初始化网格 =====
+    function createGrid(r, c) {
+      const g = [];
+      for (let i = 0; i < r; i++) {
+        g[i] = [];
+        for (let j = 0; j < c; j++) {
+          g[i][j] = { top: true, right: true, bottom: true, left: true, visited: false };
+        }
+      }
+      return g;
+    }
+
+    // ===== 获取未访问的邻居 =====
+    function getUnvisitedNeighbors(gr, r, c) {
+      const neighbors = [];
+      // 上
+      if (r > 0 && !gr[r - 1][c].visited) neighbors.push({ r: r - 1, c, dir: 'up' });
+      // 右
+      if (c < cols - 1 && !gr[r][c + 1].visited) neighbors.push({ r, c: c + 1, dir: 'right' });
+      // 下
+      if (r < rows - 1 && !gr[r + 1][c].visited) neighbors.push({ r: r + 1, c, dir: 'down' });
+      // 左
+      if (c > 0 && !gr[r][c - 1].visited) neighbors.push({ r, c: c - 1, dir: 'left' });
+      return neighbors;
+    }
+
+    // ===== 打通两个单元格之间的墙 =====
+    function removeWall(gr, r1, c1, r2, c2, dir) {
+      switch (dir) {
+        case 'up':
+          gr[r1][c1].top = false;
+          gr[r2][c2].bottom = false;
+          break;
+        case 'right':
+          gr[r1][c1].right = false;
+          gr[r2][c2].left = false;
+          break;
+        case 'down':
+          gr[r1][c1].bottom = false;
+          gr[r2][c2].top = false;
+          break;
+        case 'left':
+          gr[r1][c1].left = false;
+          gr[r2][c2].right = false;
+          break;
+      }
+    }
+
+    // ===== 获取单元格的所有邻居（用于移除额外墙壁，无视 visited） =====
+    function getAllNeighbors(r, c) {
+      const n = [];
+      if (r > 0) n.push({ r: r - 1, c, dir: 'up' });
+      if (c < cols - 1) n.push({ r, c: c + 1, dir: 'right' });
+      if (r < rows - 1) n.push({ r: r + 1, c, dir: 'down' });
+      if (c > 0) n.push({ r, c: c - 1, dir: 'left' });
+      return n;
+    }
+
+    // ===== 检查两点之间是否有墙 =====
+    function hasWallBetween(gr, r1, c1, r2, c2) {
+      if (r2 < r1) return gr[r1][c1].top;      // 上方
+      if (r2 > r1) return gr[r1][c1].bottom;   // 下方
+      if (c2 < c1) return gr[r1][c1].left;     // 左侧
+      if (c2 > c1) return gr[r1][c1].right;    // 右侧
+      return true;
+    }
+
+    // ===== 移除额外墙壁（用于调整难度） =====
+    function removeExtraWalls(gr, ratio) {
+      const walls = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          // 右侧内部墙
+          if (c < cols - 1 && gr[r][c].right) {
+            walls.push({ r1: r, c1: c, r2: r, c2: c + 1, dir: 'right' });
+          }
+          // 下方内部墙
+          if (r < rows - 1 && gr[r][c].bottom) {
+            walls.push({ r1: r, c1: c, r2: r + 1, c2: c, dir: 'down' });
+          }
+        }
+      }
+
+      // 随机打乱并移除
+      for (let i = walls.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [walls[i], walls[j]] = [walls[j], walls[i]];
+      }
+
+      const removeCount = Math.floor(walls.length * ratio);
+      for (let i = 0; i < removeCount; i++) {
+        const w = walls[i];
+        removeWall(gr, w.r1, w.c1, w.r2, w.c2, w.dir);
+      }
+    }
+
+    // ===== BFS 求解最短路径 =====
+    function solveMaze(gr) {
+      const startTime = performance.now();
+      const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+      const parent = Array.from({ length: rows }, () => Array(cols).fill(null));
+      const queue = [{ r: 0, c: 0 }];
+      visited[0][0] = true;
+
+      let found = false;
+      while (queue.length > 0) {
+        const { r, c } = queue.shift();
+        if (r === rows - 1 && c === cols - 1) {
+          found = true;
+          break;
+        }
+
+        const neighbors = getAllNeighbors(r, c);
+        for (const n of neighbors) {
+          if (!visited[n.r][n.c] && !hasWallBetween(gr, r, c, n.r, n.c)) {
+            visited[n.r][n.c] = true;
+            parent[n.r][n.c] = { r, c };
+            queue.push({ r: n.r, c: n.c });
+          }
+        }
+      }
+
+      const path = [];
+      if (found) {
+        let cur = { r: rows - 1, c: cols - 1 };
+        while (cur) {
+          path.unshift(cur);
+          cur = parent[cur.r][cur.c];
+        }
+      }
+
+      const endTime = performance.now();
+      return { path, timeMs: Math.round((endTime - startTime) * 100) / 100 };
+    }
+
+    // ===== 计算死胡同数量 =====
+    function countDeadEnds(gr) {
+      let count = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let walls = 0;
+          if (gr[r][c].top) walls++;
+          if (gr[r][c].right) walls++;
+          if (gr[r][c].bottom) walls++;
+          if (gr[r][c].left) walls++;
+          if (walls === 3) count++;
+        }
+      }
+      return count;
+    }
+
+    // ===== 设置画布尺寸 =====
+    function setupCanvas() {
+      cellSize = Math.floor(CANVAS_MAX / Math.max(rows, cols));
+      canvasSize = cellSize * Math.max(rows, cols);
+      canvas.width = cellSize * cols;
+      canvas.height = cellSize * rows;
+    }
+
+    // ===== 渲染迷宫 =====
+    function renderMaze(highlightCurrent = false) {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // 背景（路径区域）
+      ctx.fillStyle = PATH_BG;
+      ctx.fillRect(0, 0, w, h);
+
+      // 求解路径提示
+      if (showHint && solutionPath.length > 0) {
+        ctx.fillStyle = SOLUTION_COLOR;
+        for (const cell of solutionPath) {
+          ctx.fillRect(
+            cell.c * cellSize + 1,
+            cell.r * cellSize + 1,
+            cellSize - 2,
+            cellSize - 2
+          );
+        }
+      }
+
+      // 当前生成单元格高亮
+      if (highlightCurrent && genCurrent) {
+        ctx.fillStyle = CURRENT_CELL_COLOR;
+        ctx.fillRect(
+          genCurrent.c * cellSize + 1,
+          genCurrent.r * cellSize + 1,
+          cellSize - 2,
+          cellSize - 2
+        );
+      }
+
+      // 墙壁
+      ctx.strokeStyle = WALL_COLOR;
+      ctx.lineWidth = Math.max(1.5, Math.floor(cellSize * 0.12));
+      ctx.lineCap = 'round';
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = c * cellSize;
+          const y = r * cellSize;
+          const cell = grid[r][c];
+
+          // 顶墙
+          if (cell.top) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + cellSize, y);
+            ctx.stroke();
+          }
+          // 左墙
+          if (cell.left) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + cellSize);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // 底边和右边边界线
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      ctx.lineTo(w, h);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(w, 0);
+      ctx.lineTo(w, h);
+      ctx.stroke();
+
+      // 起点标记
+      ctx.fillStyle = GOAL_COLOR;
+      ctx.fillRect(1, 1, cellSize - 2, cellSize - 2);
+      ctx.strokeStyle = GOAL_BORDER;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(0.5, 0.5, cellSize - 1, cellSize - 1);
+
+      // 终点标记
+      const gx = (cols - 1) * cellSize;
+      const gy = (rows - 1) * cellSize;
+      ctx.fillStyle = GOAL_COLOR;
+      ctx.fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
+      ctx.strokeStyle = GOAL_BORDER;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
+
+      // 玩家
+      if (playing || solved) {
+        const px = playerC * cellSize + cellSize / 2;
+        const py = playerR * cellSize + cellSize / 2;
+        const pr = Math.max(3, cellSize * 0.35);
+
+        // 玩家阴影
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.arc(px + 1, py + 1, pr, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 玩家主体
+        ctx.fillStyle = PLAYER_COLOR;
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = PLAYER_BORDER;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // 求解路径上的箭头指示（如果显示提示）
+      if (showHint && solutionPath.length > 1) {
+        ctx.strokeStyle = 'rgba(123, 97, 255, 0.7)';
+        ctx.lineWidth = Math.max(2, cellSize * 0.15);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < solutionPath.length - 1; i++) {
+          const a = solutionPath[i];
+          const b = solutionPath[i + 1];
+          ctx.moveTo(
+            a.c * cellSize + cellSize / 2,
+            a.r * cellSize + cellSize / 2
+          );
+          ctx.lineTo(
+            b.c * cellSize + cellSize / 2,
+            b.r * cellSize + cellSize / 2
+          );
+        }
+        ctx.stroke();
+      }
+    }
+
+    // ===== 游戏移动 =====
+    function movePlayer(dr, dc) {
+      if (!playing || solved || generating) return;
+
+      const newR = playerR + dr;
+      const newC = playerC + dc;
+
+      // 越界检查
+      if (newR < 0 || newR >= rows || newC < 0 || newC >= cols) return;
+
+      // 墙壁检查
+      if (hasWallBetween(grid, playerR, playerC, newR, newC)) return;
+
+      playerR = newR;
+      playerC = newC;
+
+      // 检查是否到达终点
+      if (playerR === rows - 1 && playerC === cols - 1) {
+        solved = true;
+        playing = false;
+        stopTimer();
+        statusText.textContent = '恭喜通关！';
+        statusText.className = 'status-text success';
+      }
+
+      renderMaze();
+    }
+
+    // ===== 计时器 =====
+    function startTimer() {
+      timerSec = 0;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timerSec++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timerSec / 60).toString().padStart(2, '0');
+      const s = (timerSec % 60).toString().padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+    }
+
+    // ===== 开始游戏 =====
+    function startGame() {
+      if (!mazeReady || generating) return;
+
+      playerR = 0;
+      playerC = 0;
+      goalR = rows - 1;
+      goalC = cols - 1;
+      playing = true;
+      solved = false;
+      stopTimer();
+      startTimer();
+      statusText.textContent = '游戏中...使用方向键移动';
+      statusText.className = 'status-text';
+      btnGenerate.textContent = '重新生成';
+      renderMaze();
+    }
+
+    // ===== 重置状态 =====
+    function resetState() {
+      stopTimer();
+      playing = false;
+      solved = false;
+      mazeReady = false;
+      generating = false;
+      genCurrent = null;
+      genStack = [];
+      solutionPath = [];
+      showHint = false;
+      solveTimeMs = 0;
+      deadEndCount = 0;
+      playerR = 0;
+      playerC = 0;
+      timerSec = 0;
+      updateTimerDisplay();
+      btnHint.textContent = '路径提示';
+      btnHint.classList.remove('hint-active');
+      btnGenerate.textContent = '生成迷宫';
+      statusText.textContent = '点击「生成迷宫」开始';
+      statusText.className = 'status-text';
+      statPathLength.textContent = '--';
+      statDeadEnds.textContent = '--';
+      statSolveTime.textContent = '--';
+    }
+
+    // ===== 更新统计信息 =====
+    function updateStats() {
+      const result = solveMaze(grid);
+      solutionPath = result.path;
+      solveTimeMs = result.timeMs;
+      deadEndCount = countDeadEnds(grid);
+
+      statPathLength.textContent = solutionPath.length;
+      statDeadEnds.textContent = deadEndCount;
+      statSolveTime.textContent = `${solveTimeMs} ms`;
+    }
+
+    // ===== 生成迷宫（带动画） =====
+    function generateMaze() {
+      resetState();
+      generating = true;
+      genAbort = false;
+      mazeReady = false;
+      rows = parseInt(gridSizeInput.value);
+      cols = rows;
+      setupCanvas();
+      grid = createGrid(rows, cols);
+
+      // 从左上角开始
+      grid[0][0].visited = true;
+      genStack = [{ r: 0, c: 0 }];
+      genCurrent = { r: 0, c: 0 };
+
+      btnGenerate.disabled = true;
+      btnHint.disabled = true;
+      statusText.textContent = '正在生成迷宫...';
+      statusText.className = 'status-text';
+
+      renderMaze(true);
+
+      // 根据网格大小调整动画速度
+      const totalCells = rows * cols;
+      let stepsPerTick = 1;
+      let tickDelay = 10;
+
+      if (totalCells <= 400) {
+        stepsPerTick = 1;
+        tickDelay = 8;
+      } else if (totalCells <= 900) {
+        stepsPerTick = 2;
+        tickDelay = 5;
+      } else {
+        stepsPerTick = 3;
+        tickDelay = 2;
+      }
+
+      const interval = setInterval(() => {
+        if (genAbort) {
+          clearInterval(interval);
+          finishGeneration();
+          return;
+        }
+
+        let steps = 0;
+        while (steps < stepsPerTick && genStack.length > 0) {
+          const current = genStack[genStack.length - 1];
+          const neighbors = getUnvisitedNeighbors(grid, current.r, current.c);
+
+          if (neighbors.length > 0) {
+            // 随机选择一个未访问邻居
+            const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+            removeWall(grid, current.r, current.c, next.r, next.c, next.dir);
+            grid[next.r][next.c].visited = true;
+            genStack.push({ r: next.r, c: next.c });
+            genCurrent = { r: next.r, c: next.c };
+          } else {
+            // 回溯
+            genStack.pop();
+            genCurrent = genStack.length > 0
+              ? { r: genStack[genStack.length - 1].r, c: genStack[genStack.length - 1].c }
+              : null;
+          }
+          steps++;
+        }
+
+        renderMaze(true);
+
+        if (genStack.length === 0) {
+          clearInterval(interval);
+          finishGeneration();
+        }
+      }, tickDelay);
+    }
+
+    // ===== 完成生成 =====
+    function finishGeneration() {
+      // 应用难度调整
+      const diff = difficultySelect.value;
+      if (diff === 'easy') {
+        removeExtraWalls(grid, 0.15);
+      } else if (diff === 'medium') {
+        removeExtraWalls(grid, 0.05);
+      }
+      // 困难模式不移除额外墙壁
+
+      mazeReady = true;
+      generating = false;
+      genCurrent = null;
+      btnGenerate.disabled = false;
+      btnHint.disabled = false;
+
+      // 计算统计信息
+      updateStats();
+
+      renderMaze();
+      statusText.textContent = '迷宫已生成，点击画布或按方向键开始游戏';
+      statusText.className = 'status-text';
+
+      // 自动开始游戏
+      startGame();
+    }
+
+    // ===== PNG 导出 =====
+    function exportPNG() {
+      if (!mazeReady) return;
+      // 临时移除提示再导出
+      const hintWasShown = showHint;
+      const wasPlaying = playing;
+      const wasSolved = solved;
+      playing = false;
+      solved = false;
+      showHint = false;
+      renderMaze();
+
+      const link = document.createElement('a');
+      link.download = `迷宫_${rows}x${rows}_${difficultySelect.value}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      // 恢复状态
+      showHint = hintWasShown;
+      playing = wasPlaying;
+      solved = wasSolved;
+      renderMaze();
+    }
+
+    // ===== 事件监听 =====
+
+    // 网格大小滑块
+    gridSizeInput.addEventListener('input', () => {
+      const val = parseInt(gridSizeInput.value);
+      gridSizeVal.textContent = `${val} × ${val}`;
+    });
+
+    // 生成按钮
+    btnGenerate.addEventListener('click', () => {
+      if (generating) {
+        genAbort = true;
+        return;
+      }
+      resetState();
+      generateMaze();
+    });
+
+    // 路径提示按钮
+    btnHint.addEventListener('click', () => {
+      if (!mazeReady) return;
+      showHint = !showHint;
+      if (showHint) {
+        btnHint.textContent = '隐藏提示';
+        btnHint.classList.add('hint-active');
+      } else {
+        btnHint.textContent = '路径提示';
+        btnHint.classList.remove('hint-active');
+      }
+      renderMaze();
+    });
+
+    // 导出按钮
+    btnExport.addEventListener('click', exportPNG);
+
+    // 键盘控制
+    document.addEventListener('keydown', (e) => {
+      if (!playing || solved || generating) return;
+
+      switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+          e.preventDefault();
+          movePlayer(-1, 0);
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          e.preventDefault();
+          movePlayer(1, 0);
+          break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          e.preventDefault();
+          movePlayer(0, -1);
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          e.preventDefault();
+          movePlayer(0, 1);
+          break;
+      }
+    });
+
+    // 触屏控制
+    canvas.addEventListener('touchstart', (e) => {
+      if (!playing || solved || generating) return;
+      e.preventDefault();
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (!playing || solved || generating) return;
+      e.preventDefault();
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      const minSwipe = 20;
+
+      if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        movePlayer(0, dx > 0 ? 1 : -1);
+      } else {
+        movePlayer(dx > 0 ? 1 : -1, 0);
+      }
+    });
+
+    // 点击画布开始游戏
+    canvas.addEventListener('click', () => {
+      if (mazeReady && !playing && !solved && !generating) {
+        startGame();
+      }
+    });
+
+    // ===== 初始渲染 =====
+    rows = parseInt(gridSizeInput.value);
+    cols = rows;
+    setupCanvas();
+    grid = createGrid(rows, cols);
+    gridSizeVal.textContent = `${rows} × ${rows}`;
+    renderMaze();
+
+    // 初始统计
+    statPathLength.textContent = '--';
+    statDeadEnds.textContent = '--';
+    statSolveTime.textContent = '--';
+  })();
+  </script>
+<script src="../i18n.js"></script>
+</body>
+</html>

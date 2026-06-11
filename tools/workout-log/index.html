@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>运动记录 - garyy-tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.85rem}
+button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+button:hover{opacity:.85}
+input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-gold{background:var(--gold);color:#000}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.form-row .field{flex:1;min-width:120px}
+.form-row label{display:block;font-size:.78rem;color:var(--text2);margin-bottom:4px}
+.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.summary-item{flex:1;min-width:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.summary-item .val{font-size:1.2rem;font-weight:600;margin-top:4px}
+.summary-item .label{font-size:.75rem;color:var(--text2)}
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.list-item:last-child{border-bottom:none}
+.list-item .info{flex:1}
+.list-item .info .type{display:inline-block;font-size:.72rem;background:var(--bg);padding:2px 10px;border-radius:4px;margin-right:6px;color:var(--text2)}
+.list-item .info .note{color:var(--text2);font-size:.78rem;display:block;margin-top:2px}
+.list-item .info .date{color:var(--text2);font-size:.72rem;margin-top:1px}
+.list-item .duration{color:var(--gold);font-weight:500;flex-shrink:0;margin-right:12px}
+.list-item .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:.9rem;padding:4px 8px;border-radius:4px;flex-shrink:0}
+.list-item .del-btn:hover{background:rgba(239,68,68,.15)}
+.empty-text{text-align:center;color:var(--text2);padding:30px 0;font-size:.9rem}
+.period-tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--bg);border-radius:6px;padding:4px;max-width:200px}
+.period-tab{flex:1;text-align:center;padding:5px 0;border-radius:4px;cursor:pointer;font-size:.8rem;color:var(--text2);transition:all .2s}
+.period-tab.active{background:var(--blue);color:#fff}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🏃 运动记录</h1>
+<div class="sub">健身运动日志</div>
+</header>
+
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:12px">添加运动</h3>
+<div class="form-row">
+<div class="field">
+<label>运动类型</label>
+<select id="inputType">
+<option value="跑步">🏃 跑步</option>
+<option value="游泳">🏊 游泳</option>
+<option value="骑行">🚴 骑行</option>
+<option value="健身">💪 健身</option>
+<option value="瑜伽">🧘 瑜伽</option>
+<option value="其他">🎯 其他</option>
+</select>
+</div>
+<div class="field">
+<label>时长 (分钟)</label>
+<input type="number" id="inputDuration" placeholder="30" min="1" max="1440">
+</div>
+</div>
+<div class="form-row">
+<div class="field">
+<label>备注</label>
+<input type="text" id="inputNote" placeholder="可选备注" maxlength="100">
+</div>
+</div>
+<button class="btn-green" id="btnAdd">添加记录</button>
+</div>
+
+<div class="card">
+<div class="period-tabs">
+<div class="period-tab active" data-period="week">本周</div>
+<div class="period-tab" data-period="month">本月</div>
+</div>
+<div class="summary">
+<div class="summary-item"><div class="label">总次数</div><div class="val" id="statCount">0</div></div>
+<div class="summary-item"><div class="label">总时长</div><div class="val" id="statDuration" style="color:var(--gold)">0 分钟</div></div>
+</div>
+</div>
+
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:12px">运动记录</h3>
+<div id="recordList"></div>
+</div>
+</div>
+
+<script src="../i18n.js"></script>
+<script>
+(function(){
+'use strict';
+const TYPES=['跑步','游泳','骑行','健身','瑜伽','其他'];
+let records=JSON.parse(localStorage.getItem('garyy_workouts')||'[]');
+let period='week';
+
+function save(){
+localStorage.setItem('garyy_workouts',JSON.stringify(records));
+render();
+}
+
+function escHtml(s){
+return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function getDateRange(period){
+const now=new Date();
+let start;
+if(period==='week'){
+const day=now.getDay();
+const diff=now.getDate()-day+(day===0?-6:1);
+start=new Date(now.getFullYear(),now.getMonth(),diff);
+}else{
+start=new Date(now.getFullYear(),now.getMonth(),1);
+}
+return {start,end:now};
+}
+
+function renderStats(){
+const range=getDateRange(period);
+let count=0;
+let totalDuration=0;
+records.forEach(function(r){
+const d=new Date(r.date);
+if(d>=range.start&&d<=range.end){
+count++;
+totalDuration+=r.duration;
+}
+});
+document.getElementById('statCount').textContent=count;
+document.getElementById('statDuration').textContent=totalDuration+' 分钟';
+}
+
+function renderRecords(){
+const el=document.getElementById('recordList');
+const sorted=records.slice().sort(function(a,b){return b.id-a.id;});
+if(sorted.length===0){
+el.innerHTML='<div class="empty-text">暂无运动记录</div>';
+return;
+}
+let html='';
+sorted.forEach(function(r){
+html+='<div class="list-item">'+
+'<div class="info">'+
+'<span class="type">'+escHtml(r.type)+'</span>'+
+'<span class="date">'+r.date+'</span>'+
+(r.note?'<span class="note">'+escHtml(r.note)+'</span>':'')+
+'</div>'+
+'<span class="duration">'+r.duration+'min</span>'+
+'<button class="del-btn" data-id="'+r.id+'">✕</button>'+
+'</div>';
+});
+el.innerHTML=html;
+el.querySelectorAll('.del-btn').forEach(function(btn){
+btn.addEventListener('click',function(){
+const id=parseInt(this.dataset.id);
+if(confirm('删除这条记录？')){
+records=records.filter(function(r){return r.id!==id;});
+save();
+}
+});
+});
+}
+
+function render(){
+renderStats();
+renderRecords();
+}
+
+document.querySelectorAll('.period-tab').forEach(function(tab){
+tab.addEventListener('click',function(){
+document.querySelectorAll('.period-tab').forEach(function(t){t.classList.remove('active');});
+this.classList.add('active');
+period=this.dataset.period;
+renderStats();
+});
+});
+
+document.getElementById('btnAdd').addEventListener('click',function(){
+const type=document.getElementById('inputType').value;
+const duration=parseInt(document.getElementById('inputDuration').value);
+const note=document.getElementById('inputNote').value.trim();
+if(!duration||duration<=0){alert('请输入有效时长');return;}
+records.push({id:Date.now(),type:type,duration:duration,note:note,date:new Date().toISOString().slice(0,10)});
+document.getElementById('inputDuration').value='';
+document.getElementById('inputNote').value='';
+save();
+});
+
+render();
+})();
+</script>
+</body>
+</html>

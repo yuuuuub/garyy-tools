@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电影查询工具 - 暑期档评分查询</title>
+<style>
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #1a1a28;
+    --bg-card-hover: #222236;
+    --text-primary: #e8e8f0;
+    --text-secondary: #9a9ab8;
+    --text-muted: #6a6a88;
+    --accent: #e63946;
+    --accent-glow: rgba(230, 57, 70, 0.3);
+    --gold: #f4a261;
+    --border: #2a2a3e;
+    --border-light: #353552;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Background atmosphere */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(230, 57, 70, 0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(244, 162, 97, 0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+  }
+
+  .header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-size: 24px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    white-space: nowrap;
+  }
+
+  .search-box {
+    flex: 1;
+    max-width: 480px;
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 12px 48px 12px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+    transition: all 0.3s;
+  }
+
+  .search-box input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .search-box input::placeholder { color: var(--text-muted); }
+
+  .search-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 18px;
+    pointer-events: none;
+  }
+
+  .header-actions { display: flex; gap: 8px; }
+
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    white-space: nowrap;
+  }
+
+  .btn-random {
+    background: linear-gradient(135deg, #e63946, #c1272d);
+    color: #fff;
+  }
+
+  .btn-random:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+
+  .btn-fav {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+
+  .btn-fav:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Filters */
+  .filters {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 20px 24px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .filter-tag {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    transition: all 0.2s;
+  }
+
+  .filter-tag:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-tag.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .sort-select {
+    padding: 8px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    margin-left: auto;
+    outline: none;
+  }
+
+  .sort-select option { background: var(--bg-card); }
+
+  /* Stats bar */
+  .stats-bar {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .result-count { font-weight: 500; }
+  .result-count span { color: var(--accent); font-weight: 700; }
+
+  /* Movie Grid */
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::before {
+    content: '';
+    width: 4px;
+    height: 24px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  /* Movie Card */
+  .movie-card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .movie-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 32px rgba(230, 57, 70, 0.15);
+  }
+
+  .card-poster {
+    width: 100%;
+    height: 180px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-poster::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(transparent, var(--bg-card));
+  }
+
+  .card-rating {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0,0,0,0.75);
+    color: var(--gold);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    z-index: 2;
+    backdrop-filter: blur(4px);
+  }
+
+  .card-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 2;
+    backdrop-filter: blur(4px);
+  }
+
+  .badge-upcoming { background: rgba(244,162,97,0.25); color: var(--gold); }
+  .badge-hot { background: rgba(230,57,70,0.25); color: var(--accent); }
+  .badge-classic { background: rgba(100,149,237,0.25); color: #6495ed; }
+
+  .card-body { padding: 14px 16px 16px; }
+
+  .card-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .card-meta span { display: flex; align-items: center; gap: 4px; }
+
+  .card-genres {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .genre-tag {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+  }
+
+  .card-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.5;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .btn-wish {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+
+  .btn-wish:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-wish.wished { background: rgba(230,57,70,0.12); color: var(--accent); border-color: var(--accent); }
+
+  .btn-detail {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-detail:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+  /* Countdown */
+  .countdown {
+    font-size: 12px;
+    color: var(--gold);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .countdown-icon { font-size: 14px; }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .empty-state .empty-icon { font-size: 64px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text-secondary); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 640px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+    position: relative;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .modal-close:hover { background: rgba(255,255,255,0.15); }
+
+  .modal-poster {
+    width: 100%;
+    height: 220px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 80px;
+    position: relative;
+  }
+
+  .modal-poster::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--bg-secondary));
+  }
+
+  .modal-body { padding: 24px; }
+
+  .modal-title {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .modal-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+
+  .modal-info-item { color: var(--text-secondary); }
+  .modal-info-item strong { color: var(--text-primary); display: block; margin-bottom: 2px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .modal-rating-big {
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  .modal-rating-big small { font-size: 16px; font-weight: 400; color: var(--text-muted); }
+
+  .modal-synopsis {
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .modal-actions .btn {
+    flex: 1;
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    z-index: 300;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    animation: slideUp 0.3s ease;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .header-inner { flex-direction: column; gap: 12px; }
+    .search-box { max-width: 100%; }
+    .movie-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    .modal-info { grid-template-columns: 1fr; }
+    .modal-poster { height: 160px; }
+    .filters { flex-direction: column; align-items: flex-start; }
+    .sort-select { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">🎬 电影查询工具</div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索电影名称、导演、演员..." oninput="filterMovies()">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-random" onclick="randomMovie()">🎲 随机推荐</button>
+      <button class="btn btn-fav" onclick="showFavorites()">❤️ 想看列表</button>
+    </div>
+  </div>
+</header>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="filter-group" id="genreFilters">
+    <span class="filter-tag active" onclick="setGenre('全部', this)">全部</span>
+    <span class="filter-tag" onclick="setGenre('动作', this)">动作</span>
+    <span class="filter-tag" onclick="setGenre('喜剧', this)">喜剧</span>
+    <span class="filter-tag" onclick="setGenre('科幻', this)">科幻</span>
+    <span class="filter-tag" onclick="setGenre('动画', this)">动画</span>
+    <span class="filter-tag" onclick="setGenre('悬疑', this)">悬疑</span>
+    <span class="filter-tag" onclick="setGenre('爱情', this)">爱情</span>
+    <span class="filter-tag" onclick="setGenre('剧情', this)">剧情</span>
+    <span class="filter-tag" onclick="setGenre('纪录片', this)">纪录片</span>
+  </div>
+  <select class="sort-select" id="sortSelect" onchange="filterMovies()">
+    <option value="rating">评分最高</option>
+    <option value="date">最新上映</option>
+    <option value="hot">最热门</option>
+  </select>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar">
+  <div class="result-count">共找到 <span id="resultCount">0</span> 部电影</div>
+</div>
+
+<!-- Movie Grid -->
+<div class="container">
+  <div class="movie-grid" id="movieGrid"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModal(event)">
+  <div class="modal" id="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-poster" id="modalPoster"></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ===================== 电影数据 =====================
+const movies = [
+  // ===== 2026 暑期档 =====
+  {
+    id: 1, title: '火遮眼', releaseDate: '2026-06-11', genres: ['动作', '悬疑'],
+    rating: 0, director: '陈正道', cast: ['黄渤', '闫妮', '张雨绮'],
+    synopsis: '一场突如其来的大火，烧出了一个隐藏多年的秘密。消防员林越在扑灭一场高层火灾后，发现起火原因并不简单，牵扯出一桩跨越十年的悬案。',
+    poster: '🔥', category: 'summer', hot: 9800
+  },
+  {
+    id: 2, title: '四渡', releaseDate: '2026-06-26', genres: ['剧情', '动作'],
+    rating: 0, director: '管虎', cast: ['张译', '吴京', '李晨'],
+    synopsis: '真实再现赤水战役的历史壮举。在极端困境中，红军以超凡的智慧和勇气四渡赤水，突破敌军重重包围。宏大的战争场面与深刻的人物刻画交织。',
+    poster: '⛰️', category: 'summer', hot: 9500
+  },
+  {
+    id: 3, title: '三国第一部：争洛阳', releaseDate: '2026-07-10', genres: ['动作', '剧情'],
+    rating: 0, director: '乌尔善', cast: ['黄晓明', '于适', '那尔那茜'],
+    synopsis: '改编自经典三国故事，聚焦董卓之乱后群雄逐鹿中原的历史风云。以宏大的史诗视角，展现吕布、曹操、袁绍等英雄的崛起与对决。',
+    poster: '⚔️', category: 'summer', hot: 9700
+  },
+  {
+    id: 4, title: '澎湖海战', releaseDate: '2026-07-25', genres: ['动作', '剧情'],
+    rating: 0, director: '郑保瑞', cast: ['王千源', '杜江', '欧豪'],
+    synopsis: '以清康熙年间施琅收复台湾的澎湖海战为背景，再现这场改变中国历史进程的关键战役。宏大的海战场景与紧张的战略博弈。',
+    poster: '⛵', category: 'summer', hot: 9300
+  },
+  // ===== 经典高分电影 =====
+  {
+    id: 5, title: '霸王别姬', releaseDate: '1993-01-01', genres: ['剧情', '爱情'],
+    rating: 9.6, director: '陈凯歌', cast: ['张国荣', '张丰毅', '巩俐'],
+    synopsis: '段小楼与程蝶衣从小在京剧班学艺，合演《霸王别姬》名震京城。两人历经半个世纪的悲欢离合，在时代的洪流中挣扎沉浮。华语电影的巅峰之作。',
+    poster: '🎭', category: 'classic', hot: 8500
+  },
+  {
+    id: 6, title: '肖申克的救赎', releaseDate: '1994-09-23', genres: ['剧情'],
+    rating: 9.7, director: '弗兰克·德拉邦特', cast: ['蒂姆·罗宾斯', '摩根·弗里曼'],
+    synopsis: '银行家安迪被冤入狱，在肖申克监狱中凭借智慧与毅力，用二十年时间完成惊天越狱。希望是美好的，也许是世间最美好的东西。',
+    poster: '🕊️', category: 'classic', hot: 9100
+  },
+  {
+    id: 7, title: '无间道', releaseDate: '2002-12-12', genres: ['悬疑', '动作'],
+    rating: 9.3, director: '刘伟强', cast: ['梁朝伟', '刘德华', '黄秋生'],
+    synopsis: '警匪双方各派卧底潜入对方阵营，两个身份错位的人各自在无间地狱中挣扎。华语警匪片的里程碑之作。',
+    poster: '🔫', category: 'classic', hot: 8700
+  },
+  {
+    id: 8, title: '千与千寻', releaseDate: '2001-07-20', genres: ['动画', '剧情'],
+    rating: 9.4, director: '宫崎骏', cast: ['柊瑠美', '入野自由'],
+    synopsis: '少女千寻误入神灵世界，父母因贪吃变成了猪。为了拯救父母，她在汤屋工作，经历了奇幻的冒险成长之旅。宫崎骏的封神之作。',
+    poster: '👻', category: 'classic', hot: 8800
+  },
+  {
+    id: 9, title: '星际穿越', releaseDate: '2014-11-12', genres: ['科幻', '剧情'],
+    rating: 9.4, director: '克里斯托弗·诺兰', cast: ['马修·麦康纳', '安妮·海瑟薇'],
+    synopsis: '地球资源枯竭，前NASA飞行员库珀穿越虫洞，前往遥远星系为人类寻找新家园。时间是最大的反派，爱是唯一的答案。',
+    poster: '🚀', category: 'classic', hot: 8900
+  },
+  {
+    id: 10, title: '活着', releaseDate: '1994-06-30', genres: ['剧情'],
+    rating: 9.3, director: '张艺谋', cast: ['葛优', '巩俐'],
+    synopsis: '福贵一生经历了中国近代历史的巨大变迁，从地主少爷到贫农，从战场到和平年代。活着本身就是一种力量。',
+    poster: '📖', category: 'classic', hot: 8200
+  },
+  {
+    id: 11, title: '让子弹飞', releaseDate: '2010-12-16', genres: ['动作', '喜剧'],
+    rating: 9.0, director: '姜文', cast: ['姜文', '葛优', '周润发'],
+    synopsis: '北洋年间，悍匪张麻子劫持县长马邦德，冒名上任鹅城，与恶霸黄四郎展开一场斗智斗勇的较量。站着把钱挣了！',
+    poster: '🎯', category: 'classic', hot: 8600
+  },
+  {
+    id: 12, title: '盗梦空间', releaseDate: '2010-09-01', genres: ['科幻', '悬疑'],
+    rating: 9.4, director: '克里斯托弗·诺兰', cast: ['莱昂纳多·迪卡普里奥', '约瑟夫·戈登-莱维特'],
+    synopsis: '盗梦者柯布能潜入他人梦境窃取秘密。为回到孩子身边，他接受了一项"奠基"任务——在目标潜意识中植入一个想法。',
+    poster: '🌀', category: 'classic', hot: 9000
+  },
+  {
+    id: 13, title: '我不是药神', releaseDate: '2018-07-05', genres: ['剧情', '喜剧'],
+    rating: 9.0, director: '文牧野', cast: ['徐峥', '王传君', '周一围'],
+    synopsis: '保健品商贩程勇代购印度仿制药，让无数白血病患者看到希望，却也陷入了法与情的困境。谁家还没个病人呢？',
+    poster: '💊', category: 'classic', hot: 8400
+  },
+  {
+    id: 14, title: '泰坦尼克号', releaseDate: '1997-12-19', genres: ['爱情', '剧情'],
+    rating: 9.5, director: '詹姆斯·卡梅隆', cast: ['莱昂纳多·迪卡普里奥', '凯特·温斯莱特'],
+    synopsis: '穷画家杰克与贵族少女罗丝在泰坦尼克号上坠入爱河。面对沉船灾难，他们用生命诠释了永恒的爱情。You jump, I jump.',
+    poster: '🚢', category: 'classic', hot: 9200
+  },
+  {
+    id: 15, title: '流浪地球', releaseDate: '2019-02-05', genres: ['科幻', '动作'],
+    rating: 7.9, director: '郭帆', cast: ['吴京', '屈楚萧', '李光洁'],
+    synopsis: '太阳即将毁灭，人类开启"流浪地球"计划，带着地球逃离太阳系。中国科幻电影的里程碑，开启了中国科幻元年。',
+    poster: '🌍', category: 'classic', hot: 8100
+  },
+  {
+    id: 16, title: '哪吒之魔童降世', releaseDate: '2019-07-26', genres: ['动画', '动作'],
+    rating: 8.4, director: '饺子', cast: ['吕艳婷', '囧森瑟夫'],
+    synopsis: '天地灵气孕育的混元珠被一分为二，魔丸转世为哪吒。面对命运的不公，哪吒喊出"我命由我不由天"。中国动画电影票房冠军。',
+    poster: '🔥', category: 'classic', hot: 8300
+  },
+  {
+    id: 17, title: '蝙蝠侠：黑暗骑士', releaseDate: '2008-07-18', genres: ['动作', '悬疑'],
+    rating: 9.2, director: '克里斯托弗·诺兰', cast: ['克里斯蒂安·贝尔', '希斯·莱杰'],
+    synopsis: '蝙蝠侠面对有史以来最危险的对手——小丑。这个疯狂的天才将高谭市推向混乱的深渊，迫使蝙蝠侠做出艰难抉择。',
+    poster: '🦇', category: 'classic', hot: 8700
+  },
+  {
+    id: 18, title: '辛德勒的名单', releaseDate: '1993-12-15', genres: ['剧情'],
+    rating: 9.6, director: '史蒂文·斯皮尔伯格', cast: ['连姆·尼森', '本·金斯利'],
+    synopsis: '二战期间，德国商人辛德勒目睹纳粹对犹太人的残酷迫害，倾尽家产拯救了1100多名犹太人的生命。拯救一个人，就是拯救整个世界。',
+    poster: '📜', category: 'classic', hot: 7900
+  },
+  {
+    id: 19, title: '阿甘正传', releaseDate: '1994-07-06', genres: ['剧情', '喜剧'],
+    rating: 9.5, director: '罗伯特·泽米吉斯', cast: ['汤姆·汉克斯', '罗宾·怀特'],
+    synopsis: '智商只有75的阿甘，凭借单纯与执着，跑出了不平凡的一生。从橄榄球明星到越战英雄，从捕虾船长到亿万富翁，生活就像一盒巧克力。',
+    poster: '🏃', category: 'classic', hot: 8500
+  },
+  {
+    id: 20, title: '大话西游之大圣娶亲', releaseDate: '1995-02-04', genres: ['喜剧', '爱情'],
+    rating: 9.2, director: '刘镇伟', cast: ['周星驰', '朱茵', '莫文蔚'],
+    synopsis: '至尊宝为救紫霞穿越时空，却在命运的捉弄下戴上金箍变成孙悟空。我的意中人是个盖世英雄，总有一天他会踩着七彩祥云来娶我。',
+    poster: '🐒', category: 'classic', hot: 8800
+  },
+  {
+    id: 21, title: '鬼子来了', releaseDate: '2000-05-12', genres: ['剧情', '喜剧'],
+    rating: 9.3, director: '姜文', cast: ['姜文', '香川照之'],
+    synopsis: '抗日战争末期，挂甲屯村民马大三意外收留了一个日本俘虏和一个翻译官，由此引发一连串荒诞且沉重的故事。黑色幽默下的战争反思。',
+    poster: '🎌', category: 'classic', hot: 7600
+  },
+  {
+    id: 22, title: '楚门的世界', releaseDate: '1998-06-05', genres: ['剧情', '喜剧'],
+    rating: 9.3, director: '彼得·威尔', cast: ['金·凯瑞', '劳拉·琳妮'],
+    synopsis: '楚门从出生起就生活在一个巨大的摄影棚中，他的一切都是被设计的真人秀节目。当他发现真相后，选择了走向真实的世界。',
+    poster: '📺', category: 'classic', hot: 8300
+  },
+  {
+    id: 23, title: '疯狂的石头', releaseDate: '2006-06-30', genres: ['喜剧', '悬疑'],
+    rating: 8.6, director: '宁浩', cast: ['郭涛', '刘桦', '黄渤'],
+    synopsis: '一块价值连城的翡翠引发多方争夺，保安、国际大盗、本地混混三方人马阴差阳错地碰撞在一起。宁浩的黑色幽默成名作。',
+    poster: '💎', category: 'classic', hot: 7800
+  },
+  {
+    id: 24, title: '战狼2', releaseDate: '2017-07-27', genres: ['动作'],
+    rating: 7.1, director: '吴京', cast: ['吴京', '弗兰克·格里罗'],
+    synopsis: '退役军人冷锋意外卷入非洲某国内战，孤身一人深入战区，营救被困同胞。犯我中华者，虽远必诛！中国影史票房里程碑。',
+    poster: '🐺', category: 'classic', hot: 8000
+  },
+  {
+    id: 25, title: '你好，李焕英', releaseDate: '2021-02-12', genres: ['喜剧', '剧情'],
+    rating: 7.8, director: '贾玲', cast: ['贾玲', '张小斐', '沈腾'],
+    synopsis: '贾晓玲意外穿越到1981年，与年轻时的母亲李焕英相遇，决心让妈妈过上更好的生活。真挚的母女情感打动无数观众。',
+    poster: '👩‍👧', category: 'classic', hot: 7700
+  },
+  {
+    id: 26, title: '长津湖', releaseDate: '2021-09-30', genres: ['动作', '剧情'],
+    rating: 7.4, director: '陈凯歌 徐克 林超贤', cast: ['吴京', '易烊千玺', '段奕宏'],
+    synopsis: '以长津湖战役为背景，讲述志愿军七连在极度严寒中英勇作战的壮烈故事。中国电影票房冠军，再现抗美援朝的英勇史诗。',
+    poster: '❄️', category: 'classic', hot: 7500
+  },
+  {
+    id: 27, title: '满江红', releaseDate: '2023-01-22', genres: ['悬疑', '喜剧'],
+    rating: 7.0, director: '张艺谋', cast: ['沈腾', '易烊千玺', '张译'],
+    synopsis: '南宋绍兴年间，岳飞死后四年，秦桧与金国会谈前夜，一封密信不翼而飞。小兵张大与亲兵营副统领孙均被迫卷入这场惊天阴谋。',
+    poster: '🏮', category: 'classic', hot: 7400
+  },
+  {
+    id: 28, title: '消失的她', releaseDate: '2023-06-22', genres: ['悬疑', '剧情'],
+    rating: 7.5, director: '陈思诚', cast: ['朱一龙', '倪妮', '文咏珊'],
+    synopsis: '丈夫何非的妻子在海外旅行中离奇失踪，一个陌生女人却声称自己才是他的妻子。层层反转的悬疑故事揭开惊人真相。',
+    poster: '🕵️', category: 'classic', hot: 7300
+  },
+  {
+    id: 29, title: '孤注一掷', releaseDate: '2023-08-08', genres: ['剧情', '悬疑'],
+    rating: 7.3, director: '申奥', cast: ['张艺兴', '金晨', '王传君'],
+    synopsis: '程序员潘生和模特安娜被高薪招聘所诱骗，落入境外诈骗工厂的陷阱。取材自真实诈骗案例，揭露网络诈骗的残酷真相。',
+    poster: '🎰', category: 'classic', hot: 7200
+  },
+  {
+    id: 30, title: '封神第一部：朝歌风云', releaseDate: '2023-07-20', genres: ['动作', '剧情'],
+    rating: 7.8, director: '乌尔善', cast: ['费翔', '李雪健', '黄渤'],
+    synopsis: '商王殷寿与狐妖妲己勾结，暴虐无道引发天谴。姬发觉醒踏上封神之路，一场人、神、妖三界的史诗大战即将爆发。',
+    poster: '👑', category: 'classic', hot: 7100
+  },
+  {
+    id: 31, title: '长安三万里', releaseDate: '2023-07-08', genres: ['动画', '剧情'],
+    rating: 8.3, director: '谢君伟', cast: ['杨天翔', '凌振赫'],
+    synopsis: '安史之乱后，大唐由盛转衰。诗人高适回忆与李白相识的一生，展现了大唐诗人群像和那个辉煌时代的逝去。唐诗之美跃然银幕。',
+    poster: '🏯', category: 'classic', hot: 7000
+  },
+  {
+    id: 32, title: '这个杀手不太冷', releaseDate: '1994-09-14', genres: ['动作', '剧情'],
+    rating: 9.4, director: '吕克·贝松', cast: ['让·雷诺', '娜塔莉·波特曼'],
+    synopsis: '职业杀手里昂与邻家女孩玛蒂尔达相遇，这个12岁的女孩闯入了他的生活，给了他从未体会过的温暖。残酷世界里的温柔守护。',
+    poster: '🌿', category: 'classic', hot: 8400
+  }
+];
+
+// ===================== 状态管理 =====================
+let currentGenre = '全部';
+let wishlist = JSON.parse(localStorage.getItem('movieWishlist') || '[]');
+
+function saveWishlist() {
+  localStorage.setItem('movieWishlist', JSON.stringify(wishlist));
+}
+
+function isWished(movieId) {
+  return wishlist.includes(movieId);
+}
+
+function toggleWish(movieId) {
+  if (isWished(movieId)) {
+    wishlist = wishlist.filter(id => id !== movieId);
+  } else {
+    wishlist.push(movieId);
+  }
+  saveWishlist();
+  renderMovies();
+}
+
+// ===================== 排序与筛选 =====================
+function getFilteredMovies() {
+  let result = [...movies];
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+
+  // 搜索过滤
+  if (searchTerm) {
+    result = result.filter(m => {
+      return m.title.toLowerCase().includes(searchTerm) ||
+             m.director.toLowerCase().includes(searchTerm) ||
+             m.cast.some(c => c.toLowerCase().includes(searchTerm)) ||
+             m.genres.some(g => g.toLowerCase().includes(searchTerm));
+    });
+  }
+
+  // 分类过滤
+  if (currentGenre !== '全部') {
+    result = result.filter(m => m.genres.includes(currentGenre));
+  }
+
+  // 排序
+  const sortBy = document.getElementById('sortSelect').value;
+  if (sortBy === 'rating') {
+    result.sort((a, b) => b.rating - a.rating);
+  } else if (sortBy === 'date') {
+    result.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+  } else if (sortBy === 'hot') {
+    result.sort((a, b) => b.hot - a.hot);
+  }
+
+  return result;
+}
+
+// ===================== 渲染 =====================
+function getDaysUntil(dateStr) {
+  const now = new Date();
+  const target = new Date(dateStr);
+  const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+function getBadge(movie) {
+  const days = getDaysUntil(movie.releaseDate);
+  if (days > 0 && days <= 60) return { text: `${days}天后上映`, cls: 'badge-upcoming', icon: '⏰' };
+  if (days > 0 && days <= 180) return { text: '即将上映', cls: 'badge-upcoming', icon: '📅' };
+  if (days < 0 && days > -365) return { text: '新片', cls: 'badge-hot', icon: '🔥' };
+  if (movie.rating >= 9.3) return { text: '经典', cls: 'badge-classic', icon: '⭐' };
+  return null;
+}
+
+function renderMovies() {
+  const filtered = getFilteredMovies();
+  const grid = document.getElementById('movieGrid');
+  document.getElementById('resultCount').textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🎬</div>
+      <h3>没有找到相关电影</h3>
+      <p>尝试换个关键词搜索吧</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(m => {
+    const inWishlist = isWished(m.id);
+    const badge = getBadge(m);
+    const days = getDaysUntil(m.releaseDate);
+    const showCountdown = days > 0 && days <= 90;
+    const ratingDisplay = m.rating > 0 ? m.rating.toFixed(1) : '待定';
+
+    return `
+      <div class="movie-card" onclick="showDetail(${m.id})">
+        <div class="card-poster">
+          ${m.poster}
+          <span class="card-rating">${m.rating > 0 ? '⭐ ' + ratingDisplay : '📋 ' + ratingDisplay}</span>
+          ${badge ? `<span class="card-badge ${badge.cls}">${badge.icon} ${badge.text}</span>` : ''}
+        </div>
+        <div class="card-body">
+          <div class="card-title">${m.title}</div>
+          <div class="card-meta">
+            <span>📅 ${m.releaseDate}</span>
+            <span>✍️ ${m.director}</span>
+          </div>
+          <div class="card-genres">${m.genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
+          <div class="card-desc">${m.synopsis}</div>
+          ${showCountdown ? `<div class="countdown"><span class="countdown-icon">⏰</span>距离上映还有 <strong>${days}</strong> 天</div>` : ''}
+          <div class="card-actions" onclick="event.stopPropagation()">
+            <button class="btn-wish ${inWishlist ? 'wished' : ''}" onclick="toggleWish(${m.id})">
+              ${inWishlist ? '❤️ 已想看' : '🤍 想看'}
+            </button>
+            <button class="btn-detail" onclick="showDetail(${m.id})">详情</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===================== 弹窗详情 =====================
+function showDetail(movieId) {
+  const movie = movies.find(m => m.id === movieId);
+  if (!movie) return;
+
+  const inWishlist = isWished(movieId);
+  const days = getDaysUntil(movie.releaseDate);
+  const ratingDisplay = movie.rating > 0 ? movie.rating.toFixed(1) : '暂无评分';
+
+  document.getElementById('modalPoster').textContent = movie.poster;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">${movie.title}</div>
+
+    ${movie.rating > 0 ? `<div class="modal-rating-big">⭐ ${ratingDisplay} <small>/ 10</small></div>` : `<div class="modal-rating-big" style="color: var(--text-muted);">📋 待评分 <small>即将上映</small></div>`}
+
+    <div class="modal-info">
+      <div class="modal-info-item">
+        <strong>上映日期</strong>
+        ${movie.releaseDate}
+        ${days > 0 && days <= 90 ? `<div style="color: var(--gold); margin-top: 4px;">⏰ 距离上映还有 ${days} 天</div>` : ''}
+      </div>
+      <div class="modal-info-item"><strong>导演</strong>${movie.director}</div>
+      <div class="modal-info-item"><strong>类型</strong>${movie.genres.join(' / ')}</div>
+      <div class="modal-info-item"><strong>主演</strong>${movie.cast.join(' / ')}</div>
+      <div class="modal-info-item"><strong>热度</strong>🔥 ${movie.hot}</div>
+    </div>
+
+    <div class="modal-synopsis">
+      <strong style="color: var(--text-primary);">剧情简介</strong><br><br>
+      ${movie.synopsis}
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-random" style="flex:2;" onclick="toggleWish(${movieId}); closeModal();">
+        ${inWishlist ? '❤️ 取消想看' : '🤍 加入想看'}
+      </button>
+      <button class="btn btn-fav" onclick="closeModal()">关闭</button>
+    </div>
+  `;
+
+  document.getElementById('modalOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return false;
+  document.getElementById('modalOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+  renderMovies();
+}
+
+// ===================== 交互 =====================
+function setGenre(genre, el) {
+  currentGenre = genre;
+  document.querySelectorAll('#genreFilters .filter-tag').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderMovies();
+}
+
+function filterMovies() {
+  renderMovies();
+}
+
+function randomMovie() {
+  const filtered = getFilteredMovies();
+  if (filtered.length === 0) return;
+  const random = filtered[Math.floor(Math.random() * filtered.length)];
+  showDetail(random.id);
+}
+
+function showFavorites() {
+  if (wishlist.length === 0) {
+    showToast('还没有收藏任何电影哦~');
+    return;
+  }
+  currentGenre = '全部';
+  document.getElementById('searchInput').value = '';
+  document.querySelectorAll('#genreFilters .filter-tag').forEach(t => t.classList.remove('active'));
+  document.querySelector('#genreFilters .filter-tag').classList.add('active');
+  // 覆盖过滤：只显示收藏的电影
+  const allFiltered = movies.filter(m => wishlist.includes(m.id));
+  const grid = document.getElementById('movieGrid');
+  document.getElementById('resultCount').textContent = allFiltered.length;
+
+  if (allFiltered.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">❤️</div>
+      <h3>想看列表为空</h3>
+      <p>浏览电影并点击"想看"按钮来添加</p>
+    </div>`;
+    return;
+  }
+
+  // 临时渲染收藏列表
+  grid.innerHTML = allFiltered.map(m => {
+    const inWishlist = true;
+    const badge = getBadge(m);
+    const days = getDaysUntil(m.releaseDate);
+    const showCountdown = days > 0 && days <= 90;
+    const ratingDisplay = m.rating > 0 ? m.rating.toFixed(1) : '待定';
+
+    return `
+      <div class="movie-card" onclick="showDetail(${m.id})">
+        <div class="card-poster">
+          ${m.poster}
+          <span class="card-rating">${m.rating > 0 ? '⭐ ' + ratingDisplay : '📋 ' + ratingDisplay}</span>
+          ${badge ? `<span class="card-badge ${badge.cls}">${badge.icon} ${badge.text}</span>` : ''}
+        </div>
+        <div class="card-body">
+          <div class="card-title">${m.title}</div>
+          <div class="card-meta">
+            <span>📅 ${m.releaseDate}</span>
+            <span>✍️ ${m.director}</span>
+          </div>
+          <div class="card-genres">${m.genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}</div>
+          <div class="card-desc">${m.synopsis}</div>
+          ${showCountdown ? `<div class="countdown"><span class="countdown-icon">⏰</span>距离上映还有 <strong>${days}</strong> 天</div>` : ''}
+          <div class="card-actions" onclick="event.stopPropagation()">
+            <button class="btn-wish wished" onclick="toggleWish(${m.id}); renderMovies();">
+              ❤️ 已想看
+            </button>
+            <button class="btn-detail" onclick="showDetail(${m.id})">详情</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// ===================== 键盘快捷键 =====================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeModal();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+
+// ===================== 初始化 =====================
+renderMovies();
+</script>
+
+<script src="../i18n.js"></script>
+</body>
+</html>

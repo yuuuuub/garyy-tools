@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📅 纪念日倒计时</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #f5f5f7;
+      --card-bg: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #86868b;
+      --border: #e5e5e5;
+      --accent: #007aff;
+      --accent-hover: #0056cc;
+      --progress-bg: #e5e5e5;
+      --progress-fill: #007aff;
+      --danger: #ff3b30;
+      --danger-light: #ffebea;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --input-bg: #f5f5f7;
+      --badge-bg: #f0f0f5;
+    }
+
+    [data-theme="dark"] {
+      --bg: #1c1c1e;
+      --card-bg: #2c2c2e;
+      --text: #f5f5f7;
+      --text-secondary: #98989d;
+      --border: #3a3a3c;
+      --accent: #0a84ff;
+      --accent-hover: #409cff;
+      --progress-bg: #3a3a3c;
+      --progress-fill: #0a84ff;
+      --danger: #ff453a;
+      --danger-light: #3a2020;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --input-bg: #1c1c1e;
+      --badge-bg: #3a3a3c;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      padding: 0 16px;
+    }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    /* header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .theme-toggle {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      border: none;
+      background: var(--card-bg);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+
+    .theme-toggle:active {
+      transform: scale(0.92);
+    }
+
+    /* card */
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    /* form */
+    .form-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select {
+      height: 40px;
+      padding: 0 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--accent);
+    }
+
+    .extra-fields {
+      display: none;
+      margin-bottom: 12px;
+    }
+
+    .extra-fields.visible {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .btn {
+      height: 40px;
+      padding: 0 20px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-full {
+      width: 100%;
+    }
+
+    /* event list */
+    .event-list-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .empty-state .empty-icon {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    /* event item */
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .event-item:last-child {
+      border-bottom: none;
+    }
+
+    .event-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--badge-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .event-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .event-name {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .event-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .event-days {
+      white-space: nowrap;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .event-days.upcoming {
+      color: var(--accent);
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    [data-theme="dark"] .event-days.upcoming {
+      background: rgba(10, 132, 255, 0.15);
+    }
+
+    .event-days.past {
+      color: var(--danger);
+      background: var(--danger-light);
+    }
+
+    .event-item .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .event-item:hover .delete-btn {
+      display: flex;
+    }
+
+    .event-item .delete-btn:hover {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    /* progress bar */
+    .progress-wrap {
+      margin-top: 8px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--progress-bg);
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    .progress-bar.upcoming {
+      background: var(--progress-fill);
+    }
+
+    .progress-bar.past {
+      background: var(--danger);
+    }
+
+    /* batch actions */
+    .batch-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .btn-sm {
+      height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    /* responsive */
+    @media (max-width: 400px) {
+      .container {
+        padding: 16px 0 24px;
+      }
+      .header h1 {
+        font-size: 20px;
+      }
+      .card {
+        padding: 16px;
+      }
+      .form-row {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .event-item {
+        gap: 10px;
+        padding: 12px 0;
+      }
+      .event-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>📅 纪念日倒计时</h1>
+      <button class="theme-toggle" id="themeToggle" title="切换暗色模式">🌙</button>
+    </div>
+
+    <!-- Add event form -->
+    <div class="card" id="formCard">
+      <div class="form-title">✨ 添加新事件</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>事件名称</label>
+          <input type="text" id="eventName" placeholder="例如：结婚纪念日" maxlength="30">
+        </div>
+        <div class="form-group" style="max-width:160px;">
+          <label>事件类型</label>
+          <select id="eventType">
+            <option value="纪念日">🎉 纪念日</option>
+            <option value="生日">🎂 生日</option>
+            <option value="考试">📚 考试</option>
+            <option value="旅行">✈️ 旅行</option>
+            <option value="发工资">💰 发工资</option>
+            <option value="自定义">📌 自定义</option>
+          </select>
+        </div>
+        <div class="form-group" style="max-width:172px;" id="dateGroup">
+          <label>日期</label>
+          <input type="date" id="eventDate">
+        </div>
+      </div>
+      <div class="extra-fields" id="extraFields">
+        <div class="form-group" style="max-width:120px;" id="paydayField">
+          <label>每月几号发工资</label>
+          <input type="number" id="paydayDay" min="1" max="28" placeholder="10">
+        </div>
+        <div class="form-group" style="max-width:120px;" id="customEmojiField">
+          <label>自定义图标</label>
+          <input type="text" id="customEmoji" maxlength="2" placeholder="📌">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="addBtn">+ 添加事件</button>
+    </div>
+
+    <!-- Batch actions -->
+    <div class="batch-actions" id="batchActions" style="display:none;">
+      <button class="btn btn-sm btn-ghost" id="clearAllBtn">清空全部</button>
+    </div>
+
+    <!-- Event list -->
+    <div class="card" id="listCard">
+      <div class="event-list-title">📋 我的倒计时</div>
+      <div id="eventList">
+        <div class="empty-state">
+          <span class="empty-icon">📭</span>
+          还没有添加任何事件，快来添加一个吧！
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const STORAGE_KEY = 'days_countdown_events';
+      const DEFAULT_EMOJIS = {
+        '纪念日': '🎉',
+        '生日': '🎂',
+        '考试': '📚',
+        '旅行': '✈️',
+        '发工资': '💰',
+        '自定义': '📌'
+      };
+
+      // DOM
+      const $ = (s) => document.querySelector(s);
+      const themeToggle = $('#themeToggle');
+      const eventName = $('#eventName');
+      const eventType = $('#eventType');
+      const eventDate = $('#eventDate');
+      const extraFields = $('#extraFields');
+      const paydayField = $('#paydayField');
+      const customEmojiField = $('#customEmojiField');
+      const dateGroup = $('#dateGroup');
+      const addBtn = $('#addBtn');
+      const eventList = $('#eventList');
+      const batchActions = $('#batchActions');
+      const clearAllBtn = $('#clearAllBtn');
+
+      // State
+      let events = [];
+      let editingId = null;
+
+      // Theme
+      function initTheme() {
+        const saved = localStorage.getItem('days_countdown_theme');
+        if (saved === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          themeToggle.textContent = '☀️';
+        }
+      }
+
+      themeToggle.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        themeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+        localStorage.setItem('days_countdown_theme', next);
+      });
+
+      // Toggle extra fields based on type
+      function updateExtraFields() {
+        const type = eventType.value;
+        extraFields.classList.remove('visible');
+
+        if (type === '发工资') {
+          extraFields.classList.add('visible');
+          paydayField.style.display = '';
+          customEmojiField.style.display = 'none';
+          dateGroup.style.display = 'none';
+        } else if (type === '自定义') {
+          extraFields.classList.add('visible');
+          paydayField.style.display = 'none';
+          customEmojiField.style.display = '';
+          dateGroup.style.display = '';
+        } else {
+          dateGroup.style.display = '';
+        }
+      }
+
+      eventType.addEventListener('change', updateExtraFields);
+      updateExtraFields();
+
+      // Compute target date
+      function computeTargetDate(event) {
+        if (event.type === '发工资') {
+          const day = event.paydayDay || 10;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const year = today.getFullYear();
+          const month = today.getMonth(); // 0-indexed
+
+          // This month's payday
+          const thisMonth = new Date(year, month, day);
+          if (today <= thisMonth) return thisMonth;
+
+          // Next month's payday
+          const nextMonth = new Date(year, month + 1, day);
+          return nextMonth;
+        }
+
+        if (event.type === '生日') {
+          // Store original date for birthday logic
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const d = new Date(event.date);
+          const birthYear = d.getFullYear();
+          const birthMonth = d.getMonth();
+          const birthDay = d.getDate();
+
+          let nextBirthday = new Date(today.getFullYear(), birthMonth, birthDay);
+          if (nextBirthday <= today) {
+            nextBirthday = new Date(today.getFullYear() + 1, birthMonth, birthDay);
+          }
+          return nextBirthday;
+        }
+
+        return new Date(event.date + 'T00:00:00');
+      }
+
+      // Load events
+      function loadEvents() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          events = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(events)) events = [];
+        } catch (e) {
+          events = [];
+        }
+      }
+
+      // Save events
+      function saveEvents() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+      }
+
+      // Sort
+      function sortEvents() {
+        events.sort((a, b) => {
+          const ta = computeTargetDate(a);
+          const tb = computeTargetDate(b);
+          return ta - tb;
+        });
+      }
+
+      // Get emoji
+      function getEmoji(event) {
+        if (event.customEmoji) return event.customEmoji;
+        return DEFAULT_EMOJIS[event.type] || '📌';
+      }
+
+      // Get sub label
+      function getSubLabel(event) {
+        if (event.type === '发工资') {
+          return `每月 ${event.paydayDay || 10} 号`;
+        }
+        if (event.type === '生日') {
+          const d = new Date(event.date);
+          return `${d.getMonth() + 1}月${d.getDate()}日 每年`;
+        }
+        const d = new Date(event.date + 'T00:00:00');
+        return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+      }
+
+      // Render
+      function render() {
+        sortEvents();
+
+        if (events.length === 0) {
+          eventList.innerHTML = `<div class="empty-state">
+            <span class="empty-icon">📭</span>
+            还没有添加任何事件，快来添加一个吧！
+          </div>`;
+          batchActions.style.display = 'none';
+        } else {
+          batchActions.style.display = 'flex';
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          eventList.innerHTML = events.map((event, index) => {
+            const target = computeTargetDate(event);
+            const diffMs = target - today;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const emoji = getEmoji(event);
+            const subLabel = getSubLabel(event);
+            const isUpcoming = diffDays >= 0;
+
+            let daysText, daysClass;
+            if (diffDays > 0) {
+              daysText = `还剩 ${diffDays} 天`;
+              daysClass = 'upcoming';
+            } else if (diffDays === 0) {
+              daysText = '就是今天！';
+              daysClass = 'upcoming';
+            } else {
+              daysText = `已过 ${Math.abs(diffDays)} 天`;
+              daysClass = 'past';
+            }
+
+            // Progress: for upcoming, we estimate based on typical interval
+            let progressPct = 0;
+            let progressClass = '';
+            if (isUpcoming) {
+              // Estimate total interval based on type
+              let totalDays = 365;
+              if (event.type === '发工资') totalDays = 31;
+              if (event.type === '生日') totalDays = 365;
+              if (event.type === '考试') totalDays = 180;
+              if (event.type === '旅行') totalDays = 180;
+              if (event.type === '纪念日') totalDays = 365;
+
+              const elapsed = Math.max(0, totalDays - diffDays);
+              progressPct = Math.min(100, Math.floor((elapsed / totalDays) * 100));
+              progressClass = 'upcoming';
+            } else {
+              // Past: show how much time has passed (cap at 100%)
+              const passedDays = Math.abs(diffDays);
+              progressPct = Math.min(100, Math.floor((passedDays / (passedDays + 30)) * 100));
+              progressClass = 'past';
+            }
+
+            return `
+              <div class="event-item" data-id="${event.id}">
+                <div class="event-icon">${emoji}</div>
+                <div class="event-info">
+                  <div class="event-name">${escapeHtml(event.name)}</div>
+                  <div class="event-meta">${subLabel}</div>
+                  <div class="progress-wrap">
+                    <div class="progress-bar ${progressClass}" style="width:${progressPct}%"></div>
+                  </div>
+                </div>
+                <div class="event-days ${daysClass}">${daysText}</div>
+                <button class="delete-btn" data-delete="${event.id}" title="删除">✕</button>
+              </div>
+            `;
+          }).join('');
+
+          // Attach delete listeners
+          eventList.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const id = btn.dataset.delete;
+              deleteEvent(id);
+            });
+          });
+
+          // Attach item click for edit
+          eventList.querySelectorAll('.event-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const id = item.dataset.id;
+              editEvent(id);
+            });
+          });
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function deleteEvent(id) {
+        events = events.filter(e => e.id !== id);
+        saveEvents();
+        if (editingId === id) {
+          editingId = null;
+          resetForm();
+        }
+        render();
+      }
+
+      function editEvent(id) {
+        const event = events.find(e => e.id === id);
+        if (!event) return;
+        editingId = id;
+        eventName.value = event.name;
+        eventType.value = event.type;
+        if (event.date) eventDate.value = event.date;
+        if (event.paydayDay) $('#paydayDay').value = event.paydayDay;
+        if (event.customEmoji) $('#customEmoji').value = event.customEmoji;
+        updateExtraFields();
+        addBtn.textContent = '✓ 更新事件';
+        $('#formCard').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      function resetForm() {
+        editingId = null;
+        eventName.value = '';
+        eventType.value = '纪念日';
+        eventDate.value = '';
+        $('#paydayDay').value = '';
+        $('#customEmoji').value = '';
+        updateExtraFields();
+        addBtn.textContent = '+ 添加事件';
+      }
+
+      // Add / Update event
+      function addEvent() {
+        const name = eventName.value.trim();
+        const type = eventType.value;
+
+        if (!name) {
+          alert('请输入事件名称');
+          return;
+        }
+
+        const eventData = {
+          name,
+          type,
+          customEmoji: type === '自定义' ? ($('#customEmoji').value.trim() || '📌') : undefined,
+        };
+
+        if (type === '发工资') {
+          const day = parseInt($('#paydayDay').value) || 10;
+          eventData.paydayDay = Math.max(1, Math.min(28, day));
+        } else {
+          if (!eventDate.value) {
+            alert('请选择日期');
+            return;
+          }
+          eventData.date = eventDate.value;
+        }
+
+        if (editingId) {
+          const idx = events.findIndex(e => e.id === editingId);
+          if (idx !== -1) {
+            events[idx] = { ...events[idx], ...eventData, id: editingId };
+          }
+          editingId = null;
+        } else {
+          eventData.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          events.push(eventData);
+        }
+
+        saveEvents();
+        resetForm();
+        render();
+        eventList.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      addBtn.addEventListener('click', addEvent);
+
+      // Enter key
+      eventName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') addEvent();
+      });
+
+      // Clear all
+      clearAllBtn.addEventListener('click', () => {
+        if (confirm('确定要清空所有事件吗？此操作不可撤销。')) {
+          events = [];
+          editingId = null;
+          saveEvents();
+          resetForm();
+          render();
+        }
+      });
+
+      // Init
+      initTheme();
+      loadEvents();
+      render();
+    })();
+  </script>
+<script src="../i18n.js"></script>
+</body>
+</html>

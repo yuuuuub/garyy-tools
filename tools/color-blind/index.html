@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色盲测试</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:640px;margin:auto;padding-bottom:50px;text-align:center}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;display:inline-block}
+canvas{display:block;margin:auto;border-radius:50%;max-width:100%}
+.input-row{display:flex;gap:10px;max-width:320px;margin:16px auto}
+.input-row input{flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:1rem;outline:none;text-align:center}
+.input-row input:focus{border-color:var(--blue)}
+.btn{padding:10px 24px;border:none;border-radius:var(--radius);cursor:pointer;font-size:.85rem;background:var(--blue);color:#fff;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn.green{background:var(--green)}
+.btn.gold{background:var(--gold);color:#000}
+.btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.feedback{font-size:.9rem;min-height:30px;margin:10px 0}
+.feedback.correct{color:var(--green)}
+.feedback.wrong{color:var(--red)}
+.stats{display:flex;gap:10px;justify-content:center;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 20px;text-align:center;min-width:80px}
+.stat .num{font-size:1.2rem;font-weight:700;color:var(--gold)}
+.stat .label{font-size:.7rem;color:var(--text2);margin-top:2px}
+.question-num{color:var(--text2);font-size:.85rem;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>色盲测试</h1><p>简易色盲检测</p></header>
+<div class="stats">
+<div class="stat"><div class="num" id="score">0</div><div class="label">得分</div></div>
+<div class="stat"><div class="num" id="total-q">0</div><div class="label">已测</div></div>
+</div>
+<div class="canvas-wrap">
+<canvas id="plate" width="300" height="300"></canvas>
+</div>
+<div class="question-num" id="question-num">第 1/10 题</div>
+<div class="feedback" id="feedback"></div>
+<div class="input-row">
+<input type="text" id="answer" placeholder="输入看到的数字" maxlength="3">
+<button class="btn green" id="submit-btn">提交</button>
+</div>
+<div class="btn-row">
+<button class="btn" id="next-btn" style="display:none">下一题</button>
+<button class="btn gold" id="restart-btn">重新测试</button>
+</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const TOTAL_QUESTIONS = 10;
+let currentNumber = -1;
+let currentIndex = 0;
+let correctCount = 0;
+let answered = false;
+let testNumbers = [];
+
+const canvas = document.getElementById('plate');
+const ctx = canvas.getContext('2d');
+
+function shuffleArray(arr) {
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function generateTestNumbers() {
+  // Mix of numbers 1-9, some are same as background (color blind test)
+  const nums = [];
+  for(let i=0; i<TOTAL_QUESTIONS; i++) {
+    nums.push(Math.floor(Math.random() * 9) + 1);
+  }
+  return nums;
+}
+
+function hslToRgb(h, s, l) {
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2*l - 1)) * s;
+  const x = c * (1 - Math.abs((h/60) % 2 - 1));
+  const m = l - c/2;
+  let r,g,b;
+  if(h < 60) { r=c;g=x;b=0; }
+  else if(h < 120) { r=x;g=c;b=0; }
+  else if(h < 180) { r=0;g=c;b=x; }
+  else if(h < 240) { r=0;g=x;b=c; }
+  else if(h < 300) { r=x;g=0;b=c; }
+  else { r=c;g=0;b=x; }
+  return [Math.round((r+m)*255), Math.round((g+m)*255), Math.round((b+m)*255)];
+}
+
+function drawPlate(number) {
+  const size = 300;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 135;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Background dots - greenish hues (for red-green color blindness test)
+  const bgHueBase = 120; // green
+  const fgHueBase = 10;  // red-ish
+
+  // Draw background dots
+  const dotRadius = 6;
+  const spacing = 14;
+
+  // Determine which positions are "number" positions
+  const numberPositions = [];
+  const numStr = String(number);
+
+  // Simple digit pattern using a grid
+  const gridSize = 10;
+  const cellSize = (radius * 2) / gridSize;
+
+  // Create a simple bitmap for the digit
+  const digitBitmaps = {
+    '0': ['0110','1001','1001','1001','1001','1001','1001','0110'],
+    '1': ['0010','0110','0010','0010','0010','0010','0010','0111'],
+    '2': ['0110','1001','0001','0010','0100','1000','1001','1111'],
+    '3': ['1110','0001','0001','0110','0001','0001','1001','0110'],
+    '4': ['0010','0110','1010','1010','1111','0010','0010','0010'],
+    '5': ['1111','1000','1000','1110','0001','0001','1001','0110'],
+    '6': ['0110','1001','1000','1110','1001','1001','1001','0110'],
+    '7': ['1111','0001','0010','0100','0100','0100','0100','0100'],
+    '8': ['0110','1001','1001','0110','1001','1001','1001','0110'],
+    '9': ['0110','1001','1001','0111','0001','0001','1001','0110'],
+  };
+
+  const bitmap = digitBitmaps[numStr] || digitBitmaps['1'];
+
+  // Map grid to circle
+  const positions = [];
+  for(let row=0; row<gridSize; row++) {
+    for(let col=0; col<gridSize; col++) {
+      const x = (col / gridSize) * (radius * 2) - radius + cellSize/2;
+      const y = (row / gridSize) * (radius * 2) - radius + cellSize/2;
+      const dist = Math.sqrt(x*x + y*y);
+      if(dist < radius - dotRadius) {
+        positions.push({x: cx + x, y: cy + y, inNumber: false});
+      }
+    }
+  }
+
+  // Determine which positions are in the number
+  const numRows = bitmap.length;
+  const numCols = bitmap[0].length;
+  const offsetX = cx - (numCols * cellSize) / 2 + cellSize/2;
+  const offsetY = cy - (numRows * cellSize) / 2 + cellSize/2;
+
+  const numPosSet = new Set();
+  for(let row=0; row<numRows; row++) {
+    for(let col=0; col<numCols; col++) {
+      if(bitmap[row][col] === '1') {
+        const px = offsetX + col * cellSize + cellSize/2;
+        const py = offsetY + row * cellSize + cellSize/2;
+        // Find closest position
+        let minDist = cellSize * 0.8;
+        positions.forEach(p => {
+          const d = Math.sqrt((p.x-px)**2 + (p.y-py)**2);
+          if(d < minDist) {
+            p.inNumber = true;
+          }
+        });
+      }
+    }
+  }
+
+  // Draw dots with slight randomization
+  positions.forEach(p => {
+    const jitter = (Math.random() - 0.5) * 4;
+    const dx = p.x + jitter;
+    const dy = p.y + jitter;
+
+    const baseHue = p.inNumber ? fgHueBase : bgHueBase;
+    const hue = baseHue + (Math.random() - 0.5) * 20;
+    const sat = 60 + Math.random() * 30;
+    const light = 45 + Math.random() * 20;
+
+    // For color blind test: similar luminance, different hue
+    const [r, g, b] = hslToRgb(hue, sat, light);
+    ctx.beginPath();
+    ctx.arc(dx, dy, dotRadius * (0.7 + Math.random() * 0.3), 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fill();
+  });
+
+  // Add border
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,.1)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function loadQuestion() {
+  if(currentIndex >= TOTAL_QUESTIONS) {
+    showFinalResult();
+    return;
+  }
+  answered = false;
+  currentNumber = testNumbers[currentIndex];
+  document.getElementById('question-num').textContent = `第 ${currentIndex+1}/${TOTAL_QUESTIONS} 题`;
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('answer').value = '';
+  document.getElementById('answer').disabled = false;
+  document.getElementById('submit-btn').style.display = 'inline-block';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('answer').focus();
+  drawPlate(currentNumber);
+}
+
+function showFinalResult() {
+  document.getElementById('question-num').textContent = '测试完成';
+  document.getElementById('feedback').innerHTML = `
+    <strong style="font-size:1.2rem;color:var(--text)">测试结果</strong><br><br>
+    正确: ${correctCount}/${TOTAL_QUESTIONS}<br>
+    得分: ${Math.round(correctCount/TOTAL_QUESTIONS*100)}%
+  `;
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('answer').disabled = true;
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('next-btn').style.display = 'none';
+  // Draw a blank plate
+  ctx.clearRect(0, 0, 300, 300);
+}
+
+document.getElementById('submit-btn').addEventListener('click', function() {
+  if(answered) return;
+  const val = document.getElementById('answer').value.trim();
+  if(!val) {
+    document.getElementById('feedback').textContent = '请输入数字';
+    document.getElementById('feedback').className = 'feedback wrong';
+    return;
+  }
+  const userNum = parseInt(val, 10);
+  const fb = document.getElementById('feedback');
+  if(userNum === currentNumber) {
+    fb.textContent = '正确！';
+    fb.className = 'feedback correct';
+    correctCount++;
+  } else {
+    fb.textContent = `不正确，正确答案是 ${currentNumber}`;
+    fb.className = 'feedback wrong';
+  }
+  document.getElementById('score').textContent = correctCount;
+  document.getElementById('total-q').textContent = currentIndex + 1;
+  answered = true;
+  document.getElementById('answer').disabled = true;
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('next-btn').style.display = 'inline-block';
+});
+
+document.getElementById('next-btn').addEventListener('click', function() {
+  currentIndex++;
+  loadQuestion();
+});
+
+document.getElementById('restart-btn').addEventListener('click', function() {
+  currentIndex = 0;
+  correctCount = 0;
+  testNumbers = generateTestNumbers();
+  document.getElementById('score').textContent = '0';
+  document.getElementById('total-q').textContent = '0';
+  document.getElementById('next-btn').style.display = 'none';
+  loadQuestion();
+});
+
+document.getElementById('answer').addEventListener('keydown', function(e) {
+  if(e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('submit-btn').click();
+  }
+});
+
+// Init
+testNumbers = generateTestNumbers();
+loadQuestion();
+
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

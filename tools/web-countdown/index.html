@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⏱️ 自定义倒计时</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f5;
+  --card-bg: #fff;
+  --text: #1a1a2e;
+  --text-secondary: #666;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --border: #e5e7eb;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --shadow: 0 4px 24px rgba(0,0,0,.08);
+  --digit-bg: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  --digit-border: #e2e8f0;
+  --digit-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+.dark {
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --border: #334155;
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --shadow: 0 4px 24px rgba(0,0,0,.3);
+  --digit-bg: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --digit-border: #334155;
+  --digit-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background .3s, color .3s;
+  display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 300px;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  transition: transform .3s;
+  box-shadow: var(--shadow);
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h2 { font-size: 18px; margin-bottom: 4px; }
+.sidebar-header p { font-size: 12px; color: var(--text-secondary); }
+
+.countdown-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+.countdown-item {
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background .2s;
+  border: 2px solid transparent;
+}
+.countdown-item:hover { background: var(--bg); }
+.countdown-item.active { border-color: var(--accent); background: var(--bg); }
+.countdown-item-title { font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.countdown-item-time { font-size: 11px; color: var(--text-secondary); margin-right: 8px; }
+.countdown-item-del {
+  background: none; border: none; color: var(--text-secondary);
+  cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px;
+  opacity: 0; transition: opacity .2s, color .2s;
+}
+.countdown-item:hover .countdown-item-del { opacity: 1; }
+.countdown-item-del:hover { color: var(--danger); }
+
+.sidebar-actions {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-actions button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background .2s, transform .1s;
+}
+.sidebar-actions button:active { transform: scale(.97); }
+
+.btn-add {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-add:hover { background: var(--accent-hover); }
+
+.btn-preset {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border) !important;
+}
+.btn-preset:hover { background: var(--bg); }
+
+/* Main */
+.main {
+  flex: 1;
+  margin-left: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+/* Toolbar */
+.toolbar {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 50;
+}
+.toolbar button {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .2s;
+}
+.toolbar button:hover { background: var(--bg); }
+
+/* Countdown Display */
+.countdown-display { text-align: center; }
+
+.countdown-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.target-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.digits-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.digit-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.digit-card {
+  width: 100px; height: 120px;
+  border-radius: 16px;
+  background: var(--digit-bg);
+  border: 2px solid var(--digit-border);
+  box-shadow: var(--digit-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  overflow: hidden;
+}
+.digit-card.flip {
+  animation: flipCard .4s ease;
+}
+
+@keyframes flipCard {
+  0% { transform: rotateX(0); }
+  35% { transform: rotateX(-90deg); }
+  65% { transform: rotateX(90deg); }
+  100% { transform: rotateX(0); }
+}
+
+.digit-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.colon {
+  font-size: 48px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  align-self: center;
+  margin-bottom: 24px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 20px;
+}
+.status-badge.upcoming { background: #dbeafe; color: #1d4ed8; }
+.status-badge.expired { background: #fee2e2; color: #dc2626; }
+
+.empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+}
+.empty-state .empty-icon { font-size: 64px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 20px; margin-bottom: 8px; }
+.empty-state p { font-size: 14px; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+.modal {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 28px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  transform: translateY(20px);
+  transition: transform .3s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+
+.modal h3 { font-size: 20px; margin-bottom: 20px; }
+.modal label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary); }
+.modal input[type="text"],
+.modal input[type="datetime-local"] {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color .2s;
+}
+.modal input:focus { border-color: var(--accent); }
+
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.modal-actions button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s;
+}
+.btn-cancel { background: transparent; color: var(--text); border: 1px solid var(--border) !important; }
+.btn-cancel:hover { background: var(--bg); }
+.btn-confirm { background: var(--accent); color: #fff; }
+.btn-confirm:hover { background: var(--accent-hover); }
+
+/* Preset Modal */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.preset-card {
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .2s, transform .2s;
+}
+.preset-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.preset-card .preset-icon { font-size: 28px; margin-bottom: 6px; }
+.preset-card .preset-name { font-size: 13px; font-weight: 500; }
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--card-bg);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  z-index: 300;
+  font-weight: 600;
+  font-size: 16px;
+  animation: toastIn .4s ease, toastOut .4s ease 2.6s forwards;
+  text-align: center;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Mobile sidebar toggle */
+.menu-toggle {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 150;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; padding: 80px 16px 40px; }
+  .menu-toggle { display: flex; }
+  .digit-card { width: 70px; height: 90px; font-size: 40px; }
+  .colon { font-size: 32px; }
+  .digits-row { gap: 8px; }
+  .countdown-title { font-size: 20px; }
+}
+
+@media (max-width: 400px) {
+  .digit-card { width: 56px; height: 76px; font-size: 32px; border-radius: 12px; }
+  .colon { font-size: 26px; }
+  .digits-row { gap: 4px; }
+}
+
+/* Fullscreen styles */
+body.fullscreen .sidebar { display: none; }
+body.fullscreen .main { margin-left: 0; }
+body.fullscreen .toolbar button:not(#fsBtn) { display: none; }
+body.fullscreen .digit-card { width: 140px; height: 160px; font-size: 72px; }
+body.fullscreen .digits-row { gap: 24px; }
+body.fullscreen .countdown-title { font-size: 40px; }
+body.fullscreen .colon { font-size: 60px; }
+body.fullscreen .menu-toggle { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h2>⏱️ 自定义倒计时</h2>
+    <p>管理你的重要时刻</p>
+  </div>
+  <div class="countdown-list" id="countdownList"></div>
+  <div class="sidebar-actions">
+    <button class="btn-add" onclick="openAddModal()">+ 新建倒计时</button>
+    <button class="btn-preset" onclick="openPresetModal()">📋 预设模板</button>
+  </div>
+</div>
+
+<!-- Menu toggle (mobile) -->
+<button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+
+<!-- Toolbar -->
+<div class="toolbar" id="toolbar">
+  <button onclick="toggleDark()" title="暗色模式">🌙</button>
+  <button id="fsBtn" onclick="toggleFullscreen()" title="全屏模式">⛶</button>
+</div>
+
+<!-- Main -->
+<div class="main" id="main">
+  <div class="countdown-display" id="countdownDisplay">
+    <div class="empty-state">
+      <div class="empty-icon">⏳</div>
+      <h3>还没有倒计时</h3>
+      <p>点击左侧「+ 新建倒计时」或使用预设模板开始</p>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3 id="addModalTitle">新建倒计时</h3>
+    <label>标题</label>
+    <input type="text" id="inputTitle" placeholder="例如：项目 Deadline">
+    <label>目标时间</label>
+    <input type="datetime-local" id="inputTime">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">取消</button>
+      <button class="btn-confirm" onclick="saveCountdown()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Preset Modal -->
+<div class="modal-overlay" id="presetModal">
+  <div class="modal">
+    <h3>选择预设模板</h3>
+    <div class="preset-grid" id="presetGrid"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePresetModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================= State =========================
+let countdowns = JSON.parse(localStorage.getItem('countdowns') || '[]');
+let activeId = localStorage.getItem('activeCountdownId') || null;
+let editingId = null;
+let tickingTimers = {};
+
+// ========================= Presets =========================
+const presets = [
+  { icon: '📝', name: '考试倒计时', daysFromNow: 30 },
+  { icon: '💻', name: '项目 Deadline', daysFromNow: 14 },
+  { icon: '🎂', name: '生日', daysFromNow: 60 },
+  { icon: '✈️', name: '旅行', daysFromNow: 90 },
+  { icon: '🎉', name: '年终', daysFromNow: 200 },
+];
+
+// ========================= Init =========================
+function init() {
+  if (document.body.classList.contains('dark') || localStorage.getItem('darkMode') === '1') {
+    document.body.classList.add('dark');
+  }
+
+  if (countdowns.length === 0) {
+    // Add some default countdowns
+    const now = new Date();
+    countdowns = [
+      {
+        id: generateId(),
+        title: '年终总结',
+        target: new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString(),
+        createdAt: Date.now()
+      },
+      {
+        id: generateId(),
+        title: '项目 Deadline',
+        target: new Date(now.getFullYear(), now.getMonth() + 1, 15, 18, 0, 0).toISOString(),
+        createdAt: Date.now()
+      }
+    ];
+    saveToStorage();
+  }
+
+  if (!activeId || !countdowns.find(c => c.id === activeId)) {
+    activeId = countdowns.length > 0 ? countdowns[0].id : null;
+    localStorage.setItem('activeCountdownId', activeId || '');
+  }
+
+  renderSidebar();
+  renderPresets();
+  startAllTickers();
+  checkAllExpiries();
+
+  // Show active countdown
+  if (activeId) {
+    renderCountdown();
+  }
+}
+
+// ========================= Storage =========================
+function saveToStorage() {
+  localStorage.setItem('countdowns', JSON.stringify(countdowns));
+  localStorage.setItem('activeCountdownId', activeId || '');
+}
+
+// ========================= ID Generation =========================
+function generateId() {
+  return 'cd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// ========================= Sidebar =========================
+function renderSidebar() {
+  const list = document.getElementById('countdownList');
+  list.innerHTML = countdowns.map(c => {
+    const active = c.id === activeId ? ' active' : '';
+    const targetDate = new Date(c.target);
+    const timeStr = targetDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="countdown-item${active}" onclick="switchCountdown('${c.id}')">
+        <span class="countdown-item-title">${escHtml(c.title)}</span>
+        <span class="countdown-item-time">${timeStr}</span>
+        <button class="countdown-item-del" onclick="event.stopPropagation();deleteCountdown('${c.id}')" title="删除">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function switchCountdown(id) {
+  activeId = id;
+  saveToStorage();
+  renderSidebar();
+  renderCountdown();
+}
+
+function deleteCountdown(id) {
+  if (!confirm('确定删除这个倒计时吗？')) return;
+  countdowns = countdowns.filter(c => c.id !== id);
+  if (activeId === id) {
+    activeId = countdowns.length > 0 ? countdowns[0].id : null;
+  }
+  saveToStorage();
+  renderSidebar();
+  if (!activeId) {
+    document.getElementById('countdownDisplay').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⏳</div>
+        <h3>还没有倒计时</h3>
+        <p>点击左侧「+ 新建倒计时」或使用预设模板开始</p>
+      </div>`;
+  } else {
+    renderCountdown();
+  }
+}
+
+// ========================= Add/Edit Modal =========================
+function openAddModal(editId) {
+  editingId = editId || null;
+  const modal = document.getElementById('addModal');
+  const titleEl = document.getElementById('addModalTitle');
+  const inputTitle = document.getElementById('inputTitle');
+  const inputTime = document.getElementById('inputTime');
+
+  if (editId) {
+    const item = countdowns.find(c => c.id === editId);
+    if (item) {
+      titleEl.textContent = '编辑倒计时';
+      inputTitle.value = item.title;
+      inputTime.value = toDatetimeLocal(item.target);
+    }
+  } else {
+    titleEl.textContent = '新建倒计时';
+    inputTitle.value = '';
+    // Default: tomorrow this time
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setMinutes(0, 0, 0);
+    inputTime.value = toDatetimeLocal(tomorrow.toISOString());
+  }
+
+  modal.classList.add('open');
+  inputTitle.focus();
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('open');
+  editingId = null;
+}
+
+function saveCountdown() {
+  const title = document.getElementById('inputTitle').value.trim();
+  const timeVal = document.getElementById('inputTime').value;
+
+  if (!title) { alert('请输入标题'); return; }
+  if (!timeVal) { alert('请选择目标时间'); return; }
+
+  const target = new Date(timeVal).toISOString();
+  if (new Date(target) <= new Date()) {
+    if (!confirm('目标时间已过，确定添加吗？')) return;
+  }
+
+  if (editingId) {
+    const idx = countdowns.findIndex(c => c.id === editingId);
+    if (idx !== -1) {
+      countdowns[idx].title = title;
+      countdowns[idx].target = target;
+    }
+  } else {
+    countdowns.push({
+      id: generateId(),
+      title,
+      target,
+      createdAt: Date.now()
+    });
+    activeId = countdowns[countdowns.length - 1].id;
+  }
+
+  saveToStorage();
+  closeAddModal();
+  renderSidebar();
+  renderCountdown();
+}
+
+function toDatetimeLocal(isoStr) {
+  const d = new Date(isoStr);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ========================= Presets =========================
+function renderPresets() {
+  const grid = document.getElementById('presetGrid');
+  grid.innerHTML = presets.map(p => {
+    const target = new Date();
+    target.setDate(target.getDate() + p.daysFromNow);
+    target.setHours(23, 59, 59, 0);
+    return `
+      <div class="preset-card" onclick="applyPreset('${p.name}', '${target.toISOString()}')">
+        <div class="preset-icon">${p.icon}</div>
+        <div class="preset-name">${p.name}</div>
+      </div>`;
+  }).join('');
+}
+
+function openPresetModal() {
+  document.getElementById('presetModal').classList.add('open');
+}
+
+function closePresetModal() {
+  document.getElementById('presetModal').classList.remove('open');
+}
+
+function applyPreset(name, targetIso) {
+  countdowns.push({
+    id: generateId(),
+    title: name,
+    target: targetIso,
+    createdAt: Date.now()
+  });
+  activeId = countdowns[countdowns.length - 1].id;
+  saveToStorage();
+  closePresetModal();
+  renderSidebar();
+  renderCountdown();
+}
+
+// ========================= Countdown Render =========================
+function renderCountdown() {
+  if (!activeId) return;
+  const cd = countdowns.find(c => c.id === activeId);
+  if (!cd) return;
+
+  const target = new Date(cd.target);
+  const now = new Date();
+  const diff = target - now;
+  const isExpired = diff <= 0;
+
+  const absDiff = Math.abs(diff);
+  const d = Math.floor(absDiff / (1000 * 60 * 60 * 24));
+  const h = Math.floor((absDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const m = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+  const s = Math.floor((absDiff % (1000 * 60)) / 1000);
+
+  const displayEl = document.getElementById('countdownDisplay');
+
+  const digitsHtml = (val, label) => {
+    const [tens, ones] = String(val).padStart(2, '0').split('');
+    return `
+      <div class="digit-block">
+        <div class="digit-card" id="digit-${label}">
+          <span class="digit-tens">${tens}</span><span class="digit-ones">${ones}</span>
+        </div>
+        <div class="digit-label">${label}</div>
+      </div>`;
+  };
+
+  displayEl.innerHTML = `
+    <div class="countdown-title">${escHtml(cd.title)}</div>
+    <div class="target-label">目标时间：${target.toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+    <div class="digits-row">
+      ${digitsHtml(d, '天')}
+      <div class="colon">:</div>
+      ${digitsHtml(h, '时')}
+      <div class="colon">:</div>
+      ${digitsHtml(m, '分')}
+      <div class="colon">:</div>
+      ${digitsHtml(s, '秒')}
+    </div>
+    <div class="status-badge ${isExpired ? 'expired' : 'upcoming'}">
+      ${isExpired ? '⏰ 已到期' : '🟢 进行中'}
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn-preset" style="padding:8px 16px;font-size:13px;" onclick="openAddModal('${cd.id}')">✏️ 编辑</button>
+    </div>
+  `;
+
+  // Store previous seconds to detect changes
+  if (!displayEl.dataset.prevSec) displayEl.dataset.prevSec = s;
+}
+
+function updateAllDisplay() {
+  if (!activeId) return;
+  const cd = countdowns.find(c => c.id === activeId);
+  if (!cd) return;
+
+  const target = new Date(cd.target);
+  const now = new Date();
+  const diff = target - now;
+  const absDiff = Math.abs(diff);
+
+  const d = Math.floor(absDiff / (1000 * 60 * 60 * 24));
+  const h = Math.floor((absDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const m = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+  const s = Math.floor((absDiff % (1000 * 60)) / 1000);
+
+  const displayEl = document.getElementById('countdownDisplay');
+
+  function updateDigit(label, val) {
+    const card = document.getElementById(`digit-${label}`);
+    if (!card) return;
+    const [newTens, newOnes] = String(val).padStart(2, '0').split('');
+    const currentOnes = card.querySelector('.digit-ones');
+    const currentTens = card.querySelector('.digit-tens');
+
+    if (currentOnes && currentOnes.textContent !== newOnes) {
+      card.classList.remove('flip');
+      void card.offsetWidth;
+      card.classList.add('flip');
+      currentOnes.textContent = newOnes;
+    }
+    if (currentTens && currentTens.textContent !== newTens) {
+      currentTens.textContent = newTens;
+    }
+  }
+
+  updateDigit('天', d);
+  updateDigit('时', h);
+  updateDigit('分', m);
+  updateDigit('秒', s);
+
+  // Update status badge
+  const badge = displayEl.querySelector('.status-badge');
+  if (badge) {
+    const isExpired = diff <= 0;
+    badge.className = `status-badge ${isExpired ? 'expired' : 'upcoming'}`;
+    badge.textContent = isExpired ? '⏰ 已到期' : '🟢 进行中';
+  }
+
+  // Check expiry
+  if (diff <= 0 && diff > -2000) {
+    const cdKey = `expired_notified_${activeId}`;
+    if (!sessionStorage.getItem(cdKey)) {
+      sessionStorage.setItem(cdKey, '1');
+      playAlert();
+      showToast(`⏰ 「${cd.title}」已到期！`);
+    }
+  }
+}
+
+// ========================= Ticker =========================
+function startAllTickers() {
+  // Clear existing
+  Object.values(tickingTimers).forEach(clearInterval);
+  tickingTimers = {};
+
+  tickingTimers.display = setInterval(() => {
+    if (activeId) updateAllDisplay();
+  }, 250);
+
+  // Check expired every 5 seconds
+  tickingTimers.expiry = setInterval(checkAllExpiries, 5000);
+}
+
+function checkAllExpiries() {
+  const now = Date.now();
+  countdowns.forEach(cd => {
+    const diff = new Date(cd.target) - now;
+    if (diff <= 0 && diff > -60000) {
+      const key = `expired_notified_${cd.id}`;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        // If this is the active one or none active, switch to it
+        if (!activeId || activeId === cd.id) {
+          playAlert();
+          showToast(`⏰ 「${cd.title}」已到期！`);
+        }
+      }
+    }
+  });
+}
+
+// ========================= Sound =========================
+function playAlert() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [800, 1000, 1200];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+    });
+  } catch (e) {}
+}
+
+// ========================= Toast =========================
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ========================= Dark Mode =========================
+function toggleDark() {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('darkMode', document.body.classList.contains('dark') ? '1' : '0');
+}
+
+// ========================= Fullscreen =========================
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+    document.body.classList.remove('fullscreen');
+  } else {
+    document.documentElement.requestFullscreen();
+    document.body.classList.add('fullscreen');
+  }
+}
+
+// Listen to fullscreen changes from browser
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.body.classList.remove('fullscreen');
+  }
+});
+
+// ========================= Sidebar Toggle =========================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// Close sidebar when clicking main on mobile
+document.getElementById('main').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+});
+
+// ========================= Helpers =========================
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ========================= Keyboard Shortcuts =========================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeAddModal();
+    closePresetModal();
+  }
+  if (e.ctrlKey && e.key === 'n') {
+    e.preventDefault();
+    openAddModal();
+  }
+});
+
+// ========================= Modal click outside =========================
+document.getElementById('addModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+document.getElementById('presetModal').addEventListener('click', function(e) {
+  if (e.target === this) closePresetModal();
+});
+
+// ========================= Bootstrap =========================
+init();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

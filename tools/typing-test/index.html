@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打字速度测试</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;color:var(--text)}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.stats{display:flex;gap:12px;margin-bottom:16px}
+.stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+.stat .num{font-size:1.5rem;font-weight:700;color:var(--gold)}
+.stat .label{font-size:.75rem;color:var(--text2);margin-top:4px}
+#text-display{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-size:1rem;line-height:1.8;margin-bottom:12px;min-height:80px;user-select:none;font-family:'Noto Sans SC',sans-serif}
+#text-display span.correct{color:var(--green)}
+#text-display span.wrong{color:var(--red);background:rgba(239,68,68,.2);border-radius:3px}
+#text-display span.current{background:rgba(59,130,246,.3);border-radius:3px;padding:0 1px}
+#input-area{width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;color:var(--text);font-size:1rem;resize:none;outline:none;font-family:'Noto Sans SC',sans-serif;line-height:1.8}
+#input-area:focus{border-color:var(--blue)}
+#input-area:disabled{opacity:.4;cursor:not-allowed}
+.actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.btn{padding:8px 20px;border:none;border-radius:var(--radius);cursor:pointer;font-size:.85rem;background:var(--blue);color:#fff;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.green{background:var(--green)}
+.btn.gold{background:var(--gold);color:#000}
+.mode-select{display:flex;gap:10px;margin-bottom:12px}
+.mode-btn{flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--text2);cursor:pointer;font-size:.8rem;text-align:center}
+.mode-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.1)}
+.result-section{display:none}
+.result-section.show{display:block}
+.result-section h3{margin-bottom:12px;color:var(--text)}
+.result-detail{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.result-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center}
+.result-item .val{font-size:1.2rem;font-weight:700;color:var(--gold)}
+.result-item .lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>打字速度测试</h1><p>测试你的打字速度</p></header>
+<div class="stats">
+<div class="stat"><div class="num" id="wpm">0</div><div class="label">速度 (WPM)</div></div>
+<div class="stat"><div class="num" id="cpm">0</div><div class="label">速度 (CPM)</div></div>
+<div class="stat"><div class="num" id="accuracy">0%</div><div class="label">正确率</div></div>
+<div class="stat"><div class="num" id="timer">0s</div><div class="label">用时</div></div>
+</div>
+<div class="card">
+<div class="mode-select">
+<div class="mode-btn active" data-mode="chinese">中文</div>
+<div class="mode-btn" data-mode="english">英文</div>
+<div class="mode-btn" data-mode="mixed">中英混合</div>
+</div>
+<div id="text-display"></div>
+<textarea id="input-area" placeholder="在此处开始打字..." disabled></textarea>
+<div class="actions">
+<button class="btn green" id="start-btn">开始测试</button>
+<button class="btn" id="reset-btn">重新开始</button>
+</div>
+</div>
+<div class="card result-section" id="result-section">
+<h3>测试结果</h3>
+<div class="result-detail">
+<div class="result-item"><div class="val" id="r-wpm">0</div><div class="lbl">速度 (WPM)</div></div>
+<div class="result-item"><div class="val" id="r-cpm">0</div><div class="lbl">速度 (CPM)</div></div>
+<div class="result-item"><div class="val" id="r-accuracy">0%</div><div class="lbl">正确率</div></div>
+<div class="result-item"><div class="val" id="r-time">0s</div><div class="lbl">用时</div></div>
+<div class="result-item"><div class="val" id="r-correct">0</div><div class="lbl">正确</div></div>
+<div class="result-item"><div class="val" id="r-wrong">0</div><div class="lbl">错误</div></div>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const texts = {
+  chinese: [
+    '生活就像一盒巧克力，你永远不知道下一颗是什么味道。',
+    '成功不是终点，失败也不是终结，唯有勇气才是永恒。',
+    '读书破万卷，下笔如有神。知识就是力量，学习改变命运。',
+    '千里之行，始于足下。不积跬步，无以至千里。',
+    '天行健，君子以自强不息。地势坤，君子以厚德载物。',
+    '人生如逆旅，我亦是行人。但愿人长久，千里共婵娟。',
+    '业精于勤，荒于嬉；行成于思，毁于随。',
+    '学而不思则罔，思而不学则殆。温故而知新，可以为师矣。',
+    '世界那么大，我想去看看。来一场说走就走的旅行。',
+    '人工智能正在改变我们的生活方式，未来已来。'
+  ],
+  english: [
+    'The quick brown fox jumps over the lazy dog near the bank of the river.',
+    'To be or not to be, that is a question of great importance.',
+    'Success is not final, failure is not fatal: it is the courage to continue that counts.',
+    'In the middle of difficulty lies opportunity waiting to be discovered.',
+    'The only way to do great work is to love what you do every single day.',
+    'Life is what happens when you are busy making other plans for the future.',
+    'The best time to plant a tree was twenty years ago. The second best time is now.',
+    'Innovation distinguishes between a leader and a follower in any field.',
+    'Your time is limited, so do not waste it living someone else life.',
+    'The future belongs to those who believe in the beauty of their dreams.'
+  ],
+  mixed: [
+    'Hello world 你好世界，编程改变了我们的生活。',
+    'Practice makes perfect 熟能生巧，坚持就是胜利。',
+    'Time is money 时间就是金钱，efficiency is the key 效率是关键。',
+    'Knowledge is power 知识就是力量，学习永无止境。',
+    'Where there is a will there is a way 有志者事竟成。',
+    'Actions speak louder than words 事实胜于雄辩，行动胜于空谈。',
+    'A journey of a thousand miles begins with a single step 千里之行始于足下。',
+    'Every coin has two sides 凡事都有两面性，辩证看待问题。',
+    'Better late than never 亡羊补牢，为时未晚。',
+    'All roads lead to Rome 条条大路通罗马，方法不止一种。'
+  ]
+};
+
+let currentMode = 'chinese';
+let currentText = '';
+let charIndex = 0;
+let correctCount = 0;
+let wrongCount = 0;
+let isRunning = false;
+let isFinished = false;
+let startTime = 0;
+let timerInterval = null;
+
+const $ = id => document.getElementById(id);
+const textDisplay = $('text-display');
+const inputArea = $('input-area');
+const wpmEl = $('wpm');
+const cpmEl = $('cpm');
+const accuracyEl = $('accuracy');
+const timerEl = $('timer');
+const startBtn = $('start-btn');
+const resetBtn = $('reset-btn');
+const resultSection = $('result-section');
+
+function shuffleArray(arr) {
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function getRandomText(mode) {
+  const list = texts[mode] || texts.chinese;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function renderText(text) {
+  textDisplay.innerHTML = text.split('').map((ch, i) =>
+    `<span data-idx="${i}">${ch === ' ' ? '&nbsp;' : ch}</span>`
+  ).join('');
+  const first = textDisplay.querySelector('span');
+  if(first) first.classList.add('current');
+}
+
+function updateStats() {
+  const elapsed = (Date.now() - startTime) / 1000;
+  const minutes = elapsed / 60;
+  const total = correctCount + wrongCount;
+  const wpm = minutes > 0 ? Math.round((correctCount / 5) / minutes) : 0;
+  const cpm = minutes > 0 ? Math.round(correctCount / minutes) : 0;
+  const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 100;
+
+  wpmEl.textContent = wpm;
+  cpmEl.textContent = cpm;
+  accuracyEl.textContent = accuracy + '%';
+  timerEl.textContent = Math.floor(elapsed) + 's';
+}
+
+function endTest() {
+  isRunning = false;
+  isFinished = true;
+  inputArea.disabled = true;
+  clearInterval(timerInterval);
+
+  const elapsed = (Date.now() - startTime) / 1000;
+  const minutes = elapsed / 60;
+  const total = correctCount + wrongCount;
+  const wpm = minutes > 0 ? Math.round((correctCount / 5) / minutes) : 0;
+  const cpm = minutes > 0 ? Math.round(correctCount / minutes) : 0;
+  const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 100;
+
+  $('r-wpm').textContent = wpm;
+  $('r-cpm').textContent = cpm;
+  $('r-accuracy').textContent = accuracy + '%';
+  $('r-time').textContent = Math.floor(elapsed) + 's';
+  $('r-correct').textContent = correctCount;
+  $('r-wrong').textContent = wrongCount;
+  resultSection.classList.add('show');
+}
+
+function startTest() {
+  const mode = currentMode;
+  currentText = getRandomText(mode);
+  charIndex = 0;
+  correctCount = 0;
+  wrongCount = 0;
+  isRunning = true;
+  isFinished = false;
+  resultSection.classList.remove('show');
+  startBtn.disabled = true;
+  inputArea.disabled = false;
+  inputArea.value = '';
+  inputArea.focus();
+  renderText(currentText);
+  startTime = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(updateStats, 100);
+  updateStats();
+}
+
+function resetTest() {
+  clearInterval(timerInterval);
+  isRunning = false;
+  isFinished = false;
+  charIndex = 0;
+  correctCount = 0;
+  wrongCount = 0;
+  inputArea.disabled = true;
+  inputArea.value = '';
+  startBtn.disabled = false;
+  resultSection.classList.remove('show');
+  wpmEl.textContent = '0';
+  cpmEl.textContent = '0';
+  accuracyEl.textContent = '0%';
+  timerEl.textContent = '0s';
+  const mode = currentMode;
+  currentText = getRandomText(mode);
+  renderText(currentText);
+}
+
+function handleInput(e) {
+  if(!isRunning || isFinished) return;
+  const val = inputArea.value;
+  const spans = textDisplay.querySelectorAll('span');
+  const len = currentText.length;
+
+  let idx = 0;
+  let correct = 0;
+  let wrong = 0;
+
+  for(; idx < val.length && idx < len; idx++) {
+    const ch = val[idx];
+    const target = currentText[idx];
+    const span = spans[idx];
+    span.classList.remove('correct','wrong','current');
+    if(ch === target) {
+      span.classList.add('correct');
+      correct++;
+    } else {
+      span.classList.add('wrong');
+      wrong++;
+    }
+  }
+
+  if(idx < len) {
+    spans[idx].classList.add('current');
+  }
+
+  correctCount = correct;
+  wrongCount = wrong;
+  updateStats();
+
+  // Check completion
+  let allDone = true;
+  spans.forEach(s => {
+    if(!s.classList.contains('correct') && !s.classList.contains('wrong')) allDone = false;
+  });
+
+  if(allDone && val.length >= len) {
+    endTest();
+  }
+}
+
+// Mode switching
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    if(isRunning) return;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentMode = this.dataset.mode;
+    currentText = getRandomText(currentMode);
+    renderText(currentText);
+  });
+});
+
+startBtn.addEventListener('click', startTest);
+resetBtn.addEventListener('click', resetTest);
+inputArea.addEventListener('input', handleInput);
+
+// Init
+currentText = getRandomText('chinese');
+renderText(currentText);
+
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

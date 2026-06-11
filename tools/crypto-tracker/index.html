@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加密货币详情</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus{outline:none;border-color:var(--blue)}
+.btn{background:var(--blue);color:#fff;border:none;padding:8px 20px;border-radius:var(--radius);cursor:pointer;font-size:.9rem;transition:opacity .2s;margin-left:8px}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{text-align:center;padding:30px 0}
+.error-box p{color:var(--red);margin-bottom:10px}
+.error-box .btn{background:var(--red)}
+.search-row{display:flex;gap:8px}
+.search-row input{flex:1}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.stat-card{text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius)}
+.stat-card .label{font-size:.75rem;color:var(--text2);margin-bottom:4px}
+.stat-card .value{font-size:1.15rem;font-weight:700}
+.up{color:var(--green)}
+.down{color:var(--red)}
+.price-large{font-size:2rem;font-weight:700;text-align:center;padding:10px 0}
+.price-large .symbol{font-size:1rem;color:var(--text2);font-weight:400}
+.change-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.8rem;font-weight:600}
+.change-badge.up{background:rgba(35,134,54,.2);color:var(--green)}
+.change-badge.down{background:rgba(239,68,68,.2);color:var(--red)}
+.coin-image{width:48px;height:48px;border-radius:50%;vertical-align:middle}
+.coin-header{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px}
+.coin-header h2{font-size:1.4rem}
+.desc-box{font-size:.85rem;color:var(--text2);line-height:1.7;margin-top:12px;max-height:200px;overflow-y:auto}
+.desc-box::-webkit-scrollbar{width:4px}
+.desc-box::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.suggestions .btn{background:var(--card);border:1px solid var(--border);color:var(--text);margin:0;padding:4px 12px;font-size:.78rem}
+.suggestions .btn:hover{border-color:var(--blue)}
+@media(max-width:640px){.grid-3{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>₿ 加密货币详情</h1>
+    <p>CoinGecko API</p>
+  </header>
+
+  <div class="card">
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="输入币名或ID (如 bitcoin, ethereum)" value="bitcoin">
+      <button class="btn" id="searchBtn">搜索</button>
+    </div>
+    <div class="suggestions" id="suggestions"></div>
+  </div>
+
+  <div id="resultArea"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const searchInput = $('searchInput');
+const searchBtn = $('searchBtn');
+const resultArea = $('resultArea');
+const suggestions = $('suggestions');
+
+const popularCoins = [
+  {id:'bitcoin', name:'Bitcoin', sym:'BTC'},
+  {id:'ethereum', name:'Ethereum', sym:'ETH'},
+  {id:'tether', name:'Tether', sym:'USDT'},
+  {id:'binancecoin', name:'BNB', sym:'BNB'},
+  {id:'solana', name:'Solana', sym:'SOL'},
+  {id:'ripple', name:'XRP', sym:'XRP'},
+  {id:'cardano', name:'Cardano', sym:'ADA'},
+  {id:'dogecoin', name:'Dogecoin', sym:'DOGE'},
+  {id:'polkadot', name:'Polkadot', sym:'DOT'},
+  {id:'avalanche-2', name:'Avalanche', sym:'AVAX'}
+];
+
+function initSuggestions(){
+  suggestions.innerHTML = popularCoins.map(c =>
+    `<button class="btn" data-id="${c.id}">${c.sym}</button>`
+  ).join('');
+  suggestions.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      searchInput.value = btn.dataset.id;
+      fetchCoin(btn.dataset.id);
+    });
+  });
+}
+
+function loading(){
+  resultArea.innerHTML = '<div class="spinner"></div>';
+}
+
+function showError(msg){
+  resultArea.innerHTML = `<div class="error-box"><p>${msg}</p></div>`;
+}
+
+function formatCurrency(v){
+  if(v === null || v === undefined) return '--';
+  if(v >= 1e12) return '$'+(v/1e12).toFixed(2)+'T';
+  if(v >= 1e9) return '$'+(v/1e9).toFixed(2)+'B';
+  if(v >= 1e6) return '$'+(v/1e6).toFixed(2)+'M';
+  return '$'+Number(v).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:6});
+}
+
+function renderCoin(data){
+  const coin = data;
+  const usd = coin.market_data.current_price.usd;
+  const change24h = coin.market_data.price_change_percentage_24h;
+  const change7d = coin.market_data.price_change_percentage_7d;
+  const changeCls = change24h >= 0 ? 'up' : 'down';
+  const change7Cls = change7d >= 0 ? 'up' : 'down';
+  const ath = coin.market_data.ath.usd;
+
+  resultArea.innerHTML = `
+    <div class="card">
+      <div class="coin-header">
+        <img class="coin-image" src="${coin.image.large}" alt="${coin.name}" onerror="this.style.display='none'">
+        <h2>${coin.name} <span style="color:var(--text2);font-weight:400">${coin.symbol.toUpperCase()}</span></h2>
+      </div>
+      <div class="price-large">
+        $${usd.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:6})}
+        <span class="symbol">USD</span>
+      </div>
+      <div style="text-align:center;margin-bottom:12px">
+        <span class="change-badge ${changeCls}">24h: ${change24h >= 0 ? '+' : ''}${change24h.toFixed(2)}%</span>
+        <span class="change-badge ${change7Cls}" style="margin-left:6px">7d: ${change7d >= 0 ? '+' : ''}${change7d.toFixed(2)}%</span>
+      </div>
+      <div class="grid-3">
+        <div class="stat-card"><div class="label">市值</div><div class="value">${formatCurrency(coin.market_data.market_cap.usd)}</div></div>
+        <div class="stat-card"><div class="label">24h交易量</div><div class="value">${formatCurrency(coin.market_data.total_volume.usd)}</div></div>
+        <div class="stat-card"><div class="label">历史最高</div><div class="value gold">$${ath.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div></div>
+      </div>
+      <div class="grid-2" style="margin-top:8px">
+        <div class="stat-card"><div class="label">24h最低</div><div class="value">$${coin.market_data.low_24h.usd.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div></div>
+        <div class="stat-card"><div class="label">24h最高</div><div class="value">$${coin.market_data.high_24h.usd.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div></div>
+      </div>
+      ${coin.description && coin.description.zh ? `<div class="desc-box">${coin.description.zh}</div>` : ''}
+      ${coin.description && coin.description.en && !coin.description.zh ? `<div class="desc-box">${coin.description.en}</div>` : ''}
+    </div>`;
+}
+
+async function fetchCoin(id){
+  const query = id.trim().toLowerCase();
+  if(!query){ showError('请输入币名或ID'); return; }
+  loading();
+  try{
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${query}?localization=false&tickers=false&community_data=false&developer_data=false`);
+    if(!res.ok) throw new Error(res.status === 404 ? '未找到该币种' : '请求失败 ('+res.status+')');
+    const data = await res.json();
+    renderCoin(data);
+  }catch(e){
+    showError('数据加载失败: '+e.message);
+  }
+}
+
+searchBtn.addEventListener('click', () => fetchCoin(searchInput.value));
+searchInput.addEventListener('keydown', e => { if(e.key === 'Enter') fetchCoin(searchInput.value); });
+
+initSuggestions();
+fetchCoin('bitcoin');
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

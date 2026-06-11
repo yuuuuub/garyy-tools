@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✨ 名字生成器 - Gary's Tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;outline:none;cursor:pointer;min-width:120px}
+select:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.name-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:12px}
+.name-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.name-item:hover{border-color:var(--blue);transform:translateY(-2px)}
+.name-item .name-text{font-size:1rem;font-weight:600;margin-bottom:2px}
+.name-item .name-sub{font-size:.7rem;color:var(--text2)}
+.name-item .copy-hint{position:absolute;top:-8px;right:-8px;background:var(--green);color:#fff;font-size:.6rem;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity .2s}
+.name-item:hover .copy-hint{opacity:1}
+.param-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.param-row label{font-size:.82rem;color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>✨ 名字生成器</h1>
+<p>随机生成各类名字</p>
+</header>
+<div class="card">
+<div class="card-title">选择类型和风格</div>
+<div class="param-row">
+<select id="nameType">
+<option value="english">英文名</option>
+<option value="chinese">中文名</option>
+<option value="nickname">网名</option>
+<option value="username">用户名</option>
+</select>
+<select id="nameStyle">
+<option value="cute">可爱</option>
+<option value="cool">酷</option>
+<option value="literary">文艺</option>
+<option value="simple">简洁</option>
+</select>
+</div>
+<div class="btn-group">
+<button id="genBtn">🎲 生成名字</button>
+</div>
+<div id="resultArea" style="display:none">
+<div class="name-grid" id="nameGrid"></div>
+<div style="text-align:center;margin-top:8px"><span style="font-size:.7rem;color:var(--text2)">💡 点击名字可复制</span></div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var nameType=document.getElementById('nameType');
+var nameStyle=document.getElementById('nameStyle');
+var genBtn=document.getElementById('genBtn');
+var resultArea=document.getElementById('resultArea');
+var nameGrid=document.getElementById('nameGrid');
+
+var DATA={
+  english:{
+    cute:{first:['Luna','Milo','Coco','Bella','Daisy','Ollie','Ruby','Zoe','Finn','Nala','Leo','Mia','Kiki','Lily','Blue'],last:['Star','Moon','Rain','Sky','Flower','Dream','Sun','Cloud','Honey','Petal']},
+    cool:{first:['Blaze','Rex','Onyx','Storm','Viper','Shadow','Phoenix','Raven','Jett','Axel','Zara','Nova','Kane','Drex','Slade'],last:['Blade','Fury','Strike','Wolf','Steel','Dark','Thunder','Viper','Fang','Storm']},
+    literary:{first:['Atticus','Eloise','Caspian','Aurora','Everett','Ophelia','Julian','Celeste','Felix','Iris','Theo','Hazel','Silas','Violet','Asher'],last:['Wilde','Frost','Ashford','Swan','Brooke','Lane','Sage','Quill','Wren','Day']},
+    simple:{first:['Max','Eva','Alex','Lea','Noah','Amy','Ryan','Ella','Jack','Tina','Sam','June','Ben','Kai','Ray'],last:['Lee','Fox','Reed','Nash','Cole','Blake','Wells','Gray','Quinn','Hart']}
+  },
+  chinese:{
+    cute:{first:['小萌','小可','糖糖','朵朵','果果','妮妮','贝贝','团团','乐乐','甜甜','芊芊','依依','丫丫','豆豆','嘟嘟'],last:['周','王','李','张','刘','陈','杨','黄','赵','吴','林','郑','孙','沈','何']},
+    cool:{first:['子轩','昊天','梓涵','宇航','俊杰','志远','天翔','文博','云龙','浩然','睿辰','明哲','泽宇','鸿涛','凯风'],last:['龙','战','铁','金','雷','风','云','天','武','威']},
+    literary:{first:['清韵','墨竹','若汐','语嫣','梦溪','书瑶','文茵','芷若','婉清','知秋','雨桐','雪霁','云舒','静言','素心'],last:['沈','顾','苏','白','林','叶','江','柳','梅','兰']},
+    simple:{first:['一凡','小明','小华','丽丽','大军','小燕','建华','志强','秀英','伟民','小伟','芳芳','文杰','丽华','建国'],last:['王','李','张','刘','陈','杨','黄','赵','吴','周']}
+  },
+  nickname:{
+    cute:{pre:['小','萌萌','甜甜','软软','猫猫','兔兔','果果','糖糖','蜜蜜','星星'],suf:['酱','子','儿','宝贝','公主','天使','糖果','小可爱','小甜心','团子']},
+    cool:{pre:['暗夜','冷酷','风暴','孤狼','烈焰','灭世','暗影','绝杀','天罚','狂战'],suf:['之王','主宰','使者','刺客','之刃','行者','猎人','战神','骑士','恶魔']},
+    literary:{pre:['梦里','清风','浅唱','流年','墨染','听雨','花开','半夏','浮生','若水'],suf:['知秋','如烟','未央','微凉','听风','映雪','嫣然','轻吟','默语','无痕']},
+    simple:{pre:['简','单','一','阿','小','大','老','艾','阿','夏'],suf:['然','风','阳','光','月','亮','星','辰','云','朵']}
+  },
+  username:{
+    cute:{pre:['cute','sweet','happy','lovely','sunny','bunny','cherry','honey','mochi','panda'],suf:['_girl','_bear','_star','_love','_cake','_cat','_dot','_dew','_bliss','_pearl']},
+    cool:{pre:['dark','shadow','storm','blaze','venom','cyber','neo','xeno','void','zero'],suf:['_king','_wolf','_x','_core','_hunter','_blade','_reaper','_strike','_fx','_pro']},
+    literary:{pre:['luna','poet','muse','echo','drift','sol','noir','sage','pixel','quill'],suf:['_writes','_dreams','_tales','_verse','_notes','_mood','_vibes','_aura','_lens','_scapes']},
+    simple:{pre:['mr','ms','its','hey','hi','go','the','my','_','just'],suf:['_dev','_me','_life','_101','_time','_24','_now','_app','_web','_io']}
+  }
+};
+
+function generate(){
+  var type=nameType.value;
+  var style=nameStyle.value;
+  var data=DATA[type][style];
+  if(!data)return;
+  var names=[];
+  for(var i=0;i<20;i++){
+    if(type==='nickname' || type==='username'){
+      var pre=data.pre[Math.floor(Math.random()*data.pre.length)];
+      var suf=data.suf[Math.floor(Math.random()*data.suf.length)];
+      names.push(pre+suf);
+    }else{
+      var first=data.first[Math.floor(Math.random()*data.first.length)];
+      var last=data.last[Math.floor(Math.random()*data.last.length)];
+      names.push(last+' '+first);
+    }
+  }
+  names=Array.from(new Set(names)).slice(0,20);
+  resultArea.style.display='block';
+  nameGrid.innerHTML=names.map(function(n){
+    return '<div class="name-item" onclick="copyName(this)"><div class="name-text">'+escapeHtml(n)+'</div><div class="name-sub">点击复制</div><span class="copy-hint">复制</span></div>';
+  }).join('');
+}
+
+function escapeHtml(str){
+  var div=document.createElement('div');
+  div.textContent=str;
+  return div.innerHTML;
+}
+
+window.copyName=function(el){
+  var text=el.querySelector('.name-text').textContent;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){
+      var hint=el.querySelector('.copy-hint');
+      hint.textContent='已复制!';
+      hint.style.opacity='1';
+      setTimeout(function(){hint.textContent='复制';hint.style.opacity='';},1500);
+    });
+  }
+};
+
+genBtn.addEventListener('click',generate);
+generate();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

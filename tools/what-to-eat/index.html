@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍜 今天吃什么 - Gary's Tools</title>
+<meta name="description" content="选择困难终结者！随机推荐今天吃什么，支持中餐、快餐、面食、火锅、日料等多种模式，夏天还有清凉推荐">
+<style>
+:root{--bg:#fff9f0;--card:#fff;--text:#3d2c1e;--text2:#8b7355;--accent:#e07b39;--green:#5da04e;--border:#f0d9c6;--radius:16px}
+[data-theme="dark"]{--bg:#1a1510;--card:#2a1e15;--text:#e8d5c0;--text2:#a09080;--border:#3d2a18}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.container{max-width:460px;width:100%;text-align:center}
+h1{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.subtitle{color:var(--text2);font-size:.85rem;margin-bottom:24px}
+.wheel-area{position:relative;width:280px;height:280px;margin:0 auto 24px}
+.wheel{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;border:3px solid var(--border);transition:transform 3s cubic-bezier(.25,.1,.25,1)}
+.wheel-segment{position:absolute;width:50%;height:50%;transform-origin:100% 100%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;cursor:default}
+.pointer{position:absolute;top:-15px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-top:25px solid var(--accent);z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:32px 24px;margin-bottom:16px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+.result-icon{font-size:4rem;display:block;margin-bottom:8px;animation:bounce .6s ease-out}
+@keyframes bounce{0%{transform:scale(0)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+.result-name{font-size:1.6rem;font-weight:800;margin-bottom:4px}
+.result-cal{font-size:.85rem;color:var(--text2)}
+.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.mode-btn{padding:12px 8px;border:2px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.mode-btn:hover{border-color:var(--accent)}
+.mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-spin{width:100%;padding:16px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--accent),#d35400);color:#fff;font-size:1.1rem;font-weight:800;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:1px}
+.btn-spin:hover{transform:scale(1.02)}
+.btn-spin:active{transform:scale(.98)}
+.btn-spin:disabled{opacity:.6;cursor:not-allowed}
+footer{text-align:center;padding:16px 0;color:var(--text2);font-size:.7rem}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🍜 今天吃什么</h1>
+<p class="subtitle">选择困难终结者 · 夏天清凉推荐</p>
+
+<div class="mode-grid" id="modeGrid"></div>
+
+<div class="result-card">
+<span class="result-icon" id="resultIcon">🤔</span>
+<div class="result-name" id="resultName">点击下方按钮</div>
+<div class="result-cal" id="resultCal">随机推荐今天吃什么</div>
+</div>
+
+<button class="btn-spin" id="spinBtn" onclick="spin()">🎲 帮我决定！</button>
+<footer>仅供参考 · 吃什么都开心 😋</footer>
+</div>
+
+<script>
+const MODES={
+all:{name:'全部',foods:[
+{n:'黄焖鸡米饭',e:'🍗',cal:'~600kcal'},
+{n:'兰州拉面',e:'🍜',cal:'~550kcal'},
+{n:'麻辣烫',e:'🥘',cal:'~500kcal'},
+{n:'沙县小吃',e:'🥟',cal:'~450kcal'},
+{n:'汉堡薯条',e:'🍔',cal:'~700kcal'},
+{n:'寿司拼盘',e:'🍣',cal:'~400kcal'},
+{n:'螺蛳粉',e:'🍲',cal:'~550kcal'},
+{n:'凉皮肉夹馍',e:'🥙',cal:'~500kcal'},
+{n:'煲仔饭',e:'🍚',cal:'~650kcal'},
+{n:'披萨',e:'🍕',cal:'~700kcal'},
+{n:'麻辣香锅',e:'🔥',cal:'~650kcal'},
+{n:'日式拉面',e:'🍥',cal:'~550kcal'},
+]},
+summer:{name:'☀️ 夏天推荐',foods:[
+{n:'凉皮+肉夹馍',e:'🥙',cal:'~500kcal'},
+{n:'冷面',e:'🍝',cal:'~400kcal'},
+{n:'凉拌菜拼盘',e:'🥗',cal:'~300kcal'},
+{n:'绿豆汤+小笼包',e:'🥟',cal:'~400kcal'},
+{n:'酸辣粉',e:'🍜',cal:'~450kcal'},
+{n:'越南春卷',e:'🫔',cal:'~350kcal'},
+{n:'水果沙拉',e:'🍉',cal:'~250kcal'},
+{n:'冰粥+烧饼',e:'🍧',cal:'~400kcal'},
+{n:'过桥米线',e:'🍲',cal:'~500kcal'},
+{n:'椰子鸡',e:'🥥',cal:'~450kcal'},
+]},
+rice:{name:'🍚 米饭类',foods:[
+{n:'黄焖鸡米饭',e:'🍗',cal:'~600kcal'},
+{n:'煲仔饭',e:'🍚',cal:'~650kcal'},
+{n:'蛋炒饭',e:'🍳',cal:'~550kcal'},
+{n:'红烧牛肉饭',e:'🥩',cal:'~650kcal'},
+{n:'宫保鸡丁饭',e:'🥜',cal:'~600kcal'},
+{n:'卤肉饭',e:'🍖',cal:'~700kcal'},
+{n:'照烧鸡腿饭',e:'🍗',cal:'~550kcal'},
+{n:'鱼香肉丝饭',e:'🐟',cal:'~600kcal'},
+]},
+noodle:{name:'🍜 面食类',foods:[
+{n:'兰州拉面',e:'🍜',cal:'~550kcal'},
+{n:'炸酱面',e:'🥒',cal:'~500kcal'},
+{n:'重庆小面',e:'🌶️',cal:'~450kcal'},
+{n:'油泼面',e:'🫓',cal:'~550kcal'},
+{n:'板面',e:'🍝',cal:'~600kcal'},
+{n:'馄饨',e:'🥟',cal:'~400kcal'},
+{n:'热干面',e:'🍜',cal:'~500kcal'},
+{n:'饺子',e:'🥟',cal:'~450kcal'},
+]},
+hotpot:{name:'🍲 火锅/锅类',foods:[
+{n:'重庆火锅',e:'🔥',cal:'~800kcal'},
+{n:'椰子鸡火锅',e:'🥥',cal:'~500kcal'},
+{n:'麻辣烫',e:'🥘',cal:'~500kcal'},
+{n:'麻辣香锅',e:'🌶️',cal:'~650kcal'},
+{n:'串串香',e:'🍢',cal:'~600kcal'},
+{n:'寿喜锅',e:'🥩',cal:'~550kcal'},
+{n:'酸菜鱼',e:'🐟',cal:'~500kcal'},
+{n:'毛血旺',e:'🌶️',cal:'~700kcal'},
+]},
+fast:{name:'🍔 快餐',foods:[
+{n:'汉堡套餐',e:'🍔',cal:'~700kcal'},
+{n:'炸鸡',e:'🍗',cal:'~650kcal'},
+{n:'披萨',e:'🍕',cal:'~700kcal'},
+{n:'三明治',e:'🥪',cal:'~400kcal'},
+{n:'taco',e:'🌮',cal:'~350kcal'},
+{n:'热狗',e:'🌭',cal:'~450kcal'},
+{n:'鸡肉卷',e:'🌯',cal:'~500kcal'},
+{n:'沙拉碗',e:'🥗',cal:'~300kcal'},
+]},
+};
+
+let activeMode='summer',spinning=false;
+
+function renderModes(){
+document.getElementById('modeGrid').innerHTML=Object.entries(MODES).map(([k,v])=>`<button class="mode-btn${k===activeMode?' active':''}" onclick="switchMode('${k}')">${v.name}</button>`).join('');
+}
+
+function switchMode(m){activeMode=m;renderModes();}
+
+function spin(){
+if(spinning)return;
+spinning=true;
+const btn=document.getElementById('spinBtn');
+btn.disabled=true;
+btn.textContent='🎰 转一转...';
+
+const foods=MODES[activeMode].foods;
+const pick=foods[Math.floor(Math.random()*foods.length)];
+
+// Animate
+const icon=document.getElementById('resultIcon');
+const name=document.getElementById('resultName');
+const cal=document.getElementById('resultCal');
+
+let i=0;
+const interval=setInterval(()=>{
+const tmp=foods[Math.floor(Math.random()*foods.length)];
+icon.textContent=tmp.e;name.textContent=tmp.n;cal.textContent=tmp.cal;
+i++;
+if(i>=15){clearInterval(interval);
+icon.textContent=pick.e;name.textContent=pick.n;cal.textContent=pick.cal;
+icon.classList.remove('bounce');void icon.offsetWidth;icon.classList.add('bounce');
+spinning=false;btn.disabled=false;btn.textContent='🎲 帮我决定！';
+}
+},150);
+}
+
+renderModes();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

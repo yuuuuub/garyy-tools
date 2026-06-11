@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心情记录 - garyy-tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.85rem}
+button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+button:hover{opacity:.85}
+input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-gold{background:var(--gold);color:#000}
+.mood-grid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+.mood-btn{width:60px;height:60px;border-radius:12px;border:2px solid var(--border);background:var(--bg);font-size:1.8rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.mood-btn:hover{border-color:var(--blue);transform:scale(1.1)}
+.mood-btn.active{border-color:var(--gold);background:rgba(245,158,11,.15);transform:scale(1.1)}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px}
+.cal-header{text-align:center;font-size:.75rem;color:var(--text2);padding:4px 0;font-weight:500}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:.8rem;background:var(--bg);position:relative;cursor:default}
+.cal-day.other{opacity:.2}
+.cal-day.today{border:1px solid var(--blue)}
+.cal-day .mood-emoji{font-size:1rem}
+.cal-day .day-num{font-size:.7rem;color:var(--text2)}
+.stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.stat-item{flex:1;min-width:80px;text-align:center;background:var(--bg);border-radius:8px;padding:10px 6px;border:1px solid var(--border)}
+.stat-item .emoji{font-size:1.2rem}
+.stat-item .count{font-size:.85rem;margin-top:2px;color:var(--text)}
+.note-area{margin-top:12px}
+.note-area textarea{height:70px;resize:vertical;font-size:.85rem}
+.month-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.month-nav .month-label{font-size:.95rem;font-weight:500}
+.month-nav button{font-size:.8rem;padding:5px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer}
+.month-nav button:hover{background:var(--card)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>😊 心情记录</h1>
+<div class="sub">每日心情追踪</div>
+</header>
+
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:6px">今天心情怎么样？</h3>
+<div class="mood-grid" id="moodGrid"></div>
+<div class="note-area">
+<textarea id="moodNote" placeholder="可选备注..." maxlength="200"></textarea>
+</div>
+<div style="text-align:center;margin-top:10px">
+<button class="btn-green" id="btnSaveMood">保存今天心情</button>
+</div>
+<div id="todayStatus" style="text-align:center;margin-top:8px;font-size:.85rem;color:var(--text2)"></div>
+</div>
+
+<div class="card">
+<div class="month-nav">
+<button id="prevMonth">&lt; 上月</button>
+<span class="month-label" id="monthLabel"></span>
+<button id="nextMonth">下月 &gt;</button>
+</div>
+<div class="calendar" id="calendar"></div>
+<div style="margin-top:14px">
+<h4 style="font-size:.85rem;color:var(--text2);margin-bottom:8px">本月心情统计</h4>
+<div class="stat-row" id="statRow"></div>
+</div>
+</div>
+</div>
+
+<script src="../i18n.js"></script>
+<script>
+(function(){
+'use strict';
+const MOODS=[
+{emoji:'😊',label:'开心'},
+{emoji:'😐',label:'一般'},
+{emoji:'😢',label:'难过'},
+{emoji:'😡',label:'生气'},
+{emoji:'😴',label:'困倦'},
+{emoji:'😰',label:'焦虑'},
+{emoji:'🥳',label:'兴奋'},
+{emoji:'🤒',label:'生病'},
+];
+
+let records=JSON.parse(localStorage.getItem('garyy_moods')||'{}');
+let selectedMood=null;
+let currentYear,currentMonth;
+
+function initDate(){
+const d=new Date();
+currentYear=d.getFullYear();
+currentMonth=d.getMonth();
+}
+
+function save(){
+localStorage.setItem('garyy_moods',JSON.stringify(records));
+}
+
+function todayStr(){
+return new Date().toISOString().slice(0,10);
+}
+
+function renderMoodGrid(){
+const grid=document.getElementById('moodGrid');
+grid.innerHTML='';
+const today=records[todayStr()];
+MOODS.forEach(function(m,idx){
+const btn=document.createElement('button');
+btn.className='mood-btn';
+btn.textContent=m.emoji;
+btn.title=m.label;
+if(today&&today.mood===m.emoji){
+btn.classList.add('active');
+selectedMood=m.emoji;
+}
+btn.addEventListener('click',function(){
+grid.querySelectorAll('.mood-btn').forEach(function(b){b.classList.remove('active');});
+this.classList.add('active');
+selectedMood=m.emoji;
+});
+grid.appendChild(btn);
+});
+}
+
+function renderTodayStatus(){
+const today=records[todayStr()];
+const el=document.getElementById('todayStatus');
+if(today){
+el.textContent='今天的心情: '+today.mood+' '+today.note;
+document.getElementById('moodNote').value=today.note||'';
+}else{
+el.textContent='今天还没记录心情';
+}
+}
+
+function saveMood(){
+if(!selectedMood){
+alert('请选择一个心情');
+return;
+}
+const note=document.getElementById('moodNote').value.trim();
+records[todayStr()]={mood:selectedMood,note:note,date:todayStr()};
+save();
+renderTodayStatus();
+renderCalendar();
+renderStats();
+}
+
+function renderCalendar(){
+const cal=document.getElementById('calendar');
+cal.innerHTML='';
+const headers=['日','一','二','三','四','五','六'];
+headers.forEach(function(h){
+const div=document.createElement('div');
+div.className='cal-header';
+div.textContent=h;
+cal.appendChild(div);
+});
+
+const firstDay=new Date(currentYear,currentMonth,1).getDay();
+const daysInMonth=new Date(currentYear,currentMonth+1,0).getDate();
+const today=todayStr();
+
+for(let i=0;i<firstDay;i++){
+const div=document.createElement('div');
+div.className='cal-day other';
+cal.appendChild(div);
+}
+
+for(let d=1;d<=daysInMonth;d++){
+const dateStr=currentYear+'-'+String(currentMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+const div=document.createElement('div');
+div.className='cal-day';
+if(dateStr===today)div.classList.add('today');
+if(records[dateStr]){
+const span=document.createElement('span');
+span.className='mood-emoji';
+span.textContent=records[dateStr].mood;
+div.appendChild(span);
+}else{
+const span=document.createElement('span');
+span.className='day-num';
+span.textContent=d;
+div.appendChild(span);
+}
+cal.appendChild(div);
+}
+
+const totalCells=firstDay+daysInMonth;
+const remainder=totalCells%7;
+if(remainder>0){
+for(let i=0;i<7-remainder;i++){
+const div=document.createElement('div');
+div.className='cal-day other';
+cal.appendChild(div);
+}
+}
+
+document.getElementById('monthLabel').textContent=currentYear+'年'+(currentMonth+1)+'月';
+}
+
+function renderStats(){
+const row=document.getElementById('statRow');
+const counts={};
+MOODS.forEach(function(m){counts[m.emoji]=0;});
+
+for(const date in records){
+const d=new Date(date);
+if(d.getFullYear()===currentYear&&d.getMonth()===currentMonth){
+const mood=records[date].mood;
+if(counts[mood]!==undefined)counts[mood]++;
+}
+}
+
+row.innerHTML='';
+MOODS.forEach(function(m){
+if(counts[m.emoji]>0){
+const div=document.createElement('div');
+div.className='stat-item';
+div.innerHTML='<div class="emoji">'+m.emoji+'</div><div class="count">'+counts[m.emoji]+'次</div>';
+row.appendChild(div);
+}
+});
+if(row.children.length===0){
+row.innerHTML='<div style="color:var(--text2);font-size:.85rem;text-align:center;width:100%;padding:10px">本月暂无记录</div>';
+}
+}
+
+function prevMonth(){
+currentMonth--;
+if(currentMonth<0){currentMonth=11;currentYear--;}
+renderCalendar();
+renderStats();
+}
+
+function nextMonth(){
+currentMonth++;
+if(currentMonth>11){currentMonth=0;currentYear++;}
+renderCalendar();
+renderStats();
+}
+
+document.getElementById('btnSaveMood').addEventListener('click',saveMood);
+document.getElementById('prevMonth').addEventListener('click',prevMonth);
+document.getElementById('nextMonth').addEventListener('click',nextMonth);
+
+initDate();
+renderMoodGrid();
+renderTodayStatus();
+renderCalendar();
+renderStats();
+})();
+</script>
+</body>
+</html>

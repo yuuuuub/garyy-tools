@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐉 端午粽子热量计算 - Gary's Tools</title>
+<meta name="description" content="计算端午节不同种类粽子的热量和营养成分，帮你科学吃粽不长胖">
+<style>
+:root{--bg:#fdf6e3;--card:#fff;--text:#4a3520;--text2:#8b7355;--accent:#d97706;--green:#059669;--red:#dc2626;--bamboo:#65a30d;--border:#fde68a;--radius:14px;--shadow:0 2px 16px rgba(0,0,0,.06)}
+[data-theme="dark"]{--bg:#1a1510;--card:#2a2018;--text:#e8dcc8;--text2:#a09080;--border:#4a3020}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;-webkit-font-smoothing:antialiased;background-image:radial-gradient(ellipse at 80% 10%,rgba(101,163,13,.08) 0,transparent 50%)}
+.container{max-width:500px;margin:0 auto}
+header{text-align:center;padding:32px 0 20px}
+header h1{font-size:1.7rem;font-weight:800;background:linear-gradient(135deg,#65a30d,#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h3{font-size:1rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.zongzi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.zongzi-item{background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:all .2s}
+.zongzi-item:hover{border-color:var(--accent);transform:translateY(-2px)}
+.zongzi-item.selected{border-color:var(--accent);background:rgba(217,119,6,.05)}
+.zongzi-item .z-icon{font-size:2rem;display:block;margin-bottom:4px}
+.zongzi-item .z-name{font-size:.85rem;font-weight:600;margin-bottom:2px}
+.zongzi-item .z-cal{font-size:.75rem;color:var(--text2)}
+.counter{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0}
+.counter button{width:44px;height:44px;border-radius:50%;border:2px solid var(--border);background:var(--bg);color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .2s}
+.counter button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.counter .count{font-size:2rem;font-weight:800;min-width:50px;text-align:center}
+.nutrition-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.nutri-item{background:var(--bg);border-radius:10px;padding:12px;text-align:center}
+.nutri-item .val{font-size:1.2rem;font-weight:700}
+.nutri-item .lab{font-size:.7rem;color:var(--text2)}
+.nutri-item .bar{height:4px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
+.nutri-item .bar-fill{height:100%;border-radius:2px;transition:width .3s}
+.warning{background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:10px;padding:12px;font-size:.82rem;color:var(--red);line-height:1.6;margin-top:12px}
+.dragon-fact{background:rgba(101,163,13,.06);border:1px solid rgba(101,163,13,.2);border-radius:10px;padding:12px;font-size:.82rem;color:var(--green);line-height:1.6;margin-top:8px}
+.fun-compare{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.fun-item{display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:.8rem}
+.fun-item .fi-val{font-weight:700;color:var(--accent)}
+footer{text-align:center;padding:24px 0;color:var(--text2);font-size:.7rem}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🐉 端午粽子热量计算器</h1>
+<p>科学吃粽 · 热量可控 · 粽子节快乐</p>
+</header>
+
+<div class="card">
+<h3>🥟 选择粽子种类</h3>
+<div class="zongzi-grid" id="zongziGrid"></div>
+<div class="counter">
+<button onclick="changeCount(-1)">−</button>
+<div class="count" id="countNum">1</div>
+<button onclick="changeCount(1)">+</button>
+<span style="font-size:.85rem;color:var(--text2)">个</span>
+</div>
+</div>
+
+<div class="card">
+<h3>📊 热量分析</h3>
+<div class="nutrition-grid" id="nutritionGrid">
+<div class="nutri-item"><div class="val" id="totalCal" style="color:var(--accent)">0</div><div class="lab">总热量 (kcal)</div><div class="bar"><div class="bar-fill" id="calBar" style="background:var(--accent);width:0%"></div></div></div>
+<div class="nutri-item"><div class="val" id="totalFat" style="color:var(--red)">0g</div><div class="lab">脂肪</div><div class="bar"><div class="bar-fill" id="fatBar" style="background:var(--red);width:0%"></div></div></div>
+<div class="nutri-item"><div class="val" id="totalCarb" style="color:var(--bamboo)">0g</div><div class="lab">碳水化合物</div><div class="bar"><div class="bar-fill" id="carbBar" style="background:var(--bamboo);width:0%"></div></div></div>
+<div class="nutri-item"><div class="val" id="totalProtein" style="color:var(--green)">0g</div><div class="lab">蛋白质</div><div class="bar"><div class="bar-fill" id="proteinBar" style="background:var(--green);width:0%"></div></div></div>
+</div>
+<div id="warning" class="warning" style="display:none"></div>
+<div class="fun-compare" id="funCompare"></div>
+<div class="dragon-fact" id="dragonFact">🐲 <strong>端午小知识：</strong>端午节最早是为了纪念爱国诗人屈原，距今已有2300多年历史。</div>
+</div>
+<footer>数据为常见粽子平均值 · 实际热量因大小而异 🎋</footer>
+</div>
+
+<script>
+const ZONGZI=[
+{name:'蛋黄肉粽',icon:'🥚',cal:350,fat:12,carb:45,protein:10},
+{name:'鲜肉粽',icon:'🥩',cal:320,fat:10,carb:42,protein:9},
+{name:'豆沙粽',icon:'🫘',cal:280,fat:5,carb:55,protein:6},
+{name:'蜜枣粽',icon:'🫒',cal:260,fat:4,carb:52,protein:5},
+{name:'白米粽',icon:'🍚',cal:200,fat:2,carb:45,protein:4},
+{name:'八宝粽',icon:'🥜',cal:300,fat:8,carb:48,protein:8},
+{name:'紫薯粽',icon:'🟣',cal:230,fat:3,carb:46,protein:5},
+{name:'水晶粽',icon:'💎',cal:180,fat:1,carb:42,protein:2},
+];
+
+let selectedIdx=0,count=1;
+
+const $=id=>document.getElementById(id);
+
+function renderZongzi(){
+$('zongziGrid').innerHTML=ZONGZI.map((z,i)=>`<div class="zongzi-item${i===selectedIdx?' selected':''}" onclick="selectZongzi(${i})">
+<span class="z-icon">${z.icon}</span>
+<div class="z-name">${z.name}</div>
+<div class="z-cal">约${z.cal}kcal/个</div>
+</div>`).join('');
+}
+
+function selectZongzi(i){selectedIdx=i;renderZongzi();update();}
+function changeCount(d){count=Math.max(1,Math.min(20,count+d));$('countNum').textContent=count;update();}
+
+function update(){
+const z=ZONGZI[selectedIdx];
+const tc=z.cal*count,tf=z.fat*count,tcb=z.carb*count,tp=z.protein*count;
+const dailyCal=2000,dailyFat=60,dailyCarb=250,dailyProtein=60;
+
+$('totalCal').textContent=tc;$('calBar').style.width=Math.min(100,tc/dailyCal*100)+'%';
+$('totalFat').textContent=tf+'g';$('fatBar').style.width=Math.min(100,tf/dailyFat*100)+'%';
+$('totalCarb').textContent=tcb+'g';$('carbBar').style.width=Math.min(100,tcb/dailyCarb*100)+'%';
+$('totalProtein').textContent=tp+'g';$('proteinBar').style.width=Math.min(100,tp/dailyProtein*100)+'%';
+
+// Warning
+const warn=$('warning');
+if(count>=3)warn.style.display='block',warn.innerHTML='⚠️ <strong>注意：</strong>'+count+'个粽子热量已相当于'+Math.round(tc/500*10)/10+'碗米饭，建议分餐食用，搭配蔬菜水果更健康！';
+else if(count>=2)warn.style.display='block',warn.innerHTML='💡 '+count+'个粽子热量适中，建议搭配一杯绿茶帮助消化。';
+else warn.style.display='none';
+
+// Fun compare
+$('funCompare').innerHTML='';
+const compares=[{label:'🍚 相当于',unit:'碗米饭',val:tc/116,fix:1},{label:'🏃 跑步消耗',unit:'分钟',val:tc/10,fix:0},{label:'🚴 骑车消耗',unit:'分钟',val:tc/7,fix:0},{label:'🏊 游泳消耗',unit:'分钟',val:tc/8,fix:0}];
+compares.forEach(c=>{
+$('funCompare').innerHTML+=`<div class="fun-item"><span>${c.label}</span><span class="fi-val">${(c.val).toFixed(c.fix)} ${c.unit}</span></div>`;
+});
+
+// Save
+localStorage.setItem('dragon-boat',JSON.stringify({idx:selectedIdx,count}));
+}
+
+try{
+const d=JSON.parse(localStorage.getItem('dragon-boat'));
+if(d){selectedIdx=d.idx;count=d.count;$('countNum').textContent=count;}
+}catch(e){}
+
+// Dragon facts random
+const facts=['🐲 赛龙舟是端午节最重要的民俗活动之一，已有2000多年历史。','🎋 古人认为端午是"毒日"，所以有挂艾草、喝雄黄酒的习俗。','📜 屈原在公元前278年投汨罗江，人们为了不让鱼虾吃他的身体，便包粽子投入江中。','🌿 粽叶一般用箬竹叶或芦苇叶，清香能渗入糯米中。'];
+$('dragonFact').innerHTML='🐲 <strong>端午小知识：</strong>'+facts[Math.floor(Math.random()*facts.length)];
+
+renderZongzi();update();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

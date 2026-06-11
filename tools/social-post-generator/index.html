@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📱 朋友圈文案生成器</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --text-secondary: #666;
+    --border: #e0e0e0;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --tag-bg: #eef2ff;
+    --tag-text: #4338ca;
+    --preview-bg: #fafafa;
+    --input-bg: #fff;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --crazy-bg: linear-gradient(135deg, #fef2f2, #fdf2f8, #f0f9ff);
+  }
+  [data-theme="dark"] {
+    --bg: #1a1a2e;
+    --card-bg: #16213e;
+    --text: #e8e8e8;
+    --text-secondary: #a0a0b8;
+    --border: #2a2a4a;
+    --accent: #818cf8;
+    --accent-hover: #6366f1;
+    --tag-bg: #1e1b4b;
+    --tag-text: #a5b4fc;
+    --preview-bg: #0f3460;
+    --input-bg: #1a1a2e;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    --crazy-bg: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+  .container { max-width: 540px; margin: 0 auto; padding: 16px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0;
+  }
+  header h1 { font-size: 22px; font-weight: 700; }
+  .theme-toggle {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 50%; width: 40px; height: 40px; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+  .card {
+    background: var(--card-bg); border-radius: 16px;
+    padding: 20px; margin-bottom: 16px;
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+  }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .scene-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .scene-tag {
+    padding: 10px 6px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--card-bg); cursor: pointer; text-align: center;
+    font-size: 13px; transition: all 0.2s; user-select: none;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .scene-tag:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.15); }
+  .scene-tag.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .scene-tag .icon { font-size: 20px; }
+  .input-group { margin-bottom: 12px; }
+  .input-group:last-child { margin-bottom: 0; }
+  .input-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+  .input-group input {
+    width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--input-bg); color: var(--text); font-size: 14px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .input-group input:focus { border-color: var(--accent); }
+  .input-group input::placeholder { color: #999; }
+  .mode-switch {
+    display: flex; background: var(--bg); border-radius: 12px; padding: 4px; gap: 4px;
+  }
+  .mode-btn {
+    flex: 1; padding: 10px; border: none; border-radius: 10px;
+    cursor: pointer; font-size: 14px; font-weight: 500; background: transparent;
+    color: var(--text-secondary); transition: all 0.2s;
+  }
+  .mode-btn.active { background: var(--card-bg); color: var(--text); box-shadow: 0 2px 6px rgba(0,0,0,0.08); font-weight: 600; }
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+  .btn {
+    flex: 1; padding: 12px; border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+  .btn-outline { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+  .btn-outline:hover { background: var(--accent); color: #fff; }
+  .btn:active { transform: scale(0.97); }
+  .preview-area {
+    min-height: 100px; padding: 16px; border-radius: 12px;
+    background: var(--preview-bg); border: 1px solid var(--border);
+    font-size: 15px; line-height: 1.8; white-space: pre-wrap;
+    word-break: break-word; position: relative;
+  }
+  .preview-area.is-crazy {
+    background: var(--crazy-bg);
+    border-color: var(--accent);
+    border-width: 2px;
+  }
+  .preview-area.is-crazy::before {
+    content: '🤪 发疯模式';
+    position: absolute; top: -12px; right: 12px;
+    background: var(--accent); color: #fff; font-size: 11px;
+    padding: 2px 10px; border-radius: 10px; font-weight: 600;
+  }
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: #1a1a1a; color: #fff; padding: 10px 24px;
+    border-radius: 12px; font-size: 14px; z-index: 100;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  footer { text-align: center; padding: 24px 0; color: var(--text-secondary); font-size: 12px; }
+  @media (max-width: 400px) {
+    .scene-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .scene-tag { padding: 8px 4px; font-size: 12px; }
+    .scene-tag .icon { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📱 朋友圈文案生成器</h1>
+    <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
+  </header>
+
+  <div class="card">
+    <div class="card-title">🎭 选择场景</div>
+    <div class="scene-grid" id="sceneGrid">
+      <button class="scene-tag active" data-scene="food"><span class="icon">🍱</span>晒美食</button>
+      <button class="scene-tag" data-scene="travel"><span class="icon">✈️</span>晒旅行</button>
+      <button class="scene-tag" data-scene="overtime"><span class="icon">💼</span>晒加班</button>
+      <button class="scene-tag" data-scene="selfie"><span class="icon">🤳</span>晒自拍</button>
+      <button class="scene-tag" data-scene="weekend"><span class="icon">🌿</span>晒周末</button>
+      <button class="scene-tag" data-scene="emo"><span class="icon">🥀</span>emo</button>
+      <button class="scene-tag" data-scene="positive"><span class="icon">✨</span>正能量</button>
+      <button class="scene-tag" data-scene="showoff"><span class="icon">👑</span>凡尔赛</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✏️ 自定义参数（可选）</div>
+    <div class="input-group">
+      <label>📍 地点</label>
+      <input type="text" id="location" placeholder="如：三里屯 / 大理 / 办公室">
+    </div>
+    <div class="input-group">
+      <label>🍽️ 食物名 / 事物名</label>
+      <input type="text" id="foodItem" placeholder="如：火锅 / 日出 / 咖啡">
+    </div>
+    <div class="input-group">
+      <label>💬 心情关键词</label>
+      <input type="text" id="mood" placeholder="如：开心 / 疲惫 / 治愈">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎨 文案模式</div>
+    <div class="mode-switch">
+      <button class="mode-btn active" data-mode="normal">😊 正经模式</button>
+      <button class="mode-btn" data-mode="crazy">🤪 发疯模式</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="generateBtn">🎲 生成文案</button>
+      <button class="btn btn-outline" id="copyBtn">📋 一键复制</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👁️ 预览效果</div>
+    <div class="preview-area" id="previewArea">👆 选择场景后点击「生成文案」开始</div>
+  </div>
+
+  <footer>💡 随机抽取文案模板，每次生成都不一样哦</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  const templateDB = {
+    food: [
+      "📍 {location} | {food} 打卡成功 ✅\n这个 {food} 真的绝了，{mood}到飞起！\n吃吃喝喝才是人生终极奥义 ✨\n#吃货的日常 #今天吃什么呢",
+      "没有什么是一顿 {food} 解决不了的 🍽️\n如果有，那就两顿！\n在 {location} 发现宝藏小店，{mood}满分 💯\n#美食探店 #干饭人",
+      "{food} 爱好者狂喜！！！\n{location} 这家我真的会反复去 🏃‍♀️\n每一口都是 {mood} 的味道\n#宝藏店铺 #美食推荐",
+      "今天也是被 {food} 治愈的一天 ☺️\n{location} 的烟火气里藏着最真实的快乐\n吃饱喝足，{mood}值拉满 🔋\n#记录生活 #好好吃饭",
+      "分享图片 —— {food} 🍜\n{location} 的第N次回购\n味道还是那么 {mood}💕\n#我的美食日记",
+      "当 {food} 遇上 {location} 🌟\n化学反应就是两个字：绝了！\n今天心情 {mood}，必须来顿好的犒劳自己\n#犒劳自己 #美食打卡",
+      "深夜放毒 🥘\n{location} 的 {food}，懂得都懂\n{mood} 的一天以美食收尾\n#深夜食堂 #碳水自由",
+      "本 {food} 脑袋今天超满足 🤤\n在 {location} 吃到 {mood} 的一餐\n人间烟火气，最抚凡人心 🏮\n#吃货快乐 #美食分享",
+      "{food} + {location} = 今日份快乐配方 🧪\n每次来都有 {mood} 惊喜\n有些店，值得反复光顾\n#回头客 #好吃不贵",
+      "收藏了很久的 {location} {food} 终于来打卡啦 📌\n果然名不虚传，{mood}得不想说话\n专心干饭！🍚\n#心愿清单 #美食日记",
+      "别人在减肥，我在吃 {food} 🤷\n{location} 真有你的\n美味到让人 {mood}\n#减肥失败 #快乐就好",
+      "今日胃容量：{food} x N 🫡\n{location} 美食地图又点亮一处\n{mood} 的美食之旅永不结束\n#美食地图 #吃遍全城",
+      "一个被 {food} 填满的夜晚 🌙\n{location} 的夜生活从一顿好饭开始\n感受 {mood} 的美食暴击\n#夜生活 #好好吃饭",
+      "🏅 {location} 必吃榜单：{food}\n亲测好吃，{mood}指数爆表\n已经安利给所有朋友了 📢\n#必吃榜 #良心推荐",
+      "世间万物，{food} 和爱不可辜负 ❤️\n{location} 的这顿饭，吃出了 {mood} 的感觉\n珍惜每一顿好饭，珍惜每一天\n#爱生活 #爱美食",
+      "今日 {food} 战绩：光盘！🍽️\n{location} 的师傅手艺真的 {mood}\n吃饱了才有力气生活呀\n#不浪费 #美食治愈",
+      "发现一个规律：每次吃 {food} 都特别 {mood}\n今天在 {location} 也不例外 🎯\n快乐有时候就是这么简单\n#简单快乐 #一人食",
+    ],
+    travel: [
+      "✈️ 抵达 {location}！\n终于来到心心念念的地方\n这里的每帧画面都让人 {mood} 📸\n#旅行日记 #诗和远方",
+      "{location} 的 {food}，值得跨越山海来见 🌊\n所有的疲惫在看到它的瞬间烟消云散\n此时此刻，{mood} 到想哭\n#旅行 #治愈风景",
+      "换个城市，换个心情 🎒\n{location} 的风里有自由的味道\n今天的状态：{mood} 🌿\n#在路上 #说走就走",
+      "{location} 的日落格外温柔 🌅\n配上一杯 {food}，整个人都 {mood} 了\n旅行的意义大概就是这样的时刻吧\n#日落 #旅行碎片",
+      "世界那么大，先去 {location} 看看 👀\n收集地图上每一道风和日丽\n今天也是被美景 {mood} 的一天\n#环游世界 #风景",
+      "🌍 下一站：{location}\n期待遇到 {food} 一样美好的风景\n保持 {mood} 的心情出发\n#旅行计划 #探索",
+      "终于把 {location} 从愿望清单上划掉了 ✅\n这里的 {food} 比想象中还要震撼\n{mood} 的心情难以形容\n#心愿达成 #旅行清单",
+      "一个人在 {location} 闲逛也挺好 🚶\n街角的 {food} 小店，陌生的善意微笑\n享受这种 {mood} 的孤独感\n#独自旅行 #慢生活",
+      "{location} 的阳光会说话 ☀️\n告诉我要 {mood} 地过每一天\n还有 {food} 相伴，完美\n#阳光正好 #旅行时光",
+      "身体和灵魂，总有一个在 {location} 🏔️\n这一刻只觉得 {mood}\n所有奔波都值得\n#旅行感悟 #在路上",
+      "赶最早的飞机，看最美的 {location} ✈️\n清晨的 {food} 和日出同时抵达\n感觉整个人都被 {mood} 填满了\n#早班机 #旅行vlog",
+      "{location} 的后劲太大了 😭\n回来之后脑子里全是那里的 {food}\n和 {mood} 的心情\n#旅行后遗症 #想再去一次",
+      "最好的时光在路上 🛣️\n{location} 教会我的事：\n{something}和 {food} 一样值得珍惜\n保持 {mood} 的心\n#旅行的意义",
+      "特种兵式游 {location} 达成！🫡\n暴走三万步，打卡N个 {food}\n虽然累但是 {mood}！\n#特种兵旅行 #暴走",
+      "{location}，一个来了就 {mood} 的地方 💫\n如果要选最爱的城市，它一定有姓名\n下次还要来看 {food}\n#最爱城市 #还会再来",
+      "带着 {mood} 的心情来 {location} 充电 🔋\n山水之间，{food} 作伴\n这一刻的宁静千金不换\n#充电旅行 #山水之间",
+    ],
+    overtime: [
+      "深夜的 {location}，只有我和电脑 💻\n加完班吃一碗 {food}，{mood} 又满足\n打工人，打工魂 🫡\n#加班日常 #打工人",
+      "今天的班就加到这里吧 🥱\n{location} 的夜景陪我熬夜\n用 {food} 犒劳一下 {mood} 的自己\n#深夜加班 #善待自己",
+      "凌晨 {location}，键盘声此起彼伏 ⌨️\n用一杯 {food} 撑住 {mood} 的精神\n努力的人运气不会太差 🌟\n#奋斗 #加班进行时",
+      "你见过凌晨四点的 {location} 吗？\n我见过，而且经常见 😅\n还好有 {food} 续命，现在感觉 {mood}\n#凌晨 #加油打工人",
+      "{location} 的办公室又只剩我了\n好在有 {food} 陪着我\n做完这个需求就回家，{mood}！✊\n#需求做完了吗 #加班快乐",
+      "加班加到灵魂出窍 👻\n全靠 {food} 吊着一口气\n但想想项目上线后的成就感，好像又 {mood} 了\n#搬砖 #期待上线",
+      "今天的产出：N行代码 + 一杯 {food}\n{location} 加班的夜晚总是特别 {mood}\n但一切都在变好，不是吗？💪\n#程序员日常 #努力",
+      "别人在约会，我在 {location} 加班 💼\n不过这 {food} 还挺好喝的\n{mood} 地继续搬砖\n#单身加班 #无所谓",
+      "{location} 加班人集合！🙋\n赶在ddl前交作业的感觉\n就像喝到冰 {food} 一样 {mood}\n#终于交差 #加班结束",
+      "又是一个和 {food} 相伴的加班夜 🌙\n{location} 窗外万家灯火\n窗内是我 {mood} 的背影\n每份付出都会有回报的\n#深夜奋斗 #相信未来",
+      "把 {location} 的咖啡喝出酒的感觉 ☕\n加班加出了一种 {mood} 的境界\n与 {food} 为伴，与代码共舞 💃\n#加班哲学 #自嗨",
+      "今日 {location} 挑战：不加班挑战失败 ✖️\n但有 {food} 续命，{mood} 值回归\n明天一定有好事发生 🌈\n#明天会更好 #加班日常",
+      "如果加班有段位，我已经是王者 👑\n{location} 见证了我所有的熬夜\n和 {food} 一起撑过又一个 {mood} 的夜晚\n#加班王者 #打工人",
+      "今日加班进度 99.9% 🔋\n{location} 的最后一个离开的人\n用 {food} 庆祝 {mood} 的胜利\n#进度条 #胜利在望",
+      "别人下班我上班，别人睡觉我干活 🧟\n{location} 的月光和 {food} 是加班最佳拍档\n这种 {mood} 的感觉，懂的都懂\n#夜班 #打工魂",
+      "加班到一半发现 {food} 也没了 😱\n{location} 的便利店是这个点唯一的希望\n{mood} 地出门补给\n#社畜日常 #续命补给",
+    ],
+    selfie: [
+      "今日 OOTD 在 {location} 📸\n新发型/新穿搭，心情 {mood}✨\n记录每一个美好的自己\n#今日穿搭 #OOTD",
+      "{location} 的光线也太适合拍照了吧！\n随手拍一张都觉得 {mood} 🌟\n今天的 {food} 妆容好评\n#随手拍 #拍照圣地",
+      "有时候就想在 {location} 安静地待一会 🧘‍♀️\n拍张照记录一下 {mood} 的自己\n不为了取悦谁，自己开心最重要\n#做自己 #爱自己",
+      "今日份营业照已送达 💌\n{location} 的风吹得很 {mood}\n配上一杯 {food}，完美午后\n#营业 #日系照片",
+      "在 {location} 解锁了新的拍照姿势 🎯\n效果意外地 {mood}！\n果然好心情是最好的滤镜\n#拍照姿势 #好心情",
+      "对着 {location} 的镜子咔嚓一张 📱\n今天的我比昨天更 {mood} 一点点\n坚持变好，坚持记录\n#日渐变好 #自我记录",
+      "{location} 拍照小技巧：找到光就行！☀️\n今天拍出了 {mood} 的效果\n加一杯 {food} 当道具，绝了\n#拍照技巧 #巧妙用光",
+      "给自己的生活加点滤镜 📷\n{location} 的随手拍\n不用太精致，{mood} 就好\n#生活碎片 #随拍",
+      "换上新买的衣服去 {location} 拍照啦 👗\n今天的心情：{mood} 💖\n顺便喝一杯 {food}，完美出行\n#新衣服 #开心",
+      "自信的人最好看！✨\n在 {location} 拍了一张 {mood} 的照片\n每个女孩都是自己的女主角\n#自信最美 #女主角",
+      "今日份朋友圈营业 🈺\n{location} 咔嚓一张\n状态：{mood}，续命：{food}\n#日常营业 #美美哒",
+      "把今天的 {mood} 定格在照片里 📸\n{location} 的每一个角落都有故事\n而我的故事里，有 {food} 和你\n#照片故事 #定格美好",
+      "论如何在 {location} 拍出 {mood} 的照片 🤔\n其实答案很简单：多拍！\n顺便安利下今天的 {food}\n#拍照心得 #多拍就会",
+      "忘记修图就发了 🤳\n{location} 原相机直出\n今天的状态还不错，{mood}～\n再喝一口 {food} 压压惊\n#原相机 #无滤镜",
+      "营业！在 {location} 📍\n今天穿搭主题：{food}色系\n效果：{mood}\n#穿搭分享 #色系搭配",
+      "把自己当成{location}最靓的仔 🌟\n虽然可能不是，但 {mood} 就对了\n自信的笑容是最好的 {food}\n#自信 #自我欣赏",
+    ],
+    weekend: [
+      "周末的 {location}，连空气都是甜的 🌿\n睡到自然醒，吃一顿 {food}\n整个人 {mood} 到冒泡泡 🫧\n#周末愉快 #治愈时光",
+      "终于周末了！！🎉\n在 {location} 享受不用看消息的一天\n来一份 {food}，{mood} 指数飙升\n#周末万岁 #双休快乐",
+      "周末就是把烦恼关在门外 🚪\n在 {location} 浪费时间是正经事\n配上一杯 {food}，{mood} 🍃\n#放空 #慢生活",
+      "懒洋洋的周末下午 🌤️\n{location} 的阳光正好\n和 {food} 一起度过 {mood} 的时光\n#惬意午后 #周末时光",
+      "双休是人类最伟大的发明 🏆\n{location} 的周末 = {food} + 床 + {mood}\n不接受反驳\n#周末宅家 #快乐源泉",
+      "周末的 {location} 比平时可爱一百倍 🥰\n因为有时间停下来看看风景\n喝一杯 {food}，感受 {mood} 的小确幸\n#小确幸 #发现美好",
+      "别人周末在蹦迪，我在 {location} 在喝茶 🍵\n一份 {food}，一本书，{mood} 的下午\n这就是我向往的生活\n#安静 #向往的生活",
+      "把一周的疲惫泡在 {location} 的阳光里 ☀️\n用 {food} 治疗内耗\n恢复 {mood} 的状态 💪\n#自我疗愈 #周末充电",
+      "周末的仪式感：{food} + {location} 🌸\n慢悠悠地享受属于自己的时光\n希望你也 {mood}\n#仪式感 #周末仪式",
+      "不上班的周末，空气都变好闻了 🍃\n{location} 散步+ {food} 犒劳自己\n生活就该这样 {mood}\n#不上班的日子 #逍遥",
+      "每到周末就想待在 {location} 不出来 🏡\n有 {food} 有wifi就够\n心情自然 {mood} 到爆\n#宅 #快乐宅",
+      "周末限定快乐：{location} + {food} 🎟️\n积攒了一周的期待终于兑现\n现在整个人 {mood}\n#周末安排 #兑现快乐",
+      "打工暂停，周末启动 ▶️\n目的地：{location}\n补给：{food}\n状态：{mood}\n#周末模式 #能量补给",
+      "趁着周末把 {location} 又逛了一遍 🚶\n发现了新的 {food} 宝藏店\n{mood} 到想唱歌\n#周末探索 #发现宝藏",
+      "周末 is coming! 🌈\n计划：上午 {location}，下午 {food}，全天 {mood}\n安排得明明白白\n#周末计划 #安排",
+      "拥抱没有闹钟的早晨 🤗\n在 {location} 做点无用但 {mood} 的事\n顺便enjoy一份 {food}\n#无闹钟日 #慵懒",
+    ],
+    emo: [
+      "今天的状态：{mood} 🥀\n在 {location} 发了一下午呆\n只有 {food} 懂我\n#emo时间 #需要治愈",
+      "成年人的崩溃都是悄无声息的 😶‍🌫️\n在 {location} 听歌听到流泪\n来一口 {food} 缓一缓\n#深夜emo #没事的",
+      "有时候就是突然很 {mood} 🍂\n什么都不想做，只想在 {location} 待着\n可能来杯 {food} 会好一点\n#情绪低落 #会好的",
+      "耳机里单曲循环，心里 {mood} 泛滥 🌧️\n{location} 的雨和我一样不快乐\n还好有 {food} 续命\n#雨天emo #情绪",
+      "不想说话，不想社交，只想在 {location} 安静待着 🫥\n用 {food} 填满 {mood} 的空白\n今天就这样吧\n#社恐 #需要独处",
+      "快乐是别人的，我只有 {mood} 🥀\n在 {location} 看着人来人往\n至少 {food} 是热的\n#孤独感 #人间观察",
+      "没有为什么，就是 {mood} 了 🌑\n{location} 的夜晚格外漫长\n一杯 {food} 陪我等天亮\n#等天亮 #会过去的",
+      "假装一切都好，其实很 {mood} 🎭\n在 {location} 强撑着微笑\n喝完这杯 {food} 就去睡觉\n#假装快乐 #真实情绪",
+      "今天的电量只剩 1% 🔋\n连走出 {location} 的力气都没有\n勉强喝一口 {food}\n{mood}的一天\n#低电量 #不想动",
+      "也许每个人都有 {mood} 的时候\n不是因为什么事，就是单纯累了\n在 {location} 发发呆，喝喝 {food}\n明天会好起来的 🌤️\n#每个人都不容易 #明天",
+      "把 {mood} 的心情打包留在 {location} 📦\n喝完这杯 {food} 就和坏情绪和解\n允许自己不完美\n#与自己和解 #允许",
+      "{location} 的黄昏让人格外 {mood} 🌅\n思绪像 {food} 的热气一样散开\n今天的情绪有点多\n#黄昏 #情绪碎片",
+      "不装了，今天就是很 {mood} 😮‍💨\n在 {location} 放空自己\n只有 {food} 能暂时安慰\n#不装了 #真实",
+      "世界那么大，我却只想去 {location} 躲起来 🏚️\n带上一杯 {food}\n安静地和 {mood} 相处\n#躲起来 #需要空间",
+      "总有一些日子，丧丧的 😔\n{location} 成了避难所，{food} 成了安慰剂\n接受 {mood}，也是一种勇敢\n#丧 #接受情绪",
+      "给今天的心情打上 {mood} 的标签 🏷️\n在 {location} 慢慢消化所有不开心\n万事皆可 {food} 治愈\n#标签心情 #慢慢来",
+    ],
+    positive: [
+      "在 {location} 找到了今日份能量 ⚡\n保持 {mood}，保持热爱\n每一天都值得被认真对待 ✨\n#正能量 #热爱生活",
+      "今天的 {food} 格外甜，心情也 {mood} 🌞\n在 {location} 感受到满满的能量\n愿你也被世界温柔以待 💫\n#积极向上 #温柔",
+      "生活不会亏待每一个努力的人 💪\n在 {location} 虽然辛苦但 {mood}\n喝一口 {food}，继续加油！\n#奋斗 #不辜负",
+      "做一个 {mood} 的人吧 🦋\n像 {location} 的阳光一样温暖\n像 {food} 一样给人能量\n今天也要元气满满！\n#元气 #温暖",
+      "哪怕世界不那么完美，也选择 {mood} 面对 🌈\n在 {location} 喝一杯 {food}\n心怀感恩，向阳而生\n#向阳而生 #感恩",
+      "相信美好的事情即将发生 ✨\n就像在 {location} 偶遇一杯完美的 {food}\n这种 {mood} 就是生活的小惊喜\n#惊喜 #美好",
+      "凡事发生皆有利于我 🌟\n今天在 {location} 又学到了新东西\n喝着 {food}，保持 {mood} 的心态\n一切都刚刚好\n#成长 #一切刚好",
+      "当你觉得累的时候，说明你在走上坡路 🔝\n在 {location} 虽然忙碌但很 {mood}\n来一杯 {food} 犒劳自己\n#上坡路 #坚持",
+      "你比想象中更强大 💎\n{location} 的每一次挑战都在塑造我\n{食物} 是最好的能量补给\n保持 {mood}，持续前进\n#强大 #可以做到",
+      "今天也要做自己的小太阳 ☀️\n在 {location} 发光发热\n一杯 {food} 一个微笑\n把 {mood} 传递给更多人\n#发光 #微笑",
+      "又是美好的一天！🌻\n{location} 的早晨从一杯 {food} 开始\n保持 {mood} 的心境\n好事正在路上\n#美好 #期待好事",
+      "努力不是为了证明什么，而是不辜负自己 🎯\n在 {location} 的每一天都 {mood}\n{食物} 是我最好的战友\n#不辜负 #每一天",
+      "种一棵树最好的时间是十年前，其次是现在 🌱\n在 {location} 开始新尝试\n喝一杯 {food} 给自己勇气\n感觉 {mood}！\n#行动 #勇气",
+      "格局打开，世界就大了 🌏\n{location} 教会我的事\n和 {food} 一样，需要慢慢品\n保持 {mood}\n#格局 #慢慢来",
+      "所有打不倒你的都会让你更强大 🦾\n在 {location} 虽然踩过坑\n但有 {food} 续命，依旧 {mood}\n#强大 #不言弃",
+      "活在当下，享受此刻 🌸\n{location} 的每一帧都值得珍惜\n{食物} 的温度，{mood} 的感受\n都是礼物\n#活在当下 #珍惜",
+    ],
+    showoff: [
+      "也就随便在 {location} 吃了个 {food} 吧 🤷\n真没觉得有多特别\n不过朋友们都说我太会挑了\n可能这就是生活品质吧 ✨\n#随便吃吃 #凡尔赛",
+      "最近体重又掉了，愁 😔\n在 {location} 狂吃 {food} 都补不回来\n{mood} 的烦恼谁懂啊\n#增肥失败 #凡学",
+      "新来的同事居然不认识我 🥲\n我说我经常来 {location} 啊\n可能我太低调了吧，毕竟也就吃过几十次 {food}\n{mood}\n#低调 #凡尔赛文学",
+      "最近用脑过度，感觉发际线在后退 😰\n虽然刚在 {location} 拿下大单\n但 {food} 都索然无味了\n成年人的世界就是这么 {mood}\n#成功人士的烦恼 #凡学",
+      "房子太大打扫卫生好累 😮‍💨\n尤其是 {location} 这边\n只能叫杯 {food} 一边喝一边看保洁阿姨打扫\n不过想想也挺 {mood} 的\n#大房子的烦恼 #凡尔赛",
+      "今天在 {location} 吃饭遇到粉丝要合影 📸\n我就是一个普通人啊有什么好拍的\n不过 {food} 味道还行，{mood} 地配合了一下\n#离谱日常 #凡学",
+      "爸妈非要给我在 {location} 再买一套房 🏠\n我说不用了真的住不过来\n他们偏不听，好烦\n喝杯 {food} 消消 {mood} 的情绪\n#家庭矛盾 #凡尔赛",
+      "今天坐地铁被认出来了 🚇\n我就正常在 {location} 通勤啊\n还好 {food} 还没撒\n低调生活真难，{mood}\n#地铁偶遇 #凡尔赛文学",
+      "其实我从来没觉得 {location} 有多高端\n就是在那吃个 {food} 嘛\n不知道大家为什么都那么激动\n可能我习惯了这种 {mood} 的日常吧\n#凡言凡语 #习惯了",
+      "减肥太成功了怎么办 😅\n在 {location} 大吃 {food} 都不胖\n教练说我代谢太好了\n{mood} 的烦恼\n#凡尔赛 #吃不胖",
+      "今天什么都不想做\n就在 {location} 躺着\n看看我收藏的 {food} 杯们\n这种 {mood} 的无聊日子什么时候是个头\n#无聊 #凡尔赛日常",
+      "又被猎头挖了，好烦 📞\n我在 {location} 做得好好的\n虽然 {food} 不太好喝\n但是团队氛围很 {mood} 啊\n#凡尔赛 #职场凡学",
+      "今天保姆请假，只好自己下厨 🧑‍🍳\n随手做了个 {food}，朋友说可以开店\n我觉得一般般啦\n{location} 的厨房用着还是顺手，{mood}\n#凡尔赛厨房 #随便做做",
+      "新买的车空间太大了 🚗\n在 {location} 不知道停哪好\n随便停路边下去喝杯 {food}\n这种 {mood} 的烦恼\n#凡尔赛 #停车烦恼",
+      "老公又送了我一个包，说是买菜用 👜\n我说 {location} 菜市场没必要这么隆重吧\n他说不贵就几十万\n配 {food} 刚好，{mood}\n#凡尔赛开箱 #日常",
+    ],
+  };
+
+  const defaults = {
+    food: { location: '三里屯', food: '火锅', mood: '幸福' },
+    travel: { location: '大理', food: '日出', mood: '治愈' },
+    overtime: { location: '公司', food: '咖啡', mood: '疲惫但充实' },
+    selfie: { location: '咖啡店', food: '拿铁', mood: '美美哒' },
+    weekend: { location: '家里', food: '早午餐', mood: '慵懒' },
+    emo: { location: '窗边', food: '热可可', mood: 'emo' },
+    positive: { location: '健身房', food: '蛋白奶昔', mood: '元气满满' },
+    showoff: { location: '外滩', food: '下午茶', mood: '淡然' },
+  };
+
+  let currentScene = 'food';
+  let currentMode = 'normal';
+  let currentText = '';
+  let isDark = false;
+
+  const $ = id => document.getElementById(id);
+
+  // Theme
+  function setTheme(dark) {
+    isDark = dark;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    $('themeToggle').textContent = dark ? '☀️' : '🌙';
+  }
+  $('themeToggle').addEventListener('click', () => {
+    setTheme(!isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  });
+  if (localStorage.getItem('theme') === 'dark' || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    setTheme(localStorage.getItem('theme') !== 'light');
+  }
+
+  // Scene selection
+  document.querySelectorAll('.scene-tag').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.scene-tag').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentScene = btn.dataset.scene;
+      $('previewArea').innerHTML = '👆 已选择「' + btn.textContent.trim().replace(/^./, '') + '」场景，点击「生成文案」开始';
+      $('previewArea').className = 'preview-area';
+    });
+  });
+
+  // Mode switch
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      if (currentText) generatePost();
+    });
+  });
+
+  // Crazy mode additions
+  const crazyPrefixes = [
+    "啊啊啊啊啊啊!!!!!!\n",
+    "我真的会谢!!!!!!\n",
+    "谁懂啊家人们!!!\n",
+    "救命救命救命!!!\n",
+    "不是这合理吗???\n",
+    "呜呜呜呜呜!!!\n",
+    "我真的会疯!!!\n",
+    "好家伙我直接好家伙!!!\n",
+    "天哪!!!!!\n",
+    "这是什么神仙!!!\n",
+    "我滴妈呀!!!\n",
+    "啊啊啊啊我不行了!!!\n",
+  ];
+  const crazySuffixes = [
+    "\n\n!!!!!!!!!!!",
+    "\n\n谁懂啊谁懂啊!!!!",
+    "\n\n真的受不了了!!!!",
+    "\n\n原地爆炸!!!!",
+    "\n\n尖叫!!!!",
+    "\n\n反复去世.jpg",
+    "\n\n精神状态极差但又快乐着",
+    "\n\n我不管我就要发!!!",
+    "\n\n发完这条我就去睡觉(并不",
+    "\n\n点赞的今年都暴富!!!",
+    "\n\n不点赞也没关系我会继续发疯",
+    "\n\n今天就是一个大写的疯!!!",
+  ];
+  const crazyEmojis = ['🤪', '🫠', '😤', '🤯', '🥴', '😵‍💫', '🫡', '💀', '🤡', '👾', '🔥', '💥', '⚡', '🌀', '🎭'];
+
+  function crazyTransform(text) {
+    let t = text;
+    // Make it more exaggerated
+    t = t.replace(/！/g, '!!!!');
+    t = t.replace(/～/g, '~~~~');
+    t = t.replace(/！+/g, '!!!!');
+    // Capitalize emotional words
+    t = t.replace(/绝了/g, '绝了🔥🔥🔥');
+    t = t.replace(/到飞起/g, '到飞起🚀🚀🚀');
+    t = t.replace(/满分/g, '满分💯💯💯');
+    t = t.replace(/狂喜/g, '狂喜😭😭😭');
+    t = t.replace(/治愈/g, '治愈🥹🥹🥹');
+    // Add random crazy emojis throughout
+    const lines = t.split('\n');
+    return lines.map(line => {
+      if (line.trim() && line.trim() !== '---' && !line.startsWith('!')) {
+        const emoji = crazyEmojis[Math.floor(Math.random() * crazyEmojis.length)];
+        if (Math.random() > 0.5) {
+          line = emoji + ' ' + line;
+        } else {
+          line = line + ' ' + emoji;
+        }
+      }
+      return line;
+    }).join('\n');
+  }
+
+  function showToast(msg) {
+    const toast = $('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  function getRandomTemplate(scene) {
+    const templates = templateDB[scene];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  function fillTemplate(template, params) {
+    return template
+      .replace(/\{location\}/g, params.location)
+      .replace(/\{食物\}/g, params.food)
+      .replace(/\{food\}/g, params.food)
+      .replace(/\{mood\}/g, params.mood)
+      .replace(/\{something\}/g, params.food);
+  }
+
+  function generatePost() {
+    const location = $('location').value.trim() || defaults[currentScene].location;
+    const food = $('foodItem').value.trim() || defaults[currentScene].food;
+    const mood = $('mood').value.trim() || defaults[currentScene].mood;
+
+    const template = getRandomTemplate(currentScene);
+    let text = fillTemplate(template, { location, food, mood });
+
+    if (currentMode === 'crazy') {
+      const prefix = crazyPrefixes[Math.floor(Math.random() * crazyPrefixes.length)];
+      const suffix = crazySuffixes[Math.floor(Math.random() * crazySuffixes.length)];
+      text = prefix + crazyTransform(text) + suffix;
+    }
+
+    currentText = text;
+
+    const preview = $('previewArea');
+    preview.textContent = text;
+    preview.className = 'preview-area' + (currentMode === 'crazy' ? ' is-crazy' : '');
+  }
+
+  function copyText() {
+    if (!currentText) {
+      showToast('⚠️ 请先生成文案');
+      return;
+    }
+    navigator.clipboard.writeText(currentText).then(() => {
+      showToast('✅ 已复制到剪贴板');
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = currentText;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('✅ 已复制到剪贴板');
+    });
+  }
+
+  $('generateBtn').addEventListener('click', generatePost);
+  $('copyBtn').addEventListener('click', copyText);
+
+  // Initial generate
+  generatePost();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

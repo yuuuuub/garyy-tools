@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧳 旅行物品清单 - Gary's Tools</title>
+<meta name="description" content="暑期旅行必备物品清单生成器：按旅行类型（海滩/登山/城市/自驾）自动生成打包清单，再也不怕忘带东西">
+<style>
+:root{--bg:#fdf4ff;--card:#fff;--text:#4a044e;--text2:#a21caf;--accent:#a855f7;--blue:#0ea5e9;--green:#22c55e;--orange:#f59e0b;--border:#f0abfc;--radius:14px}
+[data-theme="dark"]{--bg:#170a1e;--card:#24102e;--text:#f0abfc;--text2:#a21caf;--border:#4a044e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:520px;margin:0 auto}
+header{text-align:center;padding:32px 0 20px}
+header h1{font-size:1.7rem;font-weight:800;background:linear-gradient(135deg,#a855f7,#6366f1,#0ea5e9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.btn{padding:10px 18px;border:2px solid var(--border);border-radius:22px;background:var(--card);color:var(--text);font-size:.8rem;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.03)}
+.card h3{font-size:1rem;font-weight:700;margin-bottom:12px}
+.checklist{display:flex;flex-direction:column;gap:4px}
+.check-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:.78rem;line-height:1.4;cursor:pointer}
+.check-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+.check-item .ci-text{flex:1}
+.check-item:has(input:checked){opacity:.5;text-decoration:line-through}
+.progress{text-align:center;font-size:.8rem;color:var(--text2);margin-bottom:12px}
+.progress b{color:var(--accent)}
+footer{text-align:center;padding:24px 0;color:var(--text2);font-size:.7rem}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>🧳 旅行物品清单</h1><p>选择旅行类型 → 跟着勾 → 再也不忘</p></header>
+
+<div class="btn-group">
+<button class="btn active" data-type="beach">🏖️ 海滩</button>
+<button class="btn" data-type="mountain">🏔️ 登山</button>
+<button class="btn" data-type="city">🏙️ 城市</button>
+<button class="btn" data-type="road">🚗 自驾</button>
+</div>
+
+<div class="progress" id="progress">已检查 <b>0</b> / <b id="totalCount">0</b> 项</div>
+
+<div id="checklist" class="card"></div>
+
+<footer>打包完成 · 出发！✈️</footer>
+</div>
+<script>
+const data = {
+beach:{title:"🏖️ 海滩度假清单",items:{
+"证件":["身份证/护照","机票/车票订单截屏","酒店预订确认单"],
+"衣物":["泳衣泳裤(2套)","防晒衣/薄外套","人字拖/沙滩鞋","遮阳帽+太阳镜","速干浴巾","轻薄长裙/短裤3-4套"],
+"防晒护肤":["防水防晒霜SPF50+","晒后修复芦荟胶","唇膏(带防晒)","卸妆湿巾"],
+"数码":["手机防水袋","充电宝+数据线","蓝牙音箱(氛围神器)"],
+"药品":["晕车药","止泻药","创可贴","抗过敏药"],
+"其他":["密封袋(装湿衣服)","零食+水","泳镜(近视选带度数)","沙滩垫/沙滩椅"],
+}},
+mountain:{title:"🏔️ 登山徒步清单",items:{
+"装备":["登山鞋(防水最好)","登山杖(省30%体力)","登山包(30-40L)","冲锋衣(防风防水)","速干内衣裤(千万别纯棉)","护膝/护踝"],
+"补给":["水(夏天每人至少2L)","能量棒/巧克力/牛肉干","电解质冲剂(防抽筋)","便携水过滤器(野山必备)"],
+"安全":["天气预报截图","离线地图下载","头灯+备用电池","急救包+驱蛇粉","口哨(求救用)","急救毯(保温)"],
+"药品":["创可贴+碘伏棉签","藿香正气(防中暑)","蛇药片","云南白药喷雾"],
+"其他":["防晒霜+晒后修复","垃圾袋(带走垃圾)","登山手套","相机/手机臂带"],
+}},
+city:{title:"🏙️ 城市旅行清单",items:{
+"证件":["身份证","手机(充电宝)"],
+"衣物":["舒服的走路鞋(最重要!)","换洗衣物3-4套","一次性内裤(懒人福音)","薄外套(商场空调冷)"],
+"数码":["充电宝+数据线","耳机","转换插头(出国)"],
+"日用":["防晒霜","湿纸巾+纸巾","折叠购物袋","保温杯(省买水钱)","雨伞/雨衣"],
+"药品":["创可贴(走太多脚后跟)","肠胃药(乱吃必备)","晕车药"],
+}},
+road:{title:"🚗 自驾游清单",items:{
+"车辆":["驾驶证+行驶证","保险单(拍照存手机)","车辆检查(胎压/机油/冷却液/玻璃水)","备胎+千斤顶+三角警示牌","车载充电器+手机支架","遮阳挡(停车暴晒)","垃圾袋"],
+"食物":["矿泉水(至少一箱)","零食/面包","咖啡/红牛(长途必备)","水果"],
+"安全":["路线预下载(山区没信号)","急救包","灭火器","反光背心","拖车绳(可选)"],
+"娱乐":["下载好播客/音乐(过隧道没信号)","颈枕+眼罩(副驾神器)","相机","蓝牙音箱"],
+"应急":["现金(高速有些只收现金)","移动电源(能启动车的那种更佳)","防蚊液(停车休息用)","一次性雨衣"],
+}},
+};
+let currentType = 'beach';
+
+function render(){
+  const d = data[currentType];
+  const cats = d.items;
+  const all = Object.values(cats).flat();
+  document.getElementById('totalCount').textContent = all.length;
+  let html = `<h3>${d.title}</h3><div class="checklist">`;
+  for(const [cat, items] of Object.entries(cats)){
+    html += `<b style="font-size:.85rem;margin:8px 0 2px;color:var(--accent)">📦 ${cat}</b>`;
+    items.forEach((item,i)=>{
+      html += `<label class="check-item"><input type="checkbox" onchange="updateProgress()"><span class="ci-text">${item}</span></label>`;
+    });
+  }
+  html += '</div>';
+  document.getElementById('checklist').innerHTML = html;
+  updateProgress();
+}
+
+function updateProgress(){
+  const checked = document.querySelectorAll('#checklist input:checked').length;
+  const total = document.querySelectorAll('#checklist input').length;
+  document.getElementById('progress').innerHTML = `已检查 <b>${checked}</b> / <b>${total}</b> 项${checked===total&&total>0?' 🎉 全部搞定！':''}`;
+}
+
+document.querySelectorAll('.btn').forEach(b=>{
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.btn').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    currentType = this.dataset.type;
+    render();
+  });
+});
+render();
+</script>
+<script>
+(function(){
+var key = 'checklist_' + document.title;
+var items = [
+  '确认身份证/护照等证件带齐',
+  '查看目的地天气并准备合适衣物',
+  '确认住宿和交通预订信息',
+  '准备充电宝和数据线',
+  '携带常用药品（晕车药/肠胃药/创可贴）',
+  '下载目的地离线地图',
+  '告知亲友行程和联系方式',
+  '关闭家中水电燃气门窗',
+  '确认出发时间和交通路线',
+  '准备适量现金和银行卡'
+];
+
+function render() {
+  var saved = JSON.parse(localStorage.getItem(key) || '[]');
+  var list = document.createElement('div');
+  list.style.cssText = 'max-width:600px;margin:30px auto;padding:16px;background:var(--card,#fff);border:1px solid var(--border,#f0abfc);border-radius:10px';
+  list.innerHTML = '<h3 style="margin:0 0 12px;font-size:1rem;color:var(--text,#4a044e)">📋 出行清单</h3>';
+  items.forEach(function(text,i){
+    var checked = saved.includes(i);
+    list.innerHTML += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:.85rem;color:var(--text,#4a044e)"><input type="checkbox" ' + (checked?'checked':'') + ' data-idx="'+i+'" style="width:16px;height:16px;accent-color:#a855f7">' + (checked?'<s>':'') + text + (checked?'</s>':'') + '</label>';
+  });
+  list.innerHTML += '<button id="resetChecklist" style="margin-top:10px;padding:6px 14px;border:1px solid var(--border,#f0abfc);border-radius:6px;background:transparent;color:var(--text2,#a21caf);font-size:.78rem;cursor:pointer">重置</button></div>';
+  
+  var existing = document.getElementById('checklist_' + key);
+  if (existing) existing.replaceWith(list);
+  else document.body.appendChild(list);
+  list.id = 'checklist_' + key;
+  
+  list.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var arr = JSON.parse(localStorage.getItem(key) || '[]');
+      var idx = parseInt(this.dataset.idx);
+      if (this.checked) { if (!arr.includes(idx)) arr.push(idx); }
+      else { arr = arr.filter(function(v){ return v !== idx; }); }
+      localStorage.setItem(key, JSON.stringify(arr));
+      render();
+    });
+  });
+  list.querySelector('#resetChecklist').addEventListener('click',function(){
+    localStorage.removeItem(key);
+    render();
+  });
+}
+render();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

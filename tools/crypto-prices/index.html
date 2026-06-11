@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加密货币实时行情</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.refresh-btn{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem;transition:.2s}
+.refresh-btn:hover{background:#1c2333;border-color:var(--blue)}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.retry-btn:hover{border-color:var(--red)}
+.coin-list{display:flex;flex-direction:column;gap:6px;margin-top:16px}
+.coin-item{display:grid;grid-template-columns:40px 1fr 120px 100px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;gap:10px}
+.coin-rank{color:var(--text2);font-size:.8rem;text-align:center;width:28px}
+.coin-info{display:flex;flex-direction:column}
+.coin-name{font-size:.92rem;font-weight:600}
+.coin-symbol{font-size:.75rem;color:var(--text2);text-transform:uppercase}
+.coin-price{font-size:.95rem;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.coin-change{font-size:.82rem;text-align:right;padding:2px 8px;border-radius:4px;display:inline-block;justify-self:end;font-variant-numeric:tabular-nums}
+.coin-change.up{color:var(--green);background:rgba(35,134,54,.15)}
+.coin-change.down{color:var(--red);background:rgba(239,68,68,.15)}
+.coin-mcap{font-size:.75rem;color:var(--text2);text-align:right;grid-column:2/3}
+@media(max-width:600px){
+.coin-item{grid-template-columns:30px 1fr 90px 80px;padding:10px 12px;gap:6px}
+.coin-price{font-size:.85rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>📊 加密货币实时行情</h1>
+<p class="sub">CoinGecko API · 实时数据</p>
+<button class="refresh-btn" onclick="loadData()">🔄 刷新数据</button>
+</header>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+const app=document.getElementById('app');
+async function loadData(){
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+try{
+const res=await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&sparkline=false');
+if(!res.ok)throw new Error('请求失败 ('+res.status+')');
+const data=await res.json();
+render(data);
+}catch(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="loadData()">重试</button></div>';
+}
+}
+function render(coins){
+if(!coins||!coins.length){app.innerHTML='<div class="error"><p>暂无数据</p></div>';return;}
+let html='<div class="coin-list">';
+coins.forEach(function(c,i){
+var change=c.price_change_percentage_24h;
+var cls=change>=0?'up':'down';
+var icon=change>=0?'🟢':'🔴';
+var mcap=c.market_cap?formatNum(c.market_cap):'N/A';
+html+='<div class="coin-item">';
+html+='<span class="coin-rank">#'+(i+1)+'</span>';
+html+='<div class="coin-info"><span class="coin-name">'+c.name+'</span><span class="coin-symbol">'+c.symbol+'</span></div>';
+html+='<span class="coin-price">$'+fmtPrice(c.current_price)+'</span>';
+html+='<span class="coin-change '+cls+'">'+icon+' '+(change>=0?'+':'')+change.toFixed(2)+'%</span>';
+html+='<span class="coin-mcap">市值 $'+mcap+'</span>';
+html+='</div>';
+});
+html+='</div>';
+app.innerHTML=html;
+}
+function fmtPrice(p){if(p>=1)return p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});return p.toFixed(6);}
+function formatNum(n){if(n>=1e12)return (n/1e12).toFixed(2)+'T';if(n>=1e9)return (n/1e9).toFixed(2)+'B';if(n>=1e6)return (n/1e6).toFixed(2)+'M';return n.toLocaleString('en-US');}
+loadData();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

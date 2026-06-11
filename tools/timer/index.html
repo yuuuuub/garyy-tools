@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>倒计时器 - garyy-tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.85rem}
+button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+button:hover{opacity:.85}
+button:disabled{opacity:.4;cursor:not-allowed}
+input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-gold{background:var(--gold);color:#000}
+.time-display{font-size:3rem;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:2px;padding:20px 0;font-family:'Courier New',monospace}
+.controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.setup-row{display:flex;gap:12px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.setup-item{display:flex;flex-direction:column;align-items:center;gap:4px}
+.setup-item label{font-size:.8rem;color:var(--text2)}
+.setup-item input{width:80px;text-align:center;font-size:1rem;padding:8px}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:16px}
+.progress-fill{height:100%;background:var(--blue);border-radius:4px;transition:width .3s;width:100%}
+.status-text{text-align:center;color:var(--text2);font-size:.85rem;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>⏰ 倒计时器</h1>
+<div class="sub">精确倒计时</div>
+</header>
+
+<div class="card">
+<div class="setup-row">
+<div class="setup-item">
+<label>小时</label>
+<input type="number" id="inputHour" value="0" min="0" max="99">
+</div>
+<div class="setup-item">
+<label>分钟</label>
+<input type="number" id="inputMin" value="0" min="0" max="59">
+</div>
+<div class="setup-item">
+<label>秒</label>
+<input type="number" id="inputSec" value="30" min="0" max="59">
+</div>
+</div>
+
+<div class="time-display" id="display">00:00:30</div>
+
+<div class="controls">
+<button class="btn-green" id="btnStart">开始</button>
+<button id="btnPause" disabled>暂停</button>
+<button class="btn-red" id="btnReset">重置</button>
+</div>
+
+<div class="progress-bar">
+<div class="progress-fill" id="progressFill"></div>
+</div>
+<div class="status-text" id="statusText">已设置 0时0分30秒</div>
+</div>
+</div>
+
+<script src="../i18n.js"></script>
+<script>
+(function(){
+'use strict';
+const display=document.getElementById('display');
+const btnStart=document.getElementById('btnStart');
+const btnPause=document.getElementById('btnPause');
+const btnReset=document.getElementById('btnReset');
+const inputHour=document.getElementById('inputHour');
+const inputMin=document.getElementById('inputMin');
+const inputSec=document.getElementById('inputSec');
+const progressFill=document.getElementById('progressFill');
+const statusText=document.getElementById('statusText');
+
+let totalMs=0;
+let remainingMs=0;
+let initialMs=0;
+let running=false;
+let paused=false;
+let timerId=null;
+let endTime=0;
+
+function formatTime(ms){
+if(ms<0)ms=0;
+const totalSec=Math.floor(ms/1000);
+const h=String(Math.floor(totalSec/3600)).padStart(2,'0');
+const m=String(Math.floor((totalSec%3600)/60)).padStart(2,'0');
+const s=String(totalSec%60).padStart(2,'0');
+return h+':'+m+':'+s;
+}
+
+function updateDisplay(){
+display.textContent=formatTime(remainingMs);
+const pct=initialMs>0?Math.round((remainingMs/initialMs)*100):0;
+progressFill.style.width=Math.max(0,pct)+'%';
+}
+
+function getInputMs(){
+const h=parseInt(inputHour.value)||0;
+const m=parseInt(inputMin.value)||0;
+const s=parseInt(inputSec.value)||0;
+return (h*3600+m*60+s)*1000;
+}
+
+function setInputsDisabled(disabled){
+inputHour.disabled=disabled;
+inputMin.disabled=disabled;
+inputSec.disabled=disabled;
+}
+
+function beep(){
+try{
+const ctx=new(window.AudioContext||window.webkitAudioContext)();
+const osc=ctx.createOscillator();
+const gain=ctx.createGain();
+osc.connect(gain);
+gain.connect(ctx.destination);
+osc.frequency.value=880;
+gain.gain.value=0.3;
+osc.start();
+setTimeout(function(){
+osc.stop();
+ctx.close();
+},300);
+}catch(e){}
+}
+
+function tick(){
+const now=Date.now();
+remainingMs=Math.max(0,endTime-now);
+updateDisplay();
+
+if(remainingMs<=0){
+running=false;
+cancelAnimationFrame(timerId);
+beep();
+btnStart.textContent='开始';
+btnStart.disabled=false;
+btnPause.disabled=true;
+btnStart.className='btn-green';
+setInputsDisabled(false);
+statusText.textContent='倒计时结束!';
+setTimeout(function(){beep();},500);
+setTimeout(function(){beep();},1000);
+return;
+}
+timerId=requestAnimationFrame(tick);
+}
+
+function startTimer(){
+const ms=getInputMs();
+if(ms<=0)return;
+running=true;
+paused=false;
+initialMs=ms;
+remainingMs=ms;
+endTime=Date.now()+ms;
+setInputsDisabled(true);
+btnStart.disabled=true;
+btnPause.disabled=false;
+btnStart.className='btn-green';
+btnPause.textContent='暂停';
+timerId=requestAnimationFrame(tick);
+statusText.textContent='倒计时中...';
+}
+
+function pauseTimer(){
+if(!running)return;
+running=false;
+paused=true;
+cancelAnimationFrame(timerId);
+remainingMs=Math.max(0,endTime-Date.now());
+updateDisplay();
+btnPause.textContent='继续';
+btnStart.disabled=false;
+btnStart.textContent='继续';
+statusText.textContent='已暂停';
+}
+
+function resumeTimer(){
+if(!paused)return;
+running=true;
+paused=false;
+endTime=Date.now()+remainingMs;
+btnPause.textContent='暂停';
+btnStart.disabled=true;
+statusText.textContent='倒计时中...';
+timerId=requestAnimationFrame(tick);
+}
+
+function resetTimer(){
+running=false;
+paused=false;
+cancelAnimationFrame(timerId);
+const ms=getInputMs();
+initialMs=ms;
+remainingMs=ms;
+updateDisplay();
+setInputsDisabled(false);
+btnStart.disabled=false;
+btnStart.textContent='开始';
+btnStart.className='btn-green';
+btnPause.disabled=true;
+const h=parseInt(inputHour.value)||0;
+const m=parseInt(inputMin.value)||0;
+const s=parseInt(inputSec.value)||0;
+statusText.textContent='已设置 '+h+'时'+m+'分'+s+'秒';
+}
+
+btnStart.addEventListener('click',function(){
+if(paused){resumeTimer();}else{startTimer();}
+});
+btnPause.addEventListener('click',function(){
+if(running){pauseTimer();}else if(paused){resumeTimer();}
+});
+btnReset.addEventListener('click',resetTimer);
+
+resetTimer();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实时汇率换算</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+.btn{background:var(--blue);color:#fff;border:none;padding:8px 20px;border-radius:var(--radius);cursor:pointer;font-size:.9rem;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{text-align:center;padding:30px 0}
+.error-box p{color:var(--red);margin-bottom:10px}
+.error-box .btn{background:var(--red)}
+.form-row{display:flex;gap:12px;margin-bottom:12px}
+.form-row .group{flex:1}
+.form-row label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+.swap-btn{display:flex;align-items:flex-end;padding-bottom:8px}
+.swap-btn button{background:var(--gold);color:#000;border:none;width:40px;height:40px;border-radius:50%;font-size:1.2rem;cursor:pointer;transition:transform .3s}
+.swap-btn button:hover{transform:rotate(180deg)}
+.rate-display{text-align:center;padding:20px 0;font-size:1.5rem;font-weight:700}
+.rate-display .from{color:var(--text2);font-size:.9rem;font-weight:400}
+.rate-display .to{color:var(--gold)}
+.rate-info{text-align:center;font-size:.82rem;color:var(--text2);margin-top:4px}
+.rate-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
+.rate-table th,.rate-table td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.rate-table th{color:var(--text2);font-weight:500;text-align:left}
+.rate-table td:first-child{text-align:left;font-weight:600}
+.rate-table tr:last-child td{border-bottom:none}
+.amount-input{font-size:1.2rem;text-align:center;padding:10px;width:100%}
+@media(max-width:640px){.form-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>💱 实时汇率换算</h1>
+    <p>ExchangeRate API</p>
+  </header>
+
+  <div class="card">
+    <div class="form-row">
+      <div class="group">
+        <label>金额</label>
+        <input type="number" class="amount-input" id="amount" value="100" min="0" step="any">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="group">
+        <label>基准货币</label>
+        <select id="baseCurrency"></select>
+      </div>
+      <div class="swap-btn">
+        <button id="swapBtn" title="互换货币">⇄</button>
+      </div>
+      <div class="group">
+        <label>目标货币</label>
+        <select id="targetCurrency"></select>
+      </div>
+    </div>
+    <div id="rateResult">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="rateTableHeader"><div class="spinner"></div></div>
+    <div id="rateTableBody"></div>
+  </div>
+
+  <div id="lastUpdate" style="text-align:center;font-size:.75rem;color:var(--text2);margin-top:4px"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const amountInp = $('amount');
+const baseSel = $('baseCurrency');
+const targetSel = $('targetCurrency');
+const swapBtn = $('swapBtn');
+const rateResult = $('rateResult');
+const rateTableBody = $('rateTableBody');
+const rateTableHeader = $('rateTableHeader');
+const lastUpdate = $('lastUpdate');
+
+const currencies = [
+  {code:'USD', name:'美元'},{code:'EUR', name:'欧元'},{code:'GBP', name:'英镑'},
+  {code:'JPY', name:'日元'},{code:'CNY', name:'人民币'},{code:'AUD', name:'澳元'},
+  {code:'CAD', name:'加元'},{code:'CHF', name:'瑞郎'},{code:'HKD', name:'港币'},
+  {code:'SGD', name:'新元'},{code:'KRW', name:'韩元'},{code:'INR', name:'卢比'},
+  {code:'MXN', name:'比索'},{code:'BRL', name:'雷亚尔'},{code:'NZD', name:'纽元'}
+];
+
+let ratesData = {};
+
+function populateSelects(){
+  const opts = currencies.map(c => `<option value="${c.code}">${c.code} - ${c.name}</option>`).join('');
+  baseSel.innerHTML = opts;
+  targetSel.innerHTML = opts;
+  baseSel.value = 'USD';
+  targetSel.value = 'CNY';
+}
+
+function loading(el){
+  if(el) el.innerHTML = '<div class="spinner"></div>';
+}
+
+function formatRate(v){
+  if(v >= 100) return v.toFixed(2);
+  if(v >= 1) return v.toFixed(4);
+  return v.toFixed(6);
+}
+
+function convert(amount, from, to){
+  if(!ratesData.rates) return null;
+  const fromRate = from === 'USD' ? 1 : ratesData.rates[from];
+  const toRate = to === 'USD' ? 1 : ratesData.rates[to];
+  if(!fromRate || !toRate) return null;
+  return amount * toRate / fromRate;
+}
+
+function renderResult(){
+  const amount = parseFloat(amountInp.value) || 0;
+  const from = baseSel.value;
+  const to = targetSel.value;
+  const result = convert(amount, from, to);
+  if(result === null){
+    rateResult.innerHTML = '<div class="error-box"><p>无法获取汇率</p></div>';
+    return;
+  }
+  const rate = convert(1, from, to);
+  rateResult.innerHTML = `
+    <div class="rate-display">
+      <span class="from">${amount.toLocaleString()} ${from} = </span>
+      <span class="to">${result.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:4})} ${to}</span>
+    </div>
+    <div class="rate-info">1 ${from} = ${formatRate(rate)} ${to}</div>
+  `;
+}
+
+function renderRateTable(){
+  const base = baseSel.value;
+  const headers = ['货币', '汇率'];
+  let html = `<table class="rate-table"><thead><tr><th>${headers[0]}</th><th>1 ${base} 兑</th></tr></thead><tbody>`;
+  currencies.forEach(c => {
+    if(c.code === base) return;
+    const rate = convert(1, base, c.code);
+    html += `<tr><td>${c.code} - ${c.name}</td><td>${rate ? formatRate(rate) : '--'}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  rateTableBody.innerHTML = html;
+}
+
+async function fetchRates(){
+  loading(rateResult);
+  rateTableHeader.innerHTML = '<div class="spinner"></div>';
+  rateTableBody.innerHTML = '';
+  try{
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    ratesData = data;
+    lastUpdate.textContent = '数据更新于: ' + new Date(data.date).toLocaleString('zh-CN') + ' | 来源: exchangerate-api.com';
+    rateTableHeader.innerHTML = '';
+    renderResult();
+    renderRateTable();
+  }catch(e){
+    rateResult.innerHTML = `<div class="error-box"><p>汇率数据加载失败</p><button class="btn" onclick="location.reload()">重试</button></div>`;
+    rateTableHeader.innerHTML = '';
+  }
+}
+
+function update(){
+  renderResult();
+  renderRateTable();
+}
+
+amountInp.addEventListener('input', update);
+baseSel.addEventListener('change', update);
+targetSel.addEventListener('change', update);
+swapBtn.addEventListener('click', () => {
+  const tmp = baseSel.value;
+  baseSel.value = targetSel.value;
+  targetSel.value = tmp;
+  update();
+});
+
+populateSelects();
+fetchRates();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

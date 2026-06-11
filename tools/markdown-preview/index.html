@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown编辑器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:1100px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.editor-layout{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--card);min-height:520px}
+@media(max-width:720px){.editor-layout{grid-template-columns:1fr}}
+.pane{display:flex;flex-direction:column}
+.pane:first-child{border-right:1px solid var(--border)}
+@media(max-width:720px){.pane:first-child{border-right:none;border-bottom:1px solid var(--border)}}
+.pane-header{padding:8px 14px;font-size:.78rem;color:var(--text2);background:var(--card);border-bottom:1px solid var(--border)}
+textarea.input-area{flex:1;min-height:480px;background:var(--bg);border:none;padding:16px;color:var(--text);font-family:monospace;font-size:.85rem;resize:none;outline:none;line-height:1.7;tab-size:2}
+.preview-area{flex:1;min-height:480px;padding:16px;overflow-y:auto;background:var(--bg);line-height:1.7;font-size:.9rem}
+.preview-area h1{font-size:1.5rem;border-bottom:1px solid var(--border);padding-bottom:6px;margin:16px 0 8px}
+.preview-area h2{font-size:1.25rem;border-bottom:1px solid var(--border);padding-bottom:4px;margin:14px 0 6px}
+.preview-area h3{font-size:1.1rem;margin:12px 0 4px}
+.preview-area p{margin:6px 0}
+.preview-area code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-size:.82rem;font-family:monospace}
+.preview-area pre{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:12px;overflow-x:auto;margin:8px 0}
+.preview-area pre code{background:none;padding:0;border-radius:0}
+.preview-area blockquote{border-left:3px solid var(--blue);padding:4px 12px;margin:8px 0;color:var(--text2);background:rgba(59,130,246,.05);border-radius:0 4px 4px 0}
+.preview-area a{color:var(--blue);text-decoration:none}
+.preview-area a:hover{text-decoration:underline}
+.preview-area ul,.preview-area ol{padding-left:24px;margin:6px 0}
+.preview-area li{margin:2px 0}
+.preview-area hr{border:none;border-top:1px solid var(--border);margin:16px 0}
+.preview-area img{max-width:100%;border-radius:6px;margin:8px 0}
+.preview-area table{border-collapse:collapse;width:100%;margin:8px 0;font-size:.85rem}
+.preview-area th,.preview-area td{border:1px solid var(--border);padding:6px 12px;text-align:left}
+.preview-area th{background:rgba(255,255,255,.05);font-weight:600}
+.preview-area strong{font-weight:700}
+.preview-area em{font-style:italic}
+.preview-area del{text-decoration:line-through}
+.toolbar{display:flex;gap:4px;padding:6px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.toolbar button{padding:4px 10px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--text2);cursor:pointer;font-size:.75rem;transition:all .15s}
+.toolbar button:hover{border-color:var(--border);color:var(--text)}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>Markdown编辑器</h1><p>实时预览</p></header>
+<div class="editor-layout">
+<div class="pane">
+<div class="pane-header">编辑</div>
+<div class="toolbar">
+<button data-wrap="**粗体**">B</button>
+<button data-wrap="*斜体*">I</button>
+<button data-wrap="`代码`">&lt;/&gt;</button>
+<button data-wrap="[链接](url)">链接</button>
+<button data-wrap="\n- ">列表</button>
+<button data-wrap="\n1. ">编号</button>
+<button data-wrap="\n> ">引用</button>
+<button data-wrap="\n---\n">分隔线</button>
+</div>
+<textarea class="input-area" id="md-input" placeholder="在此输入 Markdown..."># Markdown 实时预览
+
+## 文本样式
+
+**粗体文本** 和 *斜体文本* 以及 ~~删除线~~
+
+## 代码
+
+行内 `code` 示例
+
+```js
+const hello = 'world';
+console.log(hello);
+```
+
+## 引用
+
+> 这是引用文本
+> 多行引用
+
+## 列表
+
+- 项目一
+- 项目二
+- 项目三
+
+## 表格
+
+| 名称 | 数量 |
+|------|------|
+| 苹果 | 5 |
+| 香蕉 | 3 |
+
+## 链接
+
+[GitHub](https://github.com)
+</textarea>
+</div>
+<div class="pane">
+<div class="pane-header">预览</div>
+<div class="preview-area" id="preview"></div>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const input = document.getElementById('md-input');
+const preview = document.getElementById('preview');
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderMarkdown(text) {
+  let html = text;
+
+  // Escape HTML first
+  html = escapeHtml(html);
+
+  // Inline code (must be before other formatting)
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headings
+  html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+  html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Horizontal rule
+  html = html.replace(/^(?:---|\*\*\*|___)\s*$/gm, '<hr>');
+
+  // Blockquotes
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Fenced code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {
+    return '<pre><code>' + code + '</code></pre>';
+  });
+
+  // Images
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  // Bold + Italic (order matters)
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+  // Tables
+  html = html.replace(/\n\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)*)/g, function(m, header, body) {
+    const headers = header.split('|').map(function(h){ return h.trim(); }).filter(Boolean);
+    const rows = body.trim().split('\n').filter(function(r){ return r.trim(); });
+    let tableHtml = '<table><thead><tr>';
+    headers.forEach(function(h) {
+      tableHtml += '<th>' + h + '</th>';
+    });
+    tableHtml += '</tr></thead><tbody>';
+    rows.forEach(function(row) {
+      const cells = row.split('|').map(function(c){ return c.trim(); }).filter(Boolean);
+      tableHtml += '<tr>';
+      cells.forEach(function(c) {
+        tableHtml += '<td>' + c + '</td>';
+      });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table>';
+    return '\n' + tableHtml;
+  });
+
+  // Unordered lists
+  html = html.replace(/^(?:[-*+] .+(\n(?:  .+)?)*)+/gm, function(m) {
+    const items = m.split('\n').filter(function(l){ return l.trim(); });
+    let listHtml = '<ul>';
+    items.forEach(function(item) {
+      listHtml += '<li>' + item.replace(/^[-*+] /, '') + '</li>';
+    });
+    listHtml += '</ul>';
+    return listHtml;
+  });
+
+  // Ordered lists
+  html = html.replace(/^(?:\d+\. .+(\n(?:  .+)?)*)+/gm, function(m) {
+    const items = m.split('\n').filter(function(l){ return l.trim(); });
+    let listHtml = '<ol>';
+    items.forEach(function(item) {
+      listHtml += '<li>' + item.replace(/^\d+\. /, '') + '</li>';
+    });
+    listHtml += '</ol>';
+    return listHtml;
+  });
+
+  // Paragraphs
+  html = html.replace(/\n{2,}/g, '</p><p>');
+  html = html.replace(/^(.+)$/gm, function(m) {
+    if(m.startsWith('<')) return m;
+    return '<p>' + m + '</p>';
+  });
+  html = html.replace(/<p><\/p>/g, '');
+
+  // Wrap in div
+  return html;
+}
+
+function updatePreview() {
+  const text = input.value;
+  preview.innerHTML = renderMarkdown(text);
+}
+
+// Toolbar
+document.querySelectorAll('.toolbar button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const wrap = this.dataset.wrap;
+    const ta = input;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = ta.value.substring(start, end);
+
+    let replacement;
+    if(wrap.startsWith('\\n')) {
+      const ins = wrap.replace('\\n', '\n');
+      if(selected) {
+        replacement = ins + selected;
+      } else {
+        replacement = ins;
+      }
+    } else {
+      const prefix = wrap.match(/^(.+?)(?=\*|`|\[)/)?.[0] || '';
+      const suffix = wrap.match(/\*{1,3}.+?\*{1,3}|`[^`]+`|\[[^\]]+\]\([^)]+\)/);
+      if(selected) {
+        replacement = wrap.replace(/(\*{1,3}|`|\[).+?(\*{1,3}|`|\])/g, '$1' + selected + '$2');
+      } else {
+        replacement = wrap;
+      }
+    }
+
+    ta.focus();
+    document.execCommand('insertText', false, replacement);
+    updatePreview();
+  });
+});
+
+input.addEventListener('input', updatePreview);
+
+// Init
+updatePreview();
+
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

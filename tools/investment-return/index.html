@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投资回报计算器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+.form-row{display:flex;gap:12px;margin-bottom:12px}
+.form-row .group{flex:1}
+.form-row label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+.result-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+.stat-card{text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius)}
+.stat-card .label{font-size:.75rem;color:var(--text2);margin-bottom:4px}
+.stat-card .value{font-size:1.2rem;font-weight:700}
+.stat-card .value.gold{color:var(--gold)}
+.stat-card .value.green{color:var(--green)}
+.section-title{font-size:.95rem;font-weight:600;margin-bottom:12px;color:var(--text)}
+.chart-bar{display:flex;align-items:center;gap:6px;margin:3px 0}
+.chart-bar .year-label{min-width:40px;font-size:.72rem;color:var(--text2);text-align:right}
+.chart-bar .bar-track{flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden}
+.chart-bar .bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--blue),var(--gold));transition:width .5s}
+.chart-bar .val-label{min-width:70px;font-size:.72rem;color:var(--text);text-align:right}
+.growth-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.growth-table th,.growth-table td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.growth-table th{color:var(--text2);font-weight:500;background:var(--bg)}
+.growth-table td:first-child,.growth-table th:first-child{text-align:left}
+.growth-table tr:last-child td{border-bottom:none}
+.table-wrap{max-height:300px;overflow-y:auto}
+.table-wrap::-webkit-scrollbar{width:4px}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.preset-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.preset-btn{padding:4px 12px;border:1px solid var(--border);border-radius:20px;font-size:.78rem;background:var(--card);color:var(--text);cursor:pointer;transition:all .2s}
+.preset-btn:hover{border-color:var(--blue);color:var(--blue)}
+@media(max-width:640px){.form-row{flex-direction:column}.result-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>💰 投资回报计算器</h1>
+    <p>定投收益测算</p>
+  </header>
+
+  <div class="card">
+    <div class="form-row">
+      <div class="group">
+        <label>初始投资 (元)</label>
+        <input type="number" id="initial" value="100000" min="0" step="any">
+      </div>
+      <div class="group">
+        <label>每月定投 (元)</label>
+        <input type="number" id="monthly" value="5000" min="0" step="any">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="group">
+        <label>年化收益率 (%)</label>
+        <input type="number" id="rate" value="10" min="0" max="100" step="any">
+      </div>
+      <div class="group">
+        <label>投资年限</label>
+        <input type="number" id="years" value="10" min="1" max="100" step="1">
+      </div>
+    </div>
+    <div class="preset-group" id="ratePresets"></div>
+    <div class="preset-group" id="yearPresets"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📊 计算结果</div>
+    <div class="result-grid" id="resultGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📈 增长曲线</div>
+    <div id="chartContainer"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 逐年明细</div>
+    <div class="table-wrap" id="detailTable"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const initialInp = $('initial');
+const monthlyInp = $('monthly');
+const rateInp = $('rate');
+const yearsInp = $('years');
+const resultGrid = $('resultGrid');
+const chartContainer = $('chartContainer');
+const detailTable = $('detailTable');
+
+const ratePresets = [5, 8, 10, 12, 15, 20];
+const yearPresets = [5, 10, 15, 20, 25, 30];
+
+function renderPresets(container, values, input, suffix){
+  container.innerHTML = values.map(v => {
+    return `<button class="preset-btn${parseFloat(input.value) === v ? ' active' : ''}" data-val="${v}">${v}${suffix}</button>`;
+  }).join('');
+  container.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      input.value = btn.dataset.val;
+      container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      calc();
+    });
+  });
+}
+
+function calc(){
+  const P0 = parseFloat(initialInp.value) || 0;
+  const monthlyInvest = parseFloat(monthlyInp.value) || 0;
+  const annualRate = (parseFloat(rateInp.value) || 0) / 100;
+  const n = parseInt(yearsInp.value) || 1;
+  const totalMonths = n * 12;
+  const monthlyRate = annualRate / 12;
+
+  // 终值 = 初始投资的终值 + 每月定投的年金终值
+  // 初始投资终值: P0 * (1 + r)^n
+  // 每月定投终值: PMT * [((1 + r)^n - 1) / r]
+  const compoundMonthly = Math.pow(1 + monthlyRate, totalMonths);
+  const initialFV = P0 * compoundMonthly;
+  let monthlyFV = 0;
+  if(monthlyRate > 0){
+    monthlyFV = monthlyInvest * ((compoundMonthly - 1) / monthlyRate);
+  } else {
+    monthlyFV = monthlyInvest * totalMonths;
+  }
+  const finalAmount = initialFV + monthlyFV;
+  const totalInvested = P0 + monthlyInvest * totalMonths;
+  const totalReturn = finalAmount - totalInvested;
+
+  resultGrid.innerHTML = `
+    <div class="stat-card"><div class="label">最终金额</div><div class="value gold">¥${finalAmount.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div></div>
+    <div class="stat-card"><div class="label">总投入</div><div class="value">¥${totalInvested.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div></div>
+    <div class="stat-card"><div class="label">总收益</div><div class="value green">¥${totalReturn.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div></div>
+  `;
+
+  // 逐年数据
+  const yearlyData = [];
+  for(let y = 1; y <= n; y++){
+    const m = y * 12;
+    const compM = Math.pow(1 + monthlyRate, m);
+    const fvInit = P0 * compM;
+    let fvMonthly = 0;
+    if(monthlyRate > 0){
+      fvMonthly = monthlyInvest * ((compM - 1) / monthlyRate);
+    } else {
+      fvMonthly = monthlyInvest * m;
+    }
+    const total = fvInit + fvMonthly;
+    const invested = P0 + monthlyInvest * m;
+    yearlyData.push({year: y, amount: total, invested: invested, profit: total - invested});
+  }
+
+  // 图表
+  const maxAmt = yearlyData[n-1] ? yearlyData[n-1].amount : 0;
+  chartContainer.innerHTML = yearlyData.map(d => {
+    const pct = maxAmt > 0 ? (d.amount / maxAmt * 100) : 0;
+    return `<div class="chart-bar">
+      <div class="year-label">第${d.year}年</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="val-label">¥${d.amount.toLocaleString('zh-CN',{minimumFractionDigits:0})}</div>
+    </div>`;
+  }).join('');
+
+  // 明细表
+  detailTable.innerHTML = `<table class="growth-table">
+    <thead><tr><th>年份</th><th>累计投入</th><th>资产总值</th><th>收益</th><th>收益率</th></tr></thead>
+    <tbody>${yearlyData.map(d => `<tr>
+      <td>第${d.year}年</td>
+      <td>¥${d.invested.toLocaleString('zh-CN',{minimumFractionDigits:2})}</td>
+      <td>¥${d.amount.toLocaleString('zh-CN',{minimumFractionDigits:2})}</td>
+      <td style="color:var(--green)">¥${d.profit.toLocaleString('zh-CN',{minimumFractionDigits:2})}</td>
+      <td>${d.invested > 0 ? ((d.profit/d.invested)*100).toFixed(2)+'%' : '--'}</td>
+    </tr>`).join('')}</tbody></table>`;
+
+  renderPresets($('ratePresets'), ratePresets, rateInp, '%');
+  renderPresets($('yearPresets'), yearPresets, yearsInp, '年');
+}
+
+[initialInp, monthlyInp, rateInp, yearsInp].forEach(el => {
+  el.addEventListener('input', calc);
+  el.addEventListener('change', calc);
+});
+
+calc();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

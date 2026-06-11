@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>❄️ 空调电费计算器 - Gary's Tools</title>
+<meta name="description" content="精确计算空调夏季电费，支持变频/定频、不同能效等级，可对比不同使用习惯的电费差异">
+<style>
+:root{--bg:#f0fdf4;--card:#fff;--text:#1a2e1a;--text2:#6b7280;--accent:#059669;--blue:#3b82f6;--warn:#f59e0b;--danger:#ef4444;--border:#bbf7d0;--radius:14px;--shadow:0 2px 16px rgba(0,0,0,.06)}
+[data-theme="dark"]{--bg:#0a1a10;--card:#122018;--text:#e0f0e0;--text2:#9ca3af;--border:#1a3a20}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;-webkit-font-smoothing:antialiased}
+.container{max-width:520px;margin:0 auto}
+header{text-align:center;padding:32px 0 20px}
+header h1{font-size:1.7rem;font-weight:800;background:linear-gradient(135deg,#059669,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--text2);font-size:.85rem;margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.input-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.input-row label{font-size:.85rem;color:var(--text2);min-width:90px;font-weight:500}
+.input-row input,.input-row select{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;background:var(--bg);color:var(--text);outline:none;font-weight:500;font-family:inherit}
+.input-row input:focus,.input-row select:focus{border-color:var(--accent)}
+.input-row .unit{font-size:.8rem;color:var(--text2);min-width:40px}
+.input-row select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:32px}
+.result-big{text-align:center;padding:24px 0}
+.result-big .total{font-size:2.5rem;font-weight:900;color:var(--accent)}
+.result-big .label{font-size:.85rem;color:var(--text2)}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.result-stat{background:var(--bg);border-radius:10px;padding:14px;text-align:center}
+.result-stat .val{font-size:1.2rem;font-weight:700;color:var(--blue)}
+.result-stat .lab{font-size:.75rem;color:var(--text2)}
+.compare-section{margin-top:12px}
+.compare-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.compare-row:last-child{border-bottom:none}
+.compare-label{font-size:.82rem;color:var(--text2)}
+.compare-val{font-size:.9rem;font-weight:700}
+.compare-val.good{color:var(--accent)}
+.compare-val.bad{color:var(--danger)}
+.tips{background:rgba(5,150,105,.06);border-radius:10px;padding:12px;margin-top:12px;font-size:.82rem;color:var(--text2);line-height:1.7}
+footer{text-align:center;padding:24px 0;color:var(--text2);font-size:.7rem}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>❄️ 空调电费计算器</h1>
+<p>精准计算夏季空调耗电 · 找到省钱方案</p>
+</header>
+
+<div class="card">
+<h3>⚙️ 空调参数</h3>
+<div class="input-row">
+<label>空调类型</label>
+<select id="acType">
+<option value="inverter">变频空调（省电）</option>
+<option value="fixed">定频空调（耗电）</option>
+</select>
+</div>
+<div class="input-row">
+<label>匹数/制冷量</label>
+<select id="power">
+<option value="900">1匹（约900W）</option>
+<option value="1200" selected>1.5匹（约1200W）</option>
+<option value="2000">2匹（约2000W）</option>
+<option value="2800">3匹（约2800W）</option>
+</select>
+</div>
+<div class="input-row">
+<label>能效等级</label>
+<select id="efficiency">
+<option value="1">一级能效（最省电）</option>
+<option value="2">二级能效</option>
+<option value="3" selected>三级能效</option>
+<option value="4">四级能效</option>
+<option value="5">五级能效（耗电）</option>
+</select>
+</div>
+<div class="input-row">
+<label>设定温度</label>
+<input type="number" id="setTemp" value="26" min="16" max="30">
+<span class="unit">°C</span>
+</div>
+</div>
+
+<div class="card">
+<h3>⏰ 使用习惯</h3>
+<div class="input-row">
+<label>每天使用</label>
+<input type="number" id="hoursDay" value="8" min="1" max="24">
+<span class="unit">小时</span>
+</div>
+<div class="input-row">
+<label>电价</label>
+<input type="number" id="priceKwh" value="0.6" min="0.3" max="2" step="0.01">
+<span class="unit">元/度</span>
+</div>
+</div>
+
+<div class="card" id="resultCard">
+<h3>💰 电费计算结果</h3>
+<div class="result-big">
+<div class="label">预计夏季电费（6-9月，122天）</div>
+<div class="total" id="totalCost">--</div>
+</div>
+<div class="result-grid">
+<div class="result-stat"><div class="val" id="dayCost">--</div><div class="lab">每天电费</div></div>
+<div class="result-stat"><div class="val" id="monthCost">--</div><div class="lab">每月电费</div></div>
+<div class="result-stat"><div class="val" id="dayKwh">--</div><div class="lab">每天耗电</div></div>
+<div class="result-stat"><div class="val" id="monthKwh">--</div><div class="lab">每月耗电</div></div>
+</div>
+<div class="compare-section" id="compareSection"></div>
+<div class="tips" id="tips"></div>
+</div>
+<footer>电费仅供参考 · 实际电费以电表为准 ⚡</footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+
+function calc(){
+const acType=$('acType').value;
+const basePower=parseInt($('power').value);
+const eff=parseInt($('efficiency').value);
+const setTemp=parseInt($('setTemp').value)||26;
+const hoursDay=parseInt($('hoursDay').value)||8;
+const priceKwh=parseFloat($('priceKwh').value)||0.6;
+
+// Inverter efficiency: power varies based on temp setting and efficiency level
+// At steady state inverter uses ~40-70% of rated power
+let avgPower;
+if(acType==='inverter'){
+// Inverter: lower consumption once room reaches temp
+const tempFactor=1+Math.max(0,(setTemp-24)*0.08); // lower temp = more power
+const effFactor=0.7+(eff-1)*0.075; // 1级=0.7, 3级=0.85, 5级=1.0
+avgPower=basePower*effFactor*tempFactor;
+}else{
+// Fixed: on/off cycles, ~85% duty cycle
+const tempFactor=1+Math.max(0,(setTemp-24)*0.1);
+const effFactor=0.8+(eff-1)*0.05;
+avgPower=basePower*effFactor*tempFactor*0.85;
+}
+
+const dayKwh=Math.round(avgPower*hoursDay/1000*10)/10;
+const monthKwh=Math.round(dayKwh*30);
+const dayCost=Math.round(dayKwh*priceKwh*100)/100;
+const monthCost=Math.round(monthKwh*priceKwh*100)/100;
+const seasonCost=Math.round(monthCost*4.07*100)/100; // 122 days
+
+$('dayKwh').textContent=dayKwh+'度';
+$('monthKwh').textContent=monthKwh+'度';
+$('dayCost').textContent='¥'+dayCost.toFixed(2);
+$('monthCost').textContent='¥'+monthCost.toFixed(2);
+$('totalCost').textContent='¥'+seasonCost.toFixed(0);
+
+// Compare with alternatives
+const alt26=calcAlt(basePower,eff,acType,26,hoursDay,priceKwh);
+const alt24=calcAlt(basePower,eff,acType,24,hoursDay,priceKwh);
+const alt28=calcAlt(basePower,eff,acType,28,hoursDay,priceKwh);
+const altLonger=calcAlt(basePower,eff,acType,setTemp,12,priceKwh);
+
+$('compareSection').innerHTML=`
+<div class="compare-row"><span class="compare-label">🌡️ 如果设26°C</span><span class="compare-val ${alt26<seasonCost?'good':'bad'}">¥${Math.round(alt26)}</span></div>
+<div class="compare-row"><span class="compare-label">🌡️ 如果设24°C</span><span class="compare-val bad">¥${Math.round(alt24)}</span></div>
+<div class="compare-row"><span class="compare-label">🌡️ 如果设28°C</span><span class="compare-val good">¥${Math.round(alt28)}</span></div>
+<div class="compare-row"><span class="compare-label">⏰ 如果每天开12小时</span><span class="compare-val bad">¥${Math.round(altLonger)}</span></div>
+`;
+
+// Tips
+let tips='';
+if(setTemp<=24)tips='💡 温度设在26°C以上，每高1°C可省约8%电费';
+else if(setTemp>=28)tips='✅ 温度设定合理，继续保持！';
+else tips='💡 温度设在28°C，比26°C可省约15%电费';
+if(hoursDay>10)tips+='\n⏰ 减少使用时间到8小时以内可显著降低电费';
+if(acType==='fixed')tips+='\n🔄 升级变频空调每年可省30-50%电费';
+if(eff>=4)tips+='\n⭐ 选择一级能效空调，比五级省电约40%';
+
+$('tips').innerHTML=tips.split('\n').map(t=>'<div>'+t+'</div>').join('');
+
+// Save
+const d={acType,basePower:parseInt($('power').value),eff,setTemp,hoursDay,priceKwh};
+localStorage.setItem('ac-cost-calc',JSON.stringify(d));
+}
+
+function calcAlt(power,eff,acType,temp,hours,price){
+const isInverter=acType==='inverter';
+let avgPower;
+if(isInverter){
+const tempFactor=1+Math.max(0,(temp-24)*0.08);
+const effFactor=0.7+(eff-1)*0.075;
+avgPower=power*effFactor*tempFactor;
+}else{
+const tempFactor=1+Math.max(0,(temp-24)*0.1);
+const effFactor=0.8+(eff-1)*0.05;
+avgPower=power*effFactor*tempFactor*0.85;
+}
+return (avgPower*hours/1000*price*30*4.07);
+}
+
+// Event listeners
+$('acType').addEventListener('change',calc);
+$('power').addEventListener('change',calc);
+$('efficiency').addEventListener('change',calc);
+$('setTemp').addEventListener('input',calc);
+$('hoursDay').addEventListener('input',calc);
+$('priceKwh').addEventListener('input',calc);
+
+// Load
+try{
+const d=JSON.parse(localStorage.getItem('ac-cost-calc'));
+if(d){$('acType').value=d.acType;$('power').value=d.basePower;$('efficiency').value=d.eff;$('setTemp').value=d.setTemp;$('hoursDay').value=d.hoursDay;$('priceKwh').value=d.priceKwh;}
+}catch(e){}
+
+calc();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📝 文字统计器</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --text-secondary: #666;
+    --border: #e0e0e0;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --input-bg: #fff;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --stat-bg: #f8f9ff;
+    --tag-bg: #eef2ff;
+    --tag-text: #4338ca;
+    --chinese-color: #6366f1;
+    --english-color: #10b981;
+    --digit-color: #f59e0b;
+    --punct-color: #ef4444;
+    --other-color: #8b5cf6;
+  }
+  [data-theme="dark"] {
+    --bg: #1a1a2e;
+    --card-bg: #16213e;
+    --text: #e8e8e8;
+    --text-secondary: #a0a0b8;
+    --border: #2a2a4a;
+    --accent: #818cf8;
+    --accent-hover: #6366f1;
+    --input-bg: #1a1a2e;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    --stat-bg: #0f3460;
+    --tag-bg: #1e1b4b;
+    --tag-text: #a5b4fc;
+    --chinese-color: #818cf8;
+    --english-color: #34d399;
+    --digit-color: #fbbf24;
+    --punct-color: #f87171;
+    --other-color: #a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+  .container { max-width: 640px; margin: 0 auto; padding: 16px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0;
+  }
+  header h1 { font-size: 22px; font-weight: 700; }
+  .theme-toggle {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 50%; width: 40px; height: 40px; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+  .card {
+    background: var(--card-bg); border-radius: 16px;
+    padding: 20px; margin-bottom: 16px;
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+  }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+
+  /* Textarea */
+  .textarea-wrap { position: relative; }
+  textarea {
+    width: 100%; min-height: 200px; padding: 14px; border-radius: 12px;
+    border: 1.5px solid var(--border); background: var(--input-bg);
+    color: var(--text); font-size: 15px; line-height: 1.7;
+    outline: none; resize: vertical; font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: #999; }
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+  .btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-outline { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+  .btn-outline:hover { background: var(--accent); color: #fff; }
+  .btn:active { transform: scale(0.97); }
+
+  /* Stats Grid */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-item {
+    background: var(--stat-bg); border-radius: 12px; padding: 14px 10px;
+    text-align: center;
+  }
+  .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+  .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* Reading Time */
+  .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .time-card {
+    background: var(--stat-bg); border-radius: 12px; padding: 14px;
+    text-align: center;
+  }
+  .time-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .time-label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .time-detail { font-size: 11px; color: var(--text-secondary); margin-top: 2px; opacity: 0.7; }
+
+  /* Pie Chart (Pure CSS) */
+  .distribution-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .pie-chart {
+    width: 130px; height: 130px; border-radius: 50%;
+    background: conic-gradient(
+      var(--chinese-color) 0deg var(--pie-chinese, 0deg),
+      var(--english-color) var(--pie-chinese, 0deg) var(--pie-english-end, 0deg),
+      var(--digit-color) var(--pie-english-end, 0deg) var(--pie-digit-end, 0deg),
+      var(--punct-color) var(--pie-digit-end, 0deg) var(--pie-punct-end, 0deg),
+      var(--other-color) var(--pie-punct-end, 0deg) 360deg
+    );
+    flex-shrink: 0; position: relative;
+  }
+  .pie-chart::after {
+    content: ''; position: absolute; width: 60px; height: 60px;
+    background: var(--card-bg); border-radius: 50%;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  .pie-legend { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .legend-dot.chinese { background: var(--chinese-color); }
+  .legend-dot.english { background: var(--english-color); }
+  .legend-dot.digit { background: var(--digit-color); }
+  .legend-dot.punct { background: var(--punct-color); }
+  .legend-dot.other { background: var(--other-color); }
+  .legend-count { margin-left: auto; color: var(--text-secondary); font-size: 12px; }
+
+  /* Keyword Density */
+  .keyword-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .keyword-tag {
+    background: var(--tag-bg); color: var(--tag-text);
+    padding: 6px 12px; border-radius: 20px; font-size: 13px;
+    font-weight: 500; display: flex; align-items: center; gap: 4px;
+  }
+  .keyword-count { font-size: 11px; opacity: 0.7; }
+  .no-data { color: var(--text-secondary); font-size: 14px; text-align: center; padding: 16px 0; }
+
+  /* Toast */
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: #1a1a1a; color: #fff; padding: 10px 24px;
+    border-radius: 12px; font-size: 14px; z-index: 100;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  footer { text-align: center; padding: 24px 0; color: var(--text-secondary); font-size: 12px; }
+
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .stat-value { font-size: 20px; }
+    .stat-label { font-size: 11px; }
+    .distribution-row { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📝 文字统计器</h1>
+    <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
+  </header>
+
+  <!-- Input Area -->
+  <div class="card">
+    <div class="card-title">📥 输入文字</div>
+    <div class="textarea-wrap">
+      <textarea id="textInput" placeholder="在此粘贴或输入文字...&#10;支持中英文混合统计"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline" id="clearBtn">🗑️ 清空</button>
+      <button class="btn btn-primary" id="pasteBtn">📋 粘贴</button>
+    </div>
+  </div>
+
+  <!-- Basic Stats -->
+  <div class="card">
+    <div class="card-title">📊 基础统计</div>
+    <div class="stats-grid">
+      <div class="stat-item"><div class="stat-value" id="totalChars">0</div><div class="stat-label">总字符（含空格）</div></div>
+      <div class="stat-item"><div class="stat-value" id="charsNoSpace">0</div><div class="stat-label">总字符（不含空格）</div></div>
+      <div class="stat-item"><div class="stat-value" id="chineseChars">0</div><div class="stat-label">中文字数</div></div>
+      <div class="stat-item"><div class="stat-value" id="englishWords">0</div><div class="stat-label">英文单词数</div></div>
+      <div class="stat-item"><div class="stat-value" id="lineCount">0</div><div class="stat-label">行数</div></div>
+      <div class="stat-item"><div class="stat-value" id="paraCount">0</div><div class="stat-label">段落数</div></div>
+      <div class="stat-item" style="grid-column: 1 / -1;">
+        <div class="stat-value" id="punctCount">0</div>
+        <div class="stat-label">标点符号数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reading Time -->
+  <div class="card">
+    <div class="card-title">⏱️ 阅读与朗读时间</div>
+    <div class="time-row">
+      <div class="time-card">
+        <div class="time-value" id="readingTime">0 分钟</div>
+        <div class="time-label">预估阅读时间</div>
+        <div class="time-detail" id="readingDetail">中文 300字/分钟 · 英文 200词/分钟</div>
+      </div>
+      <div class="time-card">
+        <div class="time-value" id="speakingTime">0 分钟</div>
+        <div class="time-label">预估朗读时间</div>
+        <div class="time-detail" id="speakingDetail">中文 3字/秒 · 英文 2词/秒</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character Distribution -->
+  <div class="card">
+    <div class="card-title">🎨 字符分布</div>
+    <div class="distribution-row">
+      <div class="pie-chart" id="pieChart"></div>
+      <div class="pie-legend">
+        <div class="legend-item"><span class="legend-dot chinese"></span> 中文 <span class="legend-count" id="legendChinese">0</span></div>
+        <div class="legend-item"><span class="legend-dot english"></span> 英文 <span class="legend-count" id="legendEnglish">0</span></div>
+        <div class="legend-item"><span class="legend-dot digit"></span> 数字 <span class="legend-count" id="legendDigit">0</span></div>
+        <div class="legend-item"><span class="legend-dot punct"></span> 标点 <span class="legend-count" id="legendPunct">0</span></div>
+        <div class="legend-item"><span class="legend-dot other"></span> 其他 <span class="legend-count" id="legendOther">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyword Density -->
+  <div class="card">
+    <div class="card-title">🔑 关键字密度分析（前10）</div>
+    <div class="keyword-list" id="keywordList">
+      <div class="no-data">尚未输入内容</div>
+    </div>
+  </div>
+
+  <footer>📝 输入文字即可实时统计 · 支持中英文混合 · 纯前端处理</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+  const textInput = $('textInput');
+
+  // Theme
+  let isDark = false;
+  function setTheme(dark) {
+    isDark = dark;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    $('themeToggle').textContent = dark ? '☀️' : '🌙';
+  }
+  $('themeToggle').addEventListener('click', () => {
+    setTheme(!isDark);
+    localStorage.setItem('wc-theme', isDark ? 'dark' : 'light');
+  });
+  if (localStorage.getItem('wc-theme') === 'dark' || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    setTheme(localStorage.getItem('wc-theme') !== 'light');
+  }
+
+  // Toast
+  function showToast(msg) {
+    const toast = $('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  // Clear
+  $('clearBtn').addEventListener('click', () => {
+    textInput.value = '';
+    updateStats();
+    showToast('✅ 已清空');
+  });
+
+  // Paste
+  $('pasteBtn').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        textInput.value = text;
+        updateStats();
+        showToast('✅ 已粘贴');
+      } else {
+        showToast('⚠️ 剪贴板为空');
+      }
+    } catch (e) {
+      showToast('⚠️ 无法读取剪贴板，请手动粘贴');
+    }
+  });
+
+  // Classification helpers
+  function isChinese(char) {
+    const code = char.charCodeAt(0);
+    return (code >= 0x4E00 && code <= 0x9FFF) ||
+           (code >= 0x3400 && code <= 0x4DBF) ||
+           (code >= 0x2E80 && code <= 0x2FDF) ||
+           (code >= 0x3000 && code <= 0x303F && char !== '、' && char !== '，' && char !== '。' && char !== '；' && char !== '：' && char !== '？' && char !== '！' && char !== ' ' && char !== '\u3000');
+  }
+
+  function isEnglishLetter(char) {
+    const code = char.charCodeAt(0);
+    return (code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A);
+  }
+
+  function isDigit(char) {
+    const code = char.charCodeAt(0);
+    return code >= 0x30 && code <= 0x39;
+  }
+
+  function isPunctuation(char) {
+    const punctSet = '.。,，!！?？;；:：""''""''（）()【】[]《》〈〉{}…、·—\u3000';
+    if (punctSet.indexOf(char) !== -1) return true;
+    const code = char.charCodeAt(0);
+    return (code >= 0x2000 && code <= 0x206F) ||
+           (code >= 0x3000 && code <= 0x303F) ||
+           (code >= 0xFF00 && code <= 0xFFEF);
+  }
+
+  function classifyChar(char) {
+    if (isChinese(char)) return 'chinese';
+    if (isEnglishLetter(char)) return 'english';
+    if (isDigit(char)) return 'digit';
+    if (isPunctuation(char)) return 'punct';
+    return 'other';
+  }
+
+  // Chinese simplified segmentation: extract 2-4 char substrings
+  function segmentChinese(text) {
+    const cleaned = text.replace(/[^\u4e00-\u9fff\u3400-\u4dbf]/g, '');
+    const segments = {};
+    const len = cleaned.length;
+
+    // 2-char segments
+    for (let i = 0; i <= len - 2; i++) {
+      const seg = cleaned.substring(i, i + 2);
+      segments[seg] = (segments[seg] || 0) + 1;
+    }
+    // 3-char segments
+    for (let i = 0; i <= len - 3; i++) {
+      const seg = cleaned.substring(i, i + 3);
+      segments[seg] = (segments[seg] || 0) + 1;
+    }
+    // 4-char segments
+    for (let i = 0; i <= len - 4; i++) {
+      const seg = cleaned.substring(i, i + 4);
+      segments[seg] = (segments[seg] || 0) + 1;
+    }
+    return segments;
+  }
+
+  // Extract English words
+  function extractEnglishWords(text) {
+    const words = {};
+    const matches = text.toLowerCase().match(/[a-z]+/g);
+    if (matches) {
+      matches.forEach(w => {
+        if (w.length >= 2) {
+          words[w] = (words[w] || 0) + 1;
+        }
+      });
+    }
+    return words;
+  }
+
+  function updateStats() {
+    const text = textInput.value;
+
+    // Basic counts
+    const totalChars = text.length;
+    const charsNoSpace = text.replace(/\s/g, '').length;
+    const chineseChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
+    const englishWordMatches = text.match(/[a-zA-Z]+/g);
+    const englishWords = englishWordMatches ? englishWordMatches.length : 0;
+    const lines = text.length > 0 ? text.split('\n').length : 0;
+    const paragraphs = text.length > 0 ? text.split('\n').filter(l => l.trim().length > 0).length : 0;
+
+    // Punctuation count
+    let punctCount = 0;
+    for (const char of text) {
+      if (isPunctuation(char)) punctCount++;
+    }
+
+    // Character distribution
+    let dist = { chinese: 0, english: 0, digit: 0, punct: 0, other: 0 };
+    for (const char of text) {
+      const type = classifyChar(char);
+      dist[type]++;
+    }
+    const distTotal = totalChars || 1;
+
+    // Update DOM - Basic Stats
+    $('totalChars').textContent = totalChars.toLocaleString();
+    $('charsNoSpace').textContent = charsNoSpace.toLocaleString();
+    $('chineseChars').textContent = chineseChars.toLocaleString();
+    $('englishWords').textContent = englishWords.toLocaleString();
+    $('lineCount').textContent = lines.toLocaleString();
+    $('paraCount').textContent = paragraphs.toLocaleString();
+    $('punctCount').textContent = punctCount.toLocaleString();
+
+    // Reading time (Chinese: 300 chars/min, English: 200 words/min)
+    const chineseReadingMin = chineseChars / 300;
+    const englishReadingMin = englishWords / 200;
+    const totalReadingMin = chineseReadingMin + englishReadingMin;
+
+    let readingTimeStr;
+    if (totalReadingMin < 0.1) {
+      readingTimeStr = '< 1 秒';
+    } else if (totalReadingMin < 1) {
+      readingTimeStr = Math.ceil(totalReadingMin * 60) + ' 秒';
+    } else if (totalReadingMin < 60) {
+      const m = Math.floor(totalReadingMin);
+      const s = Math.round((totalReadingMin - m) * 60);
+      readingTimeStr = s > 0 ? m + ' 分 ' + s + ' 秒' : m + ' 分钟';
+    } else {
+      const h = Math.floor(totalReadingMin / 60);
+      const m = Math.round(totalReadingMin % 60);
+      readingTimeStr = m > 0 ? h + ' 小时 ' + m + ' 分' : h + ' 小时';
+    }
+    $('readingTime').textContent = readingTimeStr;
+
+    // Speaking time (Chinese: 3 chars/sec, English: 2 words/sec)
+    const chineseSpeakingSec = chineseChars / 3;
+    const englishSpeakingSec = englishWords / 2;
+    const totalSpeakingSec = chineseSpeakingSec + englishSpeakingSec;
+
+    let speakingTimeStr;
+    if (totalSpeakingSec < 1) {
+      speakingTimeStr = '< 1 秒';
+    } else if (totalSpeakingSec < 60) {
+      speakingTimeStr = Math.ceil(totalSpeakingSec) + ' 秒';
+    } else if (totalSpeakingSec < 3600) {
+      const m = Math.floor(totalSpeakingSec / 60);
+      const s = Math.round(totalSpeakingSec % 60);
+      speakingTimeStr = s > 0 ? m + ' 分 ' + s + ' 秒' : m + ' 分钟';
+    } else {
+      const h = Math.floor(totalSpeakingSec / 3600);
+      const m = Math.round((totalSpeakingSec % 3600) / 60);
+      speakingTimeStr = m > 0 ? h + ' 小时 ' + m + ' 分' : h + ' 小时';
+    }
+    $('speakingTime').textContent = speakingTimeStr;
+    $('readingDetail').textContent = '中 ' + chineseChars + ' 字(' + (chineseReadingMin * 60).toFixed(0) + '秒) + 英 ' + englishWords + ' 词(' + (englishReadingMin * 60).toFixed(0) + '秒)';
+    $('speakingDetail').textContent = '中 ' + chineseChars + ' 字(' + (chineseSpeakingSec).toFixed(0) + '秒) + 英 ' + englishWords + ' 词(' + (englishSpeakingSec).toFixed(0) + '秒)';
+
+    // Pie Chart (Pure CSS)
+    const pie = $('pieChart');
+    if (totalChars === 0) {
+      pie.style.setProperty('--pie-chinese', '0deg');
+      pie.style.setProperty('--pie-english-end', '0deg');
+      pie.style.setProperty('--pie-digit-end', '0deg');
+      pie.style.setProperty('--pie-punct-end', '0deg');
+    } else {
+      const cDeg = (dist.chinese / totalChars) * 360;
+      const eDeg = (dist.english / totalChars) * 360;
+      const dDeg = (dist.digit / totalChars) * 360;
+      const pDeg = (dist.punct / totalChars) * 360;
+      const cEnd = cDeg;
+      const eEnd = cEnd + eDeg;
+      const dEnd = eEnd + dDeg;
+      const pEnd = dEnd + pDeg;
+      pie.style.setProperty('--pie-chinese', cEnd + 'deg');
+      pie.style.setProperty('--pie-english-end', eEnd + 'deg');
+      pie.style.setProperty('--pie-digit-end', dEnd + 'deg');
+      pie.style.setProperty('--pie-punct-end', pEnd + 'deg');
+    }
+
+    // Legend
+    $('legendChinese').textContent = dist.chinese + ' (' + (dist.chinese / distTotal * 100).toFixed(1) + '%)';
+    $('legendEnglish').textContent = dist.english + ' (' + (dist.english / distTotal * 100).toFixed(1) + '%)';
+    $('legendDigit').textContent = dist.digit + ' (' + (dist.digit / distTotal * 100).toFixed(1) + '%)';
+    $('legendPunct').textContent = dist.punct + ' (' + (dist.punct / distTotal * 100).toFixed(1) + '%)';
+    $('legendOther').textContent = dist.other + ' (' + (dist.other / distTotal * 100).toFixed(1) + '%)';
+
+    // Keyword Density
+    const keywordList = $('keywordList');
+    if (totalChars === 0) {
+      keywordList.innerHTML = '<div class="no-data">尚未输入内容</div>';
+    } else {
+      const chineseSegments = segmentChinese(text);
+      const engWords = extractEnglishWords(text);
+
+      // Combine and sort
+      let allKeywords = [];
+      for (const [k, v] of Object.entries(chineseSegments)) {
+        allKeywords.push({ word: k, count: v });
+      }
+      for (const [k, v] of Object.entries(engWords)) {
+        allKeywords.push({ word: k, count: v });
+      }
+
+      allKeywords.sort((a, b) => b.count - a.count);
+      const top10 = allKeywords.slice(0, 10);
+
+      if (top10.length === 0) {
+        keywordList.innerHTML = '<div class="no-data">暂无关键字数据</div>';
+      } else {
+        keywordList.innerHTML = top10.map(item =>
+          '<span class="keyword-tag">' +
+          escapeHTML(item.word) +
+          ' <span class="keyword-count">x' + item.count + '</span>' +
+          '</span>'
+        ).join('');
+      }
+    }
+  }
+
+  function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Debounced input handler
+  let debounceTimer;
+  textInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(updateStats, 100);
+  });
+
+  // Initial update
+  updateStats();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

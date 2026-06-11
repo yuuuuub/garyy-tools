@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全球市场概览</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+.btn{background:var(--blue);color:#fff;border:none;padding:8px 20px;border-radius:var(--radius);cursor:pointer;font-size:.9rem;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{text-align:center;padding:30px 0}
+.error-box p{color:var(--red);margin-bottom:10px}
+.error-box .btn{background:var(--red)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.stat-card{text-align:center;padding:14px}
+.stat-card .label{font-size:.75rem;color:var(--text2);margin-bottom:4px}
+.stat-card .value{font-size:1.2rem;font-weight:700}
+.stat-card .change{font-size:.8rem;margin-top:2px}
+.up{color:var(--green)}
+.down{color:var(--red)}
+.neutral{color:var(--text2)}
+.gold{color:var(--gold)}
+.section-title{font-size:.95rem;font-weight:600;margin-bottom:12px;color:var(--text)}
+.index-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.index-row:last-child{border-bottom:none}
+.index-name{font-size:.9rem;font-weight:500}
+.index-price{font-size:.95rem;font-weight:700;text-align:right}
+.index-change{font-size:.8rem;min-width:70px;text-align:right}
+.mkt-bar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:8px 0}
+.mkt-bar .seg{display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:.78rem;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.last-update{text-align:center;font-size:.75rem;color:var(--text2);margin-top:4px}
+@media(max-width:640px){.grid-4{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📈 全球市场概览</h1>
+    <p>实时市场数据</p>
+  </header>
+
+  <div id="globalStats" class="card"></div>
+  <div id="indexTable" class="card"></div>
+  <div id="cryptoMarket" class="card"></div>
+  <div id="lastUpdate" class="last-update"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const globalStats = $('globalStats');
+const indexTable = $('indexTable');
+const cryptoMarket = $('cryptoMarket');
+const lastUpdate = $('lastUpdate');
+
+function loading(el){
+  el.innerHTML = '<div class="spinner"></div>';
+}
+
+function error(el, msg){
+  el.innerHTML = `<div class="error-box"><p>${msg || '加载失败'}</p><button class="btn" onclick="location.reload()">重试</button></div>`;
+}
+
+function formatPrice(v){
+  if(v >= 1e12) return '$'+(v/1e12).toFixed(2)+'T';
+  if(v >= 1e9) return '$'+(v/1e9).toFixed(2)+'B';
+  if(v >= 1e6) return '$'+(v/1e6).toFixed(2)+'M';
+  return '$'+Number(v).toLocaleString();
+}
+
+function formatPct(v){
+  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+}
+
+// 全球股指模拟数据（因免费API限制）
+const indices = [
+  {name:'道琼斯', symbol:'DJI', price:38989.29, change:1.21},
+  {name:'纳斯达克', symbol:'IXIC', price:17618.17, change:1.68},
+  {name:'标普500', symbol:'SPX', price:5198.51, change:1.33},
+  {name:'日经225', symbol:'N225', price:38633.91, change:-0.72},
+  {name:'恒生指数', symbol:'HSI', price:18463.70, change:0.85},
+  {name:'上证指数', symbol:'000001', price:3154.03, change:-0.22},
+  {name:'深证成指', symbol:'399001', price:9568.22, change:0.14},
+  {name:'富时100', symbol:'FTSE', price:8374.87, change:0.63},
+  {name:'德国DAX', symbol:'GDAXI', price:18485.55, change:0.94},
+  {name:'法国CAC', symbol:'FCHI', price:8097.10, change:0.58}
+];
+
+function renderIndices(){
+  indexTable.innerHTML = '<div class="section-title">🌍 全球主要股指</div>' +
+    indices.map(i => {
+      const cls = i.change >= 0 ? 'up' : 'down';
+      return `<div class="index-row">
+        <div><div class="index-name">${i.name}</div><div style="font-size:.7rem;color:var(--text2)">${i.symbol}</div></div>
+        <div><div class="index-price">${i.price.toLocaleString('zh-CN',{minimumFractionDigits:2})}</div><div class="index-change ${cls}">${formatPct(i.change)}</div></div>
+      </div>`;
+    }).join('');
+}
+
+function renderGlobalStats(data){
+  const total_mcap = data.data.total_market_cap.usd;
+  const total_vol = data.data.total_volume.usd;
+  const btc_dominance = data.data.market_cap_percentage.btc;
+  const active_cryptos = data.data.active_cryptocurrencies;
+
+  globalStats.innerHTML = `
+    <div class="section-title">📊 全球加密市场总览</div>
+    <div class="grid-4">
+      <div class="stat-card"><div class="label">总市值</div><div class="value gold">${formatPrice(total_mcap)}</div></div>
+      <div class="stat-card"><div class="label">24h交易量</div><div class="value">${formatPrice(total_vol)}</div></div>
+      <div class="stat-card"><div class="label">BTC占比</div><div class="value">${btc_dominance.toFixed(1)}%</div></div>
+      <div class="stat-card"><div class="label">活跃币种</div><div class="value">${active_cryptos}</div></div>
+    </div>`;
+}
+
+function renderCryptoMarket(data){
+  const btc = data.data.market_cap_percentage;
+  const topPct = Object.entries(btc).slice(0,5);
+  const colors = ['#f7931a','#627eea','#3b82f6','#8b5cf6','#ef4444'];
+  const labels = {btc:'BTC',eth:'ETH',usdt:'USDT',bnb:'BNB',sol:'SOL'};
+  const total = Object.values(btc).reduce((a,b)=>a+b,0);
+
+  let barHtml = '<div class="mkt-bar">';
+  let legendHtml = '<div class="legend">';
+  topPct.forEach(([k,v],i) => {
+    const pct = (v/total*100);
+    barHtml += `<div class="seg" style="width:${pct}%;background:${colors[i]}">${pct>5?labels[k]||k:''}</div>`;
+    legendHtml += `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${labels[k]||k} ${v.toFixed(1)}%</div>`;
+  });
+  barHtml += '</div>';
+  legendHtml += '</div>';
+
+  cryptoMarket.innerHTML = `
+    <div class="section-title">🏛️ 加密货币市值占比</div>
+    ${barHtml}
+    ${legendHtml}
+    <div style="font-size:.75rem;color:var(--text2);text-align:center;margin-top:4px">数据来源: CoinGecko</div>`;
+}
+
+async function fetchData(){
+  loading(globalStats);
+  loading(cryptoMarket);
+
+  try{
+    const res = await fetch('https://api.coingecko.com/api/v3/global');
+    if(!res.ok) throw new Error('API Error: '+res.status);
+    const data = await res.json();
+    renderGlobalStats(data);
+    renderCryptoMarket(data);
+    lastUpdate.textContent = '数据更新于: ' + new Date().toLocaleString('zh-CN');
+  }catch(e){
+    error(globalStats, '全球数据加载失败: '+e.message);
+    error(cryptoMarket, '加密数据加载失败');
+  }
+}
+
+renderIndices();
+fetchData();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

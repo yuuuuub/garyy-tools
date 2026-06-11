@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>👾 像素头像生成器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface2: #0f3460;
+      --text: #e0e0e0;
+      --text2: #aaa;
+      --accent: #e94560;
+      --border: #333;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .subtitle {
+      color: var(--text2);
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 480px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    /* 像素网格预览 */
+    .pixel-grid {
+      display: grid;
+      gap: 1px;
+      background: var(--border);
+      border: 3px solid var(--border);
+      border-radius: 6px;
+      width: min(320px, 80vw);
+      height: min(320px, 80vw);
+      overflow: hidden;
+    }
+
+    .pixel-grid.size-8  { grid-template-columns: repeat(8, 1fr); }
+    .pixel-grid.size-16 { grid-template-columns: repeat(16, 1fr); }
+
+    .pixel {
+      aspect-ratio: 1;
+      transition: background-color 0.15s ease;
+    }
+
+    /* 控制区 */
+    .controls {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    button, .btn {
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      white-space: nowrap;
+    }
+
+    button:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(233, 69, 96, 0.35);
+    }
+    .btn-primary:hover { background: #ff6b81; }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #1a4d8f; }
+
+    .btn-outline {
+      background: transparent;
+      border: 2px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { border-color: var(--accent); }
+
+    /* 主题选择 */
+    .theme-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: center;
+    }
+
+    .theme-btn {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      border-radius: 20px;
+      border: 2px solid transparent;
+      background: var(--surface);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .theme-btn:hover { border-color: var(--text2); }
+    .theme-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+    /* 尺寸切换 */
+    .size-group {
+      display: flex;
+      gap: 0.4rem;
+      justify-content: center;
+    }
+
+    .size-btn {
+      padding: 0.35rem 0.9rem;
+      font-size: 0.8rem;
+      border-radius: 20px;
+      border: 2px solid transparent;
+      background: var(--surface);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .size-btn:hover { border-color: var(--text2); }
+    .size-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+    /* Seed 显示 */
+    .seed-display {
+      font-size: 0.8rem;
+      color: var(--text2);
+      text-align: center;
+      word-break: break-all;
+      max-width: 100%;
+      padding: 0.4rem 0.8rem;
+      background: var(--surface);
+      border-radius: 6px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+    }
+
+    footer {
+      margin-top: 2rem;
+      color: var(--text2);
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>👾 像素头像生成器</h1>
+    <p class="subtitle">随机生成对称像素风格头像，支持下载 PNG</p>
+
+    <!-- 像素网格 -->
+    <div class="pixel-grid size-8" id="pixelGrid"></div>
+
+    <!-- Seed 显示 -->
+    <div class="seed-display" id="seedDisplay">Seed: ---</div>
+
+    <!-- 控制区 -->
+    <div class="controls">
+      <button class="btn-primary" id="btnGenerate" onclick="generateAvatar()">
+        🎲 随机生成
+      </button>
+      <button class="btn-outline" id="btnDownload" onclick="downloadPNG()">
+        📥 下载 PNG
+      </button>
+    </div>
+
+    <!-- 尺寸选择 -->
+    <div class="size-group">
+      <button class="size-btn active" data-size="8" onclick="setSize(8, this)">8×8</button>
+      <button class="size-btn" data-size="16" onclick="setSize(16, this)">16×16</button>
+    </div>
+
+    <!-- 主题选择 -->
+    <div class="theme-group">
+      <button class="theme-btn active" data-theme="neon" onclick="setTheme('neon', this)">🌈 霓虹</button>
+      <button class="theme-btn" data-theme="vintage" onclick="setTheme('vintage', this)">📻 复古</button>
+      <button class="theme-btn" data-theme="nature" onclick="setTheme('nature', this)">🌿 自然</button>
+      <button class="theme-btn" data-theme="grayscale" onclick="setTheme('grayscale', this)">⬜ 灰度</button>
+    </div>
+  </div>
+
+  <footer>像素头像生成器 &mdash; 随机种子驱动</footer>
+
+  <!-- 隐藏 Canvas 用于导出 -->
+  <canvas id="exportCanvas" style="display:none;"></canvas>
+
+  <script>
+    // ---- 种子随机数生成器（mulberry32）----
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    // ---- 色彩主题 ----
+    const themes = {
+      neon: {
+        bg: '#0d0221',
+        colors: ['#ff00ff', '#00ffff', '#ff6600', '#ffff00', '#00ff00', '#ff0080', '#0080ff', '#7f00ff'],
+      },
+      vintage: {
+        bg: '#2c1b0e',
+        colors: ['#d4a574', '#8b5e3c', '#c04000', '#f4d03f', '#6b3a2a', '#a0522d', '#d2691e', '#3e2723'],
+      },
+      nature: {
+        bg: '#0d1b0d',
+        colors: ['#2e7d32', '#66bb6a', '#1b5e20', '#81c784', '#4caf50', '#a5d6a7', '#388e3c', '#8bc34a'],
+      },
+      grayscale: {
+        bg: '#111111',
+        colors: ['#eeeeee', '#cccccc', '#999999', '#777777', '#555555', '#444444', '#333333', '#222222'],
+      },
+    };
+
+    // ---- 状态 ----
+    let state = {
+      size: 8,
+      theme: 'neon',
+      seed: Date.now(),
+      pixels: [],
+    };
+
+    // ---- 生成对称像素数据 ----
+    function generatePixels(size, rng, themeName) {
+      const theme = themes[themeName];
+      const half = Math.ceil(size / 2);
+      const result = [];
+
+      for (let row = 0; row < size; row++) {
+        result[row] = [];
+        for (let col = 0; col < half; col++) {
+          const rand = rng();
+          const transparent = rand < 0.35; // 35% 概率留空
+          if (transparent) {
+            result[row][col] = null;
+          } else {
+            const colorIndex = Math.floor(rand * theme.colors.length);
+            result[row][col] = theme.colors[colorIndex];
+          }
+        }
+        // 镜像填充右半部分
+        for (let col = half; col < size; col++) {
+          const mirrorCol = size - 1 - col;
+          result[row][col] = result[row][mirrorCol];
+        }
+      }
+
+      return result;
+    }
+
+    // ---- 渲染像素网格 ----
+    function renderGrid(size, pixels) {
+      const grid = document.getElementById('pixelGrid');
+      grid.className = `pixel-grid size-${size}`;
+      grid.innerHTML = '';
+
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'pixel';
+          const color = pixels[row] && pixels[row][col] ? pixels[row][col] : themes[state.theme].bg;
+          cell.style.backgroundColor = color;
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    // ---- 生成并渲染 ----
+    function generateAvatar() {
+      state.seed = Date.now() ^ (Math.random() * 0x7FFFFFFF | 0);
+      const rng = mulberry32(state.seed);
+      state.pixels = generatePixels(state.size, rng, state.theme);
+      renderGrid(state.size, state.pixels);
+      document.getElementById('seedDisplay').textContent = `Seed: ${state.seed}`;
+    }
+
+    // ---- 设置尺寸 ----
+    function setSize(size, btn) {
+      if (state.size === size) return;
+      state.size = size;
+      document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      generateAvatar();
+    }
+
+    // ---- 设置主题 ----
+    function setTheme(theme, btn) {
+      if (state.theme === theme) return;
+      state.theme = theme;
+      document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (state.pixels.length > 0) {
+        generateAvatar();
+      } else {
+        generateAvatar();
+      }
+    }
+
+    // ---- 下载 PNG ----
+    function downloadPNG() {
+      const size = state.size;
+      const pixelSize = 32; // 每个像素点的大小（渲染到 Canvas 上）
+      const canvasSize = size * pixelSize;
+      const canvas = document.getElementById('exportCanvas');
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      const ctx = canvas.getContext('2d');
+
+      // 关闭抗锯齿
+      ctx.imageSmoothingEnabled = false;
+
+      const theme = themes[state.theme];
+
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const color = state.pixels[row] && state.pixels[row][col]
+            ? state.pixels[row][col]
+            : theme.bg;
+          ctx.fillStyle = color;
+          ctx.fillRect(col * pixelSize, row * pixelSize, pixelSize, pixelSize);
+        }
+      }
+
+      const link = document.createElement('a');
+      link.download = `pixel-avatar-${state.seed}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // ---- 初始化 ----
+    generateAvatar();
+  </script>
+<script src="../i18n.js"></script>
+</body>
+</html>

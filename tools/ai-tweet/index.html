@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐦 推文生成器 - Gary's Tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.9rem;resize:vertical;font-family:inherit;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;outline:none;cursor:pointer;min-width:120px}
+select:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.tweet-grid{display:grid;gap:10px;margin-top:12px}
+.tweet-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all .2s;position:relative}
+.tweet-item:hover{border-color:var(--blue);transform:translateY(-1px)}
+.tweet-item .tweet-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tweet-item .tweet-avatar{width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:600}
+.tweet-item .tweet-name{font-size:.82rem;font-weight:600}
+.tweet-item .tweet-handle{font-size:.72rem;color:var(--text2)}
+.tweet-item .tweet-body{font-size:.88rem;line-height:1.6;margin-bottom:8px}
+.tweet-item .tweet-meta{display:flex;gap:16px;font-size:.7rem;color:var(--text2);padding-top:8px;border-top:1px solid var(--border)}
+.tweet-item .copy-hint{position:absolute;top:8px;right:8px;font-size:.6rem;color:var(--text2);opacity:0;transition:opacity .2s}
+.tweet-item:hover .copy-hint{opacity:1}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:10px;color:var(--red);font-size:.82rem;margin-top:10px;display:none}
+.waiting-msg{background:rgba(245,158,11,.1);border:1px solid var(--gold);border-radius:6px;padding:10px;color:var(--gold);font-size:.82rem;margin-top:10px;display:none}
+.param-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.param-row label{font-size:.82rem;color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🐦 推文生成器</h1>
+<p>社交媒体文案助手</p>
+</header>
+<div class="card">
+<div class="card-title">输入主题</div>
+<textarea id="inputText" rows="3" placeholder="输入推文主题，例如：人工智能的未来、今天的心情、产品发布..."></textarea>
+<div class="param-row">
+<label>风格：</label>
+<select id="tweetStyle">
+<option value="casual">日常随意</option>
+<option value="professional">专业正式</option>
+<option value="funny">幽默风趣</option>
+<option value="inspirational">励志鼓舞</option>
+</select>
+</div>
+<div class="btn-group">
+<button id="genBtn">🐦 生成推文</button>
+<button id="clearBtn" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="waitingMsg" class="waiting-msg">⏳ 模型加载中，请稍候...</div>
+<div id="errorMsg" class="error-msg"></div>
+<div id="resultArea" style="display:none">
+<div class="tweet-grid" id="tweetGrid"></div>
+<div style="text-align:center;margin-top:8px"><span style="font-size:.7rem;color:var(--text2)">💡 点击推文可复制</span></div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var input=document.getElementById('inputText');
+var tweetStyle=document.getElementById('tweetStyle');
+var genBtn=document.getElementById('genBtn');
+var clearBtn=document.getElementById('clearBtn');
+var resultArea=document.getElementById('resultArea');
+var tweetGrid=document.getElementById('tweetGrid');
+var errorMsg=document.getElementById('errorMsg');
+var waitingMsg=document.getElementById('waitingMsg');
+
+var API_URL='https://api-inference.huggingface.co/models/gpt2';
+
+var LOCAL_TWEETS={
+  casual:[
+    '今天想聊一聊{主题}这个话题。说实话，{主题}最近真的太火了，感觉人人都在讨论。分享一下你的看法吧！',
+    '关于{主题}，我有一些想法想和大家分享。不一定对，但都是我真实的想法。欢迎讨论～',
+    '{主题}真的改变了我的生活。以前从来没想过{主题}会这么重要，现在每天都会用到。',
+    '刚刚体验了一下{主题}，感觉还不错。有没有也在用{主题}的朋友？来交流一下！',
+    '周末在家研究{主题}，越了解越觉得有意思。准备深入学一下，有人一起吗？',
+    '{主题}最近更新了好多新功能，试了一下挺惊喜的。推荐给大家！'
+  ],
+  professional:[
+    '深度解析{主题}：从行业趋势到实践应用，{主题}正在重塑我们的工作方式。Thread 🧵',
+    '关于{主题}的几个核心观点：\n1. {主题}的变革已经开始\n2. 关键在于持续学习\n3. 抓住机遇，迎接挑战\n\n欢迎大家补充讨论。',
+    '{主题}是2026年最值得关注的领域之一。作为从业者，我看到了{主题}带来的巨大机遇。',
+    '分享我对{主题}的几点思考：{主题}不仅是技术变革，更是思维方式的升级。',
+    '刚刚完成了一份关于{主题}的深度分析报告。结论是：{主题}的潜力远超我们的想象。',
+    '今天和团队讨论了{主题}的未来发展，我们一致认为{主题}将成为下一个增长点。'
+  ],
+  funny:[
+    '如果有人问我{主题}是什么，我会说：{主题}就是那个让你又爱又恨的东西。懂的都懂 😂',
+    '{主题}：看起来很高大上，实际上我也说不清楚。但没关系，大家不都是这样吗？🤷‍♂️',
+    '我：今天一定要专注研究{主题}\n我的大脑：让我们来看看猫的视频吧 🐱\n#拖延症 #{主题}',
+    '关于{主题}，我的水平大概就是：知道名字，会念，但是完全解释不清楚。这水平够用吗？😅',
+    '如果你能坚持学习{主题}超过三天，恭喜你，你已经超过了99%的人。剩下的1%在拍照发朋友圈。',
+    '我宣布{主题}和火锅是世界上最伟大的两样东西。不接受反驳。🍲🔥'
+  ],
+  inspirational:[
+    '不要害怕{主题}的复杂，每一个专家都是从新手开始的。坚持学习{主题}，时间会给你答案。💪',
+    '当你觉得{主题}很难的时候，想想你为什么开始。初心不改，方得始终。',
+    '在{主题}的道路上，最重要的不是天赋，而是坚持。每天进步一点点，终会到达你想去的地方。',
+    '如果你有一个关于{主题}的想法，现在就是最好的时机。不要等待，行动起来！',
+    '成功不是终点，失败也不是终结。在{主题}的旅程中，每一步都是成长。',
+    '{主题}教会我的最重要一课：没有什么是不可能的，只要你愿意尝试和坚持。🌟'
+  ]
+};
+
+function generate(){
+  var topic=input.value.trim();
+  if(!topic){showError('请输入推文主题');return;}
+  var style=tweetStyle.value;
+  setLoading(true);
+  hideError();
+  hideWaiting();
+  resultArea.style.display='none';
+  var localTweets=LOCAL_TWEETS[style]||LOCAL_TWEETS.casual;
+  var tweets=localTweets.map(function(t){return t.replace(/\{主题\}/g,topic);});
+  var selectedTweets=shuffle(tweets).slice(0,4);
+  renderTweets(selectedTweets);
+  fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({inputs:'Write a tweet about '+topic+':',parameters:{max_length:60,max_new_tokens:50}})
+  })
+  .then(function(r){
+    if(r.status===503){return;} 
+    if(!r.ok)return;
+    return r.json();
+  })
+  .then(function(data){
+    setLoading(false);
+    if(data && data[0] && data[0].generated_text){
+      var gen=data[0].generated_text.replace(/^.*?:\s*/,'').trim();
+      if(gen.length>10 && gen.length<280){
+        selectedTweets.unshift(gen);
+        renderTweets(selectedTweets.slice(0,5));
+      }
+    }
+  })
+  .catch(function(){
+    setLoading(false);
+  });
+}
+
+function renderTweets(tweets){
+  resultArea.style.display='block';
+  tweetGrid.innerHTML=tweets.map(function(t,idx){
+    var charCount=t.length;
+    var names=['科技前沿','社会观察','每日分享','思考笔记','生活记录'];
+    var handles=['@tech_daily','@society_watch','@daily_share','@think_notes','@life_record'];
+    var name=names[idx%names.length];
+    var handle=handles[idx%handles.length];
+    var avatar=name.charAt(0);
+    var timeAgo=['2分钟前','15分钟前','1小时前','3小时前','昨天'][idx%5];
+    var likes=Math.floor(Math.random()*1000)+10;
+    var retweets=Math.floor(likes*0.3);
+    return '<div class="tweet-item" onclick="copyTweet(this)">'+
+      '<div class="tweet-header">'+
+        '<div class="tweet-avatar">'+avatar+'</div>'+
+        '<div><div class="tweet-name">'+name+'</div><div class="tweet-handle">'+handle+'</div></div>'+
+      '</div>'+
+      '<div class="tweet-body">'+escapeHtml(t)+'</div>'+
+      '<div class="tweet-meta">'+
+        '<span>💬 回复</span>'+
+        '<span>🔄 '+retweets+'</span>'+
+        '<span>❤️ '+likes+'</span>'+
+        '<span>📊 '+charCount+'字</span>'+
+        '<span>🕐 '+timeAgo+'</span>'+
+      '</div>'+
+      '<div class="copy-hint">📋 复制</div>'+
+    '</div>';
+  }).join('');
+}
+
+function shuffle(arr){
+  for(var i=arr.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var tmp=arr[i];arr[i]=arr[j];arr[j]=tmp;
+  }
+  return arr;
+}
+
+function escapeHtml(str){
+  var div=document.createElement('div');
+  div.textContent=str;
+  return div.innerHTML;
+}
+
+function setLoading(v){genBtn.disabled=v;genBtn.textContent=v?'⏳ 生成中...':'🐦 生成推文';}
+function showError(msg){errorMsg.textContent=msg;errorMsg.style.display='block';}
+function hideError(){errorMsg.style.display='none';}
+function showWaiting(){waitingMsg.style.display='block';}
+function hideWaiting(){waitingMsg.style.display='none';}
+
+window.copyTweet=function(el){
+  var body=el.querySelector('.tweet-body');
+  var text=body.textContent||body.innerText;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){
+      var hint=el.querySelector('.copy-hint');
+      hint.textContent='已复制!';
+      setTimeout(function(){hint.textContent='📋 复制';},1500);
+    });
+  }
+};
+
+genBtn.addEventListener('click',generate);
+clearBtn.addEventListener('click',function(){
+  input.value='';
+  resultArea.style.display='none';
+  hideError();
+  hideWaiting();
+});
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>酒精代谢计算器 — Alcohol Calc</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f14;
+    --surface: #1a1a24;
+    --surface2: #22222f;
+    --border: #2a2a3a;
+    --text: #e0e0eb;
+    --text2: #9999aa;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --red: #e74c3c;
+    --yellow: #f39c12;
+    --green: #2ecc71;
+    --red-bg: rgba(231, 76, 60, 0.15);
+    --yellow-bg: rgba(243, 156, 18, 0.15);
+    --green-bg: rgba(46, 204, 113, 0.15);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  .container { max-width: 780px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  header {
+    text-align: center;
+    padding: 36px 0 24px;
+  }
+  header h1 {
+    font-size: 2rem;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p { color: var(--text2); margin-top: 6px; font-size: 0.95rem; }
+
+  /* ===== Card ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 18px;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+  }
+
+  /* ===== Form elements ===== */
+  label { display: block; font-size: 0.9rem; margin-bottom: 5px; color: var(--text2); }
+  input, select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type="number"] { -moz-appearance: textfield; }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+    font-family: inherit; cursor: pointer; border: none; transition: all .2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+  .btn-primary:hover { background: #7c6ff7; transform: translateY(-1px); }
+  .btn-danger { background: transparent; border: 1px solid var(--red); color: var(--red); }
+  .btn-danger:hover { background: var(--red-bg); }
+  .btn-sm { padding: 6px 14px; font-size: 0.85rem; }
+
+  /* ===== Drink Log ===== */
+  .drink-row {
+    display: flex; gap: 10px; align-items: flex-end;
+    background: var(--surface2); border-radius: 10px; padding: 14px;
+    margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .drink-row .field { flex: 1; min-width: 100px; }
+  .drink-row .field label { font-size: 0.78rem; margin-bottom: 3px; }
+  .drink-row .btn-remove { align-self: center; margin-bottom: 2px; }
+
+  .log-list { max-height: 220px; overflow-y: auto; margin-top: 12px; }
+  .log-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; background: var(--surface2); border-radius: 8px;
+    margin-bottom: 6px; font-size: 0.88rem;
+  }
+  .log-item .badge {
+    font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;
+    background: var(--accent); color: #fff;
+  }
+
+  /* ===== Status Badge ===== */
+  .status-box {
+    text-align: center; padding: 28px 20px; border-radius: 12px;
+    font-size: 1.1rem; margin-top: 12px;
+  }
+  .status-red    { background: var(--red-bg);    border: 1px solid var(--red);    color: var(--red); }
+  .status-yellow { background: var(--yellow-bg); border: 1px solid var(--yellow); color: var(--yellow); }
+  .status-green  { background: var(--green-bg);  border: 1px solid var(--green);  color: var(--green); }
+  .status-box .icon { font-size: 2.4rem; display: block; margin-bottom: 6px; }
+  .status-box .bac-num { font-size: 2.2rem; font-weight: 800; }
+
+  /* ===== Canvas ===== */
+  canvas { width: 100%; border-radius: 10px; margin-top: 10px; }
+
+  /* ===== Hangover ===== */
+  .hangover-bar {
+    height: 10px; border-radius: 5px; margin-top: 8px;
+    background: linear-gradient(90deg, var(--green) 0%, var(--yellow) 50%, var(--red) 100%);
+  }
+  .hangover-indicator {
+    width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    border: 2px solid var(--border); position: relative; top: -12px;
+    transition: left .4s ease;
+  }
+
+  /* ===== Reference table ===== */
+  .ref-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; margin-top: 10px; }
+  .ref-table th, .ref-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .ref-table th { color: var(--text2); font-weight: 500; }
+
+  /* ===== Disclaimer ===== */
+  .disclaimer {
+    background: var(--surface2); border-radius: 10px; padding: 18px;
+    color: var(--text2); font-size: 0.82rem; line-height: 1.7;
+    border-left: 3px solid var(--yellow);
+  }
+  .disclaimer strong { color: var(--yellow); }
+
+  .danger-note {
+    background: var(--red-bg); border: 1px solid var(--red);
+    border-radius: 10px; padding: 16px; margin-top: 16px;
+    color: var(--red); font-size: 0.9rem; font-weight: 600; text-align: center;
+  }
+
+  .time-sober { text-align: center; font-size: 1.4rem; font-weight: 700; color: var(--accent2); margin-top: 8px; }
+
+  @media (max-width: 560px) {
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+    .drink-row .field { flex: 1 1 45%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>酒精代谢计算器</h1>
+    <p>Alcohol Metabolism Calculator · 了解你的身体如何代谢酒精</p>
+  </header>
+
+  <!-- ==== SECTION 1: User Profile ==== -->
+  <div class="card">
+    <h2>个人信息</h2>
+    <div class="grid2">
+      <div>
+        <label>性别</label>
+        <select id="gender">
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+        </select>
+      </div>
+      <div>
+        <label>体重 (kg)</label>
+        <input type="number" id="weight" value="70" min="30" max="200" step="0.1" placeholder="70">
+      </div>
+    </div>
+  </div>
+
+  <!-- ==== SECTION 2: Add Drink ==== -->
+  <div class="card">
+    <h2>添加饮品</h2>
+    <div class="drink-row" id="drinkForm">
+      <div class="field">
+        <label>饮品类型</label>
+        <select id="drinkType">
+          <option value="beer">啤酒</option>
+          <option value="wine">葡萄酒</option>
+          <option value="liquor">烈酒</option>
+          <option value="custom">自定义</option>
+        </select>
+      </div>
+      <div class="field" id="abvField">
+        <label>酒精度 (ABV %)</label>
+        <input type="number" id="drinkAbv" value="5" min="0.5" max="96" step="0.1" placeholder="5">
+      </div>
+      <div class="field">
+        <label>饮用量 (ml)</label>
+        <input type="number" id="drinkVolume" value="500" min="10" max="5000" step="10" placeholder="500">
+      </div>
+      <div class="field">
+        <label>饮用距现在 (分钟前)</label>
+        <input type="number" id="drinkTime" value="0" min="0" max="1440" step="5" placeholder="0">
+      </div>
+      <div class="field" style="flex:0 0 auto; min-width:60px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary btn-sm" onclick="addDrink()">+ 添加</button>
+      </div>
+    </div>
+    <div class="log-list" id="drinkLogList">
+      <p style="color:var(--text2); text-align:center; padding:20px;">还没有添加饮品</p>
+    </div>
+    <div style="text-align:right; margin-top:10px;">
+      <button class="btn btn-danger btn-sm" onclick="clearAll()">清空全部</button>
+    </div>
+  </div>
+
+  <!-- ==== SECTION 3: Quick Presets ==== -->
+  <div class="card">
+    <h2>常见饮品快速添加</h2>
+    <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">点击即可快速添加一杯饮品 (默认: 刚刚喝完)</p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      <button class="btn btn-sm" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="quickAdd('beer',5,500,0)">啤酒 500ml (5%)</button>
+      <button class="btn btn-sm" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="quickAdd('beer',5,330,0)">啤酒 330ml (5%)</button>
+      <button class="btn btn-sm" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="quickAdd('wine',13,150,0)">红酒 150ml (13%)</button>
+      <button class="btn btn-sm" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="quickAdd('liquor',40,50,0)">白酒 50ml (40%)</button>
+      <button class="btn btn-sm" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="quickAdd('liquor',40,25,0)">白酒 25ml (40%)</button>
+      <button class="btn btn-sm" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="quickAdd('wine',13,750,0)">红酒整瓶 750ml (13%)</button>
+    </div>
+  </div>
+
+  <!-- ==== SECTION 4: Results ==== -->
+  <div class="card">
+    <h2>计算结果</h2>
+    <div id="resultsArea">
+      <p style="color:var(--text2); text-align:center; padding:30px;">请先添加饮品，然后点击下方按钮计算</p>
+    </div>
+    <div style="text-align:center; margin-top:16px;">
+      <button class="btn btn-primary" onclick="calculate()">计算 BAC</button>
+    </div>
+  </div>
+
+  <!-- ==== SECTION 5: BAC Over Time Curve ==== -->
+  <div class="card">
+    <h2>BAC 时间曲线</h2>
+    <div id="chartContainer">
+      <p style="color:var(--text2); text-align:center; padding:30px;">请先计算 BAC 以查看代谢曲线</p>
+    </div>
+    <canvas id="bacChart" width="700" height="300" style="display:none;"></canvas>
+    <canvas id="bacChartMobile" width="350" height="250" style="display:none;"></canvas>
+  </div>
+
+  <!-- ==== SECTION 6: Hangover Severity ==== -->
+  <div class="card">
+    <h2>宿醉严重程度预测</h2>
+    <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">基于你的饮酒量预测明天的感受 (纯属娱乐)</p>
+    <div id="hangoverSection">
+      <p style="color:var(--text2); text-align:center; padding:20px;">请先添加饮品计算</p>
+    </div>
+  </div>
+
+  <!-- ==== SECTION 7: Standard Drink Reference ==== -->
+  <div class="card">
+    <h2>标准饮酒单位参考</h2>
+    <p style="color:var(--text2); font-size:0.85rem; margin-bottom:10px;">一个标准饮酒单位约含 10g 纯酒精。以下为常见饮品的标准单位数：</p>
+    <table class="ref-table">
+      <thead>
+        <tr><th>饮品</th><th>容量</th><th>酒精度</th><th>标准单位</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>啤酒 (拉格)</td><td>330ml / 500ml</td><td>5%</td><td>1.3 / 2.0</td></tr>
+        <tr><td>精酿啤酒</td><td>330ml</td><td>8%</td><td>2.1</td></tr>
+        <tr><td>葡萄酒</td><td>150ml / 750ml</td><td>13%</td><td>1.5 / 7.7</td></tr>
+        <tr><td>白酒</td><td>50ml</td><td>40%</td><td>1.6</td></tr>
+        <tr><td>威士忌</td><td>30ml</td><td>40%</td><td>0.95</td></tr>
+        <tr><td>清酒</td><td>180ml</td><td>15%</td><td>2.1</td></tr>
+        <tr><td>鸡尾酒 (长岛冰茶)</td><td>250ml</td><td>22%</td><td>4.3</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==== SECTION 8: Disclaimer & Warnings ==== -->
+  <div class="card">
+    <h2>重要提示</h2>
+    <div class="disclaimer">
+      <strong>免责声明：</strong>本计算器仅提供 <strong>估算值</strong>，不构成医学或法律建议。实际 BAC 受多种因素影响，包括但不限于：<br><br>
+      - 个人代谢率差异 (遗传、肝功能)<br>
+      - 是否空腹饮酒<br>
+      - 身体脂肪比例<br>
+      - 服用的药物<br>
+      - 疲劳程度与水分摄入<br><br>
+      计算结果可能存在 ±30% 的误差。<strong>请勿以本计算结果作为驾驶决策的依据。</strong>
+    </div>
+    <div class="danger-note">
+      喝酒不开车，开车不喝酒。<br>
+      在中国，酒驾标准为 BAC ≥ 0.02% (20mg/100ml)，醉驾标准为 BAC ≥ 0.08% (80mg/100ml)。<br>
+      酒驾和醉驾属于违法犯罪行为，将被依法追究刑事责任。
+    </div>
+  </div>
+
+</div>
+<script src="../i18n.js"></script>
+</body>
+
+<!-- ===== SCRIPT ===== -->
+<script>
+"use strict";
+
+// ---- State ----
+let drinkLog = [];
+
+// ---- Widmark formula constants ----
+const ETHANOL_DENSITY = 0.789;   // g/ml
+const ELIM_RATE = 0.015;         // % per hour (average)
+const ABSORPTION_HOURS = 0.5;    // 30 min absorption phase
+const SOBER_THRESHOLD = 0.02;    // BAC < 0.02% considered "sober"
+const DRIVE_LIMIT = 0.02;        // China DUI legal limit
+
+function getWidmarkFactor(gender) {
+  return gender === 'male' ? 0.68 : 0.55;
+}
+
+function gramsOfAlcohol(volumeMl, abvPct) {
+  return volumeMl * (abvPct / 100) * ETHANOL_DENSITY;
+}
+
+function calcBACAtTime(grams, weightKg, r, hoursSinceDrink) {
+  if (hoursSinceDrink < 0) hoursSinceDrink = 0;
+  let bac = (grams / (weightKg * 1000 * r)) * 100;
+  bac -= ELIM_RATE * hoursSinceDrink;
+  return Math.max(0, bac);
+}
+
+// ---- Drink type presets ----
+function setDrinkPreset() {
+  const type = document.getElementById('drinkType').value;
+  const abvInput = document.getElementById('drinkAbv');
+  const volInput = document.getElementById('drinkVolume');
+  switch (type) {
+    case 'beer':  abvInput.value = 5;  volInput.value = 500; break;
+    case 'wine':  abvInput.value = 13; volInput.value = 150; break;
+    case 'liquor': abvInput.value = 40; volInput.value = 50; break;
+    case 'custom': abvInput.value = ''; volInput.value = ''; break;
+  }
+}
+document.getElementById('drinkType').addEventListener('change', setDrinkPreset);
+
+// ---- Quick Add ----
+function quickAdd(type, abv, volume, minutesAgo) {
+  drinkLog.push({ type, abv, volume, minutesAgo, id: Date.now() });
+  renderDrinkLog();
+  calculate();
+}
+
+function addDrink() {
+  const type = document.getElementById('drinkType').value;
+  const abv  = parseFloat(document.getElementById('drinkAbv').value);
+  const volume = parseFloat(document.getElementById('drinkVolume').value);
+  const minutesAgo = parseFloat(document.getElementById('drinkTime').value);
+
+  if (isNaN(abv) || isNaN(volume) || abv <= 0 || volume <= 0) {
+    alert('请输入有效的度数和饮用量');
+    return;
+  }
+  if (abv > 96) { alert('酒精度不能超过 96%'); return; }
+
+  drinkLog.push({ type, abv, volume, minutesAgo: isNaN(minutesAgo) ? 0 : minutesAgo, id: Date.now() });
+  renderDrinkLog();
+  calculate();
+}
+
+function removeDrink(id) {
+  drinkLog = drinkLog.filter(d => d.id !== id);
+  renderDrinkLog();
+  if (drinkLog.length === 0) {
+    document.getElementById('resultsArea').innerHTML = '<p style="color:var(--text2); text-align:center; padding:30px;">请先添加饮品，然后点击下方按钮计算</p>';
+    document.getElementById('chartContainer').innerHTML = '<p style="color:var(--text2); text-align:center; padding:30px;">请先计算 BAC 以查看代谢曲线</p>';
+    document.getElementById('hangoverSection').innerHTML = '<p style="color:var(--text2); text-align:center; padding:20px;">请先添加饮品计算</p>';
+  } else {
+    calculate();
+  }
+}
+
+function clearAll() {
+  if (drinkLog.length === 0) return;
+  if (!confirm('确定要清空所有饮品记录吗？')) return;
+  drinkLog = [];
+  renderDrinkLog();
+  document.getElementById('resultsArea').innerHTML = '<p style="color:var(--text2); text-align:center; padding:30px;">请先添加饮品，然后点击下方按钮计算</p>';
+  document.getElementById('chartContainer').innerHTML = '<p style="color:var(--text2); text-align:center; padding:30px;">请先计算 BAC 以查看代谢曲线</p>';
+  document.getElementById('hangoverSection').innerHTML = '<p style="color:var(--text2); text-align:center; padding:20px;">请先添加饮品计算</p>';
+}
+
+const typeLabels = { beer: '啤酒', wine: '葡萄酒', liquor: '烈酒', custom: '自定义' };
+
+function renderDrinkLog() {
+  const container = document.getElementById('drinkLogList');
+  if (drinkLog.length === 0) {
+    container.innerHTML = '<p style="color:var(--text2); text-align:center; padding:20px;">还没有添加饮品</p>';
+    return;
+  }
+  container.innerHTML = drinkLog.map(d => {
+    const label = typeLabels[d.type] || d.type;
+    return `<div class="log-item">
+      <span>${label} <span class="badge">${d.abv}%</span></span>
+      <span>${d.volume} ml</span>
+      <span>${d.minutesAgo} 分钟前</span>
+      <button class="btn btn-danger btn-sm" onclick="removeDrink(${d.id})">删除</button>
+    </div>`;
+  }).join('');
+}
+
+// ---- Main Calculation ----
+function calculate() {
+  const gender = document.getElementById('gender').value;
+  const weight = parseFloat(document.getElementById('weight').value);
+
+  if (isNaN(weight) || weight <= 0) {
+    alert('请输入有效的体重');
+    return;
+  }
+  if (drinkLog.length === 0) {
+    alert('请先添加至少一杯饮品');
+    return;
+  }
+
+  const r = getWidmarkFactor(gender);
+
+  // Calculate cumulative BAC at present time (t=0 = now)
+  let totalBAC = 0;
+  let totalGrams = 0;
+  drinkLog.forEach(d => {
+    const grams = gramsOfAlcohol(d.volume, d.abv);
+    totalGrams += grams;
+    const hoursSince = d.minutesAgo / 60;
+    // Simple model: absorption in first 30 min, linear then elimination
+    let effectiveHours;
+    if (hoursSince < ABSORPTION_HOURS) {
+      // During absorption phase, assume linear rise
+      const peakBAC = grams / (weight * 1000 * r) * 100;
+      totalBAC += peakBAC * (hoursSince / ABSORPTION_HOURS);
+    } else {
+      // After absorption, Widmark elimination
+      const peakBAC = grams / (weight * 1000 * r) * 100;
+      const bac = peakBAC - ELIM_RATE * hoursSince;
+      totalBAC += Math.max(0, bac);
+    }
+  });
+
+  totalBAC = Math.max(0, totalBAC);
+
+  // Time until sober (< 0.02)
+  let hoursToSober = 0;
+  if (totalBAC > SOBER_THRESHOLD) {
+    hoursToSober = (totalBAC - SOBER_THRESHOLD) / ELIM_RATE;
+  }
+
+  // Driving status
+  let statusClass, statusIcon, statusText, statusBacDisplay;
+  if (totalBAC < DRIVE_LIMIT * 0.5) {
+    statusClass = 'status-green';
+    statusIcon = '&#9989;';
+    statusText = '安全 — 血液酒精浓度低于法定限值';
+    statusBacDisplay = `<span class="bac-num">${(totalBAC * 100).toFixed(1)}</span> mg/100ml`;
+  } else if (totalBAC < DRIVE_LIMIT) {
+    statusClass = 'status-yellow';
+    statusIcon = '&#9888;&#65039;';
+    statusText = '警告 — 接近法定限值，不建议驾驶';
+    statusBacDisplay = `<span class="bac-num">${(totalBAC * 100).toFixed(1)}</span> mg/100ml`;
+  } else {
+    statusClass = 'status-red';
+    statusIcon = '&#128680;';
+    statusText = totalBAC >= 0.08 ? '危险 — 已达到醉驾标准！绝对禁止驾驶！' : '危险 — 已达到酒驾标准！绝对禁止驾驶！';
+    statusBacDisplay = `<span class="bac-num">${(totalBAC * 100).toFixed(1)}</span> mg/100ml`;
+  }
+
+  // Sobriety time string
+  let soberStr;
+  if (hoursToSober <= 0) {
+    soberStr = '现在已经可以安全驾驶';
+  } else if (hoursToSober < 1) {
+    const mins = Math.ceil(hoursToSober * 60);
+    soberStr = `预计 ${mins} 分钟后血液酒精浓度降至 0.02% 以下`;
+  } else {
+    const h = Math.floor(hoursToSober);
+    const m = Math.ceil((hoursToSober - h) * 60);
+    soberStr = `预计 ${h} 小时 ${m} 分钟后血液酒精浓度降至 0.02% 以下`;
+  }
+
+  // Standard drinks
+  const stdDrinks = totalGrams / 10;
+
+  document.getElementById('resultsArea').innerHTML = `
+    <div class="status-box ${statusClass}">
+      <span class="icon">${statusIcon}</span>
+      ${statusBacDisplay}
+      <p style="margin-top:4px; font-size:0.95rem;">BAC 约 ${(totalBAC * 100).toFixed(2)}% (${(totalBAC * 100).toFixed(2)} g/100ml)</p>
+      <p style="font-weight:700; margin-top:6px;">${statusText}</p>
+    </div>
+    <div class="time-sober">${soberStr}</div>
+    <div style="text-align:center; margin-top:12px; color:var(--text2); font-size:0.88rem;">
+      总摄入纯酒精：${totalGrams.toFixed(1)} g · 约 ${stdDrinks.toFixed(1)} 个标准单位
+    </div>
+  `;
+
+  drawChart(totalBAC, hoursToSober, r, weight);
+  predictHangover(totalGrams, weight, gender);
+}
+
+// ---- BAC Curve (Canvas) ----
+function drawChart(currentBAC, hoursToSober, r, weight) {
+  const isMobile = window.innerWidth < 600;
+  const canvasId = isMobile ? 'bacChartMobile' : 'bacChart';
+  const oldCanvas = isMobile ? 'bacChart' : 'bacChartMobile';
+  document.getElementById(oldCanvas).style.display = 'none';
+  const canvas = document.getElementById(canvasId);
+  canvas.style.display = 'block';
+  document.getElementById('chartContainer').innerHTML = '';
+  document.getElementById('chartContainer').appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const pad = { top: 30, right: 30, bottom: 50, left: 55 };
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#1a1a24';
+  ctx.fillRect(0, 0, W, H);
+
+  // Compute curve data: from -2h to +max(hoursToSober+2, 6h)
+  const totalHours = Math.max(hoursToSober + 2, 6);
+  const startHour = Math.min(-2, 0);
+  const endHour = totalHours;
+  const points = 200;
+
+  const curveData = [];
+  let maxY = 0;
+  for (let i = 0; i <= points; i++) {
+    const hour = startHour + (endHour - startHour) * (i / points);
+    let bac = 0;
+    drinkLog.forEach(d => {
+      const grams = gramsOfAlcohol(d.volume, d.abv);
+      const hoursSinceConsumption = hour - (-d.minutesAgo / 60);
+      if (hoursSinceConsumption < 0) {
+        // Before drinking, no contribution
+        bac += 0;
+      } else if (hoursSinceConsumption < ABSORPTION_HOURS) {
+        const peak = grams / (weight * 1000 * r) * 100;
+        bac += peak * (hoursSinceConsumption / ABSORPTION_HOURS);
+      } else {
+        const peak = grams / (weight * 1000 * r) * 100;
+        const b = peak - ELIM_RATE * hoursSinceConsumption;
+        bac += Math.max(0, b);
+      }
+    });
+    curveData.push({ hour, bac });
+    if (bac > maxY) maxY = bac;
+  }
+
+  // Find peak
+  let peakBAC = 0, peakHour = 0;
+  for (const pt of curveData) {
+    if (pt.bac > peakBAC) { peakBAC = pt.bac; peakHour = pt.hour; }
+  }
+
+  maxY = Math.ceil((maxY + 0.02) * 10) / 10;
+  if (maxY < SOBER_THRESHOLD * 2) maxY = SOBER_THRESHOLD * 2;
+
+  // Axes
+  function toX(hour) { return pad.left + ((hour - startHour) / (endHour - startHour)) * pw; }
+  function toY(bac) { return pad.top + ph - (bac / maxY) * ph; }
+
+  // Grid lines
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (ph / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+  }
+  for (let i = 0; i <= 8; i++) {
+    const x = pad.left + (pw / 8) * i;
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, H - pad.bottom);
+    ctx.stroke();
+  }
+
+  // Sober threshold line
+  const soberY = toY(SOBER_THRESHOLD);
+  ctx.strokeStyle = '#2ecc71';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, soberY);
+  ctx.lineTo(W - pad.right, soberY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // DUI limit line
+  const duiY = toY(DRIVE_LIMIT);
+  ctx.strokeStyle = '#f39c12';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, duiY);
+  ctx.lineTo(W - pad.right, duiY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Curves: individual drinks AND cumulative
+  // Individual drinks (subtle)
+  const drinkColors = ['rgba(108,92,231,0.3)', 'rgba(162,155,254,0.25)', 'rgba(108,92,231,0.2)', 'rgba(162,155,254,0.15)'];
+  drinkLog.forEach((d, di) => {
+    ctx.strokeStyle = drinkColors[di % drinkColors.length];
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i <= points; i++) {
+      const hour = startHour + (endHour - startHour) * (i / points);
+      const grams = gramsOfAlcohol(d.volume, d.abv);
+      const hoursSinceConsumption = hour - (-d.minutesAgo / 60);
+      let bac = 0;
+      if (hoursSinceConsumption >= 0) {
+        if (hoursSinceConsumption < ABSORPTION_HOURS) {
+          const peak = grams / (weight * 1000 * r) * 100;
+          bac = peak * (hoursSinceConsumption / ABSORPTION_HOURS);
+        } else {
+          const peak = grams / (weight * 1000 * r) * 100;
+          bac = peak - ELIM_RATE * hoursSinceConsumption;
+          bac = Math.max(0, bac);
+        }
+      }
+      const x = toX(hour);
+      const y = toY(bac);
+      if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+    }
+    ctx.stroke();
+  });
+
+  // Cumulative curve
+  const gradient = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
+  gradient.addColorStop(0, 'rgba(108,92,231,0.5)');
+  gradient.addColorStop(1, 'rgba(108,92,231,0.05)');
+
+  // Fill area under curve
+  ctx.beginPath();
+  let firstX, firstY;
+  for (let i = 0; i < curveData.length; i++) {
+    const x = toX(curveData[i].hour);
+    const y = toY(curveData[i].bac);
+    if (i === 0) { firstX = x; firstY = y; ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+  }
+  ctx.lineTo(toX(curveData[curveData.length - 1].hour), H - pad.bottom);
+  ctx.lineTo(firstX, H - pad.bottom);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Cumulative curve line
+  ctx.beginPath();
+  for (let i = 0; i < curveData.length; i++) {
+    const x = toX(curveData[i].hour);
+    const y = toY(curveData[i].bac);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#a29bfe';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Current BAC marker
+  const nowX = toX(0);
+  const nowY = toY(currentBAC);
+  ctx.beginPath();
+  ctx.arc(nowX, nowY, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#6c5ce7';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Peak marker
+  const pkX = toX(peakHour);
+  const pkY = toY(peakBAC);
+  ctx.beginPath();
+  ctx.arc(pkX, pkY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#f39c12';
+  ctx.fill();
+
+  // "Now" line
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath();
+  ctx.moveTo(nowX, pad.top);
+  ctx.lineTo(nowX, H - pad.bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Axis labels
+  ctx.fillStyle = '#9999aa';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+
+  // X axis labels
+  for (let h = Math.ceil(startHour); h <= Math.floor(endHour); h++) {
+    const x = toX(h);
+    ctx.fillText(h === 0 ? '现在' : (h > 0 ? `+${h}h` : `${h}h`), x, H - pad.bottom + 16);
+  }
+
+  // Y axis labels
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const val = (maxY / 5) * (5 - i);
+    const y = pad.top + (ph / 5) * i;
+    ctx.fillText((val * 100).toFixed(0) + '', pad.left - 8, y + 4);
+  }
+
+  // Y axis unit
+  ctx.save();
+  ctx.translate(10, pad.top + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#9999aa';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('mg/100ml', 0, 0);
+  ctx.restore();
+
+  // Legend
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.fillStyle = '#2ecc71';
+  ctx.textAlign = 'left';
+  ctx.fillText('安全线 (20mg/100ml)', pad.left + 5, soberY - 4);
+  ctx.fillStyle = '#f39c12';
+  ctx.fillText('酒驾线 (20mg/100ml)', pad.left + 5, duiY - 4);
+}
+
+// ---- Hangover Prediction ----
+function predictHangover(totalGrams, weight, gender) {
+  // Fun heuristic: more alcohol + lighter weight + female = worse hangover
+  const gramPerKg = totalGrams / weight;
+  let severity;
+  let emoji, desc, tips;
+
+  if (gramPerKg < 0.3) {
+    severity = 10;
+    emoji = '&#128522;';
+    desc = '轻微 — 明天应该没什么感觉';
+    tips = '多喝水，早点睡觉即可';
+  } else if (gramPerKg < 0.6) {
+    severity = 30;
+    emoji = '&#128528;';
+    desc = '轻度 — 明天可能有点头痛';
+    tips = '睡前喝一杯温水，补充电解质饮料';
+  } else if (gramPerKg < 1.0) {
+    severity = 55;
+    emoji = '&#129301;';
+    desc = '中度 — 明天可能会有明显宿醉感';
+    tips = '强烈建议睡前补充水分和维生素B群，准备好早餐';
+  } else if (gramPerKg < 1.5) {
+    severity = 75;
+    emoji = '&#129314;';
+    desc = '严重 — 明天的你会后悔今天的决定';
+    tips = '大量饮水！备好止痛药、运动饮料和清淡食物。考虑请明天的假';
+  } else {
+    severity = 95;
+    emoji = '&#128128;';
+    desc = '极度严重 — 明天将是地狱模式';
+    tips = '请立即停止饮酒！大量补充水分和电解质。明天不适合做任何重要的事情。';
+  }
+
+  // Gender modifier (women tend to have worse hangovers)
+  if (gender === 'female') severity = Math.min(100, severity + 8);
+
+  const barWidth = severity + '%';
+  const indicatorLeft = `calc(${severity}% - 7px)`;
+
+  document.getElementById('hangoverSection').innerHTML = `
+    <div style="font-size:2.5rem; text-align:center; margin-bottom:8px;">${emoji}</div>
+    <div style="text-align:center; font-weight:700; font-size:1.1rem;">${desc}</div>
+    <div style="margin-top:14px;">
+      <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text2);">
+        <span>轻松</span><span>头痛</span><span>地狱</span>
+      </div>
+      <div class="hangover-bar">
+        <div class="hangover-indicator" style="left:${indicatorLeft};"></div>
+      </div>
+    </div>
+    <div style="margin-top:12px; padding:12px; background:var(--surface2); border-radius:8px; font-size:0.88rem; color:var(--text2);">
+      <strong style="color:var(--text);">建议：</strong>${tips}
+    </div>
+    <div style="margin-top:8px; font-size:0.78rem; color:var(--text2); text-align:center;">
+      基于 ${totalGrams.toFixed(1)}g 纯酒精 / ${weight}kg 体重计算 · 纯属娱乐
+    </div>
+  `;
+}
+
+// ---- Init ----
+renderDrinkLog();
+setDrinkPreset();
+</script>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔢 Token计数器 - Gary's Tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.9rem;resize:vertical;font-family:inherit;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+.result-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px;min-height:60px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px}
+.stat-item{background:rgba(13,17,23,.5);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.stat-item .stat-value{font-size:1.5rem;font-weight:700;color:var(--blue);margin-bottom:2px}
+.stat-item .stat-label{font-size:.75rem;color:var(--text2)}
+.stat-item.highlight .stat-value{color:var(--gold);font-size:1.7rem}
+.token-detail{margin-top:14px;padding:12px;background:rgba(13,17,23,.5);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text2);line-height:1.7}
+.token-detail span{display:inline-block;padding:2px 4px;margin:1px;border-radius:3px;background:rgba(59,130,246,.1);color:var(--text);font-size:.78rem}
+.token-detail .space-marker{background:rgba(245,158,11,.1);color:var(--gold)}
+.token-detail .punctuation{background:rgba(239,68,68,.1);color:var(--red)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🔢 Token计数器</h1>
+<p>文本统计和Token估算</p>
+</header>
+<div class="card">
+<div class="card-title">输入文本</div>
+<textarea id="inputText" rows="6" placeholder="在此输入或粘贴文本，右侧将实时显示统计信息..."></textarea>
+<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+<button id="clearBtn" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="resultArea" style="display:none">
+<div class="result-box">
+<div class="card-title">统计结果</div>
+<div class="stat-grid">
+<div class="stat-item"><div class="stat-value" id="charCount">0</div><div class="stat-label">字符数</div></div>
+<div class="stat-item"><div class="stat-value" id="charNoSpace">0</div><div class="stat-label">字符数（无空格）</div></div>
+<div class="stat-item"><div class="stat-value" id="wordCount">0</div><div class="stat-label">单词数</div></div>
+<div class="stat-item"><div class="stat-value" id="sentenceCount">0</div><div class="stat-label">句子数</div></div>
+<div class="stat-item"><div class="stat-value" id="lineCount">0</div><div class="stat-label">行数</div></div>
+<div class="stat-item highlight"><div class="stat-value" id="tokenEstimate">0</div><div class="stat-label">估计Token数（GPT）</div></div>
+</div>
+<div class="token-detail">
+<div style="margin-bottom:6px;font-weight:600;color:var(--text)">Token估算说明：</div>
+<div>• GPT模型约 4个字符 ≈ 1个token（英文）</div>
+<div>• 中文约 1.5-2个汉字 ≈ 1个token</div>
+<div>• 实际token数因分词器不同略有差异</div>
+<div style="margin-top:8px;color:var(--gold);font-size:.78rem">💡 GPT-3.5 上下文 4096 tokens | GPT-4 上下文 8K/32K/128K tokens</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var input=document.getElementById('inputText');
+var clearBtn=document.getElementById('clearBtn');
+var resultArea=document.getElementById('resultArea');
+var charCount=document.getElementById('charCount');
+var charNoSpace=document.getElementById('charNoSpace');
+var wordCount=document.getElementById('wordCount');
+var sentenceCount=document.getElementById('sentenceCount');
+var lineCount=document.getElementById('lineCount');
+var tokenEstimate=document.getElementById('tokenEstimate');
+
+function updateStats(){
+  var text=input.value;
+  if(text.length===0){resultArea.style.display='none';return;}
+  resultArea.style.display='block';
+  var chars=text.length;
+  var charsNoSpace=text.replace(/[\s]/g,'').length;
+  var words=text.trim()?text.trim().split(/\s+/).length:0;
+  var sentences=text.split(/[.!?。！？\n]+/).filter(function(s){return s.trim().length>0}).length;
+  var lines=text.split('\n').length;
+  var cjkCount=(text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g)||[]).length;
+  var nonCjk=chars-cjkCount;
+  var tokenEst=Math.round(nonCjk/4 + cjkCount/1.5);
+  if(tokenEst<1 && chars>0)tokenEst=1;
+  charCount.textContent=chars;
+  charNoSpace.textContent=charsNoSpace;
+  wordCount.textContent=words;
+  sentenceCount.textContent=sentences;
+  lineCount.textContent=lines;
+  tokenEstimate.textContent=tokenEst;
+}
+
+input.addEventListener('input',updateStats);
+clearBtn.addEventListener('click',function(){
+  input.value='';
+  resultArea.style.display='none';
+});
+updateStats();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

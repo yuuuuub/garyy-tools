@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>颜色选择器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:720px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.color-preview{width:100%;height:200px;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;transition:background .2s;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.layout{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card h3{font-size:.85rem;color:var(--text2);margin-bottom:12px}
+.color-wheel-wrap{text-align:center}
+input[type="color"]{width:100%;height:48px;border:none;padding:0;cursor:pointer;background:transparent;border-radius:var(--radius)}
+input[type="range"]{width:100%;margin:6px 0;accent-color:var(--blue);background:transparent}
+.range-row{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.range-row label{min-width:20px;font-size:.8rem;color:var(--text2)}
+.range-row .val{min-width:40px;text-align:right;font-size:.8rem;color:var(--text);font-family:monospace}
+.color-values{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.value-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.82rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.value-row:last-child{border-bottom:none}
+.value-row:hover{background:rgba(255,255,255,.03)}
+.value-row .label{color:var(--text2)}
+.value-row .code{font-family:monospace;color:var(--text)}
+.value-row .copied{color:var(--green);font-size:.75rem}
+.history{display:flex;flex-wrap:wrap;gap:6px}
+.history-item{width:36px;height:36px;border-radius:6px;border:1px solid var(--border);cursor:pointer;transition:transform .15s}
+.history-item:hover{transform:scale(1.1)}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:8px 20px;border-radius:var(--radius);font-size:.85rem;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>颜色选择器</h1><p>拾色器 · 颜色值转换</p></header>
+<div class="color-preview" id="preview"></div>
+<div class="layout">
+<div class="card">
+<h3>颜色选取</h3>
+<div class="color-wheel-wrap">
+<input type="color" id="color-picker" value="#3b82f6">
+</div>
+<div style="margin-top:12px">
+<div class="range-row"><label>R</label><input type="range" id="r-slider" min="0" max="255"><span class="val" id="r-val">59</span></div>
+<div class="range-row"><label>G</label><input type="range" id="g-slider" min="0" max="255"><span class="val" id="g-val">130</span></div>
+<div class="range-row"><label>B</label><input type="range" id="b-slider" min="0" max="255"><span class="val" id="b-val">246</span></div>
+</div>
+</div>
+<div class="card">
+<h3>颜色值</h3>
+<div class="color-values">
+<div class="value-row" data-copy="#3b82f6"><span class="label">HEX</span><span class="code" id="hex-val">#3b82f6</span><span class="copied"></span></div>
+<div class="value-row" data-copy="rgb(59,130,246)"><span class="label">RGB</span><span class="code" id="rgb-val">rgb(59,130,246)</span><span class="copied"></span></div>
+<div class="value-row" data-copy="hsl(217,91%,60%)"><span class="label">HSL</span><span class="code" id="hsl-val">hsl(217,91%,60%)</span><span class="copied"></span></div>
+</div>
+</div>
+</div>
+<div class="card" style="margin-top:16px">
+<h3>历史记录</h3>
+<div class="history" id="history"></div>
+</div>
+</div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+
+<script>
+(function(){
+'use strict';
+
+let currentColor = '#3b82f6';
+const history = [];
+
+const $ = id => document.getElementById(id);
+const preview = $('preview');
+const colorPicker = $('color-picker');
+const rSlider = $('r-slider');
+const gSlider = $('g-slider');
+const bSlider = $('b-slider');
+const rVal = $('r-val');
+const gVal = $('g-val');
+const bVal = $('b-val');
+const hexVal = $('hex-val');
+const rgbVal = $('rgb-val');
+const hslVal = $('hsl-val');
+const historyEl = $('history');
+const toast = $('toast');
+
+let toastTimer = null;
+
+function showToast(msg) {
+  toast.textContent = msg || '已复制到剪贴板';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1500);
+}
+
+function componentToHex(c) {
+  const hex = Math.round(c).toString(16);
+  return hex.length === 1 ? '0' + hex : hex;
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+      case g: h = ((b - r) / d + 2); break;
+      case b: h = ((r - g) / d + 4); break;
+    }
+    h /= 6;
+  }
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  };
+}
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+}
+
+function updateFromRGB(r, g, b) {
+  r = Math.round(r); g = Math.round(g); b = Math.round(b);
+  const hex = '#' + componentToHex(r) + componentToHex(g) + componentToHex(b);
+  const hsl = rgbToHsl(r, g, b);
+
+  currentColor = hex;
+  preview.style.background = hex;
+  colorPicker.value = hex;
+  rSlider.value = r; rVal.textContent = r;
+  gSlider.value = g; gVal.textContent = g;
+  bSlider.value = b; bVal.textContent = b;
+  hexVal.textContent = hex;
+  rgbVal.textContent = `rgb(${r},${g},${b})`;
+  hslVal.textContent = `hsl(${hsl.h},${hsl.s}%,${hsl.l}%)`;
+
+  document.querySelectorAll('.value-row').forEach(row => {
+    const codeEl = row.querySelector('.code');
+    row.dataset.copy = codeEl.textContent;
+  });
+}
+
+function updateFromHex(hex) {
+  const rgb = hexToRgb(hex);
+  updateFromRGB(rgb.r, rgb.g, rgb.b);
+}
+
+function addToHistory(color) {
+  if(history[0] === color) return;
+  history.unshift(color);
+  if(history.length > 20) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  historyEl.innerHTML = history.map(c =>
+    `<div class="history-item" style="background:${c}" data-color="${c}" title="${c}"></div>`
+  ).join('');
+}
+
+// Event Listeners
+colorPicker.addEventListener('input', function() {
+  updateFromHex(this.value);
+});
+
+rSlider.addEventListener('input', function() {
+  const r = parseInt(this.value);
+  const g = parseInt(gSlider.value);
+  const b = parseInt(bSlider.value);
+  updateFromRGB(r, g, b);
+});
+
+gSlider.addEventListener('input', function() {
+  const r = parseInt(rSlider.value);
+  const g = parseInt(this.value);
+  const b = parseInt(bSlider.value);
+  updateFromRGB(r, g, b);
+});
+
+bSlider.addEventListener('input', function() {
+  const r = parseInt(rSlider.value);
+  const g = parseInt(gSlider.value);
+  const b = parseInt(this.value);
+  updateFromRGB(r, g, b);
+});
+
+// Click to copy
+document.querySelectorAll('.value-row').forEach(row => {
+  row.addEventListener('click', function() {
+    const val = this.dataset.copy;
+    navigator.clipboard.writeText(val).then(() => {
+      const copiedEl = this.querySelector('.copied');
+      copiedEl.textContent = '已复制';
+      setTimeout(() => { copiedEl.textContent = ''; }, 1500);
+    }).catch(() => {
+      showToast('复制失败');
+    });
+  });
+});
+
+// Click on preview to add to history
+preview.addEventListener('click', function() {
+  addToHistory(currentColor);
+  showToast('已添加到历史记录');
+});
+
+// Click history item
+historyEl.addEventListener('click', function(e) {
+  const item = e.target.closest('.history-item');
+  if(item) {
+    const color = item.dataset.color;
+    updateFromHex(color);
+  }
+});
+
+// Init
+updateFromHex('#3b82f6');
+
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

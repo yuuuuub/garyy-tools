@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IP归属地查询</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.card{margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.card-title{font-size:1rem;font-weight:600;margin-bottom:16px;text-align:center}
+.ip-display{text-align:center;padding:16px 0;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.ip-value{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--blue)}
+.ip-label{font-size:.78rem;color:var(--text2);margin-top:4px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.detail-item{display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border-radius:var(--radius)}
+.detail-item .label{color:var(--text2);font-size:.85rem}
+.detail-item .value{font-weight:600;font-size:.85rem;text-align:right}
+.map-link{display:block;text-align:center;margin-top:16px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--blue);text-decoration:none;font-size:.85rem;transition:.2s}
+.map-link:hover{background:#1c2333}
+@media(max-width:500px){
+.detail-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🌐 IP归属地查询</h1>
+<p class="sub">ipapi · IP地理定位</p>
+</header>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var app=document.getElementById('app');
+function loadData(){
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>获取IP信息...</p></div>';
+fetch('https://api.ipify.org?format=json')
+.then(function(r){if(!r.ok)throw new Error('获取IP失败');return r.json();})
+.then(function(data){
+var ip=data.ip;
+return fetch('https://ipapi.co/'+ip+'/json/')
+.then(function(r){if(!r.ok)throw new Error('获取归属地失败');return r.json();})
+.then(function(geo){return {ip:ip,geo:geo};});
+})
+.then(function(result){
+var ip=result.ip,geo=result.geo;
+var lat=geo.latitude,lng=geo.longitude;
+var html='<div class="card">';
+html+='<div class="card-title">IP归属地信息</div>';
+html+='<div class="ip-display"><div class="ip-value">'+ip+'</div><div class="ip-label">您的公网IP地址</div></div>';
+html+='<div class="detail-grid">';
+html+='<div class="detail-item"><span class="label">🌍 国家</span><span class="value">'+(geo.country_name||'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">🏙️ 城市</span><span class="value">'+(geo.city||'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">📍 区域</span><span class="value">'+(geo.region||'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">🏢 ISP</span><span class="value">'+(geo.org||'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">📮 邮编</span><span class="value">'+(geo.postal||'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">🌐 经纬度</span><span class="value">'+(lat!=null?lat+', '+lng:'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">💱 货币</span><span class="value">'+(geo.currency||'N/A')+'</span></div>';
+html+='<div class="detail-item"><span class="label">📞 电话区号</span><span class="value">'+(geo.country_calling_code||'N/A')+'</span></div>';
+html+='</div>';
+if(lat&&lng){
+html+='<a class="map-link" href="https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lng+'&zoom=10" target="_blank">🗺️ 在 OpenStreetMap 查看位置</a>';
+}
+html+='</div>';
+app.innerHTML=html;
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="loadData()">重试</button></div>';
+});
+}
+loadData();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密码生成器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vh}
+.container{max-width:640px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem}
+header p{color:var(--text2);font-size:.85rem;margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.password-display{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-family:monospace;font-size:1.3rem;text-align:center;word-break:break-all;margin-bottom:16px;color:var(--gold);letter-spacing:1px;min-height:60px;display:flex;align-items:center;justify-content:center}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.controls .btn{flex:1;min-width:80px}
+.btn{padding:10px 20px;border:none;border-radius:var(--radius);cursor:pointer;font-size:.85rem;background:var(--blue);color:#fff;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn.green{background:var(--green)}
+.btn.gold{background:var(--gold);color:#000}
+.slider-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.slider-row label{font-size:.85rem;color:var(--text2);min-width:50px}
+.slider-row input[type="range"]{flex:1;accent-color:var(--blue);background:transparent}
+.slider-row .val{font-family:monospace;color:var(--text);min-width:30px;text-align:right}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.option-item{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--text2);cursor:pointer}
+.option-item input[type="checkbox"]{accent-color:var(--blue);width:16px;height:16px}
+.strength-bar{height:6px;background:var(--bg);border-radius:3px;margin-bottom:8px;overflow:hidden}
+.strength-fill{height:100%;border-radius:3px;transition:all .3s;width:0%}
+.strength-label{text-align:center;font-size:.85rem;margin-bottom:12px}
+.strength-label.weak{color:var(--red)}
+.strength-label.medium{color:var(--gold)}
+.strength-label.strong{color:var(--green)}
+.history{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.history-item{padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:.75rem;color:var(--text2);cursor:pointer;transition:all .15s}
+.history-item:hover{border-color:var(--blue);color:var(--text)}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:8px 20px;border-radius:var(--radius);font-size:.85rem;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>密码生成器</h1><p>生成安全随机密码</p></header>
+<div class="card">
+<div class="password-display" id="password-display">点击生成密码</div>
+<div class="controls">
+<button class="btn green" id="gen-btn">生成密码</button>
+<button class="btn" id="copy-btn">复制</button>
+</div>
+<div class="slider-row">
+<label>长度</label>
+<input type="range" id="length-slider" min="8" max="64" value="16">
+<span class="val" id="length-val">16</span>
+</div>
+<div class="options">
+<label class="option-item"><input type="checkbox" id="chk-upper" checked> 大写 A-Z</label>
+<label class="option-item"><input type="checkbox" id="chk-lower" checked> 小写 a-z</label>
+<label class="option-item"><input type="checkbox" id="chk-digit" checked> 数字 0-9</label>
+<label class="option-item"><input type="checkbox" id="chk-symbol"> 符号 !@#$%</label>
+</div>
+<div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+<div class="strength-label" id="strength-label">选择选项后生成密码</div>
+</div>
+<div class="card">
+<h3 style="font-size:.85rem;color:var(--text2);margin-bottom:10px">历史记录</h3>
+<div class="history" id="history"></div>
+</div>
+</div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+
+<script>
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const toast = $('toast');
+let passwordHistory = [];
+let toastTimer = null;
+
+function showToast(msg) {
+  toast.textContent = msg || '已复制';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 1500);
+}
+
+function generatePassword() {
+  const length = parseInt($('length-slider').value);
+  const useUpper = $('chk-upper').checked;
+  const useLower = $('chk-lower').checked;
+  const useDigit = $('chk-digit').checked;
+  const useSymbol = $('chk-symbol').checked;
+
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const digit = '0123456789';
+  const symbol = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+  let chars = '';
+  if(useUpper) chars += upper;
+  if(useLower) chars += lower;
+  if(useDigit) chars += digit;
+  if(useSymbol) chars += symbol;
+
+  if(chars.length === 0) {
+    $('password-display').textContent = '请至少选择一个选项';
+    return null;
+  }
+
+  let password = '';
+  // Ensure at least one char from each selected set
+  if(useUpper) password += upper[Math.floor(Math.random() * upper.length)];
+  if(useLower) password += lower[Math.floor(Math.random() * lower.length)];
+  if(useDigit) password += digit[Math.floor(Math.random() * digit.length)];
+  if(useSymbol) password += symbol[Math.floor(Math.random() * symbol.length)];
+
+  // Fill the rest
+  for(let i = password.length; i < length; i++) {
+    password += chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  // Shuffle
+  password = password.split('').sort(function(){ return Math.random() - 0.5; }).join('');
+
+  return password;
+}
+
+function getStrength(password) {
+  if(!password) return { label: '无', class: '', width: '0%' };
+  let score = 0;
+  if(password.length >= 12) score += 25;
+  else if(password.length >= 8) score += 15;
+  if(password.length >= 16) score += 10;
+  if(/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 20;
+  if(/\d/.test(password)) score += 15;
+  if(/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password)) score += 20;
+  if(password.length >= 20) score += 10;
+
+  let label, cls, width;
+  if(score >= 80) { label = '强'; cls = 'strong'; width = '100%'; }
+  else if(score >= 50) { label = '中'; cls = 'medium'; width = '60%'; }
+  else { label = '弱'; cls = 'weak'; width = '30%'; }
+
+  // Override for very short
+  if(password.length < 8) { label = '弱'; cls = 'weak'; width = '20%'; }
+
+  return { label: label, cls: cls, width: width };
+}
+
+function updatePassword() {
+  const pwd = generatePassword();
+  if(!pwd) return;
+
+  $('password-display').textContent = pwd;
+
+  const strength = getStrength(pwd);
+  $('strength-fill').style.width = strength.width;
+  const sl = $('strength-label');
+  sl.textContent = '密码强度: ' + strength.label;
+  sl.className = 'strength-label ' + strength.cls;
+
+  // Add to history
+  passwordHistory.unshift(pwd);
+  if(passwordHistory.length > 10) passwordHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const el = $('history');
+  if(passwordHistory.length === 0) {
+    el.innerHTML = '<span style="color:var(--text2);font-size:.8rem">暂无历史记录</span>';
+    return;
+  }
+  el.innerHTML = passwordHistory.map(function(p) {
+    return '<span class="history-item">' + escapeHtml(p) + '</span>';
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Events
+$('gen-btn').addEventListener('click', updatePassword);
+$('copy-btn').addEventListener('click', function() {
+  const pwd = $('password-display').textContent;
+  if(pwd && pwd !== '点击生成密码' && pwd !== '请至少选择一个选项') {
+    navigator.clipboard.writeText(pwd).then(function() {
+      showToast('密码已复制');
+    });
+  }
+});
+
+$('length-slider').addEventListener('input', function() {
+  $('length-val').textContent = this.value;
+});
+
+document.querySelectorAll('.options input').forEach(function(el) {
+  el.addEventListener('change', function() {
+    // Auto-generate when options change
+    if($('password-display').textContent !== '点击生成密码') {
+      updatePassword();
+    }
+  });
+});
+
+$('length-slider').addEventListener('change', function() {
+  if($('password-display').textContent !== '点击生成密码') {
+    updatePassword();
+  }
+});
+
+// Click history to copy
+document.getElementById('history').addEventListener('click', function(e) {
+  const item = e.target.closest('.history-item');
+  if(item) {
+    navigator.clipboard.writeText(item.textContent).then(function() {
+      showToast('已复制');
+    });
+  }
+});
+
+// Init
+updatePassword();
+
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

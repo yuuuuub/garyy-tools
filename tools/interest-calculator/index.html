@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>存款利息计算器</title>
+<style>
+:root {
+  --bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --text: #1a1a2e;
+  --text-secondary: #555;
+  --border: #e0e0e0;
+  --input-bg: #f9f9f9;
+  --accent: #4f6ef7;
+  --accent-hover: #3b5de7;
+  --danger: #e74c3c;
+  --success: #27ae60;
+  --warning: #f39c12;
+  --table-stripe: #f8f9fc;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.dark {
+  --bg: #0f0f1a;
+  --card-bg: #1a1a2e;
+  --text: #e0e0e0;
+  --text-secondary: #aaa;
+  --border: #2a2a3e;
+  --input-bg: #16162a;
+  --accent: #6c83f7;
+  --accent-hover: #5a6ee7;
+  --table-stripe: #1e1e34;
+  --shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+.container { max-width: 800px; margin: 0 auto; padding: 16px; }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
+.header h1 { font-size: 1.5rem; }
+.theme-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1.2rem;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow);
+  transition: all 0.3s;
+}
+.theme-btn:hover { transform: scale(1.05); }
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+input, select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: var(--input-bg);
+  color: var(--text);
+  transition: border 0.3s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.result-item {
+  background: var(--input-bg);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.result-item .label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
+.result-item .value { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+.result-item .value.interest { color: var(--success); }
+.preset-section { margin-bottom: 8px; }
+.preset-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; }
+.preset-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.preset-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+.preset-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--border); }
+th { color: var(--text-secondary); font-weight: 500; background: var(--input-bg); }
+tr:nth-child(even) td { background: var(--table-stripe); }
+td:first-child, th:first-child { text-align: left; }
+.fun-box {
+  background: linear-gradient(135deg, var(--input-bg), var(--card-bg));
+  border-left: 4px solid var(--accent);
+  padding: 14px 16px;
+  border-radius: 0 12px 12px 0;
+  margin-top: 12px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.fun-box strong { color: var(--accent); }
+.tabs { display: flex; gap: 4px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.tab {
+  flex: 1; padding: 8px; text-align: center;
+  font-size: 0.82rem; cursor: pointer;
+  background: var(--card-bg); color: var(--text-secondary);
+  border: none; transition: all 0.2s;
+}
+.tab.active { background: var(--accent); color: #fff; }
+.footer { text-align: center; padding: 20px; font-size: 0.78rem; color: var(--text-secondary); }
+.tip-icon { display: inline-block; margin-right: 4px; }
+@media (max-width: 480px) {
+  .form-row { flex-direction: column; gap: 0; }
+  .header h1 { font-size: 1.25rem; }
+  .result-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>存款利息计算器</h1>
+    <button class="theme-btn" id="themeToggle" title="切换暗色模式">🌙</button>
+  </div>
+
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label>本金 (元)</label>
+        <input type="number" id="principal" value="100000" min="1" step="any">
+      </div>
+      <div class="form-group">
+        <label>年利率 (%)</label>
+        <input type="number" id="rate" value="3.5" min="0.01" max="100" step="any">
+      </div>
+    </div>
+
+    <div class="preset-section">
+      <div class="preset-label">快速设定本金</div>
+      <div class="preset-group" id="amountPresets"></div>
+    </div>
+
+    <div class="preset-section">
+      <div class="preset-label">快速设定年利率</div>
+      <div class="preset-group" id="ratePresets"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>存款期限</label>
+        <input type="number" id="term" value="5" min="1" step="any">
+      </div>
+      <div class="form-group">
+        <label>期限单位</label>
+        <select id="termUnit">
+          <option value="year">年</option>
+          <option value="month">月</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>复利方式</label>
+      <select id="compoundMode">
+        <option value="monthly">月复利</option>
+        <option value="yearly">年复利</option>
+        <option value="simple">单利</option>
+      </select>
+    </div>
+
+    <div class="preset-section">
+      <div class="preset-label">快速设定期限</div>
+      <div class="preset-group" id="termPresets"></div>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard">
+    <h3 style="margin-bottom:8px;">计算结果</h3>
+    <div class="result-grid" id="resultGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="tabBar">
+      <button class="tab active" data-tab="compare">三种方式对比</button>
+      <button class="tab" data-tab="detail">明细表</button>
+    </div>
+    <div id="tabContent"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:8px;">小知识</h3>
+    <div id="funFacts"></div>
+  </div>
+
+  <div class="footer">
+    <p>本计算器仅供参考，实际收益以银行公告为准。</p>
+    <p style="margin-top:4px;">存款利息计算器 &copy; 2026</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+  const principalInp = $('principal');
+  const rateInp = $('rate');
+  const termInp = $('term');
+  const termUnit = $('termUnit');
+  const compoundMode = $('compoundMode');
+  const resultGrid = $('resultGrid');
+  const tabContent = $('tabContent');
+  const funFacts = $('funFacts');
+  const themeToggle = $('themeToggle');
+
+  // 预设数据
+  const amountPresets = [10000, 50000, 100000, 200000, 500000, 1000000];
+  const ratePresets = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0];
+  const termPresets = [1, 3, 5, 10, 20, 30];
+
+  // 暗色模式
+  const darkKey = 'interest-calc-dark';
+  let isDark = localStorage.getItem(darkKey) === 'true';
+  function applyTheme() {
+    document.documentElement.classList.toggle('dark', isDark);
+    themeToggle.textContent = isDark ? '☀️' : '🌙';
+  }
+  themeToggle.addEventListener('click', () => {
+    isDark = !isDark;
+    localStorage.setItem(darkKey, isDark);
+    applyTheme();
+  });
+  applyTheme();
+
+  // 预设按钮
+  function renderPresets(containerId, values, inputEl, suffix) {
+    const container = $(containerId);
+    container.innerHTML = values.map(v => {
+      const cls = parseFloat(inputEl.value) === v ? 'preset-btn active' : 'preset-btn';
+      return `<button class="${cls}" data-val="${v}">${v.toLocaleString()}${suffix}</button>`;
+    }).join('');
+    container.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        inputEl.value = btn.dataset.val;
+        update();
+        container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
+  function refreshPresets() {
+    renderPresets('amountPresets', amountPresets, principalInp, '元');
+    renderPresets('ratePresets', ratePresets, rateInp, '%');
+    renderPresets('termPresets', termPresets, termInp, termUnit.value === 'year' ? '年' : '月');
+  }
+
+  // 计算
+  function calc(principal, annualRate, termMonths, mode) {
+    // 单利
+    const simple = principal * (1 + annualRate * termMonths / 12);
+    let yearly = principal;
+    let monthly = principal;
+    const yearlyYears = Math.floor(termMonths / 12);
+    const yearlyRemainMonths = termMonths % 12;
+    // 年复利: 先算整数年，再算剩余月份用单利
+    yearly = principal * Math.pow(1 + annualRate, yearlyYears);
+    if (yearlyRemainMonths > 0) {
+      yearly *= (1 + annualRate * yearlyRemainMonths / 12);
+    }
+    // 月复利: 每月计息
+    const monthlyRate = annualRate / 12;
+    monthly = principal * Math.pow(1 + monthlyRate, termMonths);
+
+    let result;
+    if (mode === 'simple') result = simple;
+    else if (mode === 'yearly') result = yearly;
+    else result = monthly;
+
+    return { simple, yearly, monthly, result };
+  }
+
+  // 72法则
+  function ruleOf72(annualRate) {
+    if (annualRate <= 0) return null;
+    const years = 72 / (annualRate * 100);
+    return Math.round(years * 10) / 10;
+  }
+
+  // 生成明细
+  function generateDetail(principal, annualRate, totalMonths, mode) {
+    const rows = [];
+    const monthlyRate = annualRate / 12;
+    let balance = principal;
+    if (mode === 'yearly') {
+      const years = Math.floor(totalMonths / 12);
+      const remainMonths = totalMonths % 12;
+      for (let y = 0; y < years; y++) {
+        const prevBalance = balance;
+        balance *= (1 + annualRate);
+        rows.push({ period: `第${y + 1}年`, periodType: 'year', prev: prevBalance, curr: balance, interest: balance - prevBalance });
+      }
+      if (remainMonths > 0) {
+        const prevBalance = balance;
+        balance *= (1 + annualRate * remainMonths / 12);
+        rows.push({ period: `剩余${remainMonths}个月`, periodType: 'partial', prev: prevBalance, curr: balance, interest: balance - prevBalance });
+      }
+    } else if (mode === 'monthly') {
+      for (let m = 0; m < totalMonths; m++) {
+        const prevBalance = balance;
+        balance *= (1 + monthlyRate);
+        const y = Math.floor(m / 12) + 1;
+        const mo = (m % 12) + 1;
+        rows.push({ period: `第${y}年第${mo}月`, periodType: 'month', prev: prevBalance, curr: balance, interest: balance - prevBalance });
+      }
+    } else {
+      // 单利 - 按年展示
+      const years = Math.floor(totalMonths / 12);
+      const remainMonths = totalMonths % 12;
+      for (let y = 0; y < years; y++) {
+        const prevBalance = !rows.length ? principal : rows[rows.length - 1].curr;
+        const curr = principal * (1 + annualRate * (y + 1));
+        rows.push({ period: `第${y + 1}年`, periodType: 'year', prev: prevBalance, curr, interest: curr - prevBalance });
+      }
+      if (remainMonths > 0) {
+        const prev = rows.length ? rows[rows.length - 1].curr : principal;
+        const curr = principal * (1 + annualRate * totalMonths / 12);
+        rows.push({ period: `剩余${remainMonths}个月`, periodType: 'partial', prev, curr, interest: curr - prev });
+      }
+    }
+    return rows;
+  }
+
+  // 更新
+  function update() {
+    const principal = parseFloat(principalInp.value) || 0;
+    const annualRate = parseFloat(rateInp.value) / 100 || 0;
+    const termVal = parseFloat(termInp.value) || 0;
+    const totalMonths = termUnit.value === 'year' ? termVal * 12 : termVal;
+    const mode = compoundMode.value;
+
+    const c = calc(principal, annualRate, totalMonths, mode);
+    const totalInterest = c.result - principal;
+    const r72 = ruleOf72(annualRate);
+
+    // 结果卡片
+    resultGrid.innerHTML = `
+      <div class="result-item">
+        <div class="label">到期本息合计</div>
+        <div class="value">¥${c.result.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+      </div>
+      <div class="result-item">
+        <div class="label">总利息</div>
+        <div class="value interest">¥${totalInterest.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+      </div>
+      <div class="result-item">
+        <div class="label">实际收益率</div>
+        <div class="value interest">${((totalInterest / principal) * 100).toFixed(2)}%</div>
+      </div>
+    `;
+
+    // 对比表
+    tabContent.innerHTML = `
+      <table>
+        <thead><tr><th>方式</th><th>到期本息</th><th>利息</th><th>收益率</th></tr></thead>
+        <tbody>
+          <tr${mode==='simple'?' style="font-weight:bold;background:var(--input-bg)"':''}>
+            <td>单利</td>
+            <td>¥${c.simple.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>¥${(c.simple-principal).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>${(((c.simple-principal)/principal)*100).toFixed(2)}%</td>
+          </tr>
+          <tr${mode==='yearly'?' style="font-weight:bold;background:var(--input-bg)"':''}>
+            <td>年复利</td>
+            <td>¥${c.yearly.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>¥${(c.yearly-principal).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>${(((c.yearly-principal)/principal)*100).toFixed(2)}%</td>
+          </tr>
+          <tr${mode==='monthly'?' style="font-weight:bold;background:var(--input-bg)"':''}>
+            <td>月复利</td>
+            <td>¥${c.monthly.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>¥${(c.monthly-principal).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>${(((c.monthly-principal)/principal)*100).toFixed(2)}%</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    // 趣味计算
+    let freedomYears = '';
+    if (annualRate > 0 && principal > 0) {
+      const target = 10000000;
+      const monthlyRateForFreedom = annualRate / 12;
+      // 月复利计算到达目标所需年数: FV = PV * (1+r)^n  => n = log(FV/PV) / log(1+r)
+      const monthsNeeded = Math.log(target / principal) / Math.log(1 + monthlyRateForFreedom);
+      const yearsNeeded = monthsNeeded / 12;
+      freedomYears = `<p>按这个收益率（月复利），你要 <strong>${yearsNeeded.toFixed(1)} 年</strong> 才能财务自由（目标 1000 万）</p>`;
+    }
+
+    funFacts.innerHTML = `
+      <div class="fun-box">
+        <p><span class="tip-icon">💡</span>${r72 ? `72法则：年利率 ${(annualRate*100).toFixed(1)}%，你的钱大约 <strong>${r72} 年</strong> 翻一倍。` : '请输入年利率查看72法则。'}</p>
+        ${freedomYears}
+        ${mode==='monthly' && c.monthly > c.yearly ? '<p style="margin-top:6px;"><span class="tip-icon">📈</span>月复利比年复利多赚 <strong>¥' + (c.monthly - c.yearly).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</strong>，复利频率越高收益越高！</p>' : ''}
+        ${mode==='simple' ? '<p style="margin-top:6px;"><span class="tip-icon">⚠️</span>单利只在最初本金上计息，长期来看收益远低于复利方式。</p>' : ''}
+        ${(termUnit.value==='year' && termVal>=20) ? '<p style="margin-top:6px;"><span class="tip-icon">🕐</span>长期坚持复利投资，时间是最好的朋友！</p>' : ''}
+      </div>
+    `;
+
+    refreshPresets();
+  }
+
+  // Tab 切换
+  $('tabBar').addEventListener('click', e => {
+    if (!e.target.classList.contains('tab')) return;
+    $('tabBar').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+    const tab = e.target.dataset.tab;
+    if (tab === 'detail') renderDetailTab();
+    else update();
+  });
+
+  function renderDetailTab() {
+    const principal = parseFloat(principalInp.value) || 0;
+    const annualRate = parseFloat(rateInp.value) / 100 || 0;
+    const termVal = parseFloat(termInp.value) || 0;
+    const totalMonths = termUnit.value === 'year' ? termVal * 12 : termVal;
+    const mode = compoundMode.value;
+    const rows = generateDetail(principal, annualRate, totalMonths, mode);
+    const limit = rows.length > 50 ? rows.slice(0, 50) : rows;
+    const headerCol = mode === 'monthly' ? '月份' : '期间';
+    let html = `<table><thead><tr><th>${headerCol}</th><th>期初金额</th><th>当期利息</th><th>期末金额</th></tr></thead><tbody>`;
+    limit.forEach(r => {
+      html += `<tr><td>${r.period}</td><td>¥${r.prev.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>¥${r.interest.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>¥${r.curr.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    if (rows.length > 50) html += '<p style="text-align:center;color:var(--text-secondary);margin-top:8px;font-size:0.82rem;">仅显示前50条明细...</p>';
+    tabContent.innerHTML = html;
+  }
+
+  // 事件监听
+  [principalInp, rateInp, termInp, termUnit, compoundMode].forEach(el => {
+    el.addEventListener('input', update);
+    el.addEventListener('change', update);
+  });
+
+  // 初始渲染
+  refreshPresets();
+  update();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

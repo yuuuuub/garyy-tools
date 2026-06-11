@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏷️ 零样本分类 - Gary's Tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.9rem;resize:vertical;font-family:inherit;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+input{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px 12px;width:100%;font-size:.9rem;font-family:inherit;outline:none;transition:border .2s}
+input:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.tag{display:inline-block;padding:4px 10px;border-radius:4px;font-size:.75rem;margin:2px}
+.result-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px;min-height:60px}
+.result-box .label{color:var(--text2);font-size:.8rem;margin-bottom:6px}
+.result-box .value{font-size:.95rem;line-height:1.7}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:10px;color:var(--red);font-size:.82rem;margin-top:10px;display:none}
+.waiting-msg{background:rgba(245,158,11,.1);border:1px solid var(--gold);border-radius:6px;padding:10px;color:var(--gold);font-size:.82rem;margin-top:10px;display:none}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.category-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.category-item:last-child{border-bottom:none}
+.category-item .label-text{font-weight:500;font-size:.9rem;flex:1}
+.bar-wrap{background:var(--border);border-radius:4px;height:8px;overflow:hidden;flex:0 0 150px}
+.bar-fill{height:100%;border-radius:4px;transition:width .5s ease;background:linear-gradient(90deg,var(--blue),var(--gold))}
+.category-item .score-text{font-size:.8rem;color:var(--text2);width:40px;text-align:right;font-weight:600}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🏷️ 零样本分类</h1>
+<p>HuggingFace · BART-MNLI</p>
+</header>
+<div class="card">
+<div class="card-title">输入文本</div>
+<textarea id="inputText" rows="4" placeholder="请输入需要分类的文本...&#10;例如：I love spending time with my family and friends."></textarea>
+<div style="margin:12px 0">
+<div class="card-title">候选标签（逗号分隔）</div>
+<input type="text" id="labelsInput" placeholder="例如：positive, negative, neutral, social, personal" value="positive, negative, neutral">
+</div>
+<div class="btn-group">
+<button id="classifyBtn">🏷️ 分类</button>
+<button id="clearBtn" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="waitingMsg" class="waiting-msg">⏳ 模型加载中，请稍候...</div>
+<div id="errorMsg" class="error-msg"></div>
+<div id="resultArea" style="display:none">
+<div class="result-box">
+<div class="label">分类结果（按置信度排序）</div>
+<div id="categoriesList"></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var input=document.getElementById('inputText');
+var labelsInput=document.getElementById('labelsInput');
+var classifyBtn=document.getElementById('classifyBtn');
+var clearBtn=document.getElementById('clearBtn');
+var resultArea=document.getElementById('resultArea');
+var categoriesList=document.getElementById('categoriesList');
+var errorMsg=document.getElementById('errorMsg');
+var waitingMsg=document.getElementById('waitingMsg');
+var API_URL='https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
+
+function classify(){
+  var text=input.value.trim();
+  var labelsStr=labelsInput.value.trim();
+  if(!text){showError('请输入文本');return;}
+  if(!labelsStr){showError('请输入候选标签');return;}
+  var labels=labelsStr.split(',').map(function(l){return l.trim()}).filter(function(l){return l});
+  if(labels.length<2){showError('请至少输入2个标签');return;}
+  setLoading(true);
+  hideError();
+  hideWaiting();
+  resultArea.style.display='none';
+  fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({inputs:text,parameters:{candidate_labels:labels}})
+  })
+  .then(function(r){
+    if(r.status===503){showWaiting();return r.json().then(function(d){throw new Error('模型加载中');});}
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.error||'请求失败')});
+    return r.json();
+  })
+  .then(function(data){
+    setLoading(false);
+    hideWaiting();
+    if(data && data.labels){
+      resultArea.style.display='block';
+      var items=data.labels.map(function(l,i){
+        return {label:l,score:data.scores[i]};
+      });
+      items.sort(function(a,b){return b.score-a.score});
+      categoriesList.innerHTML=items.map(function(item){
+        var pct=Math.round(item.score*100);
+        return '<div class="category-item"><div class="label-text">'+item.label+'</div><div class="bar-wrap"><div class="bar-fill" style="width:'+pct+'%"></div></div><div class="score-text">'+pct+'%</div></div>';
+      }).join('');
+    }else if(data && data.sequence){
+      resultArea.style.display='block';
+      var items=data.labels.map(function(l,i){
+        return {label:l,score:data.scores[i]};
+      });
+      items.sort(function(a,b){return b.score-a.score});
+      categoriesList.innerHTML=items.map(function(item){
+        var pct=Math.round(item.score*100);
+        return '<div class="category-item"><div class="label-text">'+item.label+'</div><div class="bar-wrap"><div class="bar-fill" style="width:'+pct+'%"></div></div><div class="score-text">'+pct+'%</div></div>';
+      }).join('');
+    }else{
+      showError('无法解析返回结果');
+    }
+  })
+  .catch(function(err){
+    setLoading(false);
+    if(err.message==='模型加载中')return;
+    showError(err.message||'请求失败，请稍后重试');
+  });
+}
+
+function setLoading(v){classifyBtn.disabled=v;classifyBtn.textContent=v?'⏳ 分类中...':'🏷️ 分类';}
+function showError(msg){errorMsg.textContent=msg;errorMsg.style.display='block';}
+function hideError(){errorMsg.style.display='none';}
+function showWaiting(){waitingMsg.style.display='block';}
+function hideWaiting(){waitingMsg.style.display='none';}
+
+classifyBtn.addEventListener('click',classify);
+clearBtn.addEventListener('click',function(){
+  input.value='';
+  labelsInput.value='positive, negative, neutral';
+  resultArea.style.display='none';
+  hideError();
+  hideWaiting();
+});
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

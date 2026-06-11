@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动漫搜索</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.search-box{display:flex;gap:8px;max-width:400px;margin:16px auto 0}
+.search-box input{flex:1;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;outline:none}
+.search-box input:focus{border-color:var(--blue)}
+.search-box button{padding:10px 20px;background:var(--blue);border:none;border-radius:var(--radius);color:#fff;cursor:pointer;font-size:.9rem}
+.search-box button:hover{opacity:.9}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.anime-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:16px}
+.anime-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:.2s}
+.anime-card:hover{border-color:var(--blue)}
+.anime-img{width:100%;height:200px;object-fit:cover;display:block;background:var(--bg)}
+.anime-info{padding:14px}
+.anime-title{font-size:.92rem;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anime-title-jp{font-size:.75rem;color:var(--text2);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anime-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.anime-badge{padding:2px 8px;border-radius:4px;font-size:.72rem;background:var(--bg);border:1px solid var(--border)}
+.anime-badge.score{color:var(--gold);border-color:rgba(245,158,11,.3)}
+.anime-badge.episodes{color:var(--blue);border-color:rgba(59,130,246,.3)}
+.anime-badge.status{color:var(--green);border-color:rgba(35,134,54,.3)}
+.anime-synopsis{font-size:.78rem;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:500px){
+.anime-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎬 动漫搜索</h1>
+<p class="sub">MyAnimeList · Jikan API</p>
+</header>
+<div class="search-box">
+<input type="text" id="searchInput" placeholder="输入动漫名称" onkeydown="if(event.key==='Enter')searchAnime()">
+<button onclick="searchAnime()">搜索</button>
+</div>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var app=document.getElementById('app');
+var input=document.getElementById('searchInput');
+window.searchAnime=function(){
+var q=input.value.trim();
+if(!q){app.innerHTML='<div class="error"><p>请输入动漫名称</p></div>';return;}
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>搜索中...</p></div>';
+fetch('https://api.jikan.moe/v4/anime?q='+encodeURIComponent(q)+'&limit=10')
+.then(function(r){
+if(r.status===429)throw new Error('请求过于频繁，请稍后再试');
+if(!r.ok)throw new Error('请求失败 ('+r.status+')');
+return r.json();
+})
+.then(function(data){
+var animeList=data.data;
+if(!animeList||!animeList.length){app.innerHTML='<div class="error"><p>未找到相关动漫</p></div>';return;}
+var html='<div class="anime-grid">';
+animeList.forEach(function(a){
+var img=a.images&&a.images.jpg&&a.images.jpg.image_url? a.images.jpg.image_url:'';
+var title=a.title||'未知';
+var titleJp=a.title_japanese||'';
+var score=a.score||'N/A';
+var eps=a.episodes||'N/A';
+var status=a.status||'未知';
+var synopsis=a.synopsis||'暂无简介';
+if(synopsis.length>150)synopsis=synopsis.substring(0,150)+'...';
+var url=a.url||'#';
+html+='<div class="anime-card">';
+html+='<a href="'+url+'" target="_blank" rel="noopener">';
+html+='<img class="anime-img" src="'+img+'" alt="'+title+'" loading="lazy" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22200%22><rect fill=%22%23161b22%22 width=%22300%22 height=%22200%22/><text fill=%22%238b949e%22 font-size=%2220%22 x=%22100%22 y=%22105%22>无图片</text></svg>\'">';
+html+='</a>';
+html+='<div class="anime-info">';
+html+='<div class="anime-title"><a href="'+url+'" target="_blank" style="color:var(--text);text-decoration:none">'+title+'</a></div>';
+if(titleJp)html+='<div class="anime-title-jp">'+titleJp+'</div>';
+html+='<div class="anime-meta">';
+html+='<span class="anime-badge score">⭐ '+score+'</span>';
+html+='<span class="anime-badge episodes">📺 '+eps+'集</span>';
+html+='<span class="anime-badge status">'+status+'</span>';
+html+='</div>';
+html+='<div class="anime-synopsis">'+synopsis+'</div>';
+html+='</div></div>';
+});
+html+='</div>';
+app.innerHTML=html;
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchAnime()">重试</button></div>';
+});
+};
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

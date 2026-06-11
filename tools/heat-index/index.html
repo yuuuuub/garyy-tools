@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌡️ 中暑风险指数 - Gary's Tools</title>
+<meta name="description" content="根据温度和湿度计算中暑风险指数，提供防暑降温建议，支持自动获取当地天气">
+<style>
+:root{--bg:#fffbeb;--card:#fff;--text:#1a1a2e;--text2:#6b7280;--danger:#ef4444;--warn:#f59e0b;--safe:#10b981;--info:#3b82f6;--border:#fde68a;--radius:14px;--shadow:0 2px 16px rgba(0,0,0,.06)}
+[data-theme="dark"]{--bg:#1a1610;--card:#2a2218;--text:#f0e8d0;--text2:#9ca3af;--border:#4a3820}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;-webkit-font-smoothing:antialiased}
+.container{max-width:500px;margin:0 auto}
+header{text-align:center;padding:32px 0 20px}
+header h1{font-size:1.7rem;font-weight:800;background:linear-gradient(135deg,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--text2);font-size:.85rem;margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:14px}
+.slider-group{margin-bottom:16px}
+.slider-group label{display:flex;justify-content:space-between;font-size:.85rem;color:var(--text2);margin-bottom:6px}
+.slider-group label span:last-child{font-weight:700;color:var(--text)}
+.slider-group input[type=range]{-webkit-appearance:none;width:100%;height:8px;border-radius:4px;background:linear-gradient(90deg,#3b82f6,#f59e0b,#ef4444);outline:none}
+.slider-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid var(--warn);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.risk-hero{text-align:center;padding:28px 20px;border-radius:var(--radius);margin-bottom:16px;transition:all .3s}
+.risk-hero.low{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(59,130,246,.1));border:2px solid var(--safe)}
+.risk-hero.moderate{background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(234,179,8,.1));border:2px solid var(--warn)}
+.risk-hero.high{background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(249,115,22,.1));border:2px solid var(--danger)}
+.risk-hero.extreme{background:linear-gradient(135deg,rgba(220,38,38,.15),rgba(185,28,28,.15));border:2px solid var(--danger);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+.risk-icon{font-size:3.5rem;margin-bottom:4px}
+.risk-level{font-size:1.5rem;font-weight:800;margin-bottom:4px}
+.risk-desc{font-size:.85rem;color:var(--text2);line-height:1.6}
+.advice-list{display:flex;flex-direction:column;gap:8px}
+.advice-item{display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;font-size:.85rem;line-height:1.6}
+.advice-item .icon{font-size:1.3rem;flex-shrink:0}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.stat-item{background:var(--bg);border-radius:10px;padding:12px;text-align:center}
+.stat-item .val{font-size:1.3rem;font-weight:800}
+.stat-item .lab{font-size:.7rem;color:var(--text2)}
+footer{text-align:center;padding:24px 0;color:var(--text2);font-size:.7rem}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🌡️ 中暑风险指数</h1>
+<p>温度 + 湿度 → 体感风险 → 科学防护</p>
+</header>
+
+<div class="card">
+<h3>🌤️ 当前天气</h3>
+<div class="slider-group">
+<label>温度 <span id="tempLabel">35°C</span></label>
+<input type="range" id="temp" min="20" max="45" value="35" step="0.5">
+</div>
+<div class="slider-group">
+<label>相对湿度 <span id="humLabel">60%</span></label>
+<input type="range" id="hum" min="10" max="100" value="60" step="1">
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+<button class="preset" data-t="28" data-h="50">☁️ 凉爽</button>
+<button class="preset" data-t="32" data-h="60">🌤️ 微热</button>
+<button class="preset" data-t="35" data-h="60">☀️ 炎热</button>
+<button class="preset" data-t="38" data-h="70">🔥 酷热</button>
+<button class="preset" data-t="42" data-h="80">💀 极端</button>
+</div>
+</div>
+
+<div id="riskDisplay" class="risk-hero">
+<div class="risk-icon" id="riskIcon">😊</div>
+<div class="risk-level" id="riskLevel">正常</div>
+<div class="risk-desc" id="riskDesc">当前环境舒适，无中暑风险</div>
+</div>
+
+<div class="card">
+<h3>🛡️ 防护建议</h3>
+<div class="advice-list" id="adviceList"></div>
+</div>
+
+<div class="card">
+<h3>📊 量化指标</h3>
+<div class="stats-grid">
+<div class="stat-item"><div class="val" id="heatIndex" style="color:var(--danger)">--°C</div><div class="lab">体感温度</div></div>
+<div class="stat-item"><div class="val" id="waterNeed" style="color:var(--info)">--</div><div class="lab">每小时建议饮水量</div></div>
+<div class="stat-item"><div class="val" id="sweatRate" style="color:var(--warn)">--</div><div class="lab">出汗速率</div></div>
+<div class="stat-item"><div class="val" id="safeTime" style="color:var(--safe)">--</div><div class="lab">安全户外时间</div></div>
+</div>
+</div>
+<footer>数据供参考 · 天热多喝水 🧊</footer>
+</div>
+
+<style>.preset{padding:8px 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text2);font-size:.8rem;cursor:pointer;transition:all .2s;font-family:inherit}.preset:hover{background:var(--warn);color:#fff;border-color:var(--warn)}</style>
+
+<script>
+const $=id=>document.getElementById(id);
+
+// Heat index formula (Rothfusz regression)
+function heatIndex(T,H){
+// T in °C, H in %
+const Tf=T*9/5+32;
+if(Tf<80)return T;
+let hi=0.5*(Tf+61+((Tf-68)*1.2)+(H*0.094));
+hi=(hi+Tf)/2;
+if(hi<80)return (hi-32)*5/9;
+let hi2=-42.379+2.04901523*Tf+10.14333127*H-0.22475541*Tf*H-6.83783e-3*Tf*Tf-5.481717e-2*H*H+1.22874e-3*Tf*Tf*H+8.5282e-4*Tf*H*H-1.99e-6*Tf*Tf*H*H;
+if(H<13&&Tf>=80&&Tf<=112)hi2-=((13-H)/4)*Math.sqrt((17-Math.abs(Tf-95))/17);
+if(H>85&&Tf>=80&&Tf<=87)hi2+=((H-85)/10)*((87-Tf)/5);
+return (hi2-32)*5/9;
+}
+
+function update(){
+const T=parseFloat($('temp').value);
+const H=parseInt($('hum').value);
+$('tempLabel').textContent=T+'°C';
+$('humLabel').textContent=H+'%';
+
+const hi=heatIndex(T,H);
+const hc=Math.round(hi*10)/10;
+$('heatIndex').textContent=hc+'°C';
+$('heatIndex').style.color=hi>=40?'var(--danger)':hi>=32?'var(--warn)':'var(--info)';
+
+// Water need (ml per hour)
+const water=Math.round(200+(hi-20)*30);
+$('waterNeed').textContent=Math.max(200,Math.min(1500,water))+'ml';
+
+// Sweat rate
+const sweat=Math.round((hi-20)*50);
+$('sweatRate').textContent=Math.max(0,sweat)+'ml/h';
+
+// Safe outdoor time
+let safeMin;
+if(hi<27)safeMin='无限';
+else if(hi<32)safeMin='2-4小时';
+else if(hi<41)safeMin='30-60分钟';
+else if(hi<54)safeMin='15-30分钟';
+else safeMin='< 5分钟';
+$('safeTime').textContent=safeMin;
+
+// Risk level
+let riskIcon,riskLevel,riskDesc,riskClass,advices;
+if(hi<27){
+riskIcon='😊';riskLevel='安全';riskClass='low';
+riskDesc='当前体感舒适，无中暑风险，可以正常户外活动。';
+advices=['🧴 常规防晒即可','💧 保持正常饮水','👕 穿着舒适透气'];
+}else if(hi<32){
+riskIcon='😐';riskLevel='注意';riskClass='moderate';
+riskDesc='长时间户外活动可能导致疲劳，注意补充水分。';
+advices=['💧 每小时至少喝 500ml 水','🧴 涂抹防晒霜 SPF30+','👒 戴帽子或遮阳伞','🕐 避免中午12-15点暴晒'];
+}else if(hi<41){
+riskIcon='🥵';riskLevel='危险';riskClass='high';
+riskDesc='极易发生中暑，应减少户外活动，注意补充电解质。';
+advices=['🚨 减少户外活动时间','💧 每小时喝600-1000ml水','🧂 补充电解质饮料','🏠 尽量待在空调房间','⚠️ 关注头晕、恶心等中暑前兆'];
+}else if(hi<54){
+riskIcon='🔥';riskLevel='极危险';riskClass='extreme';
+riskDesc='中暑概率极高！尽量避免户外活动，必须外出时做好全面防护。';
+advices=['🚫 避免一切户外活动','🧊 必须在空调环境中','💧 每小时喝1000ml以上','🆘 随身携带防暑药品','🏥 如有不适立即就医'];
+}else{
+riskIcon='💀';riskLevel='致死风险';riskClass='extreme';
+riskDesc='极端高温！可能危及生命，务必待在室内空调环境！';
+advices=['🚫 严禁户外活动','🏥 注意中暑急救信号','🧊 空调温度设定26-28°C','💧 每30分钟饮水一次','🆘 出现意识模糊立即拨打120'];
+}
+
+const hero=$('riskDisplay');
+hero.className='risk-hero '+riskClass;
+$('riskIcon').textContent=riskIcon;
+$('riskLevel').textContent=riskLevel;
+$('riskDesc').textContent=riskDesc;
+$('adviceList').innerHTML=advices.map(a=>`<div class="advice-item"><span class="icon">${a.slice(0,2)}</span><span>${a.slice(3)}</span></div>`).join('');
+}
+
+$('temp').addEventListener('input',update);
+$('hum').addEventListener('input',update);
+
+document.querySelectorAll('.preset').forEach(b=>b.addEventListener('click',function(){
+$('temp').value=this.dataset.t;$('hum').value=this.dataset.h;update();
+}));
+
+update();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宝可梦图鉴</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.search-box{display:flex;gap:8px;max-width:400px;margin:16px auto 0}
+.search-box input{flex:1;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;outline:none}
+.search-box input:focus{border-color:var(--blue)}
+.search-box button{padding:10px 20px;background:var(--blue);border:none;border-radius:var(--radius);color:#fff;cursor:pointer;font-size:.9rem}
+.search-box button:hover{opacity:.9}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.pokemon-card{margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center}
+.pokemon-img{width:180px;height:180px;object-fit:contain;display:block;margin:0 auto;image-rendering:pixelated}
+.pokemon-name{font-size:1.3rem;font-weight:700;margin-top:8px;text-transform:capitalize}
+.pokemon-id{font-size:.85rem;color:var(--text2);margin-bottom:8px}
+.pokemon-types{display:flex;justify-content:center;gap:8px;margin:10px 0}
+.poke-type{padding:4px 14px;border-radius:16px;font-size:.82rem;font-weight:600;text-transform:capitalize}
+.poke-type.normal{background:#A8A878;color:#fff}
+.poke-type.fire{background:#F08030;color:#fff}
+.poke-type.water{background:#6890F0;color:#fff}
+.poke-type.electric{background:#F8D030;color:#333}
+.poke-type.grass{background:#78C850;color:#fff}
+.poke-type.ice{background:#98D8D8;color:#333}
+.poke-type.fighting{background:#C03028;color:#fff}
+.poke-type.poison{background:#A040A0;color:#fff}
+.poke-type.ground{background:#E0C068;color:#333}
+.poke-type.flying{background:#A890F0;color:#fff}
+.poke-type.psychic{background:#F85888;color:#fff}
+.poke-type.bug{background:#A8B820;color:#fff}
+.poke-type.rock{background:#B8A038;color:#fff}
+.poke-type.ghost{background:#705898;color:#fff}
+.poke-type.dragon{background:#7038F8;color:#fff}
+.poke-type.dark{background:#705848;color:#fff}
+.poke-type.steel{background:#B8B8D0;color:#333}
+.poke-type.fairy{background:#EE99AC;color:#fff}
+.pokemon-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;text-align:left}
+.poke-detail{background:var(--bg);border-radius:var(--radius);padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.poke-detail .label{font-size:.78rem;color:var(--text2)}
+.poke-detail .value{font-size:.85rem;font-weight:600;text-transform:capitalize}
+.abilities{margin-top:14px;text-align:left}
+.abilities-title{font-size:.85rem;color:var(--text2);margin-bottom:6px}
+.ability-tag{display:inline-block;padding:3px 10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;font-size:.78rem;margin:2px 3px;text-transform:capitalize}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>⚡ 宝可梦图鉴</h1>
+<p class="sub">PokeAPI</p>
+</header>
+<div class="search-box">
+<input type="text" id="searchInput" placeholder="输入宝可梦名称或ID，如 pikachu" onkeydown="if(event.key==='Enter')searchPokemon()">
+<button onclick="searchPokemon()">查询</button>
+</div>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var app=document.getElementById('app');
+var input=document.getElementById('searchInput');
+window.searchPokemon=function(){
+var q=input.value.trim().toLowerCase();
+if(!q){app.innerHTML='<div class="error"><p>请输入宝可梦名称或ID</p></div>';return;}
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>搜索中...</p></div>';
+fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(q))
+.then(function(r){
+if(r.status===404)throw new Error('未找到该宝可梦');
+if(!r.ok)throw new Error('请求失败 ('+r.status+')');
+return r.json();
+})
+.then(function(data){
+var name=data.name;
+var id=data.id;
+var img=data.sprites&&data.sprites.other&&data.sprites.other['official-artwork']&&data.sprites.other['official-artwork'].front_default?data.sprites.other['official-artwork'].front_default:(data.sprites.front_default||'');
+var types=data.types.map(function(t){return t.type.name;});
+var height=data.height/10;
+var weight=data.weight/10;
+var baseExp=data.base_experience||'N/A';
+var abilities=data.abilities.map(function(a){return a.ability.name;});
+var stats=data.stats;
+var html='<div class="pokemon-card">';
+if(img)html+='<img class="pokemon-img" src="'+img+'" alt="'+name+'">';
+html+='<div class="pokemon-name">'+name+'</div>';
+html+='<div class="pokemon-id">#'+String(id).padStart(3,'0')+'</div>';
+html+='<div class="pokemon-types">';
+types.forEach(function(t){html+='<span class="poke-type '+t+'">'+t+'</span>';});
+html+='</div>';
+html+='<div class="pokemon-details">';
+html+='<div class="poke-detail"><span class="label">📏 身高</span><span class="value">'+height+' m</span></div>';
+html+='<div class="poke-detail"><span class="label">⚖️ 体重</span><span class="value">'+weight+' kg</span></div>';
+html+='<div class="poke-detail"><span class="label">💪 基础经验</span><span class="value">'+baseExp+'</span></div>';
+html+='<div class="poke-detail"><span class="label">🏆 属性数</span><span class="value">'+types.length+'</span></div>';
+html+='</div>';
+if(stats&&stats.length){
+html+='<div style="margin-top:14px;text-align:left">';
+html+='<div class="abilities-title" style="margin-bottom:6px">📊 基础数值</div>';
+stats.forEach(function(s){
+var statName=s.stat.name;
+var val=s.base_stat;
+var pct=Math.min(val/255*100,100);
+html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:.8rem">';
+html+='<span style="width:80px;color:var(--text2);text-transform:capitalize">'+statName.replace('-',' ')+'</span>';
+html+='<div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">';
+html+='<div style="height:100%;width:'+pct+'%;background:'+(val>=100?'var(--green)':val>=50?'var(--gold)':'var(--red)')+';border-radius:3px;transition:.3s"></div>';
+html+='</div>';
+html+='<span style="width:30px;text-align:right;font-weight:600">'+val+'</span>';
+html+='</div>';
+});
+html+='</div>';
+}
+html+='<div class="abilities" style="margin-top:14px"><div class="abilities-title">⚡ 特性</div>';
+abilities.forEach(function(a){html+='<span class="ability-tag">'+a+'</span>';});
+html+='</div>';
+html+='</div>';
+app.innerHTML=html;
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchPokemon()">重试</button></div>';
+});
+};
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记账本 - garyy-tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.85rem}
+button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+button:hover{opacity:.85}
+input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.form-row .field{flex:1;min-width:120px}
+.form-row label{display:block;font-size:.78rem;color:var(--text2);margin-bottom:4px}
+.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.summary-item{flex:1;min-width:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.summary-item .amount{font-size:1.2rem;font-weight:600;margin-top:4px}
+.summary-item .label{font-size:.75rem;color:var(--text2)}
+.cat-bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.cat-tag{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:.8rem;display:flex;align-items:center;gap:6px}
+.cat-tag .cat-amount{color:var(--gold);font-weight:500}
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.list-item:last-child{border-bottom:none}
+.list-item .info{flex:1}
+.list-item .info .cat{display:inline-block;font-size:.72rem;background:var(--bg);padding:2px 8px;border-radius:4px;color:var(--text2);margin-right:6px}
+.list-item .info .note{color:var(--text2);font-size:.78rem}
+.list-item .amount{font-size:1rem;font-weight:600;color:var(--gold);margin-right:12px;flex-shrink:0}
+.list-item .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:.9rem;padding:4px 8px;border-radius:4px;flex-shrink:0}
+.list-item .del-btn:hover{background:rgba(239,68,68,.15)}
+.categories{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.cat-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.82rem;cursor:pointer;transition:all .15s}
+.cat-btn:hover{border-color:var(--blue)}
+.cat-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.empty-text{text-align:center;color:var(--text2);padding:30px 0;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>💳 记账本</h1>
+<div class="sub">日常支出记录</div>
+</header>
+
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:12px">添加支出</h3>
+<div class="form-row">
+<div class="field">
+<label>金额 (元)</label>
+<input type="number" id="inputAmount" placeholder="0.00" min="0" step="0.01">
+</div>
+<div class="field">
+<label>日期</label>
+<input type="date" id="inputDate">
+</div>
+</div>
+<div class="form-row">
+<div class="field" style="flex:2">
+<label>分类</label>
+<div class="categories" id="catList"></div>
+</div>
+</div>
+<div class="form-row">
+<div class="field">
+<label>备注</label>
+<input type="text" id="inputNote" placeholder="可选备注" maxlength="50">
+</div>
+</div>
+<button class="btn-green" id="btnAdd">添加支出</button>
+</div>
+
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:12px">本月概览</h3>
+<div class="summary">
+<div class="summary-item"><div class="label">本月总计</div><div class="amount" id="monthTotal" style="color:var(--gold)">0.00</div></div>
+<div class="summary-item"><div class="label">本月笔数</div><div class="amount" id="monthCount" style="color:var(--text)">0</div></div>
+</div>
+<div id="catStats"></div>
+</div>
+
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:12px">支出明细</h3>
+<div id="expenseList"></div>
+</div>
+</div>
+
+<script src="../i18n.js"></script>
+<script>
+(function(){
+'use strict';
+const CATEGORIES=['餐饮','交通','购物','娱乐','其他','医疗','教育','住房'];
+
+let expenses=JSON.parse(localStorage.getItem('garyy_expenses')||'[]');
+let selectedCat='餐饮';
+
+function save(){
+localStorage.setItem('garyy_expenses',JSON.stringify(expenses));
+render();
+}
+
+function todayStr(){
+return new Date().toISOString().slice(0,10);
+}
+
+function escHtml(s){
+return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderCats(){
+const el=document.getElementById('catList');
+el.innerHTML='';
+CATEGORIES.forEach(function(c){
+const btn=document.createElement('button');
+btn.className='cat-btn'+(c===selectedCat?' active':'');
+btn.textContent=c;
+btn.addEventListener('click',function(){
+document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('active');});
+this.classList.add('active');
+selectedCat=c;
+});
+el.appendChild(btn);
+});
+}
+
+function render(){
+renderExpenses();
+renderMonthSummary();
+}
+
+function renderExpenses(){
+const el=document.getElementById('expenseList');
+if(expenses.length===0){
+el.innerHTML='<div class="empty-text">暂无支出记录</div>';
+return;
+}
+const sorted=expenses.slice().sort(function(a,b){return b.id-a.id;});
+let html='';
+sorted.forEach(function(e){
+html+='<div class="list-item">'+
+'<div class="info">'+
+'<span class="cat">'+escHtml(e.cat)+'</span>'+
+escHtml(e.note||'无备注')+
+'<div style="font-size:.72rem;color:var(--text2);margin-top:2px">'+e.date+'</div>'+
+'</div>'+
+'<span class="amount">¥'+e.amount.toFixed(2)+'</span>'+
+'<button class="del-btn" data-id="'+e.id+'">✕</button>'+
+'</div>';
+});
+el.innerHTML=html;
+el.querySelectorAll('.del-btn').forEach(function(btn){
+btn.addEventListener('click',function(){
+const id=parseInt(this.dataset.id);
+if(confirm('删除这笔支出？')){
+expenses=expenses.filter(function(e){return e.id!==id;});
+save();
+}
+});
+});
+}
+
+function renderMonthSummary(){
+const now=new Date();
+const year=now.getFullYear();
+const month=now.getMonth();
+let total=0;
+let count=0;
+const catTotals={};
+CATEGORIES.forEach(function(c){catTotals[c]=0;});
+
+expenses.forEach(function(e){
+const d=new Date(e.date);
+if(d.getFullYear()===year&&d.getMonth()===month){
+total+=e.amount;
+count++;
+if(catTotals[e.cat]!==undefined)catTotals[e.cat]+=e.amount;
+}
+});
+
+document.getElementById('monthTotal').textContent=total.toFixed(2);
+document.getElementById('monthCount').textContent=count;
+
+const statsEl=document.getElementById('catStats');
+if(count===0){
+statsEl.innerHTML='<div style="color:var(--text2);font-size:.85rem;text-align:center;padding:10px">本月暂无支出</div>';
+}else{
+let html='<div class="cat-bar">';
+for(const cat in catTotals){
+if(catTotals[cat]>0){
+html+='<div class="cat-tag">'+escHtml(cat)+' <span class="cat-amount">¥'+catTotals[cat].toFixed(2)+'</span></div>';
+}
+}
+html+='</div>';
+statsEl.innerHTML=html;
+}
+}
+
+document.getElementById('btnAdd').addEventListener('click',function(){
+const amount=parseFloat(document.getElementById('inputAmount').value);
+if(!amount||amount<=0){alert('请输入有效金额');return;}
+const date=document.getElementById('inputDate').value||todayStr();
+const note=document.getElementById('inputNote').value.trim();
+expenses.push({id:Date.now(),amount:amount,cat:selectedCat,note:note,date:date});
+save();
+document.getElementById('inputAmount').value='';
+document.getElementById('inputNote').value='';
+document.getElementById('inputDate').value='';
+});
+
+document.getElementById('inputDate').value=todayStr();
+
+renderCats();
+render();
+})();
+</script>
+</body>
+</html>

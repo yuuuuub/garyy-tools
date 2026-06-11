@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>空气质量查询</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.search-box{display:flex;gap:8px;max-width:400px;margin:16px auto 0}
+.search-box input{flex:1;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;outline:none}
+.search-box input:focus{border-color:var(--blue)}
+.search-box button{padding:10px 20px;background:var(--blue);border:none;border-radius:var(--radius);color:#fff;cursor:pointer;font-size:.9rem}
+.search-box button:hover{opacity:.9}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.card{margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.card-title{font-size:1rem;font-weight:600;margin-bottom:4px}
+.card-sub{font-size:.8rem;color:var(--text2);margin-bottom:16px}
+.aqi-main{text-align:center;padding:20px 0}
+.aqi-value{font-size:3.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.aqi-label{font-size:1.1rem;margin-top:6px;padding:4px 16px;border-radius:20px;display:inline-block}
+.aqi-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px}
+.aqi-item{background:var(--bg);border-radius:var(--radius);padding:14px;text-align:center}
+.aqi-item .label{font-size:.75rem;color:var(--text2)}
+.aqi-item .value{font-size:1.1rem;font-weight:600;margin-top:4px}
+.city-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.city-item{padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;font-size:.9rem;transition:.2s}
+.city-item:hover{background:#1c2333;border-color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🌬️ 空气质量查询</h1>
+<p class="sub">Open-Meteo · 实时空气质量</p>
+</header>
+<div class="search-box">
+<input type="text" id="cityInput" placeholder="输入城市名" onkeydown="if(event.key==='Enter')searchCity()">
+<button onclick="searchCity()">查询</button>
+</div>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var app=document.getElementById('app');
+var cityInput=document.getElementById('cityInput');
+function aqiLevel(val){
+if(val==null)return {label:'未知',color:'var(--text2)',bg:'transparent'};
+if(val<=50)return {label:'优',color:'#238636',bg:'rgba(35,134,54,.15)'};
+if(val<=100)return {label:'良',color:'#f59e0b',bg:'rgba(245,158,11,.15)'};
+if(val<=150)return {label:'轻度污染',color:'#f97316',bg:'rgba(249,115,22,.15)'};
+if(val<=200)return {label:'中度污染',color:'#ef4444',bg:'rgba(239,68,68,.15)'};
+if(val<=300)return {label:'重度污染',color:'#a855f7',bg:'rgba(168,85,247,.15)'};
+return {label:'严重污染',color:'#7c3aed',bg:'rgba(124,58,237,.15)'};
+}
+window.searchCity=function(){
+var q=cityInput.value.trim();
+if(!q){app.innerHTML='<div class="error"><p>请输入城市名</p></div>';return;}
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>搜索中...</p></div>';
+fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=5&language=zh')
+.then(function(r){if(!r.ok)throw new Error('搜索失败');return r.json();})
+.then(function(data){
+if(!data.results||!data.results.length){
+app.innerHTML='<div class="error"><p>未找到城市</p></div>';return;
+}
+if(data.results.length===1){getAQI(data.results[0]);return;}
+var html='<div class="city-list">';
+data.results.forEach(function(c){
+html+='<div class="city-item" data-lat="'+c.latitude+'" data-lon="'+c.longitude+'" data-name="'+c.name+'">'+c.name+(c.admin1?', '+c.admin1:'')+(c.country?', '+c.country:'')+'</div>';
+});
+html+='</div>';
+app.innerHTML=html;
+document.querySelectorAll('.city-item').forEach(function(el){
+el.addEventListener('click',function(){
+getAQI({latitude:parseFloat(el.dataset.lat),longitude:parseFloat(el.dataset.lon),name:el.dataset.name});
+});
+});
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchCity()">重试</button></div>';
+});
+};
+function getAQI(city){
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>获取空气质量数据...</p></div>';
+var lat=city.latitude,lon=city.longitude,name=city.name;
+fetch('https://air-quality-api.open-meteo.com/v1/air-quality?latitude='+lat+'&longitude='+lon+'&current=european_aqi,pm2_5,pm10,ozone')
+.then(function(r){if(!r.ok)throw new Error('获取空气质量失败');return r.json();})
+.then(function(data){
+var c=data.current;
+var aqi=c.european_aqi;
+var level=aqiLevel(aqi);
+var html='<div class="card">';
+html+='<div class="card-title">'+name+'</div>';
+html+='<div class="card-sub">实时空气质量指数</div>';
+html+='<div class="aqi-main">';
+html+='<div class="aqi-value" style="color:'+level.color+'">'+(aqi!=null?aqi:'N/A')+'</div>';
+html+='<div class="aqi-label" style="color:'+level.color+';background:'+level.bg+'">'+level.label+'</div>';
+html+='</div>';
+html+='<div class="aqi-details">';
+html+='<div class="aqi-item"><div class="label">PM2.5</div><div class="value">'+(c.pm2_5!=null?c.pm2_5.toFixed(1)+' µg/m³':'N/A')+'</div></div>';
+html+='<div class="aqi-item"><div class="label">PM10</div><div class="value">'+(c.pm10!=null?c.pm10.toFixed(1)+' µg/m³':'N/A')+'</div></div>';
+html+='<div class="aqi-item"><div class="label">臭氧 O₃</div><div class="value">'+(c.ozone!=null?c.ozone.toFixed(1)+' µg/m³':'N/A')+'</div></div>';
+html+='</div></div>';
+app.innerHTML=html;
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="getAQI({latitude:'+lat+',longitude:'+lon+',name:\''+name+'\'})">重试</button></div>';
+});
+}
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

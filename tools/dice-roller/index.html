@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎲 掷骰子</title>
+  <style>
+    :root {
+      --bg: #0a1a0a;
+      --bg-secondary: #0d240d;
+      --bg-card: #112211;
+      --bg-dice: #1a3a1a;
+      --text: #e0f0e0;
+      --text-secondary: #8ab88a;
+      --accent: #2ecc40;
+      --accent-glow: #2ecc4066;
+      --accent-dark: #1a7a28;
+      --border: #2a4a2a;
+      --dot: #e0f0e0;
+      --shadow: 0 4px 24px rgba(46, 204, 64, 0.15);
+      --dice-shadow: 0 8px 32px rgba(46, 204, 64, 0.25);
+      --btn-bg: #1a3a1a;
+      --btn-hover: #224422;
+      --danger: #e74c3c;
+      --success: #2ecc40;
+    }
+
+    [data-theme="light"] {
+      --bg: #f0f7f0;
+      --bg-secondary: #e0efe0;
+      --bg-card: #ffffff;
+      --bg-dice: #ffffff;
+      --text: #1a2a1a;
+      --text-secondary: #5a7a5a;
+      --accent: #1a7a28;
+      --accent-glow: #1a7a2844;
+      --accent-dark: #156020;
+      --border: #c0d8c0;
+      --dot: #1a2a1a;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      --dice-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      --btn-bg: #d0e8d0;
+      --btn-hover: #bcd8bc;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #8bc88b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .theme-toggle {
+      background: var(--btn-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+    }
+
+    .theme-toggle:hover { background: var(--btn-hover); }
+
+    /* Dice Area */
+    .dice-area {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      min-height: 180px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dice-area::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .die {
+      width: 72px;
+      height: 72px;
+      background: var(--bg-dice);
+      border: 2px solid var(--accent);
+      border-radius: 14px;
+      display: grid;
+      grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+      padding: 10px;
+      gap: 4px;
+      position: relative;
+      z-index: 1;
+      box-shadow: var(--dice-shadow);
+      transition: transform 0.15s;
+    }
+
+    .die.rolling {
+      animation: roll3d 0.6s ease-out;
+    }
+
+    @keyframes roll3d {
+      0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+      20%  { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg) scale(1.15); }
+      40%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) scale(1.1); }
+      60%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg) scale(1.05); }
+      80%  { transform: rotateX(630deg) rotateY(340deg) rotateZ(180deg) scale(1.02); }
+      100% { transform: rotateX(720deg) rotateY(360deg) rotateZ(360deg) scale(1); }
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      background: var(--dot);
+      border-radius: 50%;
+      place-self: center;
+      opacity: 0.9;
+      box-shadow: inset 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .empty { opacity: 0; pointer-events: none; }
+
+    /* Dot positions for each face (grid 3x3 mapping) */
+    /* 1 */ .face-1 .d-5 { opacity: 1; }
+    /* 2 */ .face-2 .d-1, .face-2 .d-9 { opacity: 1; }
+    /* 3 */ .face-3 .d-1, .face-3 .d-5, .face-3 .d-9 { opacity: 1; }
+    /* 4 */ .face-4 .d-1, .face-4 .d-3, .face-4 .d-7, .face-4 .d-9 { opacity: 1; }
+    /* 5 */ .face-5 .d-1, .face-5 .d-3, .face-5 .d-5, .face-5 .d-7, .face-5 .d-9 { opacity: 1; }
+    /* 6 */ .face-6 .d-1, .face-6 .d-3, .face-6 .d-4, .face-6 .d-6, .face-6 .d-7, .face-6 .d-9 { opacity: 1; }
+
+    /* Controls */
+    .presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      background: var(--btn-bg);
+      color: var(--accent);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--btn-hover); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn.active {
+      background: var(--accent);
+      color: #0a1a0a;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .btn-roll {
+      padding: 14px 32px;
+      font-size: 1.15rem;
+      background: var(--accent);
+      color: #0a1a0a;
+      border: none;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-roll:hover {
+      background: var(--accent-dark);
+      color: #0a1a0a;
+      box-shadow: 0 6px 30px var(--accent-glow);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Result Display */
+    .result-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .result-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .result-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .result-detail {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* Fun Mode */
+    .fun-mode {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .fun-mode h3 {
+      font-size: 1rem;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+
+    .guess-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-guess {
+      flex: 1;
+      padding: 14px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--btn-bg);
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .btn-guess:hover { border-color: var(--accent); background: var(--btn-hover); }
+
+    .btn-guess.win {
+      border-color: var(--success);
+      background: #2ecc4020;
+      animation: pulse 0.5s ease-in-out;
+    }
+
+    .btn-guess.lose {
+      border-color: var(--danger);
+      background: #e74c3c20;
+      animation: shake 0.5s ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .fun-result {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .fun-result.win { background: #2ecc4020; color: var(--success); }
+    .fun-result.lose { background: #e74c3c20; color: var(--danger); }
+
+    .streak {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 8px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .streak span { font-weight: 700; }
+    .streak .s-win { color: var(--success); }
+    .streak .s-lose { color: var(--danger); }
+
+    /* History */
+    .history {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .history h3 {
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      color: var(--accent);
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: var(--bg-secondary);
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+
+    .history-item:hover { background: var(--btn-hover); }
+
+    .history-dice {
+      display: flex;
+      gap: 3px;
+    }
+
+    .history-die {
+      width: 26px;
+      height: 26px;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--bg-dice);
+    }
+
+    .history-time {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      margin-left: auto;
+    }
+
+    .history-total {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .empty-history {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      padding: 16px;
+    }
+
+    /* Scrollbar */
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Responsive */
+    @media (max-width: 360px) {
+      .die { width: 56px; height: 56px; padding: 7px; gap: 2px; border-radius: 10px; }
+      .dot { width: 10px; height: 10px; }
+      .result-value { font-size: 1.5rem; }
+      .btn { padding: 8px 14px; font-size: 0.85rem; }
+      .btn-roll { padding: 12px 24px; font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <h1>🎲 掷骰子</h1>
+      <button class="theme-toggle" id="themeToggle" title="切换暗色/亮色模式">🌙</button>
+    </div>
+
+    <!-- Dice Display -->
+    <div class="dice-area" id="diceArea">
+      <div class="die face-1" id="die-0">
+        <span class="dot empty d-1"></span><span class="dot empty d-2"></span><span class="dot empty d-3"></span>
+        <span class="dot empty d-4"></span><span class="dot empty d-5"></span><span class="dot empty d-6"></span>
+        <span class="dot empty d-7"></span><span class="dot empty d-8"></span><span class="dot empty d-9"></span>
+      </div>
+    </div>
+
+    <!-- Presets & Actions -->
+    <div class="presets">
+      <button class="btn" data-count="1" onclick="setDiceCount(1)">1 个骰子</button>
+      <button class="btn active" data-count="2" onclick="setDiceCount(2)">2 个骰子</button>
+      <button class="btn" data-count="3" onclick="setDiceCount(3)">3 个骰子</button>
+      <button class="btn" data-count="5" onclick="setDiceCount(5)">5 个骰子</button>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-roll" onclick="rollDice()">🎲 掷骰子</button>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div>
+        <div class="result-label">点数合计</div>
+        <div class="result-value" id="totalSum">--</div>
+      </div>
+      <div>
+        <div class="result-label">各骰点数</div>
+        <div class="result-detail" id="detailValues">--</div>
+      </div>
+    </div>
+
+    <!-- Fun Mode: 比大小 -->
+    <div class="fun-mode" id="funMode">
+      <h3>🎰 趣味模式：比大小（2个骰子）</h3>
+      <div class="guess-buttons">
+        <button class="btn-guess" id="guessBig" onclick="guess('big')">🔺 大 (7-12)</button>
+        <button class="btn-guess" id="guessSmall" onclick="guess('small')">🔻 小 (2-6)</button>
+      </div>
+      <div class="fun-result" id="funResult" style="display: none;"></div>
+      <div class="streak">
+        <div>连胜：<span class="s-win" id="winStreak">0</span></div>
+        <div>连败：<span class="s-lose" id="loseStreak">0</span></div>
+        <div>总胜率：<span id="winRate">--</span></div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="history" id="history">
+      <h3>📋 历史记录（最近10次）</h3>
+      <div class="history-list" id="historyList">
+        <div class="empty-history">暂无记录，快掷一把试试手气吧！</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- State ----------
+    let diceCount = 2;
+    let currentValues = [];
+    let rollHistory = [];
+    let isRolling = false;
+
+    // Fun mode state
+    let funModeActive = true;
+    let funValues = [];
+    let winStreak = 0;
+    let loseStreak = 0;
+    let totalGuesses = 0;
+    let correctGuesses = 0;
+
+    // ---------- Init ----------
+    function init() {
+      buildDice();
+      loadHistory();
+      updateThemeIcon();
+    }
+
+    // ---------- Theme ----------
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('dice-theme', next);
+      updateThemeIcon();
+    });
+
+    function updateThemeIcon() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.getElementById('themeToggle').textContent = isDark ? '🌙' : '☀️';
+    }
+
+    function loadTheme() {
+      const saved = localStorage.getItem('dice-theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        updateThemeIcon();
+      }
+    }
+
+    // ---------- Dice Building ----------
+    function buildDice() {
+      const area = document.getElementById('diceArea');
+      const existingCount = area.querySelectorAll('.die').length;
+
+      if (diceCount > existingCount) {
+        for (let i = existingCount; i < diceCount; i++) {
+          const die = document.createElement('div');
+          die.className = 'die face-1';
+          die.id = 'die-' + i;
+          die.innerHTML = `
+            <span class="dot empty d-1"></span><span class="dot empty d-2"></span><span class="dot empty d-3"></span>
+            <span class="dot empty d-4"></span><span class="dot empty d-5"></span><span class="dot empty d-6"></span>
+            <span class="dot empty d-7"></span><span class="dot empty d-8"></span><span class="dot empty d-9"></span>
+          `;
+          area.appendChild(die);
+        }
+      } else if (diceCount < existingCount) {
+        for (let i = existingCount - 1; i >= diceCount; i--) {
+          const die = document.getElementById('die-' + i);
+          if (die) die.remove();
+        }
+      }
+    }
+
+    function setDiceCount(n) {
+      if (isRolling) return;
+      diceCount = n;
+      document.querySelectorAll('.presets .btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.presets .btn[data-count="${n}"]`).classList.add('active');
+      buildDice();
+      // Update fun mode visibility
+      document.getElementById('funMode').style.opacity = n === 2 ? '1' : '0.4';
+      document.getElementById('funMode').style.pointerEvents = n === 2 ? 'auto' : 'none';
+    }
+
+    // ---------- Roll ----------
+    function rollDice() {
+      if (isRolling) return;
+      isRolling = true;
+
+      // Generate random values
+      currentValues = [];
+      for (let i = 0; i < diceCount; i++) {
+        currentValues.push(Math.floor(Math.random() * 6) + 1);
+      }
+
+      // Trigger animation
+      const dice = document.querySelectorAll('.die');
+      dice.forEach((die, i) => {
+        die.classList.add('rolling');
+        die.addEventListener('animationend', function handler() {
+          die.removeEventListener('animationend', handler);
+          updateDieFace(die, currentValues[i]);
+          if (i === dice.length - 1) {
+            isRolling = false;
+            updateResults();
+            addHistory();
+          }
+        });
+        // Random fast face transitions during animation
+        let swaps = 0;
+        const interval = setInterval(() => {
+          updateDieFace(die, Math.floor(Math.random() * 6) + 1);
+          swaps++;
+          if (swaps >= 6) clearInterval(interval);
+        }, 80);
+      });
+
+      // Update fun mode values if in 2-dice mode
+      if (diceCount === 2) {
+        funValues = [...currentValues];
+      }
+    }
+
+    function updateDieFace(die, value) {
+      die.className = die.className.replace(/face-\d/, 'face-' + value);
+    }
+
+    // ---------- Results ----------
+    function updateResults() {
+      const total = currentValues.reduce((a, b) => a + b, 0);
+      document.getElementById('totalSum').textContent = total;
+      document.getElementById('detailValues').textContent = currentValues.join(' · ');
+
+      // Pulse animation on total
+      const totalEl = document.getElementById('totalSum');
+      totalEl.style.transform = 'scale(1.3)';
+      setTimeout(() => { totalEl.style.transition = 'transform 0.3s ease-out'; totalEl.style.transform = 'scale(1)'; }, 50);
+      setTimeout(() => { totalEl.style.transition = ''; }, 400);
+    }
+
+    // ---------- Fun Mode: 比大小 ----------
+    function guess(choice) {
+      if (diceCount !== 2 || currentValues.length !== 2) {
+        alert('请先在比大小模式下掷骰子！（选择 2 个骰子并点击掷骰子）');
+        return;
+      }
+      if (isRolling) return;
+
+      const total = currentValues[0] + currentValues[1];
+      const isBig = total >= 7;
+      const isWin = (choice === 'big' && isBig) || (choice === 'small' && !isBig);
+      const resultLabel = isBig ? '大' : '小';
+      const resultEl = document.getElementById('funResult');
+
+      // Show result
+      resultEl.style.display = 'block';
+      resultEl.textContent = `🎯 点数：${currentValues[0]} + ${currentValues[1]} = ${total}（${resultLabel}）— 你${isWin ? '赢了！' : '输了'}`;
+      resultEl.className = 'fun-result ' + (isWin ? 'win' : 'lose');
+
+      // Highlight button
+      const guessBigBtn = document.getElementById('guessBig');
+      const guessSmallBtn = document.getElementById('guessSmall');
+      guessBigBtn.classList.remove('win', 'lose');
+      guessSmallBtn.classList.remove('win', 'lose');
+
+      if (choice === 'big') {
+        guessBigBtn.classList.add(isWin ? 'win' : 'lose');
+      } else {
+        guessSmallBtn.classList.add(isWin ? 'win' : 'lose');
+      }
+
+      // Streak tracking
+      totalGuesses++;
+      if (isWin) {
+        correctGuesses++;
+        winStreak++;
+        loseStreak = 0;
+      } else {
+        loseStreak++;
+        winStreak = 0;
+      }
+
+      document.getElementById('winStreak').textContent = winStreak;
+      document.getElementById('loseStreak').textContent = loseStreak;
+      document.getElementById('winRate').textContent = Math.round((correctGuesses / totalGuesses) * 100) + '%';
+
+      // Auto clear buttons after animation
+      setTimeout(() => {
+        guessBigBtn.classList.remove('win', 'lose');
+        guessSmallBtn.classList.remove('win', 'lose');
+      }, 800);
+    }
+
+    // ---------- History ----------
+    function addHistory() {
+      const entry = {
+        values: [...currentValues],
+        total: currentValues.reduce((a, b) => a + b, 0),
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+
+      rollHistory.unshift(entry);
+      if (rollHistory.length > 10) rollHistory = rollHistory.slice(0, 10);
+
+      saveHistory();
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const list = document.getElementById('historyList');
+      if (rollHistory.length === 0) {
+        list.innerHTML = '<div class="empty-history">暂无记录，快掷一把试试手气吧！</div>';
+        return;
+      }
+
+      list.innerHTML = rollHistory.map(entry => `
+        <div class="history-item">
+          <div class="history-dice">
+            ${entry.values.map(v => `<span class="history-die">${v}</span>`).join('')}
+          </div>
+          <span class="history-total">=${entry.total}</span>
+          <span class="history-time">${entry.time}</span>
+        </div>
+      `).join('');
+    }
+
+    function saveHistory() {
+      localStorage.setItem('dice-history', JSON.stringify(rollHistory));
+    }
+
+    function loadHistory() {
+      try {
+        const saved = localStorage.getItem('dice-history');
+        if (saved) {
+          rollHistory = JSON.parse(saved);
+          renderHistory();
+        }
+      } catch (e) {
+        rollHistory = [];
+      }
+    }
+
+    // ---------- Keyboard Shortcut ----------
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && e.target === document.body) {
+        e.preventDefault();
+        rollDice();
+      }
+    });
+
+    // ---------- Start ----------
+    loadTheme();
+    init();
+    // Initialize fun mode state for 2 dice default
+    document.getElementById('funMode').style.opacity = '1';
+    document.getElementById('funMode').style.pointerEvents = 'auto';
+  </script>
+<script src="../i18n.js"></script>
+</body>
+</html>

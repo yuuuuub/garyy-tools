@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nginx 配置生成器</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text2: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d2991d;
+    --purple: #a371f7;
+    --cyan: #39c5cf;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header h1 { font-size: 20px; color: var(--accent); }
+  .header .sub { font-size: 13px; color: var(--text2); }
+  .container { display: flex; min-height: calc(100vh - 57px); }
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+  }
+  .sidebar-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background .15s;
+  }
+  .sidebar-item:hover { background: var(--bg3); }
+  .sidebar-item.active {
+    background: rgba(88,166,255,0.12);
+    color: var(--accent);
+    border-right: 2px solid var(--accent);
+  }
+  .main {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 16px; color: var(--accent); }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 13px; color: var(--text2); }
+  .form-group input, .form-group select, .form-group textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(88,166,255,0.15);
+  }
+  .form-group textarea { min-height: 80px; resize: vertical; font-family: "SF Mono", "Fira Code", monospace; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .btn-primary { background: #238636; color: #fff; border-color: #238636; }
+  .btn-primary:hover { background: #2ea043; }
+  .btn-secondary { background: var(--bg3); color: var(--text); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .code-content {
+    padding: 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  .code-content .kw { color: #ff7b72; }
+  .code-content .var { color: #ffa657; }
+  .code-content .str { color: #a5d6ff; }
+  .code-content .cmt { color: #8b949e; font-style: italic; }
+  .code-content .num { color: #79c0ff; }
+  .code-content .dir { color: #d2a8ff; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #238636;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .3s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: var(--red); }
+  .explanation { font-size: 13px; color: var(--text2); line-height: 1.8; }
+  .explanation strong { color: var(--text); }
+  .explanation code {
+    background: var(--bg3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", monospace;
+    font-size: 12px;
+    color: var(--orange);
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    background: rgba(88,166,255,0.12);
+    color: var(--accent);
+  }
+  .ref-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ref-table th, .ref-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .ref-table th { color: var(--text2); font-weight: 500; }
+  .ref-table td { color: var(--text); }
+  .ref-table tr:hover { background: var(--bg3); }
+  .section-collapse { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .section-collapse::after { content: "▼"; font-size: 10px; color: var(--text2); transition: transform .2s; }
+  .section-collapse.collapsed::after { transform: rotate(-90deg); }
+  .section-body { overflow: hidden; transition: max-height .3s; }
+  .section-body.hidden { max-height: 0 !important; }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  @media (max-width: 768px) {
+    .container { flex-direction: column; }
+    .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; padding: 8px; }
+    .sidebar-section { display: none; }
+    .sidebar-item { white-space: nowrap; font-size: 12px; padding: 6px 12px; border-right: none; }
+    .sidebar-item.active { border-right: none; border-bottom: 2px solid var(--accent); }
+    .main { padding: 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Nginx Config</h1>
+  <span class="sub">Nginx 配置生成器</span>
+</div>
+
+<div class="container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">基础模板</div>
+    <button class="sidebar-item active" data-tpl="static">静态网站托管</button>
+    <button class="sidebar-item" data-tpl="proxy">反向代理</button>
+    <button class="sidebar-item" data-tpl="loadbalancer">负载均衡</button>
+    <button class="sidebar-item" data-tpl="httpsredirect">HTTPS 重定向</button>
+    <button class="sidebar-item" data-tpl="websocket">WebSocket 代理</button>
+    <div class="sidebar-section">高级模板</div>
+    <button class="sidebar-item" data-tpl="cors">CORS 跨域配置</button>
+    <button class="sidebar-item" data-tpl="ratelimit">速率限制</button>
+    <button class="sidebar-item" data-tpl="gzip">Gzip 压缩</button>
+    <button class="sidebar-item" data-tpl="cache">缓存控制</button>
+    <button class="sidebar-item" data-tpl="phpfpm">PHP-FPM</button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- Template Form -->
+    <div class="card" id="formCard">
+      <h2 id="formTitle">静态网站托管</h2>
+      <div class="form-grid" id="formFields"></div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn btn-primary" onclick="generate()">⚡ 生成配置</button>
+        <button class="btn btn-secondary" onclick="resetForm()">↺ 重置</button>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="card" id="outputCard" style="display:none">
+      <div class="code-block">
+        <div class="code-header">
+          <span id="outputFilename">nginx.conf</span>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="copyConfig()" style="font-size:12px;padding:4px 10px">📋 复制</button>
+            <button class="btn btn-secondary" onclick="downloadConfig()" style="font-size:12px;padding:4px 10px">⬇ 下载 .conf</button>
+          </div>
+        </div>
+        <div class="code-content" id="codeOutput"></div>
+      </div>
+    </div>
+
+    <!-- Explanation -->
+    <div class="card" id="explainCard" style="display:none">
+      <div class="section-collapse" onclick="toggleSection(this)" style="font-size:16px;font-weight:bold;color:var(--accent)">📖 配置说明</div>
+      <div class="section-body" id="explanation" style="max-height:2000px"></div>
+    </div>
+
+    <!-- Directive Reference -->
+    <div class="card">
+      <div class="section-collapse collapsed" onclick="toggleSection(this)" style="font-size:16px;font-weight:bold;color:var(--accent)">
+        📚 Nginx 指令参考
+      </div>
+      <div class="section-body hidden" id="reference" style="max-height:4000px;overflow-y:auto;margin-top:12px">
+        <div class="tabs">
+          <button class="tab active" onclick="switchRefTab(this,'core')">核心指令</button>
+          <button class="tab" onclick="switchRefTab(this,'http')">HTTP 模块</button>
+          <button class="tab" onclick="switchRefTab(this,'server')">Server 模块</button>
+          <button class="tab" onclick="switchRefTab(this,'location')">Location 模块</button>
+          <button class="tab" onclick="switchRefTab(this,'upstream')">Upstream 模块</button>
+        </div>
+        <div id="refTable"></div>
+      </div>
+    </div>
+
+    <!-- Scenarios -->
+    <div class="card">
+      <div class="section-collapse collapsed" onclick="toggleSection(this)" style="font-size:16px;font-weight:bold;color:var(--accent)">
+        💡 常见场景与排错
+      </div>
+      <div class="section-body hidden" id="scenarios" style="max-height:3000px;overflow-y:auto;margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// --- Template Definitions ---
+const templates = {
+  static: {
+    title: "静态网站托管",
+    filename: "static-site.conf",
+    fields: [
+      { id:"s_domain", label:"域名 (server_name)", type:"text", placeholder:"example.com www.example.com", default:"example.com" },
+      { id:"s_root", label:"网站根目录", type:"text", placeholder:"/var/www/html", default:"/var/www/html" },
+      { id:"s_index", label:"默认首页文件", type:"text", placeholder:"index.html index.htm", default:"index.html index.htm" },
+      { id:"s_listen", label:"监听端口", type:"text", placeholder:"80", default:"80" },
+      { id:"s_gzip", label:"启用 Gzip 压缩", type:"select", options:["是","否"], default:"是" },
+      { id:"s_expires", label:"静态资源缓存时间", type:"select", options:["7d","30d","1y","不设置"], default:"7d" },
+      { id:"s_error_page", label:"自定义 404 页面路径", type:"text", placeholder:"/404.html（留空不设置）", default:"/404.html" },
+      { id:"s_logs", label:"启用访问日志", type:"select", options:["是","否"], default:"是" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("server {");
+      out.push("    listen " + f.s_listen + ";");
+      out.push("    server_name " + f.s_domain + ";");
+      out.push("    root " + f.s_root + ";");
+      out.push("    index " + f.s_index + ";");
+      if (f.s_logs === "是") {
+        out.push("");
+        out.push("    # 访问日志和错误日志");
+        out.push("    access_log /var/log/nginx/" + f.s_domain.split(" ")[0] + "_access.log;");
+        out.push("    error_log /var/log/nginx/" + f.s_domain.split(" ")[0] + "_error.log;");
+      }
+      if (f.s_error_page) {
+        out.push("");
+        out.push("    # 自定义错误页面");
+        out.push("    error_page 404 " + f.s_error_page + ";");
+        out.push("    error_page 500 502 503 504 /50x.html;");
+      }
+      out.push("");
+      if (f.s_gzip === "是") {
+        out.push("    # Gzip 压缩");
+        out.push("    gzip on;");
+        out.push("    gzip_vary on;");
+        out.push("    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;");
+        out.push("");
+      }
+      if (f.s_expires !== "不设置") {
+        out.push("    # 静态资源缓存");
+        out.push("    location ~* \\.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {");
+        out.push("        expires " + f.s_expires + ";");
+        out.push("        add_header Cache-Control \"public, immutable\";");
+        out.push("    }");
+        out.push("");
+      }
+      out.push("    # 安全头");
+      out.push("    add_header X-Frame-Options \"SAMEORIGIN\" always;");
+      out.push("    add_header X-Content-Type-Options \"nosniff\" always;");
+      out.push("    add_header X-XSS-Protection \"1; mode=block\" always;");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>listen</strong> — 指定 Nginx 监听的端口号。80 是 HTTP 默认端口，443 是 HTTPS 端口。",
+      "<strong>server_name</strong> — 匹配请求的域名。支持多个域名以空格分隔，也可使用通配符 <code>*.example.com</code>。",
+      "<strong>root</strong> — 网站文件的根目录。Nginx 会将请求路径拼接在此目录后查找文件。",
+      "<strong>index</strong> — 访问目录时默认返回的文件，按顺序查找。",
+      "<strong>access_log / error_log</strong> — 分别记录访问请求和错误信息。建议生产环境开启以便排错。",
+      "<strong>error_page</strong> — 当返回指定状态码时，显示自定义错误页面。",
+      "<strong>expires</strong> — 设置浏览器缓存时间。静态资源设置较长缓存可显著提升加载速度。",
+      "<strong>安全头</strong> — X-Frame-Options 防止点击劫持，X-Content-Type-Options 防止 MIME 嗅探攻击。",
+    ]
+  },
+  proxy: {
+    title: "反向代理",
+    filename: "reverse-proxy.conf",
+    fields: [
+      { id:"p_domain", label:"域名 (server_name)", type:"text", placeholder:"api.example.com", default:"api.example.com" },
+      { id:"p_backend", label:"后端地址 (proxy_pass)", type:"text", placeholder:"http://localhost:3000", default:"http://localhost:3000" },
+      { id:"p_listen", label:"监听端口", type:"text", placeholder:"80", default:"80" },
+      { id:"p_websocket", label:"支持 WebSocket", type:"select", options:["否","是"], default:"否" },
+      { id:"p_timeout", label:"超时时间(秒)", type:"text", placeholder:"60", default:"60" },
+      { id:"p_max_body", label:"最大请求体大小", type:"text", placeholder:"10m", default:"10m" },
+      { id:"p_buffering", label:"启用响应缓冲", type:"select", options:["是","否"], default:"是" },
+      { id:"p_headers", label:"自定义请求头 (每行一个，格式: Name Value)", type:"textarea", placeholder:"X-Real-IP $remote_addr\nX-Forwarded-For $proxy_add_x_forwarded_for", default:"X-Real-IP $remote_addr\nX-Forwarded-For $proxy_add_x_forwarded_for\nX-Forwarded-Proto $scheme" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("server {");
+      out.push("    listen " + f.p_listen + ";");
+      out.push("    server_name " + f.p_domain + ";");
+      out.push("");
+      out.push("    # 请求体大小限制");
+      out.push("    client_max_body_size " + f.p_max_body + ";");
+      out.push("");
+      out.push("    location / {");
+      out.push("        proxy_pass " + f.p_backend + ";");
+      out.push("        proxy_http_version 1.1;");
+      if (f.p_headers) {
+        f.p_headers.split("\n").forEach(function(h) {
+          let parts = h.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            out.push("        proxy_set_header " + parts[0] + " " + parts.slice(1).join(" ") + ";");
+          }
+        });
+      }
+      if (f.p_websocket === "是") {
+        out.push("        proxy_set_header Upgrade $http_upgrade;");
+        out.push("        proxy_set_header Connection \"upgrade\";");
+      }
+      out.push("        proxy_connect_timeout " + f.p_timeout + "s;");
+      out.push("        proxy_send_timeout " + f.p_timeout + "s;");
+      out.push("        proxy_read_timeout " + f.p_timeout + "s;");
+      if (f.p_buffering === "否") {
+        out.push("        proxy_buffering off;");
+      }
+      out.push("    }");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>proxy_pass</strong> — 将请求转发到后端服务器。支持 HTTP/HTTPS 协议，也可指向 upstream 组。",
+      "<strong>proxy_set_header</strong> — 修改或添加转发给后端的请求头。<code>X-Real-IP</code> 传递客户端真实 IP，<code>X-Forwarded-For</code> 记录代理链。",
+      "<strong>proxy_http_version 1.1</strong> — 使用 HTTP/1.1 协议与后端通信，是 WebSocket 支持的前提。",
+      "<strong>client_max_body_size</strong> — 限制客户端请求体大小，防止大文件上传撑爆服务器。",
+      "<strong>proxy_*_timeout</strong> — 分别控制连接、发送、读取的超时时间。长连接或慢接口需适当调大。",
+      "<strong>proxy_buffering</strong> — 开启时 Nginx 先缓存后端响应再发给客户端；关闭可减少延迟，适合流式响应。",
+    ]
+  },
+  loadbalancer: {
+    title: "负载均衡",
+    filename: "load-balancer.conf",
+    fields: [
+      { id:"lb_domain", label:"域名 (server_name)", type:"text", placeholder:"app.example.com", default:"app.example.com" },
+      { id:"lb_algorithm", label:"负载均衡算法", type:"select", options:["轮询 (默认)","最少连接 (least_conn)","IP 哈希 (ip_hash)","加权轮询 (weight)","随机 (random)"], default:"轮询 (默认)" },
+      { id:"lb_server1", label:"后端服务器 1", type:"text", placeholder:"192.168.1.10:8080", default:"192.168.1.10:8080" },
+      { id:"lb_server2", label:"后端服务器 2", type:"text", placeholder:"192.168.1.11:8080", default:"192.168.1.11:8080" },
+      { id:"lb_server3", label:"后端服务器 3 (可选)", type:"text", placeholder:"留空则不添加", default:"" },
+      { id:"lb_health", label:"健康检查参数 (max_fails / fail_timeout)", type:"text", placeholder:"max_fails=3 fail_timeout=30s", default:"max_fails=3 fail_timeout=30s" },
+      { id:"lb_sticky", label:"会话保持 (sticky cookie)", type:"select", options:["否","是"], default:"是" },
+    ],
+    generate: function(f) {
+      let out = [];
+      let algoMap = {
+        "轮询 (默认)": "",
+        "最少连接 (least_conn)": "least_conn",
+        "IP 哈希 (ip_hash)": "ip_hash",
+        "加权轮询 (weight)": "",
+        "随机 (random)": "random"
+      };
+      out.push("upstream backend {");
+      let algo = algoMap[f.lb_algorithm];
+      if (algo) out.push("    " + algo + ";");
+      if (f.lb_sticky === "是") {
+        out.push("    sticky cookie srv_id expires=1h domain=" + f.lb_domain + " path=/;");
+      }
+      let servers = [f.lb_server1, f.lb_server2];
+      if (f.lb_server3) servers.push(f.lb_server3);
+      let healthParts = f.lb_health.replace(/=/g, "=").split(/\s+/).join(" ");
+      if (f.lb_algorithm === "加权轮询 (weight)") {
+        let weights = [5, 3];
+        if (f.lb_server3) weights.push(2);
+        servers.forEach(function(s, i) {
+          out.push("    server " + s + " weight=" + (weights[i] || 1) + " " + healthParts + ";");
+        });
+      } else {
+        servers.forEach(function(s) {
+          out.push("    server " + s + " " + healthParts + ";");
+        });
+      }
+      if (f.lb_algorithm === "IP 哈希 (ip_hash)") {
+        out.push("");
+        out.push("    # 备用服务器，当主服务器全部不可用时启用");
+        out.push("    # server backup.example.com:8080 backup;");
+      }
+      out.push("}");
+      out.push("");
+      out.push("server {");
+      out.push("    listen 80;");
+      out.push("    server_name " + f.lb_domain + ";");
+      out.push("");
+      out.push("    # 代理到 upstream 组");
+      out.push("    location / {");
+      out.push("        proxy_pass http://backend;");
+      out.push("        proxy_set_header Host $host;");
+      out.push("        proxy_set_header X-Real-IP $remote_addr;");
+      out.push("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;");
+      out.push("        proxy_connect_timeout 10s;");
+      out.push("        proxy_read_timeout 60s;");
+      out.push("    }");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>upstream</strong> — 定义一组后端服务器。Nginx 根据算法将请求分发到不同服务器。",
+      "<strong>least_conn</strong> — 将请求发送到活动连接数最少的服务器，适合长连接场景。",
+      "<strong>ip_hash</strong> — 根据客户端 IP 哈希值分配服务器，同一 IP 始终访问同一台服务器，实现会话保持。",
+      "<strong>sticky cookie</strong> — 通过 Cookie 实现会话保持，比 ip_hash 更灵活（Nginx Plus 或开源版需编译 sticky 模块）。",
+      "<strong>weight</strong> — 权重参数，权重越高分配的请求越多。适合服务器性能不均的场景。",
+      "<strong>max_fails / fail_timeout</strong> — 健康检查：在 fail_timeout 时间内失败 max_fails 次则标记为不可用。",
+      "<strong>backup</strong> — 备用服务器标记，只有当所有非备用服务器都不可用时才会接收请求。",
+    ]
+  },
+  httpsredirect: {
+    title: "HTTPS 重定向",
+    filename: "https-redirect.conf",
+    fields: [
+      { id:"hr_domain", label:"域名", type:"text", placeholder:"example.com", default:"example.com" },
+      { id:"hr_www", label:"同时重定向 www 子域名", type:"select", options:["是","否"], default:"是" },
+      { id:"hr_hsts", label:"启用 HSTS (HTTP Strict Transport Security)", type:"select", options:["是","否"], default:"是" },
+      { id:"hr_hsts_age", label:"HSTS 有效期(秒)", type:"text", placeholder:"63072000 (2年)", default:"63072000" },
+      { id:"hr_ssl_cert", label:"SSL 证书路径", type:"text", placeholder:"/etc/nginx/ssl/example.com.pem", default:"/etc/nginx/ssl/example.com.pem" },
+      { id:"hr_ssl_key", label:"SSL 私钥路径", type:"text", placeholder:"/etc/nginx/ssl/example.com.key", default:"/etc/nginx/ssl/example.com.key" },
+      { id:"hr_ssl_proto", label:"TLS 协议版本", type:"select", options:["TLSv1.2 TLSv1.3","TLSv1.2","TLSv1.3"], default:"TLSv1.2 TLSv1.3" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("# HTTP → HTTPS 重定向");
+      out.push("server {");
+      out.push("    listen 80;");
+      out.push("    server_name " + f.hr_domain + (f.hr_www === "是" ? " www." + f.hr_domain : "") + ";");
+      out.push("");
+      out.push("    # 将所有 HTTP 请求重定向到 HTTPS");
+      out.push("    return 301 https://" + f.hr_domain + "$request_uri;");
+      out.push("}");
+      out.push("");
+      out.push("# HTTPS 主配置");
+      out.push("server {");
+      out.push("    listen 443 ssl http2;");
+      out.push("    server_name " + f.hr_domain + (f.hr_www === "是" ? " www." + f.hr_domain : "") + ";");
+      out.push("");
+      out.push("    # SSL 证书配置");
+      out.push("    ssl_certificate " + f.hr_ssl_cert + ";");
+      out.push("    ssl_certificate_key " + f.hr_ssl_key + ";");
+      out.push("    ssl_protocols " + f.hr_ssl_proto + ";");
+      out.push("    ssl_ciphers HIGH:!aNULL:!MD5;");
+      out.push("    ssl_prefer_server_ciphers on;");
+      out.push("");
+      if (f.hr_hsts === "是") {
+        out.push("    # HSTS — 强制浏览器使用 HTTPS 访问");
+        out.push("    add_header Strict-Transport-Security \"max-age=" + f.hr_hsts_age + "; includeSubDomains; preload\" always;");
+        out.push("");
+      }
+      out.push("    # 安全头");
+      out.push("    add_header X-Frame-Options \"DENY\" always;");
+      out.push("    add_header X-Content-Type-Options \"nosniff\" always;");
+      out.push("");
+      out.push("    # 你的网站配置...");
+      out.push("    root /var/www/html;");
+      out.push("    index index.html;");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>return 301</strong> — 返回 301 永久重定向。搜索引擎会更新索引到新地址，浏览器会缓存重定向。",
+      "<strong>ssl_certificate / ssl_certificate_key</strong> — 分别指定 SSL 证书和私钥的路径。推荐使用 Let's Encrypt 免费获取。",
+      "<strong>ssl_protocols</strong> — 指定启用的 TLS 协议版本。建议只启用 TLSv1.2 和 TLSv1.3，禁用已不安全的 SSLv3 和 TLSv1.0/1.1。",
+      "<strong>ssl_ciphers</strong> — 指定加密套件。<code>HIGH:!aNULL:!MD5</code> 只使用高强度加密，排除空加密和 MD5。",
+      "<strong>HSTS</strong> — 通过响应头告诉浏览器"以后只通过 HTTPS 访问本站"。<code>includeSubDomains</code> 包含所有子域名，<code>preload</code> 可申请加入浏览器预加载列表。",
+      "<strong>http2</strong> — 启用 HTTP/2 协议，提升加载性能（多路复用、头部压缩）。",
+    ]
+  },
+  websocket: {
+    title: "WebSocket 代理",
+    filename: "websocket-proxy.conf",
+    fields: [
+      { id:"ws_domain", label:"域名 (server_name)", type:"text", placeholder:"ws.example.com", default:"ws.example.com" },
+      { id:"ws_backend", label:"WebSocket 后端地址", type:"text", placeholder:"http://localhost:8080", default:"http://localhost:8080" },
+      { id:"ws_path", label:"WebSocket 路径", type:"text", placeholder:"/ws （留空则 /）", default:"/ws" },
+      { id:"ws_timeout", label:"连接超时(秒)", type:"text", placeholder:"3600 (1小时)", default:"3600" },
+      { id:"ws_max_body", label:"最大消息大小", type:"text", placeholder:"10m", default:"10m" },
+    ],
+    generate: function(f) {
+      let out = [];
+      let path = f.ws_path || "/";
+      out.push("server {");
+      out.push("    listen 80;");
+      out.push("    server_name " + f.ws_domain + ";");
+      out.push("");
+      out.push("    # WebSocket 代理");
+      out.push("    location " + path + " {");
+      out.push("        proxy_pass " + f.ws_backend + ";");
+      out.push("        proxy_http_version 1.1;");
+      out.push("");
+      out.push("        # WebSocket 必需的升级头");
+      out.push("        proxy_set_header Upgrade $http_upgrade;");
+      out.push("        proxy_set_header Connection \"upgrade\";");
+      out.push("        proxy_set_header Host $host;");
+      out.push("        proxy_set_header X-Real-IP $remote_addr;");
+      out.push("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;");
+      out.push("        proxy_set_header X-Forwarded-Proto $scheme;");
+      out.push("");
+      out.push("        # 长连接超时设置");
+      out.push("        proxy_read_timeout " + f.ws_timeout + "s;");
+      out.push("        proxy_send_timeout " + f.ws_timeout + "s;");
+      out.push("");
+      out.push("        # 禁用缓冲以降低延迟");
+      out.push("        proxy_buffering off;");
+      out.push("        proxy_cache off;");
+      out.push("    }");
+      out.push("");
+      out.push("    # 普通 HTTP 请求");
+      out.push("    location / {");
+      out.push("        proxy_pass " + f.ws_backend + ";");
+      out.push("        proxy_set_header Host $host;");
+      out.push("        client_max_body_size " + f.ws_max_body + ";");
+      out.push("    }");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>proxy_http_version 1.1</strong> — WebSocket 需要 HTTP/1.1 协议支持，因为它依赖 Upgrade 机制从 HTTP 升级到 WebSocket 协议。",
+      "<strong>Upgrade / Connection 头</strong> — 这两个头是 WebSocket 握手的核心。客户端发送 <code>Upgrade: websocket</code>，Nginx 必须原样转发。",
+      "<strong>proxy_read_timeout</strong> — WebSocket 连接通常保持很长时间，默认 60s 超时会导致断连。建议设置 1 小时或更长。",
+      "<strong>proxy_buffering off</strong> — 关闭缓冲可以实时转发消息，降低延迟。WebSocket 消息通常很小且需要即时传递。",
+      "<strong>X-Forwarded-Proto</strong> — 告诉后端原始请求使用的协议（http/https），对后端判断是否安全连接很重要。",
+    ]
+  },
+  cors: {
+    title: "CORS 跨域配置",
+    filename: "cors-config.conf",
+    fields: [
+      { id:"cors_origin", label:"允许的源 (Access-Control-Allow-Origin)", type:"text", placeholder:"https://example.com 或 *", default:"*" },
+      { id:"cors_methods", label:"允许的 HTTP 方法", type:"text", placeholder:"GET, POST, PUT, DELETE, OPTIONS", default:"GET, POST, PUT, DELETE, OPTIONS" },
+      { id:"cors_headers", label:"允许的请求头", type:"text", placeholder:"Content-Type, Authorization, X-Requested-With", default:"Content-Type, Authorization, X-Requested-With" },
+      { id:"cors_credentials", label:"允许携带 Cookie (Credentials)", type:"select", options:["否","是"], default:"否" },
+      { id:"cors_max_age", label:"预检请求缓存时间(秒)", type:"text", placeholder:"86400 (24小时)", default:"86400" },
+      { id:"cors_expose", label:"暴露的响应头", type:"text", placeholder:"Content-Length, X-Custom-Header", default:"" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("# 在需要跨域支持的 location 或 server 块中添加以下配置");
+      out.push("");
+      out.push("# CORS 跨域配置");
+      out.push("if ($request_method = 'OPTIONS') {");
+      out.push("    add_header 'Access-Control-Allow-Origin' '" + f.cors_origin + "';");
+      out.push("    add_header 'Access-Control-Allow-Methods' '" + f.cors_methods + "';");
+      out.push("    add_header 'Access-Control-Allow-Headers' '" + f.cors_headers + "';");
+      out.push("    add_header 'Access-Control-Max-Age' " + f.cors_max_age + ";");
+      if (f.cors_credentials === "是") {
+        out.push("    add_header 'Access-Control-Allow-Credentials' 'true';");
+      }
+      out.push("    add_header 'Content-Type' 'text/plain; charset=utf-8';");
+      out.push("    add_header 'Content-Length' 0;");
+      out.push("    return 204;");
+      out.push("}");
+      out.push("");
+      out.push("add_header 'Access-Control-Allow-Origin' '" + f.cors_origin + "' always;");
+      out.push("add_header 'Access-Control-Allow-Methods' '" + f.cors_methods + "' always;");
+      out.push("add_header 'Access-Control-Allow-Headers' '" + f.cors_headers + "' always;");
+      if (f.cors_credentials === "是") {
+        out.push("add_header 'Access-Control-Allow-Credentials' 'true' always;");
+      }
+      if (f.cors_expose) {
+        out.push("add_header 'Access-Control-Expose-Headers' '" + f.cors_expose + "' always;");
+      }
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>OPTIONS 预检请求</strong> — 浏览器在发送非简单请求前会先发 OPTIONS 请求询问服务器是否允许。返回 204 表示成功且无内容。",
+      "<strong>Access-Control-Allow-Origin</strong> — 指定哪些源可以访问资源。<code>*</code> 允许所有源，但不能与 Credentials 同时使用。",
+      "<strong>Access-Control-Allow-Credentials</strong> — 设为 true 时允许跨域请求携带 Cookie。注意此时 Origin 不能设为 *。",
+      "<strong>Access-Control-Max-Age</strong> — 预检请求结果缓存时间。在此时间内相同请求不需要再次预检，减少网络开销。",
+      "<strong>Access-Control-Expose-Headers</strong> — 默认只暴露简单响应头，如需前端读取自定义头需在此列出。",
+    ]
+  },
+  ratelimit: {
+    title: "速率限制",
+    filename: "rate-limit.conf",
+    fields: [
+      { id:"rl_zone_name", label:"限流区域名称", type:"text", placeholder:"mylimit", default:"mylimit" },
+      { id:"rl_rate", label:"请求速率 (每秒请求数)", type:"text", placeholder:"10r/s", default:"10r/s" },
+      { id:"rl_burst", label:"突发请求数 (burst)", type:"text", placeholder:"20", default:"20" },
+      { id:"rl_nodelay", label:"超出 burst 立即拒绝 (nodelay)", type:"select", options:["是","否"], default:"是" },
+      { id:"rl_key", label:"限流 key", type:"select", options:["客户端 IP ($binary_remote_addr)","服务器名 ($server_name)","请求 URI ($request_uri)","IP + URI 组合"], default:"客户端 IP ($binary_remote_addr)" },
+      { id:"rl_mem", label:"共享内存大小", type:"text", placeholder:"10m", default:"10m" },
+      { id:"rl_location", label:"限流路径 (留空则全局)", type:"text", placeholder:"/api/", default:"/api/" },
+    ],
+    generate: function(f) {
+      let out = [];
+      let keyMap = {
+        "客户端 IP ($binary_remote_addr)": "$binary_remote_addr",
+        "服务器名 ($server_name)": "$server_name",
+        "请求 URI ($request_uri)": "$request_uri",
+        "IP + URI 组合": "$binary_remote_addr$request_uri"
+      };
+      let key = keyMap[f.rl_key];
+      out.push("# 在 http 块中定义限流区域");
+      out.push("limit_req_zone " + key + " zone=" + f.rl_zone_name + ":" + f.rl_mem + " rate=" + f.rl_rate + ";");
+      out.push("");
+      if (f.rl_location) {
+        out.push("server {");
+        out.push("    listen 80;");
+        out.push("    server_name example.com;");
+        out.push("");
+        out.push("    location " + f.rl_location + " {");
+        out.push("        limit_req zone=" + f.rl_zone_name + " burst=" + f.rl_burst + (f.rl_nodelay === "是" ? " nodelay" : "") + ";");
+        out.push("");
+        out.push("        # 超出限制时自定义返回");
+        out.push("        limit_req_status 429;");
+        out.push("        error_page 429 /429.html;");
+        out.push("");
+        out.push("        proxy_pass http://backend;");
+        out.push("    }");
+        out.push("}");
+      } else {
+        out.push("server {");
+        out.push("    listen 80;");
+        out.push("    server_name example.com;");
+        out.push("");
+        out.push("    # 全局限流");
+        out.push("    limit_req zone=" + f.rl_zone_name + " burst=" + f.rl_burst + (f.rl_nodelay === "是" ? " nodelay" : "") + ";");
+        out.push("    limit_req_status 429;");
+        out.push("");
+        out.push("    location / {");
+        out.push("        proxy_pass http://backend;");
+        out.push("    }");
+        out.push("}");
+      }
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>limit_req_zone</strong> — 定义限流区域。使用共享内存存储请求计数，参数包括 key（按什么区分）、内存大小和速率上限。",
+      "<strong>$binary_remote_addr</strong> — 客户端 IP 的二进制形式，比 <code>$remote_addr</code> 节省空间，推荐使用。",
+      "<strong>rate</strong> — 平均速率限制。<code>10r/s</code> 表示每秒最多 10 个请求，<code>30r/m</code> 表示每分钟 30 个。",
+      "<strong>burst</strong> — 允许的突发请求数。在平均速率内允许短时间超出的请求数，超出后排队等待。",
+      "<strong>nodelay</strong> — 配合 burst 使用，超出限速的请求立即返回 429 而不是排队等待，适合 API 接口。",
+      "<strong>limit_req_status</strong> — 自定义超出限制时的 HTTP 状态码，默认 503，通常设为 429 (Too Many Requests)。",
+    ]
+  },
+  gzip: {
+    title: "Gzip 压缩",
+    filename: "gzip-config.conf",
+    fields: [
+      { id:"gz_comp", label:"压缩级别 (1-9)", type:"text", placeholder:"6", default:"6" },
+      { id:"gz_minlen", label:"最小压缩长度(字节)", type:"text", placeholder:"1000", default:"1000" },
+      { id:"gz_types", label:"压缩 MIME 类型 (每行一个)", type:"textarea", placeholder:"text/html\ntext/css\napplication/json", default:"text/plain\ntext/css\ntext/xml\ntext/javascript\napplication/javascript\napplication/json\napplication/xml\napplication/rss+xml\nimage/svg+xml" },
+      { id:"gz_vary", label:"添加 Vary: Accept-Encoding 头", type:"select", options:["是","否"], default:"是" },
+      { id:"gz_proxied", label:"代理请求压缩策略", type:"select", options:["any (任何代理请求都压缩)","off (不压缩代理请求)","expired (缓存过期时压缩)"], default:"any (任何代理请求都压缩)" },
+      { id:"gz_disable", label:"禁用压缩的 User-Agent (正则)", type:"text", placeholder:"msie6 (留空不设置)", default:"msie6" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("# Gzip 压缩配置 — 放在 http 块中全局生效");
+      out.push("");
+      out.push("gzip on;");
+      out.push("gzip_comp_level " + f.gz_comp + ";");
+      out.push("gzip_min_length " + f.gz_minlen + ";");
+      let types = f.gz_types.split("\n").filter(function(t) { return t.trim(); });
+      out.push("gzip_types");
+      types.forEach(function(t, i) {
+        let suffix = i < types.length - 1 ? "" : ";";
+        out.push("    " + t.trim() + suffix);
+      });
+      if (f.gz_vary === "是") {
+        out.push("gzip_vary on;");
+      }
+      let proxiedMap = {
+        "any (任何代理请求都压缩)": "any",
+        "off (不压缩代理请求)": "off",
+        "expired (缓存过期时压缩)": "expired"
+      };
+      out.push("gzip_proxied " + proxiedMap[f.gz_proxied] + ";");
+      if (f.gz_disable) {
+        out.push("gzip_disable \"" + f.gz_disable + "\";");
+      }
+      out.push("");
+      out.push("# 禁用 IE6 的 gzip (已知 bug)");
+      out.push("# gzip_disable \"msie6\";");
+      out.push("");
+      out.push("# 启用静态预压缩文件 (.gz)，减少 CPU 开销");
+      out.push("# gzip_static on;");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>gzip_comp_level</strong> — 压缩级别 1-9。级别越高压缩率越高但 CPU 消耗越大。建议 5-6，性价比最优。",
+      "<strong>gzip_min_length</strong> — 小于此大小的响应不压缩。太小文件压缩收益低且可能增大体积（压缩开销），建议 1000 字节以上。",
+      "<strong>gzip_types</strong> — 需要压缩的 MIME 类型。默认只压缩 text/html，必须显式添加 CSS、JS、JSON 等。",
+      "<strong>gzip_vary</strong> — 添加 <code>Vary: Accept-Encoding</code> 响应头，告诉缓存服务器根据压缩能力区分缓存。",
+      "<strong>gzip_proxied</strong> — 控制是否压缩代理请求的响应。<code>any</code> 所有都压缩，<code>off</code> 都不压缩。",
+      "<strong>gzip_static</strong> — 启用后优先发送预压缩的 .gz 文件，节省实时压缩的 CPU。需配合构建工具预生成。",
+    ]
+  },
+  cache: {
+    title: "缓存控制",
+    filename: "cache-control.conf",
+    fields: [
+      { id:"ca_path", label:"缓存路径", type:"text", placeholder:"/data/nginx/cache", default:"/data/nginx/cache" },
+      { id:"ca_size", label:"最大缓存大小", type:"text", placeholder:"1g", default:"1g" },
+      { id:"ca_inactive", label:"未访问缓存保留时间", type:"text", placeholder:"60m", default:"60m" },
+      { id:"ca_valid_200", label:"200 响应缓存时间", type:"text", placeholder:"10m", default:"10m" },
+      { id:"ca_valid_301", label:"301/302 响应缓存时间", type:"text", placeholder:"1h", default:"1h" },
+      { id:"ca_valid_404", label:"404 响应缓存时间", type:"text", placeholder:"1m", default:"1m" },
+      { id:"ca_ignore", label:"绕过缓存的 Cookie 名称 (逗号分隔)", type:"text", placeholder:"nocache, token", default:"" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("# 在 http 块中定义缓存路径");
+      out.push("proxy_cache_path " + f.ca_path + " levels=1:2 keys_zone=my_cache:" + f.ca_size.replace(/[^\d]/g,"") + "m max_size=" + f.ca_size + " inactive=" + f.ca_inactive + " use_temp_path=off;");
+      out.push("");
+      out.push("server {");
+      out.push("    listen 80;");
+      out.push("    server_name example.com;");
+      out.push("");
+      out.push("    # 代理缓存配置");
+      out.push("    location / {");
+      out.push("        proxy_cache my_cache;");
+      out.push("        proxy_cache_valid 200 " + f.ca_valid_200 + ";");
+      out.push("        proxy_cache_valid 301 302 " + f.ca_valid_301 + ";");
+      out.push("        proxy_cache_valid 404 " + f.ca_valid_404 + ";");
+      out.push("        proxy_cache_valid any 1m;");
+      out.push("        proxy_cache_key \"$scheme$request_method$host$request_uri\";");
+      if (f.ca_ignore) {
+        out.push("");
+        out.push("        # 特定 Cookie 不缓存");
+        let cookies = f.ca_ignore.split(",").map(function(c) { return c.trim(); });
+        out.push("        proxy_cache_bypass $cookie_" + cookies.join(" $cookie_");");
+        out.push("        proxy_no_cache $cookie_" + cookies.join(" $cookie_");");
+      }
+      out.push("");
+      out.push("        # 缓存状态头，方便调试");
+      out.push("        add_header X-Cache-Status $upstream_cache_status;");
+      out.push("");
+      out.push("        proxy_pass http://backend;");
+      out.push("        proxy_set_header Host $host;");
+      out.push("    }");
+      out.push("}");
+      out.push("");
+      out.push("# 静态资源浏览器缓存");
+      out.push("location ~* \\.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {");
+      out.push("    expires 30d;");
+      out.push("    add_header Cache-Control \"public, immutable\";");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>proxy_cache_path</strong> — 定义缓存存储位置和参数。<code>levels=1:2</code> 两级目录结构避免单目录文件过多，<code>keys_zone</code> 共享内存区存储缓存键。",
+      "<strong>proxy_cache_valid</strong> — 根据响应状态码设置不同的缓存时间。200 成功响应可缓存较短时间，301 重定向可以缓存更久。",
+      "<strong>proxy_cache_key</strong> — 定义缓存键的组成。默认基于 URL，可根据需要加上 scheme、host、cookie 等维度。",
+      "<strong>proxy_cache_bypass / proxy_no_cache</strong> — 当特定条件满足时跳过缓存，例如登录用户（有 session cookie）不缓存。",
+      "<strong>$upstream_cache_status</strong> — 返回缓存命中状态：HIT（命中）、MISS（未命中）、EXPIRED（过期）、BYPASS（跳过）。调试利器。",
+      "<strong>expires</strong> — 设置 <code>Cache-Control</code> 和 <code>Expires</code> 头，控制浏览器缓存行为。",
+    ]
+  },
+  phpfpm: {
+    title: "PHP-FPM",
+    filename: "php-fpm.conf",
+    fields: [
+      { id:"pf_domain", label:"域名 (server_name)", type:"text", placeholder:"example.com", default:"example.com" },
+      { id:"pf_root", label:"网站根目录", type:"text", placeholder:"/var/www/html", default:"/var/www/html" },
+      { id:"pf_socket", label:"PHP-FPM 监听方式", type:"select", options:["Unix Socket (/var/run/php/php8.2-fpm.sock)","TCP (127.0.0.1:9000)"], default:"Unix Socket (/var/run/php/php8.2-fpm.sock)" },
+      { id:"pf_index", label:"默认文件", type:"text", placeholder:"index.php index.html", default:"index.php index.html" },
+      { id:"pf_max_body", label:"最大上传大小", type:"text", placeholder:"50m", default:"50m" },
+      { id:"pf_timeout", label:"PHP 执行超时(秒)", type:"text", placeholder:"300", default:"300" },
+    ],
+    generate: function(f) {
+      let out = [];
+      out.push("server {");
+      out.push("    listen 80;");
+      out.push("    server_name " + f.pf_domain + ";");
+      out.push("    root " + f.pf_root + ";");
+      out.push("    index " + f.pf_index + ";");
+      out.push("");
+      out.push("    # 上传限制");
+      out.push("    client_max_body_size " + f.pf_max_body + ";");
+      out.push("");
+      out.push("    # 安全：阻止访问隐藏文件");
+      out.push("    location ~ /\\. {");
+      out.push("        deny all;");
+      out.push("        access_log off;");
+      out.push("        log_not_found off;");
+      out.push("    }");
+      out.push("");
+      out.push("    # 将 PHP 请求转发给 PHP-FPM");
+      out.push("    location ~ \\.php$ {");
+      out.push("        try_files $uri =404;");
+      out.push("        fastcgi_split_path_info ^(.+\\.php)(/.+)$;");
+      out.push("        fastcgi_pass " + f.pf_socket + ";");
+      out.push("        fastcgi_index index.php;");
+      out.push("        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;");
+      out.push("        include fastcgi_params;");
+      out.push("        fastcgi_read_timeout " + f.pf_timeout + ";");
+      out.push("        fastcgi_buffers 16 16k;");
+      out.push("        fastcgi_buffer_size 32k;");
+      out.push("    }");
+      out.push("");
+      out.push("    # 静态文件直接返回");
+      out.push("    location ~* \\.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|svg|woff|woff2|ttf|eot)$ {");
+      out.push("        expires 30d;");
+      out.push("        add_header Cache-Control \"public, immutable\";");
+      out.push("    }");
+      out.push("}");
+      return out.join("\n");
+    },
+    explanation: [
+      "<strong>try_files $uri =404</strong> — 安全检查！先检查文件是否存在，不存在返回 404。防止将不存在的 PHP 文件传给 PHP-FPM 造成代码执行漏洞。",
+      "<strong>fastcgi_pass</strong> — PHP-FPM 的监听地址。Unix Socket 性能更好但需要 Nginx 和 PHP-FPM 在同一台机器；TCP 可跨机器。",
+      "<strong>fastcgi_param SCRIPT_FILENAME</strong> — 关键参数，告诉 PHP-FPM 要执行哪个 PHP 文件。<code>$document_root$fastcgi_script_name</code> 拼出完整路径。",
+      "<strong>location ~ /\\.</strong> — 阻止访问以点开头的隐藏文件（如 .env、.git），防止敏感信息泄露。",
+      "<strong>fastcgi_read_timeout</strong> — PHP 脚本执行超时。复杂的导入导出操作需要较长超时。",
+      "<strong>fastcgi_buffers</strong> — 响应缓冲区设置。适当增大可减少磁盘 I/O，提升性能。",
+    ]
+  }
+};
+
+// --- State ---
+let currentTemplate = "static";
+
+// --- Syntax Highlighting ---
+function highlightNginx(code) {
+  return code
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/^(\s*)#(.*)$/gm, function(m, sp, text) {
+      return sp + '<span class="cmt">#' + text + '</span>';
+    })
+    .replace(/\b(server|location|upstream|if|return|include|deny|allow|expires|add_header|proxy_pass|fastcgi_pass|proxy_set_header|proxy_cache|proxy_cache_path|proxy_cache_valid|proxy_cache_key|proxy_cache_bypass|proxy_no_cache|gzip|gzip_static|gzip_vary|gzip_proxied|gzip_disable|gzip_comp_level|gzip_min_length|gzip_types|sticky|ssl_certificate|ssl_certificate_key|ssl_protocols|ssl_ciphers|ssl_prefer_server_ciphers|error_page|try_files|fastcgi_split_path_info|fastcgi_index|fastcgi_param|fastcgi_read_timeout|fastcgi_buffers|fastcgi_buffer_size|limit_req|limit_req_zone|limit_req_status|client_max_body_size|proxy_http_version|proxy_connect_timeout|proxy_send_timeout|proxy_read_timeout|proxy_buffering|proxy_cache)\b/g, '<span class="kw">$1</span>')
+    .replace(/\b(on|off|any|always|http2|ssl|http|backup)\b/g, '<span class="kw">$1</span>')
+    .replace(/\b(listen|server_name|root|index|access_log|error_log)\b/g, '<span class="dir">$1</span>')
+    .replace(/(\$\w+)/g, '<span class="var">$1</span>')
+    .replace(/"([^"]*)"/g, '<span class="str">"$1"</span>')
+    .replace(/\b(\d+)([smhdwy]|s)?\b/g, '<span class="num">$1$2</span>')
+    .replace(/\b(\d{3})\b/g, '<span class="num">$1</span>');
+}
+
+// --- Form Rendering ---
+function renderForm(tpl) {
+  let t = templates[tpl];
+  document.getElementById("formTitle").textContent = t.title;
+  let html = "";
+  t.fields.forEach(function(f) {
+    if (f.type === "textarea") {
+      html += '<div class="form-group full"><label>' + f.label + '</label><textarea id="' + f.id + '" placeholder="' + (f.placeholder || "") + '">' + (f.default || "") + '</textarea></div>';
+    } else if (f.type === "select") {
+      html += '<div class="form-group"><label>' + f.label + '</label><select id="' + f.id + '">';
+      f.options.forEach(function(o) {
+        html += '<option' + (o === f.default ? " selected" : "") + '>' + o + '</option>';
+      });
+      html += '</select></div>';
+    } else {
+      html += '<div class="form-group' + (f.type === "textarea" ? " full" : "") + '"><label>' + f.label + '</label><input type="' + f.type + '" id="' + f.id + '" placeholder="' + (f.placeholder || "") + '" value="' + (f.default || "") + '"></div>';
+    }
+  });
+  document.getElementById("formFields").innerHTML = html;
+  document.getElementById("outputCard").style.display = "none";
+  document.getElementById("explainCard").style.display = "none";
+}
+
+// --- Get Form Values ---
+function getFormValues() {
+  let t = templates[currentTemplate];
+  let vals = {};
+  t.fields.forEach(function(f) {
+    let el = document.getElementById(f.id);
+    if (el) vals[f.id.replace(/^[a-z]+_/, "")] = el.value;
+  });
+  return vals;
+}
+
+// --- Generate Config ---
+function generate() {
+  let t = templates[currentTemplate];
+  let vals = getFormValues();
+  let config = t.generate(vals);
+  document.getElementById("outputFilename").textContent = t.filename;
+  document.getElementById("codeOutput").innerHTML = highlightNginx(config);
+  document.getElementById("outputCard").style.display = "";
+  document.getElementById("explainCard").style.display = "";
+  // Show explanation
+  let expHtml = "";
+  t.explanation.forEach(function(e) {
+    expHtml += '<p style="margin-bottom:8px">' + e + '</p>';
+  });
+  document.getElementById("explanation").innerHTML = expHtml;
+  document.getElementById("explainCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("配置已生成！");
+}
+
+// --- Copy ---
+function copyConfig() {
+  let t = templates[currentTemplate];
+  let vals = getFormValues();
+  let config = t.generate(vals);
+  navigator.clipboard.writeText(config).then(function() {
+    showToast("已复制到剪贴板！");
+  }).catch(function() {
+    showToast("复制失败，请手动复制", true);
+  });
+}
+
+// --- Download ---
+function downloadConfig() {
+  let t = templates[currentTemplate];
+  let vals = getFormValues();
+  let config = t.generate(vals);
+  let blob = new Blob([config], { type: "text/plain;charset=utf-8" });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = t.filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("配置已下载！");
+}
+
+// --- Reset ---
+function resetForm() {
+  renderForm(currentTemplate);
+  document.getElementById("outputCard").style.display = "none";
+  document.getElementById("explainCard").style.display = "none";
+}
+
+// --- Toast ---
+var toastTimer;
+function showToast(msg, isError) {
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast" + (isError ? " error" : "") + " show";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { t.className = "toast"; }, 2000);
+}
+
+// --- Sidebar ---
+document.querySelectorAll(".sidebar-item").forEach(function(item) {
+  item.addEventListener("click", function() {
+    document.querySelectorAll(".sidebar-item").forEach(function(i) { i.classList.remove("active"); });
+    this.classList.add("active");
+    currentTemplate = this.dataset.tpl;
+    renderForm(currentTemplate);
+  });
+});
+
+// --- Toggle ---
+function toggleSection(el) {
+  el.classList.toggle("collapsed");
+  var body = el.nextElementSibling;
+  body.classList.toggle("hidden");
+}
+
+// --- Reference Data ---
+var refData = {
+  core: [
+    ["user", "指定工作进程的运行用户，推荐使用非 root 用户", "user www-data;"],
+    ["worker_processes", "工作进程数，通常设为 CPU 核心数或 auto", "worker_processes auto;"],
+    ["error_log", "错误日志路径和级别 (debug/info/notice/warn/error/crit)", "error_log /var/log/nginx/error.log warn;"],
+    ["pid", "主进程 PID 文件路径", "pid /run/nginx.pid;"],
+    ["worker_connections", "每个工作进程的最大并发连接数", "worker_connections 1024;"],
+    ["use", "事件处理模型 (select/poll/kqueue/epoll)", "use epoll;"],
+    ["multi_accept", "工作进程一次接受所有新连接", "multi_accept on;"],
+  ],
+  http: [
+    ["include", "引入其他配置文件", "include /etc/nginx/mime.types;"],
+    ["default_type", "默认 MIME 类型", "default_type application/octet-stream;"],
+    ["sendfile", "启用高效文件传输模式 (零拷贝)", "sendfile on;"],
+    ["tcp_nopush", "在 sendfile 开启时，合并数据包发送", "tcp_nopush on;"],
+    ["keepalive_timeout", "长连接保持时间", "keepalive_timeout 65;"],
+    ["client_max_body_size", "客户端请求体最大大小", "client_max_body_size 50m;"],
+    ["server_tokens", "是否在错误页面显示 Nginx 版本号", "server_tokens off;"],
+    ["log_format", "自定义日志格式", 'log_format main \'$remote_addr ...\';'],
+    ["access_log", "访问日志路径和格式", "access_log /var/log/nginx/access.log main;"],
+  ],
+  server: [
+    ["listen", "监听 IP 和端口", "listen 80; / listen 443 ssl http2;"],
+    ["server_name", "匹配请求的域名", "server_name example.com www.example.com;"],
+    ["root", "网站根目录", "root /var/www/html;"],
+    ["index", "默认首页文件", "index index.html index.htm;"],
+    ["return", "返回指定的状态码和 URL (重定向)", "return 301 https://$host$request_uri;"],
+    ["rewrite", "URL 重写", "rewrite ^/old/(.*)$ /new/$1 permanent;"],
+    ["error_page", "自定义错误页面", "error_page 404 /404.html;"],
+    ["try_files", "按顺序查找文件，找不到则执行最后一个参数", "try_files $uri $uri/ =404;"],
+  ],
+  location: [
+    ["= /path", "精确匹配 (最高优先级)", "location = / { ... }"],
+    ["^~ /path/", "前缀匹配，匹配后不再检查正则", "location ^~ /images/ { ... }"],
+    ["~ \\.php$", "区分大小写的正则匹配", "location ~ \\.php$ { ... }"],
+    ["~* \\.(jpg|png)$", "不区分大小写的正则匹配", "location ~* \\.(jpg|png)$ { ... }"],
+    ["/", "通用前缀匹配 (最低优先级)", "location / { ... }"],
+    ["@name", "命名 location，仅用于内部重定向", "location @fallback { ... }"],
+    ["alias", "路径别名 (不同于 root)", "alias /var/www/static/;"],
+    ["autoindex", "目录列表显示", "autoindex on;"],
+  ],
+  upstream: [
+    ["server", "后端服务器地址和参数", "server 192.168.1.10:8080 weight=5;"],
+    ["weight", "权重，值越高分配越多请求", "server backend weight=3;"],
+    ["max_fails", "最大失败次数，超过后标记为 down", "server backend max_fails=3;"],
+    ["fail_timeout", "失败超时时间，超时后重试", "server backend fail_timeout=30s;"],
+    ["backup", "备用服务器，其他不可用时启用", "server backup.example.com backup;"],
+    ["down", "手动标记服务器为不可用", "server broken.example.com down;"],
+    ["least_conn", "最少连接数负载均衡算法", "upstream backend { least_conn; }"],
+    ["ip_hash", "基于 IP 哈希的会话保持", "upstream backend { ip_hash; }"],
+    ["keepalive", "保持到后端的空闲长连接数", "keepalive 32;"],
+  ]
+};
+
+function switchRefTab(el, tab) {
+  document.querySelectorAll("#reference .tab").forEach(function(t) { t.classList.remove("active"); });
+  el.classList.add("active");
+  var data = refData[tab];
+  var html = '<table class="ref-table"><thead><tr><th>指令</th><th>说明</th><th>示例</th></tr></thead><tbody>';
+  data.forEach(function(row) {
+    html += '<tr><td><code>' + row[0] + '</code></td><td>' + row[1] + '</td><td><code>' + row[2] + '</code></td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById("refTable").innerHTML = html;
+}
+
+function initRefTable() {
+  switchRefTab(document.querySelector("#reference .tab.active"), "core");
+}
+
+// --- Scenarios ---
+var scenariosHTML = [
+  '<div style="font-size:14px;line-height:2">',
+  '<p><strong style="color:var(--orange)">场景 1：部署后访问 502 Bad Gateway</strong><br>',
+  '原因：Nginx 无法连接到后端服务。检查后端是否启动、端口是否正确、防火墙是否开放。用 <code>curl http://localhost:3000</code> 测试后端可达性。查看 Nginx 错误日志 <code>tail -f /var/log/nginx/error.log</code>。</p>',
+  '<p><strong style="color:var(--orange)">场景 2：CSS/JS 文件返回 404</strong><br>',
+  '原因：root 路径配置不正确。Nginx 的 root 是拼接路径而非替换。例如 <code>root /var/www</code> 加上请求 <code>/css/style.css</code> 实际查找 <code>/var/www/css/style.css</code>。使用 <code>nginx -T | grep root</code> 检查所有 root 配置。</p>',
+  '<p><strong style="color:var(--orange)">场景 3：上传大文件失败 413 Request Entity Too Large</strong><br>',
+  '原因：client_max_body_size 默认只有 1MB。在 server 或 location 块中设置更大的值，如 <code>client_max_body_size 100m;</code>。</p>',
+  '<p><strong style="color:var(--orange)">场景 4：HTTPS 证书过期导致网站无法访问</strong><br>',
+  '原因：SSL 证书有过期时间。使用 Let\'s Encrypt 的 certbot 自动续期：<code>certbot renew --dry-run</code> 测试，<code>certbot renew --quiet</code> 静默续期。设置 cron 定时任务自动执行。</p>',
+  '<p><strong style="color:var(--orange)">场景 5：WebSocket 连接频繁断开</strong><br>',
+  '原因：proxy_read_timeout 默认 60 秒太短。增加超时时间到 3600s 或更长。同时确保设置了 <code>proxy_http_version 1.1</code> 和 Upgrade/Connection 头。</p>',
+  '<p><strong style="color:var(--orange)">场景 6：修改配置后如何安全重载</strong><br>',
+  '先用 <code>nginx -t</code> 测试配置语法是否正确。确认无误后执行 <code>nginx -s reload</code> 平滑重载（不中断现有连接）。不要用 restart，会导致短暂中断。</p>',
+  '<p><strong style="color:var(--orange)">场景 7：同 IP 多域名 SSL 配置</strong><br>',
+  'Nginx 支持 SNI (Server Name Indication)，一个 IP 可以配置多个 SSL 证书。每个 server 块分别指定自己的 ssl_certificate 和 ssl_certificate_key。现代浏览器均支持 SNI。</p>',
+  '<p><strong style="color:var(--orange)">场景 8：PHP 文件被下载而不是执行</strong><br>',
+  '原因：location ~ \\.php$ 块配置缺失或不生效。确保 fastcgi_pass 正确指向 PHP-FPM，检查 location 优先级是否有其他规则覆盖。用 <code>nginx -T | grep -A 10 "\.php"</code> 检查。</p>',
+  '<p><strong style="color:var(--orange)">常用命令速查</strong><br>',
+  '<code>nginx -t</code> — 测试配置文件语法<br>',
+  '<code>nginx -s reload</code> — 平滑重载配置<br>',
+  '<code>nginx -s stop</code> — 快速停止<br>',
+  '<code>nginx -s quit</code> — 优雅停止<br>',
+  '<code>nginx -T</code> — 打印完整配置（含 include）<br>',
+  '<code>tail -f /var/log/nginx/error.log</code> — 实时查看错误日志</p>',
+  '</div>'
+].join("\n");
+
+document.getElementById("scenarios").innerHTML = scenariosHTML;
+
+// --- Init ---
+renderForm("static");
+initRefTable();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

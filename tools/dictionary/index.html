@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语词典</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.search-box{display:flex;gap:8px;max-width:400px;margin:16px auto 0}
+.search-box input{flex:1;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;outline:none}
+.search-box input:focus{border-color:var(--blue)}
+.search-box button{padding:10px 20px;background:var(--blue);border:none;border-radius:var(--radius);color:#fff;cursor:pointer;font-size:.9rem}
+.search-box button:hover{opacity:.9}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.word-card{margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.word-header{margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.word-title{font-size:1.5rem;font-weight:700}
+.word-phonetic{font-size:.9rem;color:var(--text2);margin-top:4px}
+.meaning-section{margin-bottom:16px}
+.part-of-speech{font-size:.85rem;color:var(--gold);font-weight:600;margin-bottom:8px}
+.definition-list{list-style:none;padding:0}
+.definition-item{padding:8px 0;border-bottom:1px solid rgba(48,54,61,.5)}
+.definition-item:last-child{border:none}
+.definition-text{font-size:.9rem;color:var(--text);line-height:1.5}
+.definition-example{font-size:.82rem;color:var(--text2);font-style:italic;margin-top:3px;padding-left:12px;border-left:2px solid var(--border)}
+.audio-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--blue);cursor:pointer;font-size:.8rem;transition:.2s;margin-top:8px}
+.audio-btn:hover{background:#1c2333}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>📖 英语词典</h1>
+<p class="sub">Free Dictionary API</p>
+</header>
+<div class="search-box">
+<input type="text" id="wordInput" placeholder="输入英文单词" onkeydown="if(event.key==='Enter')searchWord()">
+<button onclick="searchWord()">查询</button>
+</div>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var app=document.getElementById('app');
+var input=document.getElementById('wordInput');
+window.searchWord=function(){
+var q=input.value.trim();
+if(!q){app.innerHTML='<div class="error"><p>请输入单词</p></div>';return;}
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>查询中...</p></div>';
+fetch('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(q))
+.then(function(r){
+if(r.status===404)throw new Error('未找到该单词');
+if(!r.ok)throw new Error('请求失败 ('+r.status+')');
+return r.json();
+})
+.then(function(data){
+if(!data||!data.length){app.innerHTML='<div class="error"><p>未找到该单词</p></div>';return;}
+var d=data[0];
+var word=d.word;
+var phonetic=d.phonetic||(d.phonetics&&d.phonetics.length?d.phonetics[0].text:'');
+var audioSrc='';
+if(d.phonetics&&d.phonetics.length){
+for(var i=0;i<d.phonetics.length;i++){
+if(d.phonetics[i].audio){audioSrc=d.phonetics[i].audio;break;}
+}
+}
+var html='<div class="word-card">';
+html+='<div class="word-header"><div class="word-title">'+word+'</div>';
+if(phonetic)html+='<div class="word-phonetic">'+phonetic+'</div>';
+if(audioSrc)html+='<button class="audio-btn" onclick="playAudio(\''+audioSrc+'\')">🔊 发音</button>';
+html+='</div>';
+d.meanings.forEach(function(m){
+html+='<div class="meaning-section">';
+html+='<div class="part-of-speech">'+(m.partOfSpeech||'')+'</div>';
+html+='<ul class="definition-list">';
+m.definitions.forEach(function(def){
+html+='<li class="definition-item">';
+html+='<div class="definition-text">'+(def.definition||'')+'</div>';
+if(def.example)html+='<div class="definition-example">例: '+def.example+'</div>';
+html+='</li>';
+});
+html+='</ul></div>';
+});
+html+='</div>';
+app.innerHTML=html;
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchWord()">重试</button></div>';
+});
+};
+window.playAudio=function(src){
+var audio=new Audio(src);
+audio.play().catch(function(){});
+};
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>👤 个人简介生成器 - Gary's Tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.9rem;resize:vertical;font-family:inherit;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+input{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px 12px;width:100%;font-size:.9rem;font-family:inherit;outline:none;transition:border .2s}
+input:focus{border-color:var(--blue)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;outline:none;cursor:pointer;min-width:120px}
+select:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.bio-grid{display:grid;gap:10px;margin-top:12px}
+.bio-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative;cursor:pointer;transition:all .2s}
+.bio-item:hover{border-color:var(--blue);transform:translateY(-1px)}
+.bio-item .bio-text{font-size:.88rem;line-height:1.7;padding-right:20px}
+.bio-item .bio-copy-hint{position:absolute;top:8px;right:8px;font-size:.6rem;color:var(--text2);opacity:0;transition:opacity .2s}
+.bio-item:hover .bio-copy-hint{opacity:1}
+.bio-item .bio-label{font-size:.7rem;color:var(--text2);margin-top:6px}
+.param-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.param-row label{font-size:.82rem;color:var(--text2);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>👤 个人简介生成器</h1>
+<p>AI帮你写简介</p>
+</header>
+<div class="card">
+<div class="card-title">填写信息</div>
+<div style="margin-bottom:12px">
+<div class="card-title" style="margin-bottom:4px">职业/身份</div>
+<input type="text" id="jobInput" placeholder="例如：前端工程师、大学生、摄影师...">
+</div>
+<div style="margin-bottom:12px">
+<div class="card-title" style="margin-bottom:4px">兴趣/爱好</div>
+<input type="text" id="hobbyInput" placeholder="例如：编程、摄影、旅行、阅读...">
+</div>
+<div class="param-row">
+<label>风格：</label>
+<select id="bioStyle">
+<option value="humorous">幽默</option>
+<option value="professional">专业</option>
+<option value="literary">文艺</option>
+</select>
+</div>
+<div class="btn-group">
+<button id="genBtn">✨ 生成简介</button>
+<button id="clearBtn" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="resultArea" style="display:none">
+<div class="bio-grid" id="bioGrid"></div>
+<div style="text-align:center;margin-top:8px"><span style="font-size:.7rem;color:var(--text2)">💡 点击简介可复制</span></div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var jobInput=document.getElementById('jobInput');
+var hobbyInput=document.getElementById('hobbyInput');
+var bioStyle=document.getElementById('bioStyle');
+var genBtn=document.getElementById('genBtn');
+var clearBtn=document.getElementById('clearBtn');
+var resultArea=document.getElementById('resultArea');
+var bioGrid=document.getElementById('bioGrid');
+
+var TEMPLATES={
+  humorous:[
+    '{职业}，{爱好}爱好者。不是在{爱好}，就是在想{爱好}的路上。间歇性踌躇满志，持续性混吃等死。',
+    '一名{职业}，{爱好}初级选手。人生信条：能坐着绝不站着，能躺着绝不坐着。',
+    '白天是{职业}，晚上是{爱好}梦想家。朋友圈一级潜水员，奶茶品鉴专家。',
+    '{职业}，{爱好}业余玩家。擅长把简单的事情复杂化，然后放弃。',
+    '自称{职业}，其实是{爱好}狂热粉丝。最大的梦想是{爱好}自由和实现自动回复。',
+    '一个{职业}，同时也是一个{爱好}党。间歇性努力，持续性躺平。',
+    '认证{职业}，野生{爱好}爱好者。日常:摸鱼 -> 焦虑 -> 疯狂工作 -> 继续摸鱼。'
+  ],
+  professional:[
+    '{职业} | {爱好}热爱者\n专注于提供高质量的专业服务，用{爱好}的热情驱动每一个项目。',
+    '{职业}，{爱好}领域的深耕者。多年行业经验，致力于将{爱好}融入工作，创造更多价值。',
+    '资深{职业}，{爱好}实践者。以专业态度对待工作，以热忱之心拥抱{爱好}。',
+    '{职业} · {爱好}爱好者\n追求专业与热情的统一，在工作中精进，在{爱好}中成长。',
+    '{职业} | 持续学习者 | {爱好}爱好者\n相信专业能力与{爱好}素养的平衡发展。',
+    '从事{职业}工作多年，业余时间热爱{爱好}。用专业创造价值，用{爱好}丰富生活。',
+    '{职业}，{爱好}践行者。坚持用专业标准要求自己，在{爱好}中寻找灵感与突破。'
+  ],
+  literary:[
+    '{职业}，{爱好}人。\n在代码/文字/设计中寻找诗意，在{爱好}中安放灵魂。',
+    '以{职业}为生，以{爱好}为梦。\n生活不止眼前的苟且，还有{爱好}和远方。',
+    '{职业}，{爱好}爱好者。\n愿在喧嚣世界里，做一个安静的{爱好}人。',
+    '一半{职业}，一半{爱好}。\n在理性与感性之间，寻找生活的平衡。',
+    '是{职业}，也是{爱好}追求者。\n把日子过成诗，把{爱好}写成歌。',
+    '{职业}的外壳，{爱好}的灵魂。\n山川湖海，{爱好}与爱。',
+    '一个{职业}的自我修养：\n努力工作，认真{爱好}，温柔生活。'
+  ]
+};
+
+function generate(){
+  var job=jobInput.value.trim()||'自由职业者';
+  var hobby=hobbyInput.value.trim()||'生活';
+  var style=bioStyle.value;
+  var templates=TEMPLATES[style];
+  if(!templates)return;
+  var bios=[];
+  var shuffled=shuffle(templates.slice());
+  for(var i=0;i<Math.min(5,shuffled.length);i++){
+    var t=shuffled[i]
+      .replace(/\{职业\}/g,job)
+      .replace(/\{爱好\}/g,hobby);
+    bios.push(t);
+  }
+  resultArea.style.display='block';
+  bioGrid.innerHTML=bios.map(function(b,i){
+    var lines=b.split('\n');
+    return '<div class="bio-item" onclick="copyBio(this)"><div class="bio-text">'+lines.map(function(l){return l.trim()?'<div>'+escapeHtml(l)+'</div>':''}).join('')+'</div><div class="bio-label">简介 '+(i+1)+' · 点击复制</div><div class="bio-copy-hint">复制</div></div>';
+  }).join('');
+}
+
+function shuffle(arr){
+  for(var i=arr.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var tmp=arr[i];arr[i]=arr[j];arr[j]=tmp;
+  }
+  return arr;
+}
+
+function escapeHtml(str){
+  var div=document.createElement('div');
+  div.textContent=str;
+  return div.innerHTML;
+}
+
+window.copyBio=function(el){
+  var text=el.querySelector('.bio-text').innerText||el.querySelector('.bio-text').textContent;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text.trim()).then(function(){
+      var hint=el.querySelector('.bio-copy-hint');
+      hint.textContent='已复制!';
+      setTimeout(function(){hint.textContent='复制';},1500);
+    });
+  }
+};
+
+genBtn.addEventListener('click',generate);
+clearBtn.addEventListener('click',function(){
+  jobInput.value='';
+  hobbyInput.value='';
+  resultArea.style.display='none';
+});
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

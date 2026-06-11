@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌸 诗歌生成 - Gary's Tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.9rem;resize:vertical;font-family:inherit;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;outline:none;cursor:pointer;min-width:120px}
+select:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.tag{display:inline-block;padding:4px 10px;border-radius:4px;font-size:.75rem;margin:2px}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.poem-box{background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:20px;margin-top:12px;text-align:center;min-height:100px}
+.poem-box .poem-text{font-size:1rem;line-height:2;white-space:pre-wrap;font-style:italic;color:var(--gold)}
+.poem-box .poem-label{font-size:.75rem;color:var(--text2);margin-bottom:10px}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:10px;color:var(--red);font-size:.82rem;margin-top:10px;display:none}
+.param-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🌸 诗歌生成</h1>
+<p>AI自动写诗</p>
+</header>
+<div class="card">
+<div class="card-title">主题与风格</div>
+<div class="param-row">
+<select id="poemStyle">
+<option value="classic">古典风格</option>
+<option value="modern">现代风格</option>
+<option value="haiku">俳句风格</option>
+<option value="love">爱情诗</option>
+</select>
+<select id="poemLength">
+<option value="4">4行</option>
+<option value="8" selected>8行</option>
+</select>
+</div>
+<div class="card-title">主题/关键词</div>
+<textarea id="inputText" rows="3" placeholder="输入诗歌主题或关键词，例如：春天、月亮、离别..."></textarea>
+<div class="btn-group">
+<button id="genBtn">🌸 生成诗歌</button>
+<button id="clearBtn" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="errorMsg" class="error-msg"></div>
+<div id="resultArea" style="display:none">
+<div class="poem-box">
+<div class="poem-label">✨ 为你创作的诗</div>
+<div id="poemText" class="poem-text"></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var input=document.getElementById('inputText');
+var poemStyle=document.getElementById('poemStyle');
+var poemLength=document.getElementById('poemLength');
+var genBtn=document.getElementById('genBtn');
+var clearBtn=document.getElementById('clearBtn');
+var resultArea=document.getElementById('resultArea');
+var poemText=document.getElementById('poemText');
+var errorMsg=document.getElementById('errorMsg');
+
+var TEMPLATES={
+  classic:{
+    4:[
+      ['夜静[主题]深，','[主题]明月照我心。','清风拂面来，','[主题]入梦吟。'],
+      ['[主题]花落知多少，','[主题]明月几时有。','[主题]千里共婵娟，','[主题]万古一春秋。'],
+      ['[主题]倚栏听风雨，','[主题]对月独斟杯。','[主题]浮云遮望眼，','[主题]归雁寄书回。']
+    ],
+    8:[
+      ['[主题]初上柳梢头，','[主题]斜照水东流。','[主题]无言独上西楼，','[主题]月如钩。','[主题]寂寞梧桐深院，','[主题]锁清秋。','[主题]剪不断理还乱，','[主题]是离愁。'],
+      ['[主题]东风吹柳绿，','[主题]细雨润花红。','[主题]燕子归巢晚，','[主题]蝴蝶入梦中。','[主题]江南春色好，','[主题]北国冰雪融。','[主题][主题]无限意，','[主题]都在不言中。']
+    ]
+  },
+  modern:{
+    4:[
+      ['在[主题]的尽头，','我遇见了自己。','[主题]说，','你终于来了。'],
+      ['[主题]是一首写不完的诗，','在时光里轻轻吟唱。','每一个字都是心跳，','每一行都是远方。'],
+      ['我想起[主题]的样子，','像风一样自由。','[主题]说不要回头，','前方是星辰大海。']
+    ],
+    8:[
+      ['[主题]悄悄地来了，','带着春天的消息。','[主题]在枝头绽放，','在风中摇曳。','我站在[主题]里，','感受时光的温度。','[主题]轻轻地走了，','留下一地芬芳。'],
+      ['[主题]是我的梦境，','在黑暗中发着光。','[主题]说不要害怕，','黎明就在前方。','我睁开眼看见[主题]，','像极了你的模样。','[主题]在微笑，','世界都亮了。']
+    ]
+  },
+  haiku:{
+    4:[
+      ['[主题]落无声，','空山新雨晚来风，','[主题]入梦轻。','——[主题]'],
+      ['[主题]月正明，','[主题]松间照清泉，','[主题]石上流。','——[主题]']
+    ],
+    8:[
+      ['[主题]秋风起，','[主题]落叶满阶前。','[主题]独坐黄昏后，','[主题]听雨不成眠。','[主题]花落知多少，','[主题]梦回旧时年。','[主题]一曲肝肠断，','[主题]天涯何处寻。']
+    ]
+  },
+  love:{
+    4:[
+      ['[主题]是你的眼眸，','我在其中看见了星辰。','[主题]是你的微笑，','足以融化整个冬天。'],
+      ['[主题]像一首歌，','在我心中轻轻回响。','[主题]像一缕光，','照亮我所有的黑暗。'],
+      ['如果[主题]是答案，','我愿意用一生去追寻。','因为[主题]是你，','所以我义无反顾。']
+    ],
+    8:[
+      ['[主题]悄悄来临，','像春天的第一场雨。','[主题]轻轻诉说，','像风中的一句情话。','我牵起[主题]的手，','走过四季的变换。','[主题]在耳边低语，',' forever and always。'],
+      ['[主题]是你的名字，','写在我心底最深处。','[主题]是我的思念，','穿越山海来到你身边。','每当[主题]想起，','嘴角都会微微上扬。','[主题]是世界上最美的词，','因为那就是你。']
+    ]
+  }
+};
+
+function generatePoem(){
+  var theme=input.value.trim();
+  if(!theme){showError('请输入主题或关键词');return;}
+  var style=poemStyle.value;
+  var len=poemLength.value;
+  var templates=TEMPLATES[style][len];
+  if(!templates || templates.length===0){showError('暂不支持该风格和长度');return;}
+  var template=templates[Math.floor(Math.random()*templates.length)];
+  var poem=template.map(function(line){
+    return line.replace(/\[主题\]/g,theme);
+  }).join('\n');
+  resultArea.style.display='block';
+  poemText.textContent=poem;
+  hideError();
+}
+
+function showError(msg){errorMsg.textContent=msg;errorMsg.style.display='block';}
+function hideError(){errorMsg.style.display='none';}
+
+genBtn.addEventListener('click',generatePoem);
+clearBtn.addEventListener('click',function(){
+  input.value='';
+  resultArea.style.display='none';
+  hideError();
+});
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>

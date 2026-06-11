@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>待办事项 - garyy-tools</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.85rem}
+button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+button:hover{opacity:.85}
+input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.input-row{display:flex;gap:10px;margin-bottom:16px}
+.input-row input{flex:1}
+.tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--bg);border-radius:6px;padding:4px}
+.tab{flex:1;text-align:center;padding:7px 0;border-radius:4px;cursor:pointer;font-size:.85rem;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--blue);color:#fff}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.item:last-child{border-bottom:none}
+.item .ck{width:18px;height:18px;cursor:pointer;accent-color:var(--green);flex-shrink:0}
+.item .text{flex:1;font-size:.9rem;word-break:break-all}
+.item .text.done{text-decoration:line-through;color:var(--text2)}
+.item .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:4px 8px;border-radius:4px;flex-shrink:0}
+.item .del-btn:hover{background:rgba(239,68,68,.15)}
+.count-info{text-align:center;color:var(--text2);font-size:.82rem;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>✅ 待办事项</h1>
+<div class="sub">简单任务管理</div>
+</header>
+
+<div class="card">
+<div class="input-row">
+<input type="text" id="inputTodo" placeholder="输入待办事项..." maxlength="200">
+<button class="btn-green" id="btnAdd">添加</button>
+</div>
+
+<div class="tabs">
+<div class="tab active" data-filter="all">全部</div>
+<div class="tab" data-filter="active">待完成</div>
+<div class="tab" data-filter="done">已完成</div>
+</div>
+
+<div id="todoList"></div>
+<div class="count-info" id="countInfo"></div>
+</div>
+</div>
+
+<script src="../i18n.js"></script>
+<script>
+(function(){
+'use strict';
+const inputTodo=document.getElementById('inputTodo');
+const btnAdd=document.getElementById('btnAdd');
+const todoList=document.getElementById('todoList');
+const countInfo=document.getElementById('countInfo');
+const tabs=document.querySelectorAll('.tab');
+
+let todos=JSON.parse(localStorage.getItem('garyy_todos')||'[]');
+let filter='all';
+
+function save(){
+localStorage.setItem('garyy_todos',JSON.stringify(todos));
+render();
+}
+
+function render(){
+const filtered=todos.filter(function(t){
+if(filter==='active')return !t.done;
+if(filter==='done')return t.done;
+return true;
+});
+const total=todos.length;
+const done=todos.filter(function(t){return t.done;}).length;
+
+if(filtered.length===0){
+todoList.innerHTML='<div style="text-align:center;color:var(--text2);padding:30px 0;font-size:.9rem">暂无待办事项</div>';
+}else{
+let html='';
+filtered.forEach(function(t){
+html+='<div class="item">'+
+'<input type="checkbox" class="ck" data-id="'+t.id+'"'+(t.done?' checked':'')+'>'+
+'<span class="text'+(t.done?' done':'')+'">'+escHtml(t.text)+'</span>'+
+'<button class="del-btn" data-id="'+t.id+'">✕</button>'+
+'</div>';
+});
+todoList.innerHTML=html;
+
+todoList.querySelectorAll('.ck').forEach(function(cb){
+cb.addEventListener('change',function(){
+const id=parseInt(this.dataset.id);
+const todo=todos.find(function(t){return t.id===id;});
+if(todo){todo.done=this.checked;save();}
+});
+});
+
+todoList.querySelectorAll('.del-btn').forEach(function(btn){
+btn.addEventListener('click',function(){
+const id=parseInt(this.dataset.id);
+todos=todos.filter(function(t){return t.id!==id;});
+save();
+});
+});
+}
+
+countInfo.textContent='共 '+total+' 项，已完成 '+done+' 项';
+}
+
+function escHtml(s){
+return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function addTodo(){
+const text=inputTodo.value.trim();
+if(!text)return;
+todos.push({id:Date.now(),text:text,done:false});
+inputTodo.value='';
+save();
+}
+
+tabs.forEach(function(tab){
+tab.addEventListener('click',function(){
+tabs.forEach(function(t){t.classList.remove('active');});
+this.classList.add('active');
+filter=this.dataset.filter;
+render();
+});
+});
+
+btnAdd.addEventListener('click',addTodo);
+inputTodo.addEventListener('keydown',function(e){
+if(e.key==='Enter')addTodo();
+});
+
+render();
+})();
+</script>
+</body>
+</html>

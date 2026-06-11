@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日菜谱</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+h1{font-size:1.3rem;color:var(--text)}
+.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
+.loading{text-align:center;padding:60px 0}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{color:var(--text2);font-size:.85rem}
+.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
+.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
+.meal-card{margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.meal-img{width:100%;max-height:350px;object-fit:cover;display:block}
+.meal-body{padding:24px}
+.meal-title{font-size:1.2rem;font-weight:700;margin-bottom:6px}
+.meal-info{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.meal-badge{padding:3px 10px;border-radius:12px;font-size:.78rem;background:var(--bg);border:1px solid var(--border)}
+.meal-badge.region{color:var(--gold);border-color:rgba(245,158,11,.3)}
+.meal-badge.category{color:var(--blue);border-color:rgba(59,130,246,.3)}
+.section-title{font-size:.92rem;font-weight:600;color:var(--text);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.ingredient-list{list-style:none;padding:0}
+.ingredient-item{display:flex;gap:8px;padding:5px 0;font-size:.85rem;color:var(--text);border-bottom:1px solid rgba(48,54,61,.3)}
+.ingredient-item:last-child{border:none}
+.ingredient-measure{color:var(--text2);min-width:60px;text-align:right}
+.ingredient-name{flex:1}
+.instructions{font-size:.88rem;line-height:1.7;color:var(--text2);white-space:pre-line}
+.next-btn{display:block;margin:24px auto 0;padding:12px 32px;background:var(--blue);border:none;border-radius:var(--radius);color:#fff;cursor:pointer;font-size:.9rem;transition:.2s}
+.next-btn:hover{opacity:.9}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🍳 今日菜谱</h1>
+<p class="sub">TheMealDB · 随机美食推荐</p>
+</header>
+<div id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var app=document.getElementById('app');
+function loadMeal(){
+app.innerHTML='<div class="loading"><div class="spinner"></div><p>寻找美食...</p></div>';
+fetch('https://www.themealdb.com/api/json/v1/1/random.php')
+.then(function(r){if(!r.ok)throw new Error('请求失败 ('+r.status+')');return r.json();})
+.then(function(data){
+var meal=data.meals[0];
+if(!meal){app.innerHTML='<div class="error"><p>暂无数据</p></div>';return;}
+var name=meal.strMeal;
+var img=meal.strMealThumb||'';
+var area=meal.strArea||'未知';
+var category=meal.strCategory||'未知';
+var instructions=meal.strInstructions||'暂无做法';
+var tags=meal.strTags?meal.strTags.split(','):[];
+var ingredients=[];
+for(var i=1;i<=20;i++){
+var ing=meal['strIngredient'+i];
+var mes=meal['strMeasure'+i];
+if(ing&&ing.trim())ingredients.push({name:ing.trim(),measure:(mes||'').trim()});
+}
+var html='<div class="meal-card">';
+if(img)html+='<img class="meal-img" src="'+img+'" alt="'+name+'" onerror="this.style.display=\'none\'">';
+html+='<div class="meal-body">';
+html+='<div class="meal-title">'+name+'</div>';
+html+='<div class="meal-info">';
+html+='<span class="meal-badge region">🌍 '+area+'</span>';
+html+='<span class="meal-badge category">📂 '+category+'</span>';
+if(tags.length)tags.forEach(function(t){if(t.trim())html+='<span class="meal-badge" style="color:var(--text2)">#'+t.trim()+'</span>';});
+html+='</div>';
+html+='<div class="section-title">🥘 配料清单</div>';
+html+='<ul class="ingredient-list">';
+ingredients.forEach(function(ing){
+html+='<li class="ingredient-item"><span class="ingredient-name">'+ing.name+'</span><span class="ingredient-measure">'+ing.measure+'</span></li>';
+});
+html+='</ul>';
+html+='<div class="section-title">📝 做法说明</div>';
+html+='<div class="instructions">'+instructions+'</div>';
+html+='</div></div>';
+html+='<button class="next-btn" onclick="loadMeal()">🔄 换一道</button>';
+app.innerHTML=html;
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="loadMeal()">重试</button></div>';
+});
+}
+window.loadMeal=loadMeal;
+loadMeal();
+})();
+</script>
+<script src="../i18n.js"></script>
+</body>
+</html>
