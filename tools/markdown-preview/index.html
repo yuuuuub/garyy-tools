@@ -137,8 +137,11 @@ function renderMarkdown(text) {
   // Horizontal rule
   html = html.replace(/^(?:---|\*\*\*|___)\s*$/gm, '<hr>');
 
-  // Blockquotes
-  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Blockquotes - handle multi-line
+  html = html.replace(/(^&gt; .+(?:\n(?:&gt; .+))*)/gm, function(m) {
+    const lines = m.split('\n').map(function(l){ return l.replace(/^&gt; /, ''); });
+    return '<blockquote>' + lines.join('<br>') + '</blockquote>';
+  });
 
   // Fenced code blocks
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {
@@ -200,15 +203,25 @@ function renderMarkdown(text) {
     return listHtml;
   });
 
-  // Paragraphs
-  html = html.replace(/\n{2,}/g, '</p><p>');
-  html = html.replace(/^(.+)$/gm, function(m) {
-    if(m.startsWith('<')) return m;
-    return '<p>' + m + '</p>';
-  });
-  html = html.replace(/<p><\/p>/g, '');
+  // Clean up: remove empty paragraphs before block elements
+  // Paragraphs - only wrap bare text in <p>
+  // First, split by double newlines to find paragraph blocks
+  const blockElements = '<h1>|<h2>|<h3>|<h4>|<h5>|<h6>|<ul>|<ol>|<pre>|<blockquote>|<table>|<hr>|<img';
+  const parts = html.split(/\n{2,}/);
+  html = parts.map(function(part) {
+    part = part.trim();
+    if(!part) return '';
+    // Check if this part starts with a block-level element
+    if(new RegExp('^(' + blockElements + ')').test(part)) {
+      return part;
+    }
+    // Wrap in <p> for bare text
+    if(!part.startsWith('<')) {
+      return '<p>' + part.replace(/\n/g, '<br>') + '</p>';
+    }
+    return part;
+  }).join('\n');
 
-  // Wrap in div
   return html;
 }
 

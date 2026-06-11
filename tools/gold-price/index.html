@@ -81,12 +81,30 @@ function formatPrice(v){
 }
 
 function formatChange(v){
+  if(v === null || v === undefined) return '--';
   return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
 }
 
-function renderPrices(gold, silver){
-  const goldChange = parseFloat(gold.change) || 0;
-  const silverChange = parseFloat(silver.change) || 0;
+// 存储上次报价用于计算涨跌幅
+const PRICE_CACHE_KEY = 'gold-price-cache';
+
+function getCachedPrice(){
+  try{
+    const cached = localStorage.getItem(PRICE_CACHE_KEY);
+    if(cached) return JSON.parse(cached);
+  }catch(e){}
+  return null;
+}
+
+function setCachedPrice(goldPrice, silverPrice){
+  try{
+    localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({gold: goldPrice, silver: silverPrice, time: Date.now()}));
+  }catch(e){}
+}
+
+function renderPrices(gold, silver, realData = true){
+  const goldChange = gold.change !== undefined && gold.change !== null ? parseFloat(gold.change) : null;
+  const silverChange = silver.change !== undefined && silver.change !== null ? parseFloat(silver.change) : null;
 
   metalPrices.innerHTML = `
     <div class="grid-2">
@@ -94,13 +112,13 @@ function renderPrices(gold, silver){
         <div class="metal-icon">🥇</div>
         <div class="metal-name">黄金 (XAU)</div>
         <div class="metal-price gold">${formatPrice(gold.price)} <span class="metal-unit">/盎司</span></div>
-        <div class="metal-change"><span class="badge ${goldChange >= 0 ? 'up' : 'down'}">${formatChange(goldChange)}</span></div>
+        <div class="metal-change">${goldChange !== null ? `<span class="badge ${goldChange >= 0 ? 'up' : 'down'}">${formatChange(goldChange)}</span>` : `<span class="badge" style="color:var(--text2)">实时</span>`}</div>
       </div>
       <div class="metal-card silver-card">
         <div class="metal-icon">🥈</div>
         <div class="metal-name">白银 (XAG)</div>
         <div class="metal-price silver">${formatPrice(silver.price)} <span class="metal-unit">/盎司</span></div>
-        <div class="metal-change"><span class="badge ${silverChange >= 0 ? 'up' : 'down'}">${formatChange(silverChange)}</span></div>
+        <div class="metal-change">${silverChange !== null ? `<span class="badge ${silverChange >= 0 ? 'up' : 'down'}">${formatChange(silverChange)}</span>` : `<span class="badge" style="color:var(--text2)">实时</span>`}</div>
       </div>
     </div>`;
 }
@@ -110,38 +128,56 @@ function renderExtra(gold, silver){
     <div class="card">
       <div class="section-title">📊 贵金属详情</div>
       <div class="info-grid">
-        <div class="info-item"><div class="label">黄金昨收</div><div class="value">${formatPrice(gold.prev_close_price || gold.price)}</div></div>
-        <div class="info-item"><div class="label">白银昨收</div><div class="value">${formatPrice(silver.prev_close_price || silver.price)}</div></div>
+        <div class="info-item"><div class="label">黄金当前价</div><div class="value">${formatPrice(gold.price)}</div></div>
+        <div class="info-item"><div class="label">白银当前价</div><div class="value">${formatPrice(silver.price)}</div></div>
+        <div class="info-item"><div class="label">昨收黄金</div><div class="value">${formatPrice(gold.prev_close_price || gold.price)}</div></div>
+        <div class="info-item"><div class="label">昨收白银</div><div class="value">${formatPrice(silver.prev_close_price || silver.price)}</div></div>
         <div class="info-item"><div class="label">黄金最高(今日)</div><div class="value" style="color:var(--green)">${formatPrice(gold.high_price || gold.price)}</div></div>
         <div class="info-item"><div class="label">白银最高(今日)</div><div class="value" style="color:var(--green)">${formatPrice(silver.high_price || silver.price)}</div></div>
-        <div class="info-item"><div class="label">黄金最低(今日)</div><div class="value" style="color:var(--red)">${formatPrice(gold.low_price || gold.price)}</div></div>
-        <div class="info-item"><div class="label">白银最低(今日)</div><div class="value" style="color:var(--red)">${formatPrice(silver.low_price || silver.price)}</div></div>
       </div>
-      <div style="text-align:center;margin-top:12px;font-size:.78rem;color:var(--text2)">数据来源: metals.live | 价格为美元/盎司</div>
+      <div style="text-align:center;margin-top:12px;font-size:.78rem;color:var(--text2)">价格为美元/盎司</div>
     </div>`;
 }
 
 async function fetchPrices(){
   loading();
   try{
-    const res = await fetch('https://api.metals.live/v1/spot/gold');
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    // 查找黄金和白银
-    let gold = data.find(m => m.metal === 'gold' || m.metal === 'XAU') || data[0];
-    let silver = data.find(m => m.metal === 'silver' || m.metal === 'XAG');
-    // 如果silver未找到，构造一个默认
-    if(!silver){
-      silver = {metal:'silver', price: gold.price * 0.015, change: 0, prev_close_price: 0};
+    // 同时获取黄金和白银价格
+    const [goldRes, silverRes] = await Promise.all([
+      fetch('https://api.gold-api.com/price/XAU'),
+      fetch('https://api.gold-api.com/price/XAG')
+    ]);
+    if(!goldRes.ok || !silverRes.ok) throw new Error('HTTP ' + (!goldRes.ok ? goldRes.status : silverRes.status));
+
+    const goldData = await goldRes.json();
+    const silverData = await silverRes.json();
+
+    const goldPrice = goldData.price;
+    const silverPrice = silverData.price;
+
+    // 计算涨跌幅（对比缓存中的上次价格）
+    const cached = getCachedPrice();
+    let goldChange = null;
+    let silverChange = null;
+    if(cached && cached.gold && cached.silver){
+      goldChange = (goldPrice - cached.gold) / cached.gold * 100;
+      silverChange = (silverPrice - cached.silver) / cached.silver * 100;
     }
-    renderPrices(gold, silver);
+
+    // 更新缓存
+    setCachedPrice(goldPrice, silverPrice);
+
+    const gold = {price: goldPrice, change: goldChange, prev_close_price: cached?.gold || goldPrice};
+    const silver = {price: silverPrice, change: silverChange, prev_close_price: cached?.silver || silverPrice};
+
+    renderPrices(gold, silver, true);
     renderExtra(gold, silver);
-    lastUpdate.textContent = '数据更新于: ' + new Date().toLocaleString('zh-CN');
+    lastUpdate.textContent = '数据更新于: ' + new Date().toLocaleString('zh-CN') + ' | 来源: gold-api.com';
   }catch(e){
     // 降级: 使用模拟数据
     const gold = {price: 2391.45, change: 1.23, prev_close_price: 2362.50, high_price: 2395.80, low_price: 2378.10};
     const silver = {price: 29.57, change: 2.15, prev_close_price: 28.94, high_price: 29.72, low_price: 29.10};
-    renderPrices(gold, silver);
+    renderPrices(gold, silver, false);
     renderExtra(gold, silver);
     lastUpdate.textContent = '实时API不可用，显示模拟数据 | '+new Date().toLocaleString('zh-CN');
   }
