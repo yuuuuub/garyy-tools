@@ -216,19 +216,8 @@ var COMMON = {
   '正在加载数据...': 'Loading data...',
 };
 
-var sortedKeys = Object.keys(COMMON).sort(function(a,b){return b.length - a.length;});
-
 function translateText(text){
-  if (!text) return text;
-  var result = text;
-  for (var i = 0; i < sortedKeys.length; i++){
-    var key = sortedKeys[i];
-    var val = COMMON[key];
-    if (result.indexOf(key) !== -1){
-      result = result.split(key).join(val);
-    }
-  }
-  return result;
+  return COMMON[text] || text;
 }
 
 function translateNode(node){
@@ -244,6 +233,7 @@ function translateNode(node){
     if (node.getAttribute && node.getAttribute('data-i18n')){
       var key = node.getAttribute('data-i18n');
       if (COMMON[key]) node.textContent = COMMON[key];
+      return;
     }
     var walker = document.createTreeWalker(node, 4, null, false);
     var n;
