@@ -225,41 +225,71 @@ function renderGroups(data){
   html += '</div>';
   content.innerHTML = html;
   $('footerStatus').textContent = '✓ 实时数据 | 组数: '+tables.length+' | ';
+  scheduleTranslate();
 }
 
 // Render knockout view
 function renderKnockout(data){
   if (!data || !data.rounds){
-    content.innerHTML = '<div class="card"><p style="color:var(--text2);text-align:center;padding:20px 0">淘汰赛数据暂未发布</p></div>';
+    content.innerHTML = '<div class="card"><p style="color:var(--text2);text-align:center;padding:20px 0" data-i18n="淘汰赛数据暂未发布">淘汰赛数据暂未发布</p></div>';
+    scheduleTranslate();
     return;
   }
   var muRound = data.rounds.find(function(r){return r.name==='match_ups';});
   if (!muRound || !muRound.matchups || muRound.matchups.length===0){
-    content.innerHTML = '<div class="card"><p style="color:var(--text2);text-align:center;padding:20px 0">淘汰赛对阵数据暂不可用</p></div>';
+    content.innerHTML = '<div class="card"><p style="color:var(--text2);text-align:center;padding:20px 0" data-i18n="淘汰赛对阵数据暂不可用">淘汰赛对阵数据暂不可用</p></div>';
+    scheduleTranslate();
     return;
   }
   var all = muRound.matchups;
-  var segments = [
-    {round:'round_of_32',start:0,end:15},
-    {round:'round_of_16',start:16,end:23},
-    {round:'quarterfinal',start:24,end:27},
-    {round:'semifinal',start:28,end:29},
-    {round:'final',start:30,end:30},
-    {round:'third_place',start:31,end:31}
-  ];
+  // Try grouping by round field if available, fallback to index-based
+  var segments = [];
+  var hasRoundField = all.some(function(m){return m.round && ROUND_NAMES[m.round];});
+  if (hasRoundField){
+    var roundGroups = {};
+    var roundOrder = ROUND_ORDER;
+    all.forEach(function(m){
+      var r = m.round || 'round_of_32';
+      if (!roundGroups[r]) roundGroups[r] = [];
+      roundGroups[r].push(m);
+    });
+    roundOrder.forEach(function(r){
+      if (roundGroups[r] && roundGroups[r].length > 0){
+        segments.push({round:r, matches:roundGroups[r]});
+      }
+    });
+  } else {
+    // Fallback: hardcoded index ranges
+    var idxSegments = [
+      {round:'round_of_32',start:0,end:15},
+      {round:'round_of_16',start:16,end:23},
+      {round:'quarterfinal',start:24,end:27},
+      {round:'semifinal',start:28,end:29},
+      {round:'final',start:30,end:30},
+      {round:'third_place',start:31,end:31}
+    ];
+    idxSegments.forEach(function(seg){
+      var ms = [];
+      for (var i=seg.start;i<=seg.end && i<all.length;i++){
+        ms.push(all[i]);
+      }
+      if (ms.length > 0) segments.push({round:seg.round, matches:ms});
+    });
+  }
+  if (segments.length === 0){
+    content.innerHTML = '<div class="card"><p style="color:var(--text2);text-align:center;padding:20px 0" data-i18n="淘汰赛对阵数据暂不可用">淘汰赛对阵数据暂不可用</p></div>';
+    scheduleTranslate();
+    return;
+  }
   var html = '<div class="bracket-container">';
   segments.forEach(function(seg){
-    var ms = [];
-    for (var i=seg.start;i<=seg.end;i++){
-      if (i<all.length) ms.push(all[i]);
-    }
-    if (ms.length===0) return;
+    var ms = seg.matches;
     html += '<div class="ko-round"><h4>🏆 '+ROUND_NAMES[seg.round]+'（'+ms.length+'场）</h4>';
-    ms.forEach(function(mu,i){
-      var home = mu.home||'待定';
-      var away = mu.away||'待定';
-      if (home==='TBD') home='待定';
-      if (away==='TBD') away='待定';
+    ms.forEach(function(mu){
+      var home = mu.home||'未定';
+      var away = mu.away||'未定';
+      if (home==='TBD') home='未定';
+      if (away==='TBD') away='未定';
       var hScore = mu.home_score;
       var aScore = mu.away_score;
       var hasScore = hScore!==null && aScore!==null;
@@ -276,6 +306,11 @@ function renderKnockout(data){
   html += '</div>';
   content.innerHTML = html;
   $('footerStatus').textContent = '✓ 淘汰赛数据 | ';
+  scheduleTranslate();
+}
+
+function scheduleTranslate(){
+  if (window.garyyTranslate) setTimeout(function(){garyyTranslate(content);}, 50);
 }
 
 // Render info view
@@ -324,6 +359,7 @@ function renderInfo(data){
 
   content.innerHTML = html;
   $('footerStatus').textContent = '✓ 赛事信息 | ';
+  scheduleTranslate();
 }
 
 // Render function
