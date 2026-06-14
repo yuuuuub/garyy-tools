@@ -56,6 +56,37 @@ var input=document.getElementById('searchInput');
 var langColors={
 'JavaScript':'#f1e05a','Python':'#3572A5','TypeScript':'#3178c6','Java':'#b07219','Go':'#00ADD8','Rust':'#dea584','C++':'#f34b7d','C':'#555555','Ruby':'#701516','PHP':'#4F5D95','Swift':'#F05138','Kotlin':'#A97BFF','Dart':'#00B4AB','Shell':'#89e051','HTML':'#e34c26','CSS':'#563d7c','Vue':'#41b883','Scala':'#c22d40','Lua':'#000080','Elixir':'#6e4a7e'
 };
+var trendingLoaded = false;
+window.loadTrending=function(){
+  app.innerHTML='<div class="loading"><div class="spinner"></div><p>加载 trending...</p></div>';
+  var d = new Date(); d.setDate(d.getDate()-7);
+  var dateStr = d.toISOString().split('T')[0];
+  fetch('https://api.github.com/search/repositories?q=created:>'+dateStr+'&sort=stars&order=desc&per_page=15')
+  .then(function(r){
+    if(r.status===403)throw new Error('API 限流');
+    if(!r.ok)throw new Error('请求失败');
+    return r.json();
+  })
+  .then(function(data){
+    if(!data.items||!data.items.length){loadFallback();return;}
+    trendingLoaded = true;
+    renderRepos(data.items, '🔥 过去7天 Trending');
+  })
+  .catch(function(){loadFallback();});
+};
+function loadFallback(){
+  var d = new Date(); d.setDate(d.getDate()-30);
+  var dateStr = d.toISOString().split('T')[0];
+  fetch('https://api.github.com/search/repositories?q=created:>'+dateStr+'&sort=stars&order=desc&per_page=15')
+  .then(function(r){if(!r.ok)return;return r.json();})
+  .then(function(data){
+    if(data&&data.items&&data.items.length){
+      trendingLoaded = true;
+      renderRepos(data.items, '🔥 本月 Trending');
+    }
+  })
+  .catch(function(){});
+};
 window.searchRepos=function(){
 var q=input.value.trim();
 if(!q){app.innerHTML='<div class="error"><p>请输入搜索关键词</p></div>';return;}
@@ -70,9 +101,16 @@ return r.json();
 if(!data.items||!data.items.length){
 app.innerHTML='<div class="error"><p>未找到相关仓库</p></div>';return;
 }
-var html='<div class="result-count">找到 '+data.total_count+' 个仓库，显示前 '+Math.min(data.items.length,30)+' 个</div>';
-html+='<div class="repo-list">';
-data.items.slice(0,30).forEach(function(r){
+renderRepos(data.items, '搜索结果: "'+input.value.trim()+'"');
+})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchRepos()">重试</button></div>';
+});
+};
+function renderRepos(items, title){
+var countNote = title ? '<div class="result-count">'+title+'</div>' : '';
+var html=countNote+'<div class="repo-list">';
+items.slice(0,30).forEach(function(r){
 var lang=r.language||'';
 var color=langColors[lang]||'#8b949e';
 var desc=r.description||'暂无描述';
@@ -91,11 +129,7 @@ html+='</div>';
 });
 html+='</div>';
 app.innerHTML=html;
-})
-.catch(function(e){
-app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchRepos()">重试</button></div>';
-});
-};
+}
 function formatNum(n){if(n>=1000)return (n/1000).toFixed(1)+'k';return n;}
 function timeAgo(ts){
 var seconds=Math.floor((Date.now()-new Date(ts).getTime())/1000);
@@ -108,6 +142,7 @@ var days=Math.floor(hours/24);
 return days+'天前';
 }
 })();
+window.loadTrending();
 </script>
 <script src="../i18n.js"></script>
 </body>
