@@ -42,7 +42,7 @@ h1{font-size:1.3rem;color:var(--text)}
 <div class="container">
 <header>
 <h1>🌤️ 实时天气查询</h1>
-<p class="sub">Open-Meteo · 免费天气数据</p>
+<p class="sub">中国城市天气查询 · 内置数据库精确匹配</p>
 </header>
 <div class="search-box">
 <input type="text" id="cityInput" placeholder="输入城市名，如 Beijing" onkeydown="if(event.key==='Enter')searchCity()">
@@ -53,86 +53,199 @@ h1{font-size:1.3rem;color:var(--text)}
 <script>
 (function(){
 'use strict';
-var app=document.getElementById('app');
-var cityInput=document.getElementById('cityInput');
+var app = document.getElementById('app');
+var input = document.getElementById('cityInput');
 var wmoCodes={'0':'☀️ 晴天','1':'🌤️ 大部晴朗','2':'⛅ 多云','3':'☁️ 阴天','45':'🌫️ 雾','48':'🌫️ 雾凇','51':'🌧️ 小毛毛雨','53':'🌧️ 中毛毛雨','55':'🌧️ 大毛毛雨','56':'🌧️ 冻毛毛雨','57':'🌧️ 冻毛毛雨','61':'🌧️ 小雨','63':'🌧️ 中雨','65':'🌧️ 大雨','66':'🌧️ 冻雨','67':'🌧️ 冻雨','71':'🌨️ 小雪','73':'🌨️ 中雪','75':'🌨️ 大雪','77':'🌨️ 雪粒','80':'🌧️ 阵雨','81':'🌧️ 中阵雨','82':'🌧️ 大阵雨','85':'🌨️ 小阵雪','86':'🌨️ 大阵雪','95':'⛈️ 雷暴','96':'⛈️ 冰雹雷暴','99':'⛈️ 强冰雹雷暴'};
-window.searchCity=function(){
-var q=cityInput.value.trim();
-if(!q){app.innerHTML='<div class="error"><p>请输入城市名</p></div>';return;}
-app.innerHTML='<div class="loading"><div class="spinner"></div><p>搜索中...</p></div>';
-fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=10&language=zh&sort=population')
-.then(function(r){if(!r.ok)throw new Error('搜索失败');return r.json();})
-.then(function(data){
-if(!data.results||!data.results.length){
-app.innerHTML='<div class="error"><p>未找到城市</p></div>';return;
-}
-var results = data.results;
-var ql = q.toLowerCase();
-// Sort by population descending - real Shanghai (24M) always beats fake ones
-results.sort(function(a,b){
-  var aCN = a.country_code === 'CN';
-  var bCN = b.country_code === 'CN';
-  if (aCN !== bCN) return aCN ? -1 : 1;
-  return (b.population || 0) - (a.population || 0);
-});
-// Deduplicate by name+admin1
-var seen = {};
-results = results.filter(function(c){
-  var key = c.name+'|'+(c.admin1||'');
-  if (seen[key]) return false;
-  seen[key] = true;
-  return true;
-}).slice(0,5);
-if(results.length===1){
-  getWeather(results[0]);return;
-}
-var html='<div class="city-list">';
-results.forEach(function(c){
-var country=c.country||'';
-html+='<div class="city-item" data-lat="'+c.latitude+'" data-lon="'+c.longitude+'" data-name="'+c.name+'">'+c.name+(c.admin1?', '+c.admin1:'')+(country?', '+country:'')+'</div>';
-});
-html+='</div>';
-app.innerHTML=html;
-document.querySelectorAll('.city-item').forEach(function(el){
-el.addEventListener('click',function(){
-getWeather({latitude:parseFloat(el.dataset.lat),longitude:parseFloat(el.dataset.lon),name:el.dataset.name});
-});
-});
-})
-.catch(function(e){
-app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="searchCity()">重试</button></div>';
-});
+var CITIES = [
+['北京','北京',39.904,116.407],['上海','上海',31.230,121.474],['天津','天津',39.343,117.361],['重庆','重庆',29.432,106.912],
+['广州','广东',23.129,113.264],['深圳','广东',22.543,114.058],['杭州','浙江',30.274,120.155],['成都','四川',30.572,104.066],
+['武汉','湖北',30.592,114.305],['南京','江苏',32.060,118.796],['西安','陕西',34.341,108.939],['长沙','湖南',28.228,112.938],
+['郑州','河南',34.746,113.625],['东莞','广东',23.021,113.752],['青岛','山东',36.067,120.382],['沈阳','辽宁',41.805,123.431],
+['宁波','浙江',29.868,121.544],['昆明','云南',25.038,102.718],['大连','辽宁',38.914,121.615],['厦门','福建',24.479,118.089],
+['合肥','安徽',31.820,117.227],['佛山','广东',23.021,113.122],['福州','福建',26.074,119.296],['哈尔滨','黑龙江',45.803,126.535],
+['济南','山东',36.651,117.120],['温州','浙江',28.015,120.699],['长春','吉林',43.816,125.323],['石家庄','河北',38.042,114.514],
+['常州','江苏',31.810,119.974],['泉州','福建',24.874,118.589],['南宁','广西',22.817,108.366],['贵阳','贵州',26.647,106.630],
+['南昌','江西',28.682,115.858],['太原','山西',37.870,112.550],['烟台','山东',37.464,121.447],['嘉兴','浙江',30.771,120.755],
+['南通','江苏',31.979,120.894],['金华','浙江',29.079,119.647],['珠海','广东',22.271,113.577],['惠州','广东',23.112,114.416],
+['徐州','江苏',34.205,117.284],['海口','海南',20.044,110.199],['乌鲁木齐','新疆',43.825,87.616],['绍兴','浙江',30.030,120.580],
+['中山','广东',22.517,113.393],['台州','浙江',28.656,121.420],['兰州','甘肃',36.061,103.834],['潍坊','山东',36.706,119.162],
+['保定','河北',38.874,115.464],['镇江','江苏',32.187,119.425],['扬州','江苏',32.394,119.413],['桂林','广西',25.273,110.290],
+['洛阳','河南',34.618,112.454],['唐山','河北',39.630,118.180],['三亚','海南',18.252,109.512],['湖州','浙江',30.894,120.087],
+['呼和浩特','内蒙古',40.842,111.749],['廊坊','河北',39.538,116.683],['银川','宁夏',38.486,106.232],['西宁','青海',36.617,101.778],
+['秦皇岛','河北',39.935,119.600],['威海','山东',37.513,122.122],['包头','内蒙古',40.657,109.840],['襄阳','湖北',32.009,112.123],
+['赣州','江西',25.831,114.935],['芜湖','安徽',31.353,118.433],['邯郸','河北',36.625,114.539],['阜阳','安徽',32.891,115.814],
+['遵义','贵州',27.725,106.927],['无锡','江苏',31.491,120.312],['淄博','山东',36.813,118.055],['淮安','江苏',33.611,119.015],
+['莆田','福建',25.454,119.007],['柳州','广西',24.325,109.428],['漳州','福建',24.513,117.647],['盐城','江苏',33.350,120.157],
+['泰安','山东',36.200,117.087],['宜昌','湖北',30.692,111.287],['济宁','山东',35.414,116.587],
+['湛江','广东',21.272,110.359],['鞍山','辽宁',41.108,122.994],['株洲','湖南',27.827,113.134],['咸阳','陕西',34.330,108.709],
+['临沂','山东',35.104,118.357],['九江','江西',29.705,115.999],
+['大庆','黑龙江',46.589,125.104],['蚌埠','安徽',32.915,117.389],['汕头','广东',23.354,116.682],['绵阳','四川',31.467,104.679],
+['鄂尔多斯','内蒙古',39.608,109.781],['连云港','江苏',34.596,119.221],['张家口','河北',40.768,114.886],
+['日照','山东',35.420,119.527],['拉萨','西藏',29.650,91.172],['大同','山西',40.076,113.300],['吉林','吉林',43.837,126.549],
+['锦州','辽宁',41.095,121.127],['丹东','辽宁',40.129,124.383],
+['荆州','湖北',30.335,112.241],['岳阳','湖南',29.371,113.129],['湘潭','湖南',27.830,112.944],['常德','湖南',29.031,111.699],
+['北海','广西',21.481,109.120],['梧州','广西',23.477,111.279],['江门','广东',22.579,113.082],['茂名','广东',21.663,110.925],
+['韶关','广东',24.810,113.597],['肇庆','广东',23.047,112.465],['梅州','广东',24.289,116.122],['丽水','浙江',28.468,119.910],
+['衢州','浙江',28.970,118.875],['舟山','浙江',29.985,122.207],['马鞍山','安徽',31.671,118.507],['安庆','安徽',30.542,117.063],
+['六安','安徽',31.735,116.520],['滁州','安徽',32.301,118.316],['宿州','安徽',33.647,116.964],['池州','安徽',30.664,117.491],
+['宣城','安徽',30.944,118.758],['南平','福建',26.644,118.178],['龙岩','福建',25.075,117.017],['宁德','福建',26.666,119.548],
+['萍乡','江西',27.623,113.855],['新余','江西',27.818,114.917],['鹰潭','江西',28.260,117.069],['宜春','江西',27.804,114.383],
+['上饶','江西',28.455,117.943],['吉安','江西',27.113,114.993],['抚州','江西',27.948,116.358],
+['聊城','山东',36.457,115.986],['德州','山东',37.435,116.359],['滨州','山东',37.382,117.972],['东营','山东',37.433,118.674],
+['枣庄','山东',34.810,117.321],['菏泽','山东',35.240,115.441]
+];
+var PINYIN_MAP = {
+  'beijing':'北京','shanghai':'上海','tianjin':'天津','chongqing':'重庆',
+  'guangzhou':'广州','shenzhen':'深圳','hangzhou':'杭州','chengdu':'成都',
+  'wuhan':'武汉','nanjing':'南京','xian':'西安','changsha':'长沙',
+  'zhengzhou':'郑州','dongguan':'东莞','qingdao':'青岛','shenyang':'沈阳',
+  'ningbo':'宁波','kunming':'昆明','dalian':'大连','xiamen':'厦门',
+  'hefei':'合肥','foshan':'佛山','fuzhou':'福州','haerbin':'哈尔滨',
+  'jinan':'济南','wenzhou':'温州','changchun':'长春','shijiazhuang':'石家庄',
+  'changzhou':'常州','quanzhou':'泉州','nanning':'南宁','guiyang':'贵阳',
+  'nanchang':'南昌','taiyuan':'太原','yantai':'烟台','jiaxing':'嘉兴',
+  'nantong':'南通','jinhua':'金华','zhuhai':'珠海','huizhou':'惠州',
+  'xuzhou':'徐州','haikou':'海口','wulumuqi':'乌鲁木齐','shaoxing':'绍兴',
+  'zhongshan':'中山','taizhou':'台州','lanzhou':'兰州','weifang':'潍坊',
+  'baoding':'保定','zhenjiang':'镇江','yangzhou':'扬州','guilin':'桂林',
+  'luoyang':'洛阳','tangshan':'唐山','sanya':'三亚','huzhou':'湖州',
+  'huhehaote':'呼和浩特','langfang':'廊坊','yinchuan':'银川','xining':'西宁',
+  'qinhuangdao':'秦皇岛','weihai':'威海','baotou':'包头','xiangyang':'襄阳',
+  'ganzhou':'赣州','wuhu':'芜湖','handan':'邯郸','fuyang':'阜阳',
+  'zunyi':'遵义','wuxi':'无锡','zibo':'淄博','huaian':'淮安',
+  'putian':'莆田','liuzhou':'柳州','zhangzhou':'漳州','yancheng':'盐城',
+  'taian':'泰安','yichang':'宜昌','jining':'济宁','zhanjiang':'湛江',
+  'anshan':'鞍山','zhuzhou':'株洲','xianyang':'咸阳','linyi':'临沂',
+  'jiujiang':'九江','daqing':'大庆','bengbu':'蚌埠','shantou':'汕头',
+  'mianyang':'绵阳','eerduosi':'鄂尔多斯','lianyungang':'连云港','zhangjiakou':'张家口',
+  'rizhao':'日照','lasa':'拉萨','datong':'大同','jilin':'吉林',
+  'jinzhou':'锦州','dandong':'丹东','jingzhou':'荆州','yueyang':'岳阳',
+  'xiangtan':'湘潭','changde':'常德','beihai':'北海','wuzhou':'梧州',
+  'jiangmen':'江门','maoming':'茂名','shaoguan':'韶关','zhaoqing':'肇庆',
+  'meizhou':'梅州','lishui':'丽水','quzhou':'衢州','zhoushan':'舟山',
+  'maanshan':'马鞍山','anqing':'安庆','liuan':'六安','chuzhou':'滁州',
+  'suzhou':'宿州','chizhou':'池州','xuancheng':'宣城','nanping':'南平',
+  'longyan':'龙岩','ningde':'宁德','pingxiang':'萍乡','xinyu':'新余',
+  'yingtan':'鹰潭','yichun':'宜春','shangrao':'上饶','jian':'吉安',
+  'fuzhou':'抚州','liaocheng':'聊城','dezhou':'德州','binzhou':'滨州',
+  'dongying':'东营','zaozhuang':'枣庄','heze':'菏泽'
 };
-window.getWeather=function(city){
-app.innerHTML='<div class="loading"><div class="spinner"></div><p>获取天气数据...</p></div>';
-var lat=city.latitude,lon=city.longitude,name=city.name;
-fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto')
-.then(function(r){if(!r.ok)throw new Error('获取天气失败');return r.json();})
-.then(function(data){
-var cw=data.current_weather;
-var dl=data.daily;
-var wmoCode=cw.weathercode;
-var wmoDesc=wmoCodes[String(wmoCode)]||'🌡️ '+wmoCode;
-var html='<div class="weather-card">';
-html+='<div class="weather-city">'+name+'</div>';
-html+='<div class="weather-icon">'+wmoDesc.split(' ')[0]+'</div>';
-html+='<div class="weather-temp">'+cw.temperature+'°C</div>';
-html+='<div class="weather-desc">'+wmoDesc.replace(/^[^\s]+\s/,'')+'</div>';
-html+='<div class="weather-details">';
-html+='<div class="weather-detail"><div class="label">🌡️ 当前温度</div><div class="value">'+cw.temperature+'°C</div></div>';
-html+='<div class="weather-detail"><div class="label">💨 风速</div><div class="value">'+cw.windspeed+' km/h</div></div>';
-html+='<div class="weather-detail"><div class="label">🧭 风向</div><div class="value">'+cw.winddirection+'°</div></div>';
-html+='<div class="weather-detail"><div class="label">📈 最高温</div><div class="value">'+dl.temperature_2m_max[0]+'°C</div></div>';
-html+='<div class="weather-detail"><div class="label">📉 最低温</div><div class="value">'+dl.temperature_2m_min[0]+'°C</div></div>';
-html+='</div></div>';
-app.innerHTML=html;
-})
-.catch(function(e){
-app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="getWeather({latitude:'+lat+',longitude:'+lon+',name:\''+name+'\'})">重试</button></div>';
-});
+function searchCities(q){
+  q = q.trim();
+  if (!q) return [];
+  var ql = q.toLowerCase();
+  var matched = [];
+  var seen = {};
+  // exact name match
+  for (var i = 0; i < CITIES.length; i++){
+    var c = CITIES[i];
+    if (c[0] === q || c[0] === ql || c[0].toLowerCase() === ql){
+      var key = c[0]+'|'+c[1];
+      if (!seen[key]){matched.push(c); seen[key] = true;}
+    }
+  }
+  // starts-with match
+  for (var i = 0; i < CITIES.length; i++){
+    var c = CITIES[i];
+    if (c[0].indexOf(q) === 0 || c[0].toLowerCase().indexOf(ql) === 0){
+      var key = c[0]+'|'+c[1];
+      if (!seen[key]){matched.push(c); seen[key] = true;}
+    }
+  }
+  // pinyin match
+  if (PINYIN_MAP[ql]){
+    var pCity = PINYIN_MAP[ql];
+    for (var i = 0; i < CITIES.length; i++){
+      var c = CITIES[i];
+      if (c[0] === pCity){
+        var key = c[0]+'|'+c[1];
+        if (!seen[key]){matched.push(c); seen[key] = true;}
+      }
+    }
+  }
+  // substring match (limit to 3)
+  var subCount = 0;
+  for (var i = 0; i < CITIES.length && subCount < 3; i++){
+    var c = CITIES[i];
+    if (c[0].indexOf(q) >= 0 || c[0].toLowerCase().indexOf(ql) >= 0){
+      var key = c[0]+'|'+c[1];
+      if (!seen[key]){matched.push(c); seen[key] = true; subCount++;}
+    }
+  }
+  return matched.slice(0, 8);
 }
+function fetchWeather(city){
+  app.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在查询 '+city[0]+' 天气...</p></div>';
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude='+city[2]+'&longitude='+city[3]+'&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=3';
+  fetch(url).then(function(r){
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(data){
+    var c = data.current;
+    if (!c){app.innerHTML='<div class="error"><p>数据格式异常</p></div>';return;}
+    var wcode = String(c.weather_code);
+    var icon = wmoCodes[wcode] || '🌡️';
+    var dirs = ['北','东北','东','东南','南','西南','西','西北'];
+    var dirIdx = Math.round(c.wind_direction_10m / 45) % 8;
+    var windDir = dirs[dirIdx] || '';
+    var html = '<div class="weather-card">';
+    html += '<div class="weather-city">'+city[0]+'，'+city[1]+'</div>';
+    html += '<div class="weather-icon">'+icon.split(' ')[0]+'</div>';
+    html += '<div class="weather-temp">'+Math.round(c.temperature_2m)+'°C</div>';
+    html += '<div class="weather-desc">'+icon+' · 体感 '+Math.round(c.apparent_temperature)+'°C</div>';
+    html += '<div class="weather-details">';
+    html += '<div class="weather-detail"><div class="label">湿度</div><div class="value">'+c.relative_humidity_2m+'%</div></div>';
+    html += '<div class="weather-detail"><div class="label">风速</div><div class="value">'+c.wind_speed_10m+' km/h</div></div>';
+    html += '<div class="weather-detail"><div class="label">风向</div><div class="value">'+windDir+'</div></div>';
+    html += '<div class="weather-detail"><div class="label">气压</div><div class="value">'+Math.round(c.pressure_msl)+' hPa</div></div>';
+    html += '</div></div>';
+    // 3-day forecast
+    var d = data.daily;
+    if (d && d.time){
+      html += '<div class="weather-card"><h3 style="font-size:.95rem;margin-bottom:12px">📅 未来3天预报</h3>';
+      for (var i = 0; i < d.time.length; i++){
+        var dw = String(d.weather_code[i]);
+        var di = wmoCodes[dw] || '🌡️';
+        var dateParts = d.time[i].split('-');
+        var dateStr = parseInt(dateParts[1])+'月'+parseInt(dateParts[2])+'日';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:'+(i<d.time.length-1?'1px solid var(--border)':'none')+'">';
+        html += '<span style="font-size:.85rem;min-width:60px">'+dateStr+'</span>';
+        html += '<span style="font-size:.85rem">'+di+'</span>';
+        html += '<span style="font-size:.85rem"><span style="color:var(--red)">'+Math.round(d.temperature_2m_max[i])+'°</span> / <span style="color:var(--blue)">'+Math.round(d.temperature_2m_min[i])+'°</span></span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    app.innerHTML = html;
+  }).catch(function(e){
+    app.innerHTML = '<div class="error"><p>⚠️ 查询失败: '+e.message+'</p><button class="retry-btn" onclick="searchCity()">重试</button></div>';
+  });
+}
+window.searchCity = function(){
+  var q = input.value.trim();
+  if (!q){app.innerHTML='<div class="error"><p>请输入城市名</p></div>';return;}
+  var cities = searchCities(q);
+  if (cities.length === 0){
+    app.innerHTML = '<div class="error"><p>未找到「'+q+'」对应的城市</p></div>';
+    return;
+  }
+  if (cities.length === 1){
+    fetchWeather(cities[0]);
+    return;
+  }
+  var html = '<div class="weather-card" style="text-align:left"><h3 style="font-size:.95rem;margin-bottom:12px">找到 '+cities.length+' 个匹配城市</h3><div class="city-list">';
+  for (var i = 0; i < cities.length; i++){
+    var c = cities[i];
+    html += '<div class="city-item" onclick="selectCity('+i+')" data-idx="'+i+'">'+c[0]+'，'+c[1]+'</div>';
+  }
+  html += '</div></div>';
+  app.innerHTML = html;
+  window._cityResults = cities;
+};
+window.selectCity = function(idx){
+  var cities = window._cityResults;
+  if (cities && cities[idx]) fetchWeather(cities[idx]);
+};
+input.focus();
 })();
-</script>
-<script src="../i18n.js"></script>
-</body>
-</html>
+</script></body></html>
