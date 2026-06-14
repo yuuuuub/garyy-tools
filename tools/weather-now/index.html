@@ -60,17 +60,40 @@ window.searchCity=function(){
 var q=cityInput.value.trim();
 if(!q){app.innerHTML='<div class="error"><p>请输入城市名</p></div>';return;}
 app.innerHTML='<div class="loading"><div class="spinner"></div><p>搜索中...</p></div>';
-fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=5&language=zh')
+fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=10&language=zh')
 .then(function(r){if(!r.ok)throw new Error('搜索失败');return r.json();})
 .then(function(data){
 if(!data.results||!data.results.length){
 app.innerHTML='<div class="error"><p>未找到城市</p></div>';return;
 }
-if(data.results.length===1){
-getWeather(data.results[0]);return;
+var results = data.results;
+var ql = q.toLowerCase();
+// Sort: exact name match first, then starts-with, prefer CN
+results.sort(function(a,b){
+  var aExact = a.name === q || a.name.toLowerCase() === ql;
+  var bExact = b.name === q || b.name.toLowerCase() === ql;
+  if (aExact !== bExact) return aExact ? -1 : 1;
+  var aStarts = a.name.indexOf(q) === 0 || a.name.toLowerCase().indexOf(ql) === 0;
+  var bStarts = b.name.indexOf(q) === 0 || b.name.toLowerCase().indexOf(ql) === 0;
+  if (aStarts !== bStarts) return aStarts ? -1 : 1;
+  var aCN = a.country_code === 'CN';
+  var bCN = b.country_code === 'CN';
+  if (aCN !== bCN) return aCN ? -1 : 1;
+  return (b.population || 0) - (a.population || 0);
+});
+// Deduplicate by rounding lat/lon to 1 decimal
+var seen = {};
+results = results.filter(function(c){
+  var key = Math.round(c.latitude*10)+','+Math.round(c.longitude*10);
+  if (seen[key]) return false;
+  seen[key] = true;
+  return true;
+}).slice(0,6);
+if(results.length===1){
+  getWeather(results[0]);return;
 }
 var html='<div class="city-list">';
-data.results.forEach(function(c){
+results.forEach(function(c){
 var country=c.country||'';
 html+='<div class="city-item" data-lat="'+c.latitude+'" data-lon="'+c.longitude+'" data-name="'+c.name+'">'+c.name+(c.admin1?', '+c.admin1:'')+(country?', '+country:'')+'</div>';
 });
