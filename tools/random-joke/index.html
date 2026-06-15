@@ -12,59 +12,106 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto
 header{text-align:center;padding:28px 0 16px}
 h1{font-size:1.3rem;color:var(--text)}
 .sub{color:var(--text2);font-size:.82rem;margin-top:4px}
-.loading{text-align:center;padding:60px 0}
-.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading p{color:var(--text2);font-size:.85rem}
-.error{text-align:center;padding:40px 0;color:var(--red);font-size:.9rem}
-.retry-btn{margin-top:10px;padding:8px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;font-size:.85rem}
 .joke-card{margin-top:30px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:32px 24px;text-align:center}
 .joke-icon{font-size:2.5rem;margin-bottom:12px}
 .joke-text{font-size:1.1rem;line-height:1.7;color:var(--text);margin-bottom:8px}
-.joke-delivery{font-size:1rem;line-height:1.6;color:var(--gold);margin-top:6px;font-style:italic}
+.joke-delivery{font-size:1rem;line-height:1.6;color:var(--gold);margin-top:6px;font-weight:500}
 .joke-category{display:inline-block;margin-top:12px;padding:3px 12px;background:var(--bg);border:1px solid var(--border);border-radius:12px;font-size:.75rem;color:var(--text2)}
 .next-btn{display:block;margin:24px auto 0;padding:12px 32px;background:var(--blue);border:none;border-radius:var(--radius);color:#fff;cursor:pointer;font-size:.9rem;transition:.2s}
 .next-btn:hover{opacity:.9}
+.filter-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.filter-btn{padding:6px 14px;background:var(--card);border:1px solid var(--border);border-radius:16px;color:var(--text2);cursor:pointer;font-size:.8rem;transition:.2s}
+.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 </style>
 </head>
 <body>
 <div class="container">
 <header>
 <h1>😂 随机笑话</h1>
-<p class="sub">JokeAPI</p>
+<p class="sub">精选中文段子 · 每日一笑</p>
 </header>
+<div class="filter-bar" id="filterBar"></div>
 <div id="app"></div>
 </div>
 <script>
 (function(){
 'use strict';
-var app=document.getElementById('app');
+var jokes=[
+{c:'谐音梗',j:'为什么程序员不喜欢出门？',a:'因为外面没有WiFi！'},
+{c:'谐音梗',j:'什么动物最容易摔倒？',a:'狐狸，因为狐狸很狡猾（脚滑）。'},
+{c:'谐音梗',j:'什么水果最忙？',a:'芒果，因为它很"忙"果。'},
+{c:'谐音梗',j:'什么门永远关不上？',a:'球门。'},
+{c:'谐音梗',j:'什么桥不能走？',a:'鼻梁。'},
+{c:'冷笑话',j:'小明：妈妈，我考了0分。',a:'妈妈：你看看隔壁小红，考了100分！小明：那又怎样，她又不是我老婆。'},
+{c:'冷笑话',j:'一只蜗牛爬上了苹果树。',a:'树上的毛毛虫问：你来干嘛？蜗牛说：苹果不是还没熟吗？我现在出发，到的时候正好熟了。'},
+{c:'冷笑话',j:'为什么蚕宝宝很有钱？',a:'因为它会结茧（节俭）。'},
+{c:'冷笑话',j:'什么鱼不能吃？',a:'木鱼。'},
+{c:'冷笑话',j:'从前有个人叫小蔡，有一天他被人丢进了河里。',a:'然后…他就变成了菜汤。'},
+{c:'搞笑',j:'老师：小明，你长大想当什么？',a:'小明：我想当医生。老师：为什么？小明：因为只有医生可以让人说"啊——"。'},
+{c:'搞笑',j:'老婆：你觉得我漂亮吗？',a:'老公：你是我见过最美的女人。老婆：你撒谎！老公：对，我撒谎了，你不是我见过的，你是从未见过的。'},
+{c:'搞笑',j:'老板：你为什么迟到？',a:'员工：因为路上堵车。老板：那你为什么不早点出门？员工：因为我不想太早到，那样显得您来得太晚。'},
+{c:'搞笑',j:'面试官：你期望的薪资是多少？',a:'我：100万。面试官：你觉得你值这个价吗？我：不觉得，但我需要一个让你拒绝我的理由。'},
+{c:'搞笑',j:'小明去相亲。',a:'女方：你有房吗？小明：有。女方：有车吗？小明：有。女方：那你有什么缺点？小明：缺点你。'},
+{c:'生活',j:'今天去超市买东西。',a:'收银员：需要袋子吗？我：不用，我有环保袋。收银员：那你的环保袋呢？我：忘在家里了，但我环保的心没忘。'},
+{c:'生活',j:'同事问我：你知道什么是真正的勇敢吗？',a:'我说：不知道。他说：就是你媳妇问你"我是不是胖了"的时候，你敢说"是"。'},
+{c:'生活',j:'今天发工资了。',a:'我看了看工资条，深吸一口气，对自己说：够了。然后又看了看房价，又深吸一口气：不够。'},
+{c:'生活',j:'女朋友问我：如果我和你妈同时掉进水里...',a:'我：放心，我妈会游泳。女朋友：那我呢？我：你不是说你最擅长"沉鱼落雁"吗？'},
+{c:'生活',j:'今天去相亲。',a:'对方问我：你平时有什么爱好？我说：我喜欢看书。她说：看什么书？我说：看人。她说：那你看出我是什么人了吗？我说：看不出来，你太好看了。'},
+{c:'动物',j:'一只企鹅走进了一家便利店。',a:'它问老板：你们这里卖企鹅吗？老板：不卖。企鹅：那你们为什么叫便利店？'},
+{c:'动物',j:'为什么大象不用电脑？',a:'因为它怕鼠标。'},
+{c:'动物',j:'一只猫对另一只猫说：你知道我最喜欢什么运动吗？',a:'另一只猫：什么？第一只猫：追尾巴。'},
+{c:'动物',j:'狗和猫比赛跑步。',a:'狗赢了。猫不服，说：你作弊！狗说：我怎么作弊了？猫说：你一直在追我，肯定有动力！'},
+{c:'动物',j:'一只鹦鹉对主人说：你好帅！',a:'主人很开心。鹦鹉又说：但是你在镜子面前可不是这么说的。'},
+{c:'职场',j:'什么是996？',a:'就是早上9点上班，晚上9点下班，一周工作6天。什么是007？就是从0点到0点，一周7天都在工作。'},
+{c:'职场',j:'老板：你觉得加班怎么样？',a:'员工：我觉得加班是一种修行。老板：那你怎么不修行？员工：我在修，修的是不生气。'},
+{c:'职场',j:'新来的实习生问老员工：这里加班多吗？',a:'老员工：不多，就是每天加一点。实习生：那还好。老员工：每天加一点，一年就加了很多。'},
+{c:'数学',j:'小明：1+1等于几？',a:'小红：2。小明：错，等于田。'},
+{c:'数学',j:'老师：如果我给你2个苹果，再给你2个苹果，你有几个苹果？',a:'小明：不知道，因为我没有苹果。'},
+{c:'数学',j:'为什么6怕7？',a:'因为67（六七）8（八）事。'},
+{c:'食物',j:'饺子对包子说：你为什么总是穿得这么厚？',a:'包子说：因为我内心太丰富了，怕别人看出来。'},
+{c:'食物',j:'面条对馒头说：你为什么总是这么胖？',a:'馒头说：因为我内心充实。面条说：那你怎么不去充实一下？馒头说：我充实了，只是你看不到。'},
+{c:'食物',j:'为什么冰淇淋永远不生气？',a:'因为它太"冷"静了。'},
+{c:'旅行',j:'导游：这里是中国最著名的景点。',a:'游客：有什么特别的吗？导游：特别贵。'},
+{c:'旅行',j:'我去旅游，问当地人：这里有什么好玩的？',a:'当地人：有。我：在哪里？当地人：在手机里，打开朋友圈就能看到。'},
+{c:'旅行',j:'旅行的意义是什么？',a:'就是从自己待腻了的地方，去别人待腻了的地方。'},
+{c:'学习',j:'老师：谁知道"举一反三"是什么意思？',a:'小明：就是举一个例子，反三次。'},
+{c:'学习',j:'学霸和学渣的区别是什么？',a:'学霸：这道题我不会。学渣：这道题我不会。但是学霸的"不会"是真不会，学渣的"不会"是根本没看。'},
+{c:'学习',j:'为什么书本是最好的朋友？',a:'因为它永远不会问你"在吗"。'},
+{c:'科技',j:'程序员最怕什么？',a:'最怕改需求。第二怕的是：需求没改，但甲方说"我觉得应该改一下"。'},
+{c:'科技',j:'为什么程序员总是分不清万圣节和圣诞节？',a:'因为 Oct 31 = Dec 25（八进制31 = 十进制25）。'},
+{c:'科技',j:'AI对程序员说：我要取代你。',a:'程序员：好的，你先把我今天的bug修了。AI：…我还是再学习学习吧。'}
+];
+var categories=['全部'];
+jokes.forEach(function(j){if(categories.indexOf(j.c)===-1)categories.push(j.c);});
+var currentCat='全部';
+function renderFilter(){
+var html='';
+categories.forEach(function(c){
+html+='<button class="filter-btn'+(c===currentCat?' active':'')+'" onclick="filterJoke(\''+c+'\')">'+c+'</button>';
+});
+document.getElementById('filterBar').innerHTML=html;
+}
+window.filterJoke=function(cat){
+currentCat=cat;
+renderFilter();
+loadJoke();
+};
 function loadJoke(){
-app.innerHTML='<div class="loading"><div class="spinner"></div><p>找段子中...</p></div>';
-fetch('https://v2.jokeapi.dev/joke/Any?safe-mode')
-.then(function(r){if(!r.ok)throw new Error('请求失败 ('+r.status+')');return r.json();})
-.then(function(data){
+var filtered=jokes.filter(function(j){return currentCat==='全部'||j.c===currentCat;});
+var data=filtered[Math.floor(Math.random()*filtered.length)];
 var html='<div class="joke-card">';
 html+='<div class="joke-icon">😂</div>';
-if(data.type==='single'){
-html+='<div class="joke-text">'+data.joke+'</div>';
-}else if(data.type==='twopart'){
-html+='<div class="joke-text">'+data.setup+'</div>';
-html+='<div class="joke-delivery">— '+data.delivery+'</div>';
-}
-html+='<div class="joke-category"># '+(data.category||'Unknown')+'</div>';
+html+='<div class="joke-text">'+data.j+'</div>';
+html+='<div class="joke-delivery">— '+data.a+'</div>';
+html+='<div class="joke-category"># '+data.c+'</div>';
 html+='</div>';
 html+='<button class="next-btn" onclick="loadJoke()">🔄 再来一个</button>';
-app.innerHTML=html;
-})
-.catch(function(e){
-app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="loadJoke()">重试</button></div>';
-});
+document.getElementById('app').innerHTML=html;
 }
 window.loadJoke=loadJoke;
+renderFilter();
 loadJoke();
 })();
 </script>
-<script src="../i18n.js"></script>
 </body>
 </html>
