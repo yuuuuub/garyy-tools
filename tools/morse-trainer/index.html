@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>摩斯电码练习器 - Morse Trainer</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --bg-card-hover: #1c2333;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-secondary: #8b949e;
+  --primary: #58a6ff;
+  --primary-bg: #1f2a3a;
+  --success: #3fb950;
+  --success-bg: #162a1a;
+  --danger: #f85149;
+  --danger-bg: #2a161a;
+  --warning: #d2991d;
+  --warning-bg: #2a2416;
+  --dot-color: #58a6ff;
+  --dash-color: #f0883e;
+  --radius: 8px;
+  --radius-sm: 6px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 20px; }
+
+/* header */
+.header {
+  text-align: center;
+  padding: 30px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.header h1 { font-size: 28px; font-weight: 700; color: var(--primary); }
+.header .subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+
+/* tabs */
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 24px;
+  background: var(--bg-card); border-radius: var(--radius); padding: 4px;
+  border: 1px solid var(--border);
+}
+.tab {
+  flex: 1; text-align: center; padding: 10px 8px; cursor: pointer;
+  border-radius: var(--radius-sm); font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); transition: all 0.2s;
+  border: none; background: none;
+}
+.tab:hover { color: var(--text); background: var(--bg-card-hover); }
+.tab.active { color: #fff; background: var(--primary); }
+
+/* speed control */
+.speed-bar {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  padding: 14px 18px; background: var(--bg-card); border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.speed-bar label { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.speed-bar input[type="range"] { flex: 1; accent-color: var(--primary); }
+.speed-value {
+  font-size: 14px; font-weight: 600; color: var(--primary);
+  min-width: 60px; text-align: center;
+}
+
+/* card */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+}
+
+/* learn mode - morse grid */
+.morse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.morse-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px;
+  text-align: center; cursor: pointer;
+  transition: all 0.2s; user-select: none;
+}
+.morse-item:hover { border-color: var(--primary); background: var(--bg-card-hover); }
+.morse-item .char { font-size: 24px; font-weight: 700; color: var(--primary); }
+.morse-item .code { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.morse-item .visual { display: flex; gap: 3px; justify-content: center; margin-top: 6px; }
+.dot-visual { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-color); }
+.dash-visual { width: 20px; height: 8px; border-radius: 4px; background: var(--dash-color); }
+.morse-item.playing { border-color: var(--success); box-shadow: 0 0 12px rgba(63,185,80,.3); }
+
+/* practice mode */
+.practice-area { text-align: center; }
+.practice-char {
+  font-size: 72px; font-weight: 800; color: var(--primary);
+  margin: 20px 0;
+}
+.practice-input {
+  width: 160px; padding: 12px 16px; font-size: 28px; text-align: center;
+  background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius);
+  color: var(--text); outline: none; transition: border-color 0.2s;
+}
+.practice-input:focus { border-color: var(--primary); }
+.practice-input.correct { border-color: var(--success); background: var(--success-bg); }
+.practice-input.wrong { border-color: var(--danger); background: var(--danger-bg); }
+
+.feedback {
+  font-size: 20px; font-weight: 600; margin-top: 12px; min-height: 32px;
+}
+.feedback.correct { color: var(--success); }
+.feedback.wrong { color: var(--danger); }
+
+/* listen mode */
+.listen-area { text-align: center; }
+.listen-output {
+  background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 20px; min-height: 80px; font-size: 28px; letter-spacing: 4px;
+  display: flex; align-items: center; justify-content: center; margin: 16px 0;
+}
+.listen-input {
+  width: 160px; padding: 12px 16px; font-size: 28px; text-align: center;
+  background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius);
+  color: var(--text); outline: none; transition: border-color 0.2s;
+}
+.listen-input:focus { border-color: var(--primary); }
+
+/* keyboard input mode */
+.keyboard-area { text-align: center; }
+.keyboard-display {
+  background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 20px; min-height: 60px; font-size: 28px; letter-spacing: 6px;
+  display: flex; align-items: center; justify-content: center; margin: 16px 0;
+}
+.keyboard-indicator {
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  margin: 16px 0; font-size: 14px;
+}
+.key-dot-indicator, .key-dash-indicator {
+  padding: 6px 16px; border-radius: var(--radius-sm); font-weight: 600;
+  border: 1px solid var(--border);
+}
+.key-dot-indicator.active { background: var(--dot-color); color: #000; border-color: var(--dot-color); box-shadow: 0 0 12px rgba(88,166,255,.4); }
+.key-dash-indicator.active { background: var(--dash-color); color: #000; border-color: var(--dash-color); box-shadow: 0 0 12px rgba(240,136,62,.4); }
+.key-dot-indicator { background: var(--bg); color: var(--dot-color); }
+.key-dash-indicator { background: var(--bg); color: var(--dash-color); }
+
+/* challenge mode */
+.challenge-area { text-align: center; }
+.challenge-info {
+  display: flex; gap: 16px; justify-content: center; margin: 16px 0;
+  flex-wrap: wrap;
+}
+.challenge-stat {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 18px; text-align: center;
+}
+.challenge-stat .val { font-size: 22px; font-weight: 700; color: var(--primary); }
+.challenge-stat .lbl { font-size: 11px; color: var(--text-secondary); }
+.challenge-char {
+  font-size: 16px; color: var(--text-secondary);
+  min-height: 30px; letter-spacing: 3px; margin-bottom: 8px;
+}
+
+/* stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 6px;
+  margin-top: 16px;
+}
+.stat-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px; text-align: center;
+}
+.stat-item .ch { font-size: 18px; font-weight: 700; color: var(--primary); }
+.stat-item .sc { font-size: 11px; color: var(--text-secondary); }
+.stat-item .pct { font-size: 10px; color: var(--success); }
+.stat-item.weak .pct { color: var(--warning); }
+.stat-item.bad .pct { color: var(--danger); }
+
+/* score */
+.score-display {
+  display: flex; gap: 20px; justify-content: center;
+  margin: 16px 0; flex-wrap: wrap;
+}
+.score-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 20px; text-align: center;
+  min-width: 90px;
+}
+.score-item .val { font-size: 26px; font-weight: 700; color: var(--primary); }
+.score-item .lbl { font-size: 12px; color: var(--text-secondary); }
+
+/* buttons */
+.btn {
+  padding: 10px 24px; border-radius: var(--radius-sm); font-size: 14px;
+  font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text); transition: all 0.2s;
+}
+.btn:hover { background: var(--bg-card-hover); border-color: var(--primary); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { opacity: 0.9; }
+.btn-success { background: var(--success); color: #fff; border-color: var(--success); }
+.btn-success:hover { opacity: 0.9; }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+
+/* help box */
+.help-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 18px;
+  margin-top: 16px; font-size: 13px; color: var(--text-secondary);
+  line-height: 1.8;
+}
+.help-box strong { color: var(--text); }
+
+/* hidden sections */
+.section { display: none; }
+.section.active { display: block; }
+
+/* responsive */
+@media (max-width: 600px) {
+  .container { padding: 12px; }
+  .header h1 { font-size: 22px; }
+  .morse-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .tabs { flex-wrap: wrap; }
+  .tab { flex: 1 1 40%; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>摩斯电码练习器</h1>
+  <div class="subtitle">Morse Code Trainer — 从入门到精通</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-mode="learn">学习模式</button>
+  <button class="tab" data-mode="practice">练习模式</button>
+  <button class="tab" data-mode="listen">听译模式</button>
+  <button class="tab" data-mode="keyboard">键盘发送</button>
+  <button class="tab" data-mode="challenge">挑战模式</button>
+</div>
+
+<div class="speed-bar">
+  <label>速度</label>
+  <input type="range" id="speed" min="5" max="30" value="10" step="1">
+  <span class="speed-value" id="speedVal">10 WPM</span>
+  <label style="margin-left:auto">难度：初级</label>
+</div>
+
+<!-- Learn Mode -->
+<div class="section active" id="section-learn">
+  <div class="card">
+    <h3>全部摩斯电码</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px">点击任意字母/数字可播放对应摩斯电码音频</p>
+    <div class="morse-grid" id="morseGrid"></div>
+  </div>
+</div>
+
+<!-- Practice Mode -->
+<div class="section" id="section-practice">
+  <div class="card practice-area">
+    <div class="score-display" id="practiceScore">
+      <div class="score-item"><div class="val" id="psCorrect">0</div><div class="lbl">正确</div></div>
+      <div class="score-item"><div class="val" id="psWrong">0</div><div class="lbl">错误</div></div>
+      <div class="score-item"><div class="val" id="psRate">0%</div><div class="lbl">正确率</div></div>
+    </div>
+    <div class="practice-char" id="practiceChar">?</div>
+    <input type="text" class="practice-input" id="practiceInput" maxlength="1" placeholder="?" autocomplete="off">
+    <div class="feedback" id="practiceFeedback"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnPracticeNew">新题目</button>
+      <button class="btn" id="btnPracticePlay">播放提示</button>
+    </div>
+    <div class="help-box">
+      <strong>操作提示：</strong>屏幕上会显示一个随机字符，你需要输入对应的字母/数字。输入后按回车或自动判定结果。点击「播放提示」可听摩斯电码。
+    </div>
+  </div>
+</div>
+
+<!-- Listen Mode -->
+<div class="section" id="section-listen">
+  <div class="card listen-area">
+    <div class="score-display" id="listenScore">
+      <div class="score-item"><div class="val" id="lsCorrect">0</div><div class="lbl">正确</div></div>
+      <div class="score-item"><div class="val" id="lsWrong">0</div><div class="lbl">错误</div></div>
+      <div class="score-item"><div class="val" id="lsRate">0%</div><div class="lbl">正确率</div></div>
+    </div>
+    <div class="listen-output" id="listenOutput">点击播放按钮开始</div>
+    <input type="text" class="listen-input" id="listenInput" maxlength="1" placeholder="?" autocomplete="off">
+    <div class="feedback" id="listenFeedback"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnListenPlay">播放摩斯电码</button>
+      <button class="btn" id="btnListenReplay">重新播放</button>
+    </div>
+    <div class="help-box">
+      <strong>操作提示：</strong>点击「播放摩斯电码」听一段摩斯电码音频，然后输入你听到的字符。可以「重新播放」再听一遍。
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard Input Mode -->
+<div class="section" id="section-keyboard">
+  <div class="card keyboard-area">
+    <div class="score-display">
+      <div class="score-item"><div class="val" id="ksCount">0</div><div class="lbl">已发送字符</div></div>
+    </div>
+    <div class="keyboard-display" id="keyboardDisplay"></div>
+    <div class="keyboard-indicator">
+      <div class="key-dot-indicator" id="dotIndicator">点 (·) - 短按空格</div>
+      <div class="key-dash-indicator" id="dashIndicator">划 (−) - 长按空格</div>
+    </div>
+    <div class="feedback" id="keyboardFeedback"></div>
+    <div class="btn-group">
+      <button class="btn" id="btnKeyboardClear">清空</button>
+      <button class="btn btn-danger" id="btnKeyboardDel">删除上一个</button>
+    </div>
+    <div class="help-box">
+      <strong>操作提示：</strong>短按空格键（&lt;200ms）输入点(·)，长按空格键（&gt;200ms）输入划(−)。字符间停顿超过1.5秒自动识别为一个字符。也支持键盘快捷键：J=点，K=划。
+    </div>
+  </div>
+</div>
+
+<!-- Challenge Mode -->
+<div class="section" id="section-challenge">
+  <div class="card challenge-area">
+    <div class="challenge-info" id="challengeInfo">
+      <div class="challenge-stat"><div class="val" id="chRound">0</div><div class="lbl">当前轮次</div></div>
+      <div class="challenge-stat"><div class="val" id="chScore">0</div><div class="lbl">得分</div></div>
+      <div class="challenge-stat"><div class="val" id="chStreak">0</div><div class="lbl">连击</div></div>
+      <div class="challenge-stat"><div class="val" id="chTimer">60</div><div class="lbl">剩余秒数</div></div>
+    </div>
+    <div class="challenge-char" id="challengeMorse"></div>
+    <div class="practice-char" id="challengeChar">?</div>
+    <input type="text" class="practice-input" id="challengeInput" maxlength="1" placeholder="?" autocomplete="off">
+    <div class="feedback" id="challengeFeedback"></div>
+    <div class="btn-group">
+      <button class="btn btn-success" id="btnChallengeStart">开始挑战 (60秒)</button>
+    </div>
+    <div class="help-box">
+      <strong>挑战规则：</strong>在60秒内尽可能多地识别摩斯电码字符。答对+10分且连击递增，连续答错扣连击。连击越高得分越多！时间结束后显示最终得分。
+    </div>
+  </div>
+</div>
+
+<!-- Progress Stats -->
+<div class="card" id="statsCard">
+  <h3>学习进度统计</h3>
+  <div class="stats-grid" id="statsGrid"></div>
+  <div class="btn-group">
+    <button class="btn btn-danger" id="btnResetStats">重置统计</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+// === Morse Code Data ===
+const MORSE = {
+  A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....',
+  I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.',
+  Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-',
+  Y: '-.--', Z: '--..',
+  '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+  '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.'
+};
+const CHARS = Object.keys(MORSE);
+const MORSE_REVERSE = {};
+for (const [k, v] of Object.entries(MORSE)) MORSE_REVERSE[v] = k;
+
+// === Audio Engine ===
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function getSpeed() { return parseInt(document.getElementById('speed').value); }
+
+function playTone(duration, freq = 700) {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + duration);
+}
+
+function getDotDuration() {
+  return 1200 / getSpeed() / 1000; // seconds per dot
+}
+
+function playMorse(code) {
+  const dotLen = getDotDuration();
+  const ctx = getAudioCtx();
+  let t = ctx.currentTime;
+  for (let i = 0; i < code.length; i++) {
+    const isDot = code[i] === '.';
+    const dur = isDot ? dotLen : dotLen * 3;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 700;
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur);
+    t += dur + dotLen;
+  }
+  return (t + dotLen * 2 - ctx.currentTime) * 1000;
+}
+
+function playMorseSymbol(code) {
+  const ctx = getAudioCtx();
+  const dotLen = getDotDuration();
+  let t = ctx.currentTime;
+  for (let i = 0; i < code.length; i++) {
+    const isDot = code[i] === '.';
+    const dur = isDot ? dotLen : dotLen * 3;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 700;
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur);
+    t += dur + dotLen;
+  }
+}
+
+// === State Management ===
+let practiceChar = null;
+let listenChar = null;
+let challengeActive = false;
+let challengeTimer = null;
+let challengeTimeLeft = 60;
+let challengeRound = 0;
+let challengeScore = 0;
+let challengeStreak = 0;
+
+// Stats
+function loadStats() {
+  try { return JSON.parse(localStorage.getItem('morse_stats') || '{}'); } catch { return {}; }
+}
+function saveStats(s) { localStorage.setItem('morse_stats', JSON.stringify(s)); }
+function recordStat(ch, correct) {
+  const s = loadStats();
+  if (!s[ch]) s[ch] = { total: 0, correct: 0 };
+  s[ch].total++;
+  if (correct) s[ch].correct++;
+  saveStats(s);
+  renderStats();
+}
+function resetStats() { localStorage.removeItem('morse_stats'); renderStats(); }
+function renderStats() {
+  const grid = document.getElementById('statsGrid');
+  const s = loadStats();
+  grid.innerHTML = CHARS.map(ch => {
+    const d = s[ch];
+    const total = d ? d.total : 0;
+    const correct = d ? d.correct : 0;
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    let cls = '';
+    if (total > 0 && pct < 50) cls = 'bad';
+    else if (total > 0 && pct < 80) cls = 'weak';
+    return `<div class="stat-item ${cls}">
+      <div class="ch">${ch}</div>
+      <div class="sc">${correct}/${total}</div>
+      <div class="pct">${total > 0 ? pct + '%' : '-'}</div>
+    </div>`;
+  }).join('');
+}
+
+// === Learn Mode ===
+function renderLearnGrid() {
+  const grid = document.getElementById('morseGrid');
+  grid.innerHTML = CHARS.map(ch => {
+    const code = MORSE[ch];
+    const visual = [...code].map(s => s === '.' ? '<span class="dot-visual"></span>' : '<span class="dash-visual"></span>').join('');
+    return `<div class="morse-item" data-char="${ch}" data-code="${code}">
+      <div class="char">${ch}</div>
+      <div class="code">${code}</div>
+      <div class="visual">${visual}</div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.morse-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const code = el.dataset.code;
+      const items = grid.querySelectorAll('.morse-item');
+      items.forEach(i => i.classList.remove('playing'));
+      el.classList.add('playing');
+      playMorseSymbol(code);
+      const dur = getDotDuration() * (code.replace(/\./g, '').length * 3 + code.replace(/-/g, '').length + code.length) * 1000;
+      setTimeout(() => el.classList.remove('playing'), Math.max(dur, 400));
+    });
+  });
+}
+
+// === Practice Mode ===
+function newPracticeChar() {
+  practiceChar = CHARS[Math.floor(Math.random() * CHARS.length)];
+  document.getElementById('practiceChar').textContent = practiceChar;
+  document.getElementById('practiceInput').value = '';
+  document.getElementById('practiceInput').className = 'practice-input';
+  document.getElementById('practiceFeedback').textContent = '';
+  document.getElementById('practiceFeedback').className = 'feedback';
+  document.getElementById('practiceInput').focus();
+}
+
+function checkPractice(input) {
+  if (!practiceChar) return;
+  const el = document.getElementById('practiceInput');
+  const fb = document.getElementById('practiceFeedback');
+  const correct = input.toUpperCase() === practiceChar;
+  el.className = 'practice-input ' + (correct ? 'correct' : 'wrong');
+  fb.className = 'feedback ' + (correct ? 'correct' : 'wrong');
+  fb.textContent = correct ? '正确！' : `错误，正确答案是 "${practiceChar}"`;
+  recordStat(practiceChar, correct);
+  updatePracticeScore(correct);
+  setTimeout(() => newPracticeChar(), correct ? 600 : 1500);
+}
+
+function updatePracticeScore(correct) {
+  const s = loadStats();
+  let totalC = 0, totalT = 0;
+  for (const d of Object.values(s)) { totalC += d.correct; totalT += d.total; }
+  document.getElementById('psCorrect').textContent = totalC;
+  document.getElementById('psWrong').textContent = totalT - totalC;
+  document.getElementById('psRate').textContent = totalT > 0 ? Math.round((totalC / totalT) * 100) + '%' : '0%';
+}
+
+function playPracticeHint() {
+  if (practiceChar) playMorseSymbol(MORSE[practiceChar]);
+}
+
+// === Listen Mode ===
+function newListenRound() {
+  listenChar = CHARS[Math.floor(Math.random() * CHARS.length)];
+  document.getElementById('listenOutput').textContent = '????';
+  document.getElementById('listenInput').value = '';
+  document.getElementById('listenInput').className = 'listen-input';
+  document.getElementById('listenFeedback').textContent = '';
+  document.getElementById('listenFeedback').className = 'feedback';
+}
+
+function playListenAudio() {
+  if (!listenChar) newListenRound();
+  const code = MORSE[listenChar];
+  document.getElementById('listenOutput').textContent = '正在播放...';
+  const dur = playMorse(code);
+  setTimeout(() => {
+    document.getElementById('listenOutput').textContent = '????';
+    document.getElementById('listenInput').focus();
+  }, dur);
+}
+
+function replayListen() { playListenAudio(); }
+
+function checkListen(input) {
+  if (!listenChar) return;
+  const el = document.getElementById('listenInput');
+  const fb = document.getElementById('listenFeedback');
+  const out = document.getElementById('listenOutput');
+  const correct = input.toUpperCase() === listenChar;
+  el.className = 'listen-input ' + (correct ? 'correct' : 'wrong');
+  fb.className = 'feedback ' + (correct ? 'correct' : 'wrong');
+  out.innerHTML = correct
+    ? `<span style="color:var(--success)">${MORSE[listenChar]}</span> = <span style="color:var(--success)">${listenChar}</span>`
+    : `<span style="color:var(--danger)">${MORSE[listenChar]}</span> = <span style="color:var(--danger)">${listenChar}</span>`;
+  fb.textContent = correct ? '正确！' : `错误，正确答案是 "${listenChar}"`;
+  recordStat(listenChar, correct);
+  updateListenScore(correct);
+  setTimeout(() => { newListenRound(); playListenAudio(); }, correct ? 800 : 2000);
+}
+
+function updateListenScore(correct) {
+  const s = loadStats();
+  let totalC = 0, totalT = 0;
+  for (const d of Object.values(s)) { totalC += d.correct; totalT += d.total; }
+  document.getElementById('lsCorrect').textContent = totalC;
+  document.getElementById('lsWrong').textContent = totalT - totalC;
+  document.getElementById('lsRate').textContent = totalT > 0 ? Math.round((totalC / totalT) * 100) + '%' : '0%';
+}
+
+// === Keyboard Input Mode ===
+let keyBuffer = '';
+let keyTimer = null;
+let lastKeyTime = 0;
+
+function handleKeyDown(e) {
+  if (e.code === 'Space' || e.key === 'j' || e.key === 'J') {
+    e.preventDefault();
+    if (!lastKeyTime) lastKeyTime = Date.now();
+    if (e.key === 'j' || e.key === 'J') {
+      keyBuffer += '.';
+      document.getElementById('dotIndicator').classList.add('active');
+      setTimeout(() => document.getElementById('dotIndicator').classList.remove('active'), 150);
+      playTone(getDotDuration(), 700);
+      resetKeyTimer();
+      updateKeyboardDisplay();
+      return;
+    }
+    document.getElementById('dotIndicator').classList.add('active');
+  }
+  if (e.key === 'k' || e.key === 'K') {
+    e.preventDefault();
+    keyBuffer += '-';
+    document.getElementById('dashIndicator').classList.add('active');
+    setTimeout(() => document.getElementById('dashIndicator').classList.remove('active'), 150);
+    playTone(getDotDuration() * 3, 700);
+    resetKeyTimer();
+    updateKeyboardDisplay();
+  }
+}
+
+function handleKeyUp(e) {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    document.getElementById('dotIndicator').classList.remove('active');
+    document.getElementById('dashIndicator').classList.remove('active');
+    const duration = Date.now() - lastKeyTime;
+    keyBuffer += duration < 200 ? '.' : '-';
+    playTone(duration < 200 ? getDotDuration() : getDotDuration() * 3, 700);
+    lastKeyTime = 0;
+    resetKeyTimer();
+    updateKeyboardDisplay();
+  }
+}
+
+function resetKeyTimer() {
+  if (keyTimer) clearTimeout(keyTimer);
+  keyTimer = setTimeout(commitKeyBuffer, 1500);
+}
+
+function commitKeyBuffer() {
+  if (!keyBuffer) return;
+  const ch = MORSE_REVERSE[keyBuffer];
+  const fb = document.getElementById('keyboardFeedback');
+  if (ch) {
+    document.getElementById('keyboardDisplay').innerHTML +=
+      `<span style="color:var(--success);margin:0 8px">${ch}</span>`;
+    fb.className = 'feedback correct';
+    fb.textContent = `识别成功: ${keyBuffer} = ${ch}`;
+    recordStat(ch, true);
+    document.getElementById('ksCount').textContent =
+      parseInt(document.getElementById('ksCount').textContent) + 1;
+  } else {
+    fb.className = 'feedback wrong';
+    fb.textContent = `无法识别: ${keyBuffer}`;
+  }
+  keyBuffer = '';
+  updateKeyboardDisplay();
+}
+
+function updateKeyboardDisplay() {
+  const display = document.getElementById('keyboardDisplay');
+  const lastChild = display.querySelector('span');
+  let lastHTML = '';
+  if (lastChild) {
+    const prev = display.querySelectorAll('span');
+    prev.forEach((s, i) => {
+      if (i < prev.length - 1) lastHTML += s.outerHTML;
+    });
+  }
+  const visual = [...keyBuffer].map(s => s === '.' ? '<span class="dot-visual" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--dot-color);margin:0 2px"></span>' : '<span class="dash-visual" style="display:inline-block;width:24px;height:10px;border-radius:4px;background:var(--dash-color);margin:0 2px"></span>').join('');
+  display.innerHTML = lastHTML + (keyBuffer ? `<span style="margin:0 8px">${visual} <small style="color:var(--text-secondary)">${keyBuffer}</small></span>` : '等待输入...');
+}
+
+function clearKeyboard() {
+  keyBuffer = '';
+  if (keyTimer) clearTimeout(keyTimer);
+  document.getElementById('keyboardDisplay').innerHTML = '等待输入...';
+  document.getElementById('keyboardFeedback').textContent = '';
+  document.getElementById('keyboardFeedback').className = 'feedback';
+}
+
+function deleteLastSymbol() {
+  if (keyBuffer.length > 0) {
+    keyBuffer = keyBuffer.slice(0, -1);
+    updateKeyboardDisplay();
+    resetKeyTimer();
+  }
+}
+
+// === Challenge Mode ===
+function startChallenge() {
+  if (challengeActive) return;
+  challengeActive = true;
+  challengeTimeLeft = 60;
+  challengeRound = 0;
+  challengeScore = 0;
+  challengeStreak = 0;
+  document.getElementById('chRound').textContent = '0';
+  document.getElementById('chScore').textContent = '0';
+  document.getElementById('chStreak').textContent = '0';
+  document.getElementById('chTimer').textContent = '60';
+  document.getElementById('challengeInput').value = '';
+  document.getElementById('challengeInput').disabled = false;
+  document.getElementById('challengeFeedback').textContent = '';
+  document.getElementById('challengeFeedback').className = 'feedback';
+  document.getElementById('btnChallengeStart').textContent = '挑战进行中...';
+  document.getElementById('btnChallengeStart').disabled = true;
+  newChallengeRound();
+  document.getElementById('challengeInput').focus();
+  challengeTimer = setInterval(() => {
+    challengeTimeLeft--;
+    document.getElementById('chTimer').textContent = challengeTimeLeft;
+    if (challengeTimeLeft <= 0) endChallenge();
+  }, 1000);
+}
+
+function newChallengeRound() {
+  challengeRound++;
+  const ch = CHARS[Math.floor(Math.random() * CHARS.length)];
+  document.getElementById('challengeMorse').textContent = MORSE[ch];
+  document.getElementById('challengeChar').textContent = '?';
+  document.getElementById('challengeInput').value = '';
+  document.getElementById('challengeInput').className = 'practice-input';
+  document.getElementById('challengeFeedback').textContent = '';
+  document.getElementById('challengeFeedback').className = 'feedback';
+  document.getElementById('chRound').textContent = challengeRound;
+  // store answer temporarily
+  document.getElementById('challengeChar').dataset.answer = ch;
+  setTimeout(() => playMorseSymbol(MORSE[ch]), 100);
+}
+
+function checkChallenge(input) {
+  if (!challengeActive) return;
+  const answer = document.getElementById('challengeChar').dataset.answer;
+  if (!answer) return;
+  const correct = input.toUpperCase() === answer;
+  const fb = document.getElementById('challengeFeedback');
+  const el = document.getElementById('challengeInput');
+  const chEl = document.getElementById('challengeChar');
+  el.className = 'practice-input ' + (correct ? 'correct' : 'wrong');
+  fb.className = 'feedback ' + (correct ? 'correct' : 'wrong');
+  if (correct) {
+    challengeStreak++;
+    challengeScore += 10 + Math.min(challengeStreak - 1, 10) * 2;
+    fb.textContent = `正确！+${10 + Math.min(challengeStreak - 1, 10) * 2}分 (连击x${challengeStreak})`;
+    chEl.textContent = answer;
+    chEl.style.color = 'var(--success)';
+  } else {
+    challengeScore = Math.max(0, challengeScore - 5);
+    fb.textContent = `错误！正确答案是 "${answer}" (-5分)`;
+    chEl.textContent = answer;
+    chEl.style.color = 'var(--danger)';
+    challengeStreak = 0;
+  }
+  recordStat(answer, correct);
+  document.getElementById('chScore').textContent = challengeScore;
+  document.getElementById('chStreak').textContent = challengeStreak;
+  setTimeout(() => { chEl.style.color = 'var(--primary)'; if (challengeActive) newChallengeRound(); }, correct ? 300 : 1000);
+}
+
+function endChallenge() {
+  challengeActive = false;
+  if (challengeTimer) clearInterval(challengeTimer);
+  document.getElementById('challengeInput').disabled = true;
+  document.getElementById('challengeMorse').textContent = '挑战结束！';
+  document.getElementById('challengeChar').textContent = challengeScore;
+  document.getElementById('challengeChar').style.color = 'var(--primary)';
+  document.getElementById('challengeFeedback').textContent = `最终得分: ${challengeScore} 分 | 完成了 ${challengeRound} 轮`;
+  document.getElementById('challengeFeedback').className = 'feedback correct';
+  document.getElementById('btnChallengeStart').textContent = '重新挑战 (60秒)';
+  document.getElementById('btnChallengeStart').disabled = false;
+}
+
+// === Tab Switching ===
+function switchTab(mode) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelector(`.tab[data-mode="${mode}"]`).classList.add('active');
+  document.getElementById('section-' + mode).classList.add('active');
+
+  if (mode === 'practice') newPracticeChar();
+  if (mode === 'listen') { newListenRound(); playListenAudio(); }
+  if (mode === 'challenge') { if (!challengeActive) endChallenge(); }
+  if (mode === 'keyboard') { clearKeyboard(); }
+}
+
+// === Event Listeners ===
+document.getElementById('speed').addEventListener('input', function() {
+  const wpm = this.value;
+  document.getElementById('speedVal').textContent = wpm + ' WPM';
+  let label = '专家';
+  if (wpm <= 8) label = '初级';
+  else if (wpm <= 15) label = '中级';
+  else if (wpm <= 22) label = '高级';
+  this.nextElementSibling.nextElementSibling.textContent = '难度：' + label;
+});
+
+document.getElementById('tabs').addEventListener('click', function(e) {
+  if (e.target.classList.contains('tab')) switchTab(e.target.dataset.mode);
+});
+
+// Practice
+document.getElementById('btnPracticeNew').addEventListener('click', newPracticeChar);
+document.getElementById('btnPracticePlay').addEventListener('click', playPracticeHint);
+document.getElementById('practiceInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') checkPractice(this.value);
+});
+document.getElementById('practiceInput').addEventListener('input', function() {
+  if (this.value.length >= 1) checkPractice(this.value);
+});
+
+// Listen
+document.getElementById('btnListenPlay').addEventListener('click', playListenAudio);
+document.getElementById('btnListenReplay').addEventListener('click', replayListen);
+document.getElementById('listenInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') checkListen(this.value);
+});
+document.getElementById('listenInput').addEventListener('input', function() {
+  if (this.value.length >= 1) checkListen(this.value);
+});
+
+// Keyboard
+document.getElementById('btnKeyboardClear').addEventListener('click', clearKeyboard);
+document.getElementById('btnKeyboardDel').addEventListener('click', deleteLastSymbol);
+
+// Challenge
+document.getElementById('btnChallengeStart').addEventListener('click', startChallenge);
+document.getElementById('challengeInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') checkChallenge(this.value);
+});
+document.getElementById('challengeInput').addEventListener('input', function() {
+  if (this.value.length >= 1) checkChallenge(this.value);
+});
+
+// Reset stats
+document.getElementById('btnResetStats').addEventListener('click', resetStats);
+
+// Global keyboard handlers
+document.addEventListener('keydown', function(e) {
+  const activeMode = document.querySelector('.tab.active').dataset.mode;
+  if (activeMode === 'keyboard' && (e.code === 'Space' || e.key === 'j' || e.key === 'J' || e.key === 'k' || e.key === 'K')) {
+    handleKeyDown(e);
+  }
+});
+document.addEventListener('keyup', function(e) {
+  const activeMode = document.querySelector('.tab.active').dataset.mode;
+  if (activeMode === 'keyboard' && e.code === 'Space') {
+    handleKeyUp(e);
+  }
+});
+
+// === Init ===
+renderLearnGrid();
+renderStats();
+updatePracticeScore();
+updateListenScore();
+document.getElementById('speed').dispatchEvent(new Event('input'));
+</script>
+</body>
+</html>

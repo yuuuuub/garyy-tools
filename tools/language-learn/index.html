@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多语言学习卡 - Language Learn</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #222240;
+    --accent: #6c63ff;
+    --accent2: #4ecdc4;
+    --gold: #ffd93d;
+    --green: #6bcb77;
+    --red: #ff6b6b;
+    --text: #e0e0e0;
+    --text2: #a0a0b8;
+    --text3: #6a6a88;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 4px 24px rgba(0,0,0,.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* Background particles */
+  .bg-particles {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.3;
+  }
+  .bg-particles span {
+    position: absolute; display: block; width: 4px; height: 4px;
+    background: var(--accent); border-radius: 50%;
+    animation: float 8s infinite ease-in-out;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+    50% { transform: translateY(-40px) scale(1.8); opacity: 0.7; }
+  }
+  /* Layout */
+  .container { max-width: 860px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; background: var(--surface); border-radius: var(--radius);
+    margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  header .logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  header .stats {
+    display: flex; gap: 20px; font-size: 0.85rem; color: var(--text2);
+  }
+  header .stats .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  header .stats .stat .val { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+  header .stats .streak .val { color: var(--gold); }
+  header .stats .daily .val { color: var(--accent2); }
+  /* Panels */
+  .panel {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .panel h3 { font-size: 1rem; color: var(--text2); margin-bottom: 16px; font-weight: 500; }
+  /* Lang selector */
+  .lang-tabs, .cat-tabs {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  }
+  .lang-tab, .cat-tab {
+    padding: 8px 16px; border-radius: 20px; border: 1.5px solid var(--surface2);
+    background: transparent; color: var(--text2); cursor: pointer;
+    font-size: 0.85rem; transition: all .2s; user-select: none;
+  }
+  .lang-tab:hover, .cat-tab:hover { border-color: var(--accent); color: var(--text); }
+  .lang-tab.active, .cat-tab.active {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  /* Flashcard */
+  .flashcard-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .flashcard {
+    width: 100%; max-width: 400px; height: 240px;
+    perspective: 800px; cursor: pointer;
+  }
+  .flashcard-inner {
+    width: 100%; height: 100%; position: relative;
+    transition: transform .5s; transform-style: preserve-3d;
+  }
+  .flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+  .flashcard-face {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    backface-visibility: hidden; border-radius: var(--radius);
+    padding: 20px; text-align: center;
+  }
+  .flashcard-front {
+    background: linear-gradient(135deg, var(--surface2), #2a2a50);
+    border: 1.5px solid var(--accent);
+  }
+  .flashcard-back {
+    background: linear-gradient(135deg, #2a2a50, var(--surface2));
+    border: 1.5px solid var(--accent2);
+    transform: rotateY(180deg);
+  }
+  .flashcard-word { font-size: 2.2rem; font-weight: 700; margin-bottom: 10px; }
+  .flashcard-pron { font-size: 1rem; color: var(--accent2); margin-bottom: 6px; }
+  .flashcard-trans { font-size: 1.5rem; font-weight: 600; margin-bottom: 6px; color: var(--gold); }
+  .flashcard-hint {
+    font-size: 0.85rem; color: var(--text3); margin-top: 20px;
+  }
+  .flashcard-cat-badge {
+    font-size: 0.75rem; color: var(--text3); position: absolute; top: 14px;
+    background: rgba(108,99,255,.15); padding: 4px 12px; border-radius: 12px;
+  }
+  /* Controls */
+  .card-controls {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+  }
+  .btn {
+    padding: 10px 22px; border-radius: 24px; border: none; cursor: pointer;
+    font-size: 0.9rem; font-weight: 600; transition: all .2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #7b74ff; transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--surface2); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-outline { background: transparent; color: var(--accent2); border: 1.5px solid var(--accent2); }
+  .btn-outline:hover { background: rgba(78,205,196,.1); }
+  .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+  .btn-know { background: var(--green); color: #fff; }
+  .btn-review { background: var(--gold); color: #1a1a2e; }
+  .btn-hint { background: var(--accent2); color: #1a1a2e; }
+  /* Quiz */
+  .quiz-options {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 500px; margin: 0 auto;
+  }
+  .quiz-opt {
+    padding: 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--surface2);
+    background: var(--surface2); color: var(--text); cursor: pointer;
+    font-size: 0.95rem; text-align: center; transition: all .2s;
+  }
+  .quiz-opt:hover { border-color: var(--accent); background: #2a2a50; }
+  .quiz-opt.correct { border-color: var(--green); background: rgba(107,203,119,.15); color: var(--green); }
+  .quiz-opt.wrong { border-color: var(--red); background: rgba(255,107,107,.15); color: var(--red); }
+  .quiz-opt:disabled { pointer-events: none; }
+  .quiz-score { text-align: center; font-size: 1.1rem; margin-bottom: 16px; }
+  .quiz-score span { color: var(--green); font-weight: 700; }
+  /* Progress bars */
+  .progress-section { margin-bottom: 16px; }
+  .progress-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; }
+  .progress-header .cat-name { color: var(--text2); }
+  .progress-header .cat-pct { color: var(--accent); font-weight: 600; }
+  .progress-bar {
+    height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden;
+  }
+  .progress-bar .fill {
+    height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s;
+  }
+  .progress-bar .fill.gold { background: var(--gold); }
+  .progress-bar .fill.green { background: var(--green); }
+  /* Daily goal */
+  .daily-goal { margin-top: 12px; }
+  .daily-goal .goal-info { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .daily-goal .goal-info span { font-size: 0.85rem; color: var(--text2); }
+  .daily-goal .goal-val { font-size: 0.85rem; color: var(--accent2); font-weight: 600; }
+  /* Custom word form */
+  .add-word-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .add-word-form input, .add-word-form select {
+    padding: 10px 14px; border-radius: var(--radius-sm); border: 1.5px solid var(--surface2);
+    background: var(--surface2); color: var(--text); font-size: 0.85rem; outline: none;
+    transition: border-color .2s;
+  }
+  .add-word-form input:focus, .add-word-form select:focus { border-color: var(--accent); }
+  .add-word-form input { flex: 1; min-width: 150px; }
+  .add-word-form input::placeholder { color: var(--text3); }
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal {
+    background: var(--surface); border-radius: var(--radius); padding: 30px;
+    max-width: 420px; width: 90%; box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  }
+  .modal h3 { margin-bottom: 16px; color: var(--text); }
+  .modal p { color: var(--text2); font-size: 0.9rem; line-height: 1.6; margin-bottom: 12px; }
+  .modal .confetti { font-size: 2rem; text-align: center; margin-bottom: 12px; }
+  /* Responsive */
+  @media(max-width:600px){
+    .container { padding: 12px; }
+    .flashcard { height: 200px; }
+    .flashcard-word { font-size: 1.6rem; }
+    .flashcard-trans { font-size: 1.2rem; }
+    .quiz-options { grid-template-columns: 1fr; }
+    header { flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-particles" id="particles"></div>
+<div class="container">
+  <header>
+    <div class="logo">🌐 多语言学习卡</div>
+    <div class="stats">
+      <div class="stat streak" title="连续学习天数">
+        <span class="val" id="streakCount">0</span><span>🔥 连续</span>
+      </div>
+      <div class="stat daily" title="今日已学">
+        <span class="val"><span id="todayLearned">0</span>/<span id="dailyGoal">8</span></span><span>🎯 今日</span>
+      </div>
+      <div class="stat">
+        <span class="val" id="totalLearned">0</span><span>✅ 已掌握</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 语言选择 -->
+  <div class="panel">
+    <h3>🌍 选择语言</h3>
+    <div class="lang-tabs" id="langTabs"></div>
+  </div>
+
+  <!-- 分类选择 -->
+  <div class="panel">
+    <h3>📂 词汇分类</h3>
+    <div class="cat-tabs" id="catTabs"></div>
+  </div>
+
+  <!-- 学习卡片 -->
+  <div class="panel">
+    <h3 id="cardPanelTitle">🃏 学习卡片</h3>
+    <div class="flashcard-wrap">
+      <div class="flashcard" id="flashcard" onclick="flipCard()">
+        <div class="flashcard-inner">
+          <div class="flashcard-face flashcard-front">
+            <div class="flashcard-cat-badge" id="catBadge">问候</div>
+            <div class="flashcard-word" id="cardWord">Hello</div>
+            <div class="flashcard-pron" id="cardPron">/hə-LOH/</div>
+            <div class="flashcard-hint">👆 点击翻转查看翻译</div>
+          </div>
+          <div class="flashcard-face flashcard-back">
+            <div class="flashcard-trans" id="cardTrans">你好</div>
+            <div class="flashcard-pron" id="cardPronBack">/hə-LOH/</div>
+            <div class="flashcard-hint">⏱ 间隔复习提示</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-controls">
+        <button class="btn btn-sm btn-know" onclick="markKnown()">✅ 我记住了</button>
+        <button class="btn btn-sm btn-review" onclick="markReview()">🔄 再复习</button>
+        <button class="btn btn-sm btn-outline" onclick="nextCard()">⏭ 下一个</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 测验模式 -->
+  <div class="panel">
+    <h3>🧠 测验模式</h3>
+    <div class="quiz-score" id="quizScoreDisplay">
+      得分: <span id="quizScore">0</span> / <span id="quizTotal">0</span>
+    </div>
+    <div style="text-align:center;margin-bottom:16px;">
+      <span id="quizWord" style="font-size:1.5rem;font-weight:700;"></span>
+    </div>
+    <div class="quiz-options" id="quizOptions"></div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn btn-primary" onclick="startQuiz()" id="btnStartQuiz">🎮 开始测验</button>
+    </div>
+  </div>
+
+  <!-- 自定义单词 -->
+  <div class="panel">
+    <h3>📝 添加自定义单词</h3>
+    <div class="add-word-form">
+      <input type="text" id="customWord" placeholder="目标语言单词">
+      <input type="text" id="customTrans" placeholder="中文翻译">
+      <input type="text" id="customPron" placeholder="发音 (可选)">
+      <select id="customLang"></select>
+      <select id="customCat"></select>
+      <button class="btn btn-primary btn-sm" onclick="addCustomWord()">➕ 添加</button>
+    </div>
+    <div id="customWordList" style="margin-top:12px;font-size:0.85rem;color:var(--text3);"></div>
+  </div>
+
+  <!-- 学习进度 -->
+  <div class="panel">
+    <h3>📊 分类学习进度</h3>
+    <div id="progressBars"></div>
+    <div class="daily-goal">
+      <div class="goal-info">
+        <span>🎯 每日目标</span>
+        <span class="goal-val" id="dailyGoalText">0 / 8</span>
+      </div>
+      <div class="progress-bar">
+        <div class="fill green" id="dailyGoalBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-sm btn-outline" onclick="setDailyGoal()">⚙️ 设置每日目标</button>
+      <button class="btn btn-sm btn-secondary" onclick="resetStats()" style="margin-left:8px;">🔄 重置统计</button>
+    </div>
+  </div>
+
+  <!-- 成就弹窗 -->
+  <div class="modal-overlay" id="modal" style="display:none;" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="confetti">🎉</div>
+      <h3 id="modalTitle">太棒了！</h3>
+      <p id="modalMsg"></p>
+      <button class="btn btn-primary" onclick="closeModal()" style="margin-top:8px;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const vocabData = {
+  en: {
+    name: '🇬🇧 英语',
+    categories: {
+      问候: [
+        { w: 'Hello', t: '你好', p: 'hə-LOH' },
+        { w: 'Good morning', t: '早上好', p: 'gud MOR-ning' },
+        { w: 'Good evening', t: '晚上好', p: 'gud EEV-ning' },
+        { w: 'Goodbye', t: '再见', p: 'gud-BYE' },
+        { w: 'How are you?', t: '你好吗？', p: 'how ahr YOO' },
+        { w: 'Nice to meet you', t: '很高兴认识你', p: 'nys too meet yoo' },
+        { w: 'Thank you', t: '谢谢', p: 'THANK yoo' },
+        { w: 'Sorry', t: '对不起', p: 'SOR-ee' },
+      ],
+      数字: [
+        { w: 'One', t: '一', p: 'wun' },
+        { w: 'Two', t: '二', p: 'too' },
+        { w: 'Three', t: '三', p: 'three' },
+        { w: 'Four', t: '四', p: 'for' },
+        { w: 'Five', t: '五', p: 'fyv' },
+        { w: 'Six', t: '六', p: 'siks' },
+        { w: 'Seven', t: '七', p: 'SEV-en' },
+        { w: 'Eight', t: '八', p: 'ayt' },
+        { w: 'Nine', t: '九', p: 'nyn' },
+        { w: 'Ten', t: '十', p: 'ten' },
+      ],
+      颜色: [
+        { w: 'Red', t: '红色', p: 'red' },
+        { w: 'Blue', t: '蓝色', p: 'bloo' },
+        { w: 'Green', t: '绿色', p: 'green' },
+        { w: 'Yellow', t: '黄色', p: 'YEL-oh' },
+        { w: 'Black', t: '黑色', p: 'blak' },
+        { w: 'White', t: '白色', p: 'wyt' },
+        { w: 'Orange', t: '橙色', p: 'OR-inj' },
+        { w: 'Purple', t: '紫色', p: 'PUR-pul' },
+      ],
+      食物: [
+        { w: 'Rice', t: '米饭', p: 'rys' },
+        { w: 'Bread', t: '面包', p: 'bred' },
+        { w: 'Water', t: '水', p: 'WAW-ter' },
+        { w: 'Milk', t: '牛奶', p: 'milk' },
+        { w: 'Apple', t: '苹果', p: 'AP-ul' },
+        { w: 'Chicken', t: '鸡肉', p: 'CHIK-en' },
+        { w: 'Egg', t: '鸡蛋', p: 'eg' },
+        { w: 'Coffee', t: '咖啡', p: 'KOF-ee' },
+      ],
+      交通: [
+        { w: 'Car', t: '汽车', p: 'kar' },
+        { w: 'Bus', t: '公交车', p: 'bus' },
+        { w: 'Train', t: '火车', p: 'trayn' },
+        { w: 'Airplane', t: '飞机', p: 'AIR-playn' },
+        { w: 'Bicycle', t: '自行车', p: 'BY-sik-ul' },
+        { w: 'Taxi', t: '出租车', p: 'TAK-see' },
+        { w: 'Ship', t: '船', p: 'ship' },
+        { w: 'Subway', t: '地铁', p: 'SUB-way' },
+      ],
+      日常: [
+        { w: 'Eat', t: '吃', p: 'eet' },
+        { w: 'Sleep', t: '睡觉', p: 'sleep' },
+        { w: 'Read', t: '阅读', p: 'reed' },
+        { w: 'Write', t: '写', p: 'ryt' },
+        { w: 'Walk', t: '走路', p: 'wawk' },
+        { w: 'Run', t: '跑步', p: 'run' },
+        { w: 'Buy', t: '买', p: 'by' },
+        { w: 'Learn', t: '学习', p: 'lurn' },
+      ]
+    }
+  },
+  ja: {
+    name: '🇯🇵 日语',
+    categories: {
+      问候: [
+        { w: 'こんにちは', t: '你好', p: 'kon-ni-chi-wa' },
+        { w: 'おはようございます', t: '早上好', p: 'o-ha-yo go-zai-ma-su' },
+        { w: 'こんばんは', t: '晚上好', p: 'kon-ban-wa' },
+        { w: 'さようなら', t: '再见', p: 'sa-yo-na-ra' },
+        { w: 'ありがとうございます', t: '谢谢', p: 'a-ri-ga-to go-zai-ma-su' },
+        { w: 'すみません', t: '对不起', p: 'su-mi-ma-sen' },
+        { w: 'はい', t: '是', p: 'hai' },
+        { w: 'いいえ', t: '不是', p: 'ii-e' },
+      ],
+      数字: [
+        { w: '一 (いち)', t: '一', p: 'i-chi' },
+        { w: '二 (に)', t: '二', p: 'ni' },
+        { w: '三 (さん)', t: '三', p: 'san' },
+        { w: '四 (し/よん)', t: '四', p: 'shi / yon' },
+        { w: '五 (ご)', t: '五', p: 'go' },
+        { w: '六 (ろく)', t: '六', p: 'ro-ku' },
+        { w: '七 (しち/なな)', t: '七', p: 'shi-chi / na-na' },
+        { w: '八 (はち)', t: '八', p: 'ha-chi' },
+        { w: '九 (きゅう)', t: '九', p: 'kyuu' },
+        { w: '十 (じゅう)', t: '十', p: 'juu' },
+      ],
+      颜色: [
+        { w: '赤 (あか)', t: '红色', p: 'a-ka' },
+        { w: '青 (あお)', t: '蓝色', p: 'a-o' },
+        { w: '緑 (みどり)', t: '绿色', p: 'mi-do-ri' },
+        { w: '黄色 (きいろ)', t: '黄色', p: 'ki-i-ro' },
+        { w: '黒 (くろ)', t: '黑色', p: 'ku-ro' },
+        { w: '白 (しろ)', t: '白色', p: 'shi-ro' },
+        { w: 'オレンジ', t: '橙色', p: 'o-ren-ji' },
+        { w: '紫 (むらさき)', t: '紫色', p: 'mu-ra-sa-ki' },
+      ],
+      食物: [
+        { w: 'ご飯 (ごはん)', t: '米饭', p: 'go-han' },
+        { w: 'パン', t: '面包', p: 'pan' },
+        { w: '水 (みず)', t: '水', p: 'mi-zu' },
+        { w: '牛乳 (ぎゅうにゅう)', t: '牛奶', p: 'gyuu-nyuu' },
+        { w: 'りんご', t: '苹果', p: 'rin-go' },
+        { w: '肉 (にく)', t: '肉', p: 'ni-ku' },
+        { w: '卵 (たまご)', t: '鸡蛋', p: 'ta-ma-go' },
+        { w: 'お茶 (おちゃ)', t: '茶', p: 'o-cha' },
+      ],
+      交通: [
+        { w: '車 (くるま)', t: '汽车', p: 'ku-ru-ma' },
+        { w: 'バス', t: '公交车', p: 'ba-su' },
+        { w: '電車 (でんしゃ)', t: '火车', p: 'den-sha' },
+        { w: '飛行機 (ひこうき)', t: '飞机', p: 'hi-kou-ki' },
+        { w: '自転車 (じてんしゃ)', t: '自行车', p: 'ji-ten-sha' },
+        { w: 'タクシー', t: '出租车', p: 'ta-ku-shii' },
+        { w: '船 (ふね)', t: '船', p: 'fu-ne' },
+        { w: '地下鉄 (ちかてつ)', t: '地铁', p: 'chi-ka-tetsu' },
+      ],
+      日常: [
+        { w: '食べる (たべる)', t: '吃', p: 'ta-be-ru' },
+        { w: '寝る (ねる)', t: '睡觉', p: 'ne-ru' },
+        { w: '読む (よむ)', t: '阅读', p: 'yo-mu' },
+        { w: '書く (かく)', t: '写', p: 'ka-ku' },
+        { w: '歩く (あるく)', t: '走路', p: 'a-ru-ku' },
+        { w: '走る (はしる)', t: '跑步', p: 'ha-shi-ru' },
+        { w: '買う (かう)', t: '买', p: 'ka-u' },
+        { w: '勉強する (べんきょうする)', t: '学习', p: 'ben-kyou su-ru' },
+      ]
+    }
+  },
+  ko: {
+    name: '🇰🇷 韩语',
+    categories: {
+      问候: [
+        { w: '안녕하세요', t: '你好', p: 'an-nyeong-ha-se-yo' },
+        { w: '좋은 아침입니다', t: '早上好', p: 'jo-eun a-chim-im-ni-da' },
+        { w: '안녕히 주무세요', t: '晚安', p: 'an-nyeong-hi ju-mu-se-yo' },
+        { w: '안녕히 가세요', t: '再见', p: 'an-nyeong-hi ga-se-yo' },
+        { w: '감사합니다', t: '谢谢', p: 'gam-sa-ham-ni-da' },
+        { w: '죄송합니다', t: '对不起', p: 'joe-song-ham-ni-da' },
+        { w: '네', t: '是', p: 'ne' },
+        { w: '아니요', t: '不是', p: 'a-ni-yo' },
+      ],
+      数字: [
+        { w: '일 (hana)', t: '一', p: 'il / ha-na' },
+        { w: '이 (dul)', t: '二', p: 'i / dul' },
+        { w: '삼 (set)', t: '三', p: 'sam / set' },
+        { w: '사 (net)', t: '四', p: 'sa / net' },
+        { w: '오 (daseot)', t: '五', p: 'o / da-seot' },
+        { w: '육 (yeoseot)', t: '六', p: 'yuk / yeo-seot' },
+        { w: '칠 (ilgop)', t: '七', p: 'chil / il-gop' },
+        { w: '팔 (yeodeol)', t: '八', p: 'pal / yeo-deol' },
+        { w: '구 (ahop)', t: '九', p: 'gu / a-hop' },
+        { w: '십 (yeol)', t: '十', p: 'sip / yeol' },
+      ],
+      颜色: [
+        { w: '빨간색', t: '红色', p: 'ppal-gan-saek' },
+        { w: '파란색', t: '蓝色', p: 'pa-ran-saek' },
+        { w: '초록색', t: '绿色', p: 'cho-rok-saek' },
+        { w: '노란색', t: '黄色', p: 'no-ran-saek' },
+        { w: '검은색', t: '黑色', p: 'geom-eun-saek' },
+        { w: '하얀색', t: '白色', p: 'ha-yan-saek' },
+        { w: '주황색', t: '橙色', p: 'ju-hwang-saek' },
+        { w: '보라색', t: '紫色', p: 'bo-ra-saek' },
+      ],
+      食物: [
+        { w: '밥', t: '米饭', p: 'bap' },
+        { w: '빵', t: '面包', p: 'ppang' },
+        { w: '물', t: '水', p: 'mul' },
+        { w: '우유', t: '牛奶', p: 'u-yu' },
+        { w: '사과', t: '苹果', p: 'sa-gwa' },
+        { w: '고기', t: '肉', p: 'go-gi' },
+        { w: '달걀', t: '鸡蛋', p: 'dal-gyal' },
+        { w: '커피', t: '咖啡', p: 'keo-pi' },
+      ],
+      交通: [
+        { w: '자동차', t: '汽车', p: 'ja-dong-cha' },
+        { w: '버스', t: '公交车', p: 'beo-seu' },
+        { w: '기차', t: '火车', p: 'gi-cha' },
+        { w: '비행기', t: '飞机', p: 'bi-haeng-gi' },
+        { w: '자전거', t: '自行车', p: 'ja-jeon-geo' },
+        { w: '택시', t: '出租车', p: 'taek-si' },
+        { w: '배', t: '船', p: 'bae' },
+        { w: '지하철', t: '地铁', p: 'ji-ha-cheol' },
+      ],
+      日常: [
+        { w: '먹다', t: '吃', p: 'meok-da' },
+        { w: '자다', t: '睡觉', p: 'ja-da' },
+        { w: '읽다', t: '阅读', p: 'ik-da' },
+        { w: '쓰다', t: '写', p: 'sseu-da' },
+        { w: '걷다', t: '走路', p: 'geot-da' },
+        { w: '달리다', t: '跑步', p: 'dal-li-da' },
+        { w: '사다', t: '买', p: 'sa-da' },
+        { w: '배우다', t: '学习', p: 'bae-u-da' },
+      ]
+    }
+  },
+  fr: {
+    name: '🇫🇷 法语',
+    categories: {
+      问候: [
+        { w: 'Bonjour', t: '你好', p: 'bohn-ZHOOR' },
+        { w: 'Bonsoir', t: '晚上好', p: 'bohn-SWAHR' },
+        { w: 'Au revoir', t: '再见', p: 'oh ruh-VWAHR' },
+        { w: 'Merci', t: '谢谢', p: 'mehr-SEE' },
+        { w: 'Comment allez-vous?', t: '你好吗？', p: 'koh-mahn tah-lay VOO' },
+        { w: 'Enchanté(e)', t: '很高兴认识你', p: 'ahn-shahn-TAY' },
+        { w: 'Pardon', t: '对不起', p: 'par-DOHN' },
+        { w: 'Oui / Non', t: '是 / 不是', p: 'wee / nohn' },
+      ],
+      数字: [
+        { w: 'Un', t: '一', p: 'uhn' },
+        { w: 'Deux', t: '二', p: 'duh' },
+        { w: 'Trois', t: '三', p: 'twah' },
+        { w: 'Quatre', t: '四', p: 'KAHT-r' },
+        { w: 'Cinq', t: '五', p: 'sank' },
+        { w: 'Six', t: '六', p: 'sees' },
+        { w: 'Sept', t: '七', p: 'set' },
+        { w: 'Huit', t: '八', p: 'weet' },
+        { w: 'Neuf', t: '九', p: 'nuhf' },
+        { w: 'Dix', t: '十', p: 'dees' },
+      ],
+      颜色: [
+        { w: 'Rouge', t: '红色', p: 'roozh' },
+        { w: 'Bleu', t: '蓝色', p: 'bluh' },
+        { w: 'Vert', t: '绿色', p: 'vehr' },
+        { w: 'Jaune', t: '黄色', p: 'zhohn' },
+        { w: 'Noir', t: '黑色', p: 'nwahr' },
+        { w: 'Blanc', t: '白色', p: 'blahn' },
+        { w: 'Orange', t: '橙色', p: 'oh-RAHNZH' },
+        { w: 'Violet', t: '紫色', p: 'vee-oh-LEH' },
+      ],
+      食物: [
+        { w: 'Riz', t: '米饭', p: 'ree' },
+        { w: 'Pain', t: '面包', p: 'pan' },
+        { w: 'Eau', t: '水', p: 'oh' },
+        { w: 'Lait', t: '牛奶', p: 'leh' },
+        { w: 'Pomme', t: '苹果', p: 'pom' },
+        { w: 'Poulet', t: '鸡肉', p: 'poo-LEH' },
+        { w: 'Oeuf', t: '鸡蛋', p: 'uhf' },
+        { w: 'Café', t: '咖啡', p: 'kah-FAY' },
+      ],
+      交通: [
+        { w: 'Voiture', t: '汽车', p: 'vwa-TYOOR' },
+        { w: 'Bus', t: '公交车', p: 'byoos' },
+        { w: 'Train', t: '火车', p: 'tran' },
+        { w: 'Avion', t: '飞机', p: 'ah-VYOHN' },
+        { w: 'Vélo', t: '自行车', p: 'vay-LOH' },
+        { w: 'Taxi', t: '出租车', p: 'tak-SEE' },
+        { w: 'Bateau', t: '船', p: 'bah-TOH' },
+        { w: 'Métro', t: '地铁', p: 'may-TROH' },
+      ],
+      日常: [
+        { w: 'Manger', t: '吃', p: 'mahn-ZHAY' },
+        { w: 'Dormir', t: '睡觉', p: 'dor-MEER' },
+        { w: 'Lire', t: '阅读', p: 'leer' },
+        { w: 'Écrire', t: '写', p: 'ay-KREER' },
+        { w: 'Marcher', t: '走路', p: 'mar-SHAY' },
+        { w: 'Courir', t: '跑步', p: 'koo-REER' },
+        { w: 'Acheter', t: '买', p: 'ah-shuh-TAY' },
+        { w: 'Apprendre', t: '学习', p: 'ah-PRAHN-druh' },
+      ]
+    }
+  },
+  es: {
+    name: '🇪🇸 西班牙语',
+    categories: {
+      问候: [
+        { w: 'Hola', t: '你好', p: 'OH-lah' },
+        { w: 'Buenos días', t: '早上好', p: 'BWEH-nos DEE-as' },
+        { w: 'Buenas noches', t: '晚上好', p: 'BWEH-nas NOH-ches' },
+        { w: 'Adiós', t: '再见', p: 'ah-DYOHS' },
+        { w: 'Gracias', t: '谢谢', p: 'GRAH-syas' },
+        { w: '¿Cómo está?', t: '你好吗？', p: 'KOH-moh ehs-TAH' },
+        { w: 'Mucho gusto', t: '很高兴认识你', p: 'MOO-choh GOO-stoh' },
+        { w: 'Lo siento', t: '对不起', p: 'loh SYEN-toh' },
+      ],
+      数字: [
+        { w: 'Uno', t: '一', p: 'OO-noh' },
+        { w: 'Dos', t: '二', p: 'dohs' },
+        { w: 'Tres', t: '三', p: 'trehs' },
+        { w: 'Cuatro', t: '四', p: 'KWAH-troh' },
+        { w: 'Cinco', t: '五', p: 'SEEN-koh' },
+        { w: 'Seis', t: '六', p: 'says' },
+        { w: 'Siete', t: '七', p: 'SYEH-teh' },
+        { w: 'Ocho', t: '八', p: 'OH-choh' },
+        { w: 'Nueve', t: '九', p: 'NWEH-beh' },
+        { w: 'Diez', t: '十', p: 'dyehs' },
+      ],
+      颜色: [
+        { w: 'Rojo', t: '红色', p: 'ROH-hoh' },
+        { w: 'Azul', t: '蓝色', p: 'ah-SOOL' },
+        { w: 'Verde', t: '绿色', p: 'BEHR-deh' },
+        { w: 'Amarillo', t: '黄色', p: 'ah-mah-REE-yoh' },
+        { w: 'Negro', t: '黑色', p: 'NEH-groh' },
+        { w: 'Blanco', t: '白色', p: 'BLAHN-koh' },
+        { w: 'Naranja', t: '橙色', p: 'nah-RAHN-hah' },
+        { w: 'Morado', t: '紫色', p: 'moh-RAH-doh' },
+      ],
+      食物: [
+        { w: 'Arroz', t: '米饭', p: 'ah-ROHS' },
+        { w: 'Pan', t: '面包', p: 'pahn' },
+        { w: 'Agua', t: '水', p: 'AH-gwah' },
+        { w: 'Leche', t: '牛奶', p: 'LEH-cheh' },
+        { w: 'Manzana', t: '苹果', p: 'mahn-SAH-nah' },
+        { w: 'Pollo', t: '鸡肉', p: 'POH-yoh' },
+        { w: 'Huevo', t: '鸡蛋', p: 'WEH-boh' },
+        { w: 'Café', t: '咖啡', p: 'kah-FEH' },
+      ],
+      交通: [
+        { w: 'Coche', t: '汽车', p: 'KOH-cheh' },
+        { w: 'Autobús', t: '公交车', p: 'ow-toh-BOOS' },
+        { w: 'Tren', t: '火车', p: 'trehn' },
+        { w: 'Avión', t: '飞机', p: 'ah-BYOHN' },
+        { w: 'Bicicleta', t: '自行车', p: 'bee-see-KLEH-tah' },
+        { w: 'Taxi', t: '出租车', p: 'TAHK-see' },
+        { w: 'Barco', t: '船', p: 'BAHR-koh' },
+        { w: 'Metro', t: '地铁', p: 'MEH-troh' },
+      ],
+      日常: [
+        { w: 'Comer', t: '吃', p: 'koh-MEHR' },
+        { w: 'Dormir', t: '睡觉', p: 'dor-MEER' },
+        { w: 'Leer', t: '阅读', p: 'leh-EHR' },
+        { w: 'Escribir', t: '写', p: 'ehs-kree-BEER' },
+        { w: 'Caminar', t: '走路', p: 'kah-mee-NAHR' },
+        { w: 'Correr', t: '跑步', p: 'koh-REHR' },
+        { w: 'Comprar', t: '买', p: 'kohm-PRAHR' },
+        { w: 'Aprender', t: '学习', p: 'ah-prehn-DEHR' },
+      ]
+    }
+  },
+  de: {
+    name: '🇩🇪 德语',
+    categories: {
+      问候: [
+        { w: 'Hallo', t: '你好', p: 'hah-LOH' },
+        { w: 'Guten Morgen', t: '早上好', p: 'GOO-ten MOR-gen' },
+        { w: 'Guten Abend', t: '晚上好', p: 'GOO-ten AH-bent' },
+        { w: 'Auf Wiedersehen', t: '再见', p: 'owf VEE-der-zay-en' },
+        { w: 'Danke', t: '谢谢', p: 'DAHN-keh' },
+        { w: 'Wie geht es Ihnen?', t: '你好吗？', p: 'vee gayt es EE-nen' },
+        { w: 'Es freut mich', t: '很高兴认识你', p: 'es froyt mikh' },
+        { w: 'Entschuldigung', t: '对不起', p: 'ent-SHOOL-dee-gung' },
+        { w: 'Ja / Nein', t: '是 / 不是', p: 'yah / nyn' },
+      ],
+      数字: [
+        { w: 'Eins', t: '一', p: 'eyns' },
+        { w: 'Zwei', t: '二', p: 'tsvy' },
+        { w: 'Drei', t: '三', p: 'dry' },
+        { w: 'Vier', t: '四', p: 'feer' },
+        { w: 'Fünf', t: '五', p: 'fyoonf' },
+        { w: 'Sechs', t: '六', p: 'zeks' },
+        { w: 'Sieben', t: '七', p: 'ZEE-ben' },
+        { w: 'Acht', t: '八', p: 'ahkt' },
+        { w: 'Neun', t: '九', p: 'noyn' },
+        { w: 'Zehn', t: '十', p: 'tsayn' },
+      ],
+      颜色: [
+        { w: 'Rot', t: '红色', p: 'roht' },
+        { w: 'Blau', t: '蓝色', p: 'blow' },
+        { w: 'Grün', t: '绿色', p: 'groon' },
+        { w: 'Gelb', t: '黄色', p: 'gelp' },
+        { w: 'Schwarz', t: '黑色', p: 'shvarts' },
+        { w: 'Weiß', t: '白色', p: 'vys' },
+        { w: 'Orange', t: '橙色', p: 'oh-RAHN-zhe' },
+        { w: 'Lila', t: '紫色', p: 'LEE-lah' },
+      ],
+      食物: [
+        { w: 'Reis', t: '米饭', p: 'rys' },
+        { w: 'Brot', t: '面包', p: 'broht' },
+        { w: 'Wasser', t: '水', p: 'VAH-ser' },
+        { w: 'Milch', t: '牛奶', p: 'milkh' },
+        { w: 'Apfel', t: '苹果', p: 'AH-pfel' },
+        { w: 'Hähnchen', t: '鸡肉', p: 'HEHN-khen' },
+        { w: 'Ei', t: '鸡蛋', p: 'eye' },
+        { w: 'Kaffee', t: '咖啡', p: 'kah-FEH' },
+      ],
+      交通: [
+        { w: 'Auto', t: '汽车', p: 'OW-toh' },
+        { w: 'Bus', t: '公交车', p: 'boos' },
+        { w: 'Zug', t: '火车', p: 'tsook' },
+        { w: 'Flugzeug', t: '飞机', p: 'FLOOK-tsoyk' },
+        { w: 'Fahrrad', t: '自行车', p: 'FAHR-raht' },
+        { w: 'Taxi', t: '出租车', p: 'TAK-see' },
+        { w: 'Schiff', t: '船', p: 'shif' },
+        { w: 'U-Bahn', t: '地铁', p: 'OO-bahn' },
+      ],
+      日常: [
+        { w: 'Essen', t: '吃', p: 'EH-sen' },
+        { w: 'Schlafen', t: '睡觉', p: 'SHLAH-fen' },
+        { w: 'Lesen', t: '阅读', p: 'LAY-zen' },
+        { w: 'Schreiben', t: '写', p: 'SHRY-ben' },
+        { w: 'Gehen', t: '走路', p: 'GAY-en' },
+        { w: 'Laufen', t: '跑步', p: 'LOW-fen' },
+        { w: 'Kaufen', t: '买', p: 'KOW-fen' },
+        { w: 'Lernen', t: '学习', p: 'LEHR-nen' },
+      ]
+    }
+  }
+};
+
+// ==================== STATE ====================
+const defaultCats = ['问候', '数字', '颜色', '食物', '交通', '日常'];
+let currentLang = 'en';
+let currentCat = '问候';
+let cardIndex = 0;
+let isFlipped = false;
+let quizState = null; // null=idle, {words:[], current:0, score:0, answered:bool}
+let customWords = {};  // {lang: {cat: [word1, word2, ...]}}
+let learnedWords = {}; // {lang_cat_word: true}
+let reviewWords = {};  // {lang_cat_word: true} — due for review
+let todayLearned = 0;
+let dailyGoalVal = 8;
+let streakCount = 0;
+let lastVisitDate = '';
+let totalLearnedAll = 0;
+let quizScore = 0;
+let quizTotal = 0;
+
+// ==================== LOCAL STORAGE ====================
+function save() {
+  const data = {
+    customWords, learnedWords, reviewWords,
+    todayLearned, dailyGoalVal, streakCount, lastVisitDate,
+    currentLang, currentCat, cardIndex, totalLearnedAll,
+    quizScore, quizTotal
+  };
+  localStorage.setItem('language-learn-state', JSON.stringify(data));
+}
+function load() {
+  const raw = localStorage.getItem('language-learn-state');
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    customWords = d.customWords || {};
+    learnedWords = d.learnedWords || {};
+    reviewWords = d.reviewWords || {};
+    todayLearned = d.todayLearned || 0;
+    dailyGoalVal = d.dailyGoalVal || 8;
+    streakCount = d.streakCount || 0;
+    lastVisitDate = d.lastVisitDate || '';
+    currentLang = d.currentLang || 'en';
+    currentCat = d.currentCat || '问候';
+    cardIndex = d.cardIndex || 0;
+    totalLearnedAll = d.totalLearnedAll || 0;
+    quizScore = d.quizScore || 0;
+    quizTotal = d.quizTotal || 0;
+  } catch(e) {}
+}
+
+// Streak check
+function updateStreak() {
+  const today = new Date().toISOString().split('T')[0];
+  if (lastVisitDate === today) return;
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  if (lastVisitDate === yesterday) {
+    streakCount++;
+  } else if (lastVisitDate !== today) {
+    streakCount = 1;
+  }
+  lastVisitDate = today;
+  todayLearned = 0;
+  save();
+}
+
+// ==================== GET EFFECTIVE WORDS ====================
+function getWords(lang, cat) {
+  const base = (vocabData[lang] && vocabData[lang].categories[cat]) ? vocabData[lang].categories[cat] : [];
+  const custom = (customWords[lang] && customWords[lang][cat]) ? customWords[lang][cat] : [];
+  return [...base, ...custom];
+}
+
+function getReviewWordList() {
+  const words = [];
+  for (const key in reviewWords) {
+    if (!reviewWords[key]) continue;
+    const [lang, cat, w] = key.split('___');
+    words.push({ lang, cat, w });
+  }
+  return words;
+}
+
+// ==================== RENDER ====================
+function renderLangTabs() {
+  const container = document.getElementById('langTabs');
+  container.innerHTML = '';
+  for (const [code, info] of Object.entries(vocabData)) {
+    const el = document.createElement('span');
+    el.className = 'lang-tab' + (code === currentLang ? ' active' : '');
+    el.textContent = info.name;
+    el.onclick = () => { currentLang = code; cardIndex = 0; currentCat = defaultCats[0]; quizState = null; isFlipped = false; save(); renderAll(); };
+    container.appendChild(el);
+  }
+}
+
+function renderCatTabs() {
+  const container = document.getElementById('catTabs');
+  container.innerHTML = '';
+  const info = vocabData[currentLang];
+  if (!info) return;
+  // Add review tab
+  const revEl = document.createElement('span');
+  revEl.className = 'cat-tab' + (currentCat === '__review__' ? ' active' : '');
+  revEl.textContent = '🔄 待复习';
+  revEl.onclick = () => { currentCat = '__review__'; cardIndex = 0; isFlipped = false; save(); renderCard(); renderProgress(); };
+  container.appendChild(revEl);
+
+  for (const cat of defaultCats) {
+    const el = document.createElement('span');
+    el.className = 'cat-tab' + (cat === currentCat ? ' active' : '');
+    el.textContent = cat;
+    el.onclick = () => { currentCat = cat; cardIndex = 0; isFlipped = false; save(); renderCard(); renderProgress(); };
+    container.appendChild(el);
+  }
+}
+
+function renderCard() {
+  const words = currentCat === '__review__' ? getReviewWordList() : getWords(currentLang, currentCat);
+
+  if (currentCat === '__review__') {
+    // Special handling for review words
+    if (words.length === 0) {
+      document.getElementById('cardWord').textContent = '🎉 暂无待复习单词';
+      document.getElementById('cardPron').textContent = '';
+      document.getElementById('cardTrans').textContent = '';
+      document.getElementById('cardPronBack').textContent = '';
+      document.getElementById('catBadge').textContent = '复习';
+      document.getElementById('flashcard').classList.remove('flipped');
+      isFlipped = false;
+      return;
+    }
+    const rw = words[Math.min(cardIndex, words.length - 1)];
+    const baseWords = vocabData[rw.lang]?.categories[rw.cat] || [];
+    const customWs = customWords[rw.lang]?.[rw.cat] || [];
+    const allWs = [...baseWords, ...customWs];
+    const word = allWs.find(x => x.w === rw.w);
+    if (word) {
+      document.getElementById('cardWord').textContent = word.w;
+      document.getElementById('cardPron').textContent = word.p || '';
+      document.getElementById('cardTrans').textContent = word.t;
+      document.getElementById('cardPronBack').textContent = word.p || '';
+      document.getElementById('catBadge').textContent = rw.cat + ' (' + vocabData[rw.lang].name + ')';
+    }
+    document.getElementById('flashcard').classList.remove('flipped');
+    isFlipped = false;
+    return;
+  }
+
+  if (words.length === 0) {
+    document.getElementById('cardWord').textContent = '暂无单词';
+    document.getElementById('cardPron').textContent = '';
+    document.getElementById('cardTrans').textContent = '';
+    document.getElementById('cardPronBack').textContent = '';
+    document.getElementById('catBadge').textContent = currentCat;
+    document.getElementById('flashcard').classList.remove('flipped');
+    isFlipped = false;
+    return;
+  }
+  const idx = cardIndex % words.length;
+  const word = words[idx];
+  document.getElementById('cardWord').textContent = word.w || word;
+  document.getElementById('cardPron').textContent = word.p || '';
+  document.getElementById('cardTrans').textContent = word.t || '';
+  document.getElementById('cardPronBack').textContent = word.p || '';
+  document.getElementById('catBadge').textContent = currentCat;
+  document.getElementById('flashcard').classList.remove('flipped');
+  isFlipped = false;
+
+  // Check if learned
+  const key = currentLang + '___' + currentCat + '___' + (word.w || word);
+  if (learnedWords[key]) {
+    document.getElementById('cardWord').style.color = 'var(--green)';
+  } else if (reviewWords[key]) {
+    document.getElementById('cardWord').style.color = 'var(--gold)';
+  } else {
+    document.getElementById('cardWord').style.color = 'var(--text)';
+  }
+}
+
+function flipCard() {
+  const flashcard = document.getElementById('flashcard');
+  flashcard.classList.toggle('flipped');
+  isFlipped = !isFlipped;
+}
+
+function markKnown() {
+  const words = currentCat === '__review__' ? getReviewWordList() : getWords(currentLang, currentCat);
+  if (words.length === 0) return;
+  if (currentCat === '__review__') {
+    const rw = words[Math.min(cardIndex, words.length - 1)];
+    const key = rw.lang + '___' + rw.cat + '___' + rw.w;
+    learnedWords[key] = true;
+    delete reviewWords[key];
+  } else {
+    const idx = cardIndex % words.length;
+    const word = words[idx];
+    const key = currentLang + '___' + currentCat + '___' + (word.w || word);
+    learnedWords[key] = true;
+    delete reviewWords[key];
+  }
+  todayLearned++;
+  totalLearnedAll++;
+  save();
+  updateHeaderStats();
+  nextCard();
+  renderProgress();
+}
+
+function markReview() {
+  const words = currentCat === '__review__' ? getReviewWordList() : getWords(currentLang, currentCat);
+  if (words.length === 0) return;
+  if (currentCat === '__review__') {
+    const rw = words[Math.min(cardIndex, words.length - 1)];
+    // keep in review
+    cardIndex = (cardIndex + 1) % words.length;
+    save();
+    renderCard();
+    return;
+  }
+  const idx = cardIndex % words.length;
+  const word = words[idx];
+  const key = currentLang + '___' + currentCat + '___' + (word.w || word);
+  reviewWords[key] = true;
+  delete learnedWords[key];
+  save();
+  nextCard();
+}
+
+function nextCard() {
+  const words = currentCat === '__review__' ? getReviewWordList() : getWords(currentLang, currentCat);
+  if (words.length === 0) return;
+  cardIndex = (cardIndex + 1) % words.length;
+  save();
+  renderCard();
+}
+
+// ==================== QUIZ ====================
+function startQuiz() {
+  const words = getWords(currentLang, currentCat);
+  if (words.length < 4) {
+    document.getElementById('quizWord').textContent = '⚠️ 该分类至少需要 4 个单词才能测验';
+    document.getElementById('quizOptions').innerHTML = '';
+    return;
+  }
+  // Pick 10 random (or all if fewer)
+  const pool = [...words].sort(() => Math.random() - 0.5).slice(0, Math.min(10, words.length));
+  quizState = { words: pool, current: 0, score: 0, answered: false };
+  document.getElementById('btnStartQuiz').style.display = 'none';
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+  if (!quizState || quizState.current >= quizState.words.length) {
+    // Quiz done
+    const s = quizState.score;
+    const t = quizState.words.length;
+    document.getElementById('quizWord').textContent = '🎉 测验结束！';
+    document.getElementById('quizOptions').innerHTML = `<div style="grid-column:1/-1;text-align:center;font-size:1.2rem;">你的得分: <span style="color:var(--green);font-weight:700;">${s}</span> / ${t}</div>`;
+    document.getElementById('btnStartQuiz').style.display = 'inline-block';
+    document.getElementById('btnStartQuiz').textContent = '🔄 再来一次';
+    quizScore += s;
+    quizTotal += t;
+    updateHeaderStats();
+    save();
+    quizState = null;
+    return;
+  }
+  const currentWord = quizState.words[quizState.current];
+  document.getElementById('quizWord').textContent = currentWord.w;
+  quizState.answered = false;
+
+  // Generate 4 options: 1 correct + 3 random distractors
+  const allLangWords = [];
+  for (const cat of defaultCats) {
+    const ws = getWords(currentLang, cat);
+    for (const w of ws) {
+      if (w.w !== currentWord.w) allLangWords.push(w);
+    }
+  }
+  const distractors = [...allLangWords].sort(() => Math.random() - 0.5).slice(0, 3);
+  const options = [currentWord, ...distractors].sort(() => Math.random() - 0.5);
+
+  const optsDiv = document.getElementById('quizOptions');
+  optsDiv.innerHTML = '';
+  for (const opt of options) {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.textContent = opt.t;
+    btn.onclick = () => answerQuiz(opt === currentWord, btn);
+    optsDiv.appendChild(btn);
+  }
+}
+
+function answerQuiz(isCorrect, btn) {
+  if (!quizState || quizState.answered) return;
+  quizState.answered = true;
+  if (isCorrect) {
+    quizState.score++;
+    btn.classList.add('correct');
+  } else {
+    btn.classList.add('wrong');
+    // Highlight the correct one
+    const opts = document.getElementById('quizOptions').children;
+    const currentWord = quizState.words[quizState.current];
+    for (const opt of opts) {
+      if (opt.textContent === currentWord.t) opt.classList.add('correct');
+    }
+  }
+  // Disable all
+  const opts = document.getElementById('quizOptions').children;
+  for (const opt of opts) opt.disabled = true;
+
+  setTimeout(() => {
+    quizState.current++;
+    renderQuizQuestion();
+  }, 1200);
+}
+
+// ==================== CUSTOM WORDS ====================
+function populateCustomSelects() {
+  const langSel = document.getElementById('customLang');
+  const catSel = document.getElementById('customCat');
+  langSel.innerHTML = '';
+  for (const [code, info] of Object.entries(vocabData)) {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = info.name;
+    if (code === currentLang) opt.selected = true;
+    langSel.appendChild(opt);
+  }
+  catSel.innerHTML = '';
+  for (const cat of defaultCats) {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    if (cat === currentCat) opt.selected = true;
+    catSel.appendChild(opt);
+  }
+  renderCustomWordList();
+}
+
+function addCustomWord() {
+  const w = document.getElementById('customWord').value.trim();
+  const t = document.getElementById('customTrans').value.trim();
+  const p = document.getElementById('customPron').value.trim();
+  const lang = document.getElementById('customLang').value;
+  const cat = document.getElementById('customCat').value;
+  if (!w || !t) { alert('请填写目标语言单词和中文翻译'); return; }
+  if (!customWords[lang]) customWords[lang] = {};
+  if (!customWords[lang][cat]) customWords[lang][cat] = [];
+  customWords[lang][cat].push({ w, t, p });
+  document.getElementById('customWord').value = '';
+  document.getElementById('customTrans').value = '';
+  document.getElementById('customPron').value = '';
+  save();
+  renderCustomWordList();
+  if (currentLang === lang && currentCat === cat) renderCard();
+  renderProgress();
+}
+
+function renderCustomWordList() {
+  const div = document.getElementById('customWordList');
+  const lang = document.getElementById('customLang').value;
+  const cat = document.getElementById('customCat').value;
+  const words = (customWords[lang] && customWords[lang][cat]) ? customWords[lang][cat] : [];
+  if (words.length === 0) {
+    div.innerHTML = '<span style="color:var(--text3)">暂无自定义单词</span>';
+  } else {
+    div.innerHTML = words.map((w, i) =>
+      `<span style="display:inline-block;background:var(--surface2);padding:4px 10px;border-radius:12px;margin:4px;font-size:0.8rem;">${w.w} = ${w.t}
+      <span style="color:var(--red);cursor:pointer;margin-left:4px;" onclick="removeCustomWord('${lang}','${cat}',${i})">&times;</span></span>`
+    ).join('');
+  }
+}
+
+function removeCustomWord(lang, cat, idx) {
+  if (customWords[lang] && customWords[lang][cat]) {
+    customWords[lang][cat].splice(idx, 1);
+    if (customWords[lang][cat].length === 0) delete customWords[lang][cat];
+    save();
+    renderCustomWordList();
+    if (currentLang === lang && currentCat === cat) renderCard();
+    renderProgress();
+  }
+}
+
+// ==================== PROGRESS ====================
+function renderProgress() {
+  const div = document.getElementById('progressBars');
+  div.innerHTML = '';
+  const info = vocabData[currentLang];
+  if (!info) return;
+
+  for (const cat of defaultCats) {
+    const base = (info.categories[cat] || []).length;
+    const custom = (customWords[currentLang] && customWords[currentLang][cat]) ? customWords[currentLang][cat].length : 0;
+    const total = base + custom;
+    if (total === 0) continue;
+    let learned = 0;
+    const words = getWords(currentLang, cat);
+    for (const w of words) {
+      const key = currentLang + '___' + cat + '___' + (w.w || w);
+      if (learnedWords[key]) learned++;
+    }
+    const pct = Math.round((learned / total) * 100);
+    div.innerHTML += `
+      <div class="progress-section">
+        <div class="progress-header">
+          <span class="cat-name">${cat}</span>
+          <span class="cat-pct">${learned}/${total} (${pct}%)</span>
+        </div>
+        <div class="progress-bar">
+          <div class="fill" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+  }
+
+  // Review count
+  const reviewCount = Object.keys(reviewWords).length;
+  if (reviewCount > 0) {
+    div.innerHTML += `<div style="margin-top:8px;color:var(--gold);font-size:0.85rem;">📝 待复习单词: ${reviewCount} 个</div>`;
+  }
+
+  // Daily goal
+  document.getElementById('dailyGoalText').textContent = `${todayLearned} / ${dailyGoalVal}`;
+  const goalPct = Math.min(100, Math.round((todayLearned / dailyGoalVal) * 100));
+  document.getElementById('dailyGoalBar').style.width = goalPct + '%';
+
+  // Check daily goal achievement
+  if (todayLearned >= dailyGoalVal && todayLearned - 1 < dailyGoalVal) {
+    showModal('🎯 每日目标达成！', `太棒了！你今天已经学习了 ${todayLearned} 个单词，成功达成了每日目标 ${dailyGoalVal} 个单词！`);
+  }
+}
+
+function setDailyGoal() {
+  const val = prompt(`请输入每日目标单词数（当前: ${dailyGoalVal}）`, dailyGoalVal);
+  if (val && !isNaN(val) && parseInt(val) > 0) {
+    dailyGoalVal = parseInt(val);
+    document.getElementById('dailyGoal').textContent = dailyGoalVal;
+    save();
+    renderProgress();
+  }
+}
+
+function resetStats() {
+  if (confirm('确定要重置所有学习统计吗？此操作不可恢复！')) {
+    customWords = {};
+    learnedWords = {};
+    reviewWords = {};
+    todayLearned = 0;
+    streakCount = 0;
+    lastVisitDate = '';
+    totalLearnedAll = 0;
+    quizScore = 0;
+    quizTotal = 0;
+    cardIndex = 0;
+    save();
+    renderAll();
+  }
+}
+
+// ==================== MODAL ====================
+function showModal(title, msg) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMsg').textContent = msg;
+  document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+// ==================== HEADER STATS ====================
+function updateHeaderStats() {
+  document.getElementById('streakCount').textContent = streakCount;
+  document.getElementById('todayLearned').textContent = todayLearned;
+  document.getElementById('dailyGoal').textContent = dailyGoalVal;
+  document.getElementById('totalLearned').textContent = totalLearnedAll;
+}
+
+// ==================== INIT ====================
+function renderAll() {
+  renderLangTabs();
+  renderCatTabs();
+  renderCard();
+  renderProgress();
+  populateCustomSelects();
+  updateHeaderStats();
+}
+
+// Background particles
+function initParticles() {
+  const container = document.getElementById('particles');
+  container.innerHTML = '';
+  for (let i = 0; i < 30; i++) {
+    const span = document.createElement('span');
+    span.style.left = Math.random() * 100 + '%';
+    span.style.top = Math.random() * 100 + '%';
+    span.style.animationDelay = Math.random() * 8 + 's';
+    span.style.animationDuration = (6 + Math.random() * 10) + 's';
+    container.appendChild(span);
+  }
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ' || e.key === 'Space') {
+    e.preventDefault();
+    flipCard();
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    nextCard();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    // Previous card
+    const words = currentCat === '__review__' ? getReviewWordList() : getWords(currentLang, currentCat);
+    if (words.length === 0) return;
+    cardIndex = (cardIndex - 1 + words.length) % words.length;
+    save();
+    renderCard();
+  } else if (e.key === 'k' || e.key === 'K') {
+    markKnown();
+  } else if (e.key === 'r' || e.key === 'R') {
+    markReview();
+  }
+});
+
+load();
+updateStreak();
+renderAll();
+initParticles();
+</script>
+</body>
+</html>

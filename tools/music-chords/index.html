@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>和弦查询 - Music Chords</title>
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #222;
+  --text: #e0e0e0;
+  --text2: #aaa;
+  --accent: #4fc3f7;
+  --accent2: #ff8a65;
+  --white-key: #2a2a2a;
+  --black-key: #111;
+  --hl: #4fc3f7;
+  --hl2: #ffcc80;
+  --border: #333;
+  --green: #81c784;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  min-height:100vh;
+}
+header{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:16px 24px;text-align:center;
+  position:sticky;top:0;z-index:100;
+}
+header h1{font-size:1.5rem;font-weight:600;letter-spacing:2px;color:var(--accent)}
+header .sub{font-size:0.8rem;color:var(--text2);margin-top:4px}
+
+.container{max-width:1100px;margin:0 auto;padding:20px 16px}
+
+/* Selectors */
+.selector-group{flex:1;min-width:150px}
+.selector-group label{
+  display:block;font-size:0.8rem;color:var(--text2);
+  margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;
+}
+
+.note-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.note-btn{
+  width:40px;height:36px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);
+  border-radius:6px;cursor:pointer;font-size:0.9rem;
+  font-weight:600;transition:all .15s;font-family:inherit;
+}
+.note-btn:hover{background:#333;border-color:var(--accent)}
+.note-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+
+.type-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.type-btn{
+  padding:8px 12px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);
+  border-radius:6px;cursor:pointer;font-size:0.85rem;
+  transition:all .15s;font-family:inherit;
+}
+.type-btn:hover{background:#333;border-color:var(--accent2)}
+.type-btn.active{background:var(--accent2);color:#000;border-color:var(--accent2);font-weight:600}
+
+/* Play button */
+.play-bar{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.play-btn{
+  padding:12px 24px;background:var(--accent);color:#000;
+  border:none;border-radius:8px;font-size:1rem;font-weight:600;
+  cursor:pointer;transition:opacity .2s;font-family:inherit;
+  display:flex;align-items:center;gap:8px;
+}
+.play-btn:hover{opacity:.85}
+.play-btn:active{opacity:.7}
+.play-btn .icon{font-size:1.2rem}
+
+/* Info cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:18px;
+}
+.card h2{
+  font-size:0.9rem;color:var(--text2);text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:12px;font-weight:500;
+}
+.chord-name{
+  font-size:2rem;font-weight:700;color:var(--accent);margin-bottom:8px;
+}
+.note-list{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.note-tag{
+  background:var(--accent);color:#000;padding:4px 10px;
+  border-radius:4px;font-weight:600;font-size:0.9rem;
+}
+.interval-info{font-size:0.85rem;color:var(--text2)}
+
+/* Piano */
+.piano-wrap{overflow-x:auto;padding:10px 0}
+.piano{
+  display:flex;position:relative;height:140px;
+  min-width:fit-content;margin:0 auto;
+}
+.white-key{
+  width:40px;height:140px;background:var(--white-key);
+  border:1px solid var(--border);border-radius:0 0 4px 4px;
+  position:relative;z-index:1;margin-left:-1px;
+  cursor:pointer;transition:background .15s;
+}
+.white-key:first-child{margin-left:0}
+.white-key:hover{background:#3a3a3a}
+.white-key.highlighted{background:var(--hl);box-shadow:inset 0 0 12px rgba(79,195,247,.4)}
+.white-key .key-label{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  font-size:0.7rem;color:var(--text2);pointer-events:none;
+}
+.white-key.highlighted .key-label{color:#000}
+.black-key-wrap{position:relative;width:0;z-index:2}
+.black-key{
+  position:absolute;width:24px;height:88px;background:var(--black-key);
+  border:1px solid #555;border-radius:0 0 3px 3px;
+  left:-12px;top:0;cursor:pointer;transition:background .15s;
+}
+.black-key:hover{background:#222}
+.black-key.highlighted{background:var(--hl);box-shadow:inset 0 0 8px rgba(79,195,247,.4)}
+.black-key .key-label{
+  position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+  font-size:0.6rem;color:#888;pointer-events:none;
+}
+.black-key.highlighted .key-label{color:#000}
+
+/* Guitar */
+.guitar-wrap{overflow-x:auto;padding:10px 0}
+.fretboard{
+  display:flex;position:relative;
+  min-width:fit-content;margin:0 auto;
+}
+.fret-col{display:flex;flex-direction:column;min-width:38px}
+.fret-col:first-child{min-width:40px}
+.string-cell{
+  height:28px;border-bottom:1px solid #444;position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.fret-col:first-child .string-cell{border-bottom:2px solid var(--text)}
+.fret{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:20px;height:20px;border-radius:50%;
+}
+.fret.muted{background:#555;width:12px;height:12px;opacity:.4}
+.fret.highlighted{background:var(--hl)}
+.fret.root{background:var(--accent2);box-shadow:0 0 6px rgba(255,138,101,.4)}
+.fret .finger-label{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:0.7rem;color:#000;font-weight:600;pointer-events:none;
+}
+.fret-marker{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:8px;height:8px;border-radius:50%;background:#555;
+}
+.string-name{
+  font-size:0.65rem;color:var(--text2);position:absolute;
+  left:-20px;top:50%;transform:translateY(-50%);
+}
+.fret-num{text-align:center;font-size:0.65rem;color:var(--text2);padding-top:4px}
+
+/* Progressions */
+.prog-section{margin-bottom:24px}
+.prog-section h2{
+  font-size:0.9rem;color:var(--text2);text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:14px;font-weight:500;
+}
+.prog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.prog-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:14px;
+}
+.prog-card .prog-chords{
+  font-size:1.2rem;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:1px;
+}
+.prog-card .prog-desc{font-size:0.85rem;color:var(--text2);line-height:1.5}
+
+/* Scale section */
+.scale-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:24px}
+.scale-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:14px;
+}
+.scale-card h3{font-size:0.95rem;margin-bottom:8px;color:var(--accent2)}
+.scale-card .scale-notes{font-size:0.9rem;color:var(--text);font-weight:500;letter-spacing:1px}
+
+/* Circle of fifths */
+.circle-wrap{display:flex;justify-content:center;margin:24px 0;position:relative}
+.circle-container{position:relative;width:320px;height:320px}
+.circle-svg{width:100%;height:100%}
+
+/* Footer */
+footer{
+  text-align:center;padding:24px;
+  color:var(--text2);font-size:0.8rem;
+  border-top:1px solid var(--border);margin-top:24px;
+}
+
+@media(max-width:600px){
+  .selector-group{min-width:100%}
+  .note-btn{width:36px;height:32px;font-size:0.8rem}
+  .type-btn{padding:6px 10px;font-size:0.8rem}
+  .chord-name{font-size:1.5rem}
+  .cards{grid-template-columns:1fr}
+  .white-key{width:34px;height:120px}
+  .black-key{width:22px;height:76px;left:-11px}
+  .piano{height:120px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>和弦查询</h1>
+  <div class="sub">Music Chord Reference</div>
+</header>
+
+<div class="container">
+
+  <div class="selector-group" style="margin-bottom:12px">
+    <label>根音 Root Note</label>
+    <div class="note-grid" id="noteGrid"></div>
+  </div>
+  <div class="selector-group" style="margin-bottom:20px">
+    <label>和弦类型 Chord Type</label>
+    <div class="type-grid" id="typeGrid"></div>
+  </div>
+
+  <div class="play-bar">
+    <button class="play-btn" onclick="playChord()">
+      <span class="icon">&#9654;</span> 试听和弦
+    </button>
+    <button class="play-btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border)" onclick="playArpeggio()">
+      <span class="icon">&#9833;</span> 琶音播放
+    </button>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h2>和弦构成</h2>
+      <div class="chord-name" id="chordName">C</div>
+      <div class="note-list" id="noteList"></div>
+      <div class="interval-info" id="intervalInfo"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px">
+    <h2>钢琴键盘 Piano</h2>
+    <div class="piano-wrap"><div class="piano" id="piano"></div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px">
+    <h2>吉他指板 Guitar Fretboard</h2>
+    <div class="guitar-wrap"><div class="fretboard" id="fretboard"></div></div>
+  </div>
+
+  <div class="prog-section">
+    <h2>常用和弦进行 Chord Progressions</h2>
+    <div class="prog-grid" id="progGrid"></div>
+  </div>
+
+  <div class="prog-section">
+    <h2>音阶参考 Scale Reference</h2>
+    <div class="scale-grid" id="scaleGrid"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px">
+    <h2>五度圈 Circle of Fifths</h2>
+    <div class="circle-wrap">
+      <div class="circle-container">
+        <svg class="circle-svg" viewBox="-170 -170 340 340" id="circleSvg"></svg>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>Music Chords Reference · 和弦查询工具 · Web Audio API</footer>
+
+<script>
+// ========== Data ==========
+const ALL_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+const CHORD_TYPES = [
+  {id:'major',name:'大三和弦 Major',formula:[0,4,7]},
+  {id:'minor',name:'小三和弦 Minor',formula:[0,3,7]},
+  {id:'dim',name:'减三和弦 Dim',formula:[0,3,6]},
+  {id:'aug',name:'增三和弦 Aug',formula:[0,4,8]},
+  {id:'7',name:'属七和弦 7th',formula:[0,4,7,10]},
+  {id:'maj7',name:'大七和弦 Maj7',formula:[0,4,7,11]},
+  {id:'m7',name:'小七和弦 m7',formula:[0,3,7,10]},
+  {id:'m7b5',name:'半减七和弦 m7b5',formula:[0,3,6,10]},
+  {id:'dim7',name:'减七和弦 dim7',formula:[0,3,6,9]},
+  {id:'sus2',name:'挂二和弦 sus2',formula:[0,2,7]},
+  {id:'sus4',name:'挂四和弦 sus4',formula:[0,5,7]},
+  {id:'add9',name:'加九和弦 add9',formula:[0,4,7,14]},
+  {id:'9',name:'属九和弦 9th',formula:[0,4,7,10,14]},
+];
+
+const PIANO_WHITE_NOTES = new Set([0,2,4,5,7,9,11]);
+const PIANO_BLACK_NOTES = new Set([1,3,6,8,10]);
+
+// Guitar: low E2(40) -> A2(45) -> D3(50) -> G3(55) -> B3(59) -> high E4(64)
+const GUITAR_STRINGS = [40,45,50,55,59,64];
+const STRING_NAMES = ['E2','A2','D3','G3','B3','E4'];
+
+let currentRoot = 0;
+let currentTypeId = 'major';
+let audioCtx = null;
+
+// ========== Init ==========
+function chordPitchClasses(root, formula){
+  return formula.map(f => (root + f) % 12);
+}
+
+function init(){
+  buildNoteGrid();
+  buildTypeGrid();
+  updateAll();
+  drawCircleOfFifths();
+}
+
+function buildNoteGrid(){
+  const grid = document.getElementById('noteGrid');
+  ALL_NOTES.forEach((note,i)=>{
+    const btn = document.createElement('button');
+    btn.className = 'note-btn' + (i===currentRoot?' active':'');
+    btn.textContent = note;
+    btn.onclick = ()=>{ currentRoot = i; updateAll(); };
+    grid.appendChild(btn);
+  });
+}
+
+function buildTypeGrid(){
+  const grid = document.getElementById('typeGrid');
+  CHORD_TYPES.forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'type-btn' + (t.id===currentTypeId?' active':'');
+    btn.textContent = t.name;
+    btn.onclick = ()=>{ currentTypeId = t.id; updateAll(); };
+    grid.appendChild(btn);
+  });
+}
+
+function updateAll(){
+  document.querySelectorAll('.note-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i===currentRoot);
+  });
+  document.querySelectorAll('.type-btn').forEach((b,i)=>{
+    b.classList.toggle('active', CHORD_TYPES[i].id===currentTypeId);
+  });
+
+  const ct = CHORD_TYPES.find(t=>t.id===currentTypeId);
+  const pitches = chordPitchClasses(currentRoot, ct.formula);
+  const rt = ALL_NOTES[currentRoot];
+
+  const suffixMap = {
+    major:'',minor:'m',dim:'dim',aug:'aug','7':'7',maj7:'maj7',
+    m7:'m7',m7b5:'m7b5',dim7:'dim7',sus2:'sus2',sus4:'sus4',add9:'add9','9':'9'
+  };
+  document.getElementById('chordName').textContent =
+    rt + suffixMap[ct.id] + ' (' + ct.name.split(' ')[0] + ')';
+
+  const noteList = document.getElementById('noteList');
+  noteList.innerHTML = '';
+  pitches.forEach(n=>{
+    const tag = document.createElement('span');
+    tag.className = 'note-tag';
+    tag.textContent = ALL_NOTES[n];
+    noteList.appendChild(tag);
+  });
+
+  document.getElementById('intervalInfo').textContent =
+    '音程: 根音 + ' + ct.formula.slice(1).map(f=>f+'半音').join(', ');
+
+  buildPiano(pitches);
+  buildGuitar(pitches);
+  buildProgressions();
+  buildScales();
+}
+
+// ========== Piano ==========
+function buildPiano(highlighted){
+  const piano = document.getElementById('piano');
+  piano.innerHTML = '';
+  const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  for(let oct=3; oct<=5; oct++){
+    for(let ni=0; ni<12; ni++){
+      const midi = oct*12 + ni;
+      if(PIANO_WHITE_NOTES.has(ni)){
+        const key = document.createElement('div');
+        key.className = 'white-key';
+        if(highlighted.includes(ni)) key.classList.add('highlighted');
+        key.onclick = ()=>playNote(midi);
+        const label = document.createElement('span');
+        label.className = 'key-label';
+        label.textContent = noteNames[ni] + oct;
+        key.appendChild(label);
+        piano.appendChild(key);
+      } else if(PIANO_BLACK_NOTES.has(ni)){
+        const wrap = document.createElement('div');
+        wrap.className = 'black-key-wrap';
+        const key = document.createElement('div');
+        key.className = 'black-key';
+        if(highlighted.includes(ni)) key.classList.add('highlighted');
+        key.onclick = (e)=>{e.stopPropagation(); playNote(midi);};
+        const label = document.createElement('span');
+        label.className = 'key-label';
+        label.textContent = noteNames[ni];
+        key.appendChild(label);
+        wrap.appendChild(key);
+        piano.appendChild(wrap);
+      }
+    }
+  }
+}
+
+// ========== Guitar ==========
+function buildGuitar(chordPitches){
+  const fb = document.getElementById('fretboard');
+  fb.innerHTML = '';
+
+  // Find best fret (lowest) for each string
+  const frets = [];
+  for(let s=0; s<6; s++){
+    const openPitch = GUITAR_STRINGS[s] % 12;
+    let bestFret = -1;
+    for(let f=0; f<=12; f++){
+      if(chordPitches.includes((openPitch+f)%12)){
+        bestFret = f;
+        break;
+      }
+    }
+    frets.push(bestFret);
+  }
+
+  // Determine visible fret range
+  const active = frets.filter(f=>f>0);
+  const minFret = active.length>0 ? Math.min(...active) : 1;
+  const maxFret = active.length>0 ? Math.max(...active) : 4;
+  let startFret = minFret<=3 ? 0 : minFret-1;
+  const fretCount = Math.max(5, maxFret-startFret+1);
+
+  // Render columns
+  for(let f=0; f<=fretCount; f++){
+    const col = document.createElement('div');
+    col.className = 'fret-col';
+
+    if(f===0){
+      // Nut
+      for(let s=0; s<6; s++){
+        const cell = document.createElement('div');
+        cell.className = 'string-cell';
+        cell.style.position = 'relative';
+        const name = document.createElement('span');
+        name.className = 'string-name';
+        name.textContent = STRING_NAMES[s];
+        cell.appendChild(name);
+        if(frets[s]===0){
+          const pitch = GUITAR_STRINGS[s] % 12;
+          const dot = document.createElement('span');
+          dot.className = 'fret highlighted';
+          if(pitch===currentRoot) dot.classList.add('root');
+          cell.appendChild(dot);
+        }
+        col.appendChild(cell);
+      }
+    } else {
+      const actualFret = startFret + f;
+      for(let s=0; s<6; s++){
+        const cell = document.createElement('div');
+        cell.className = 'string-cell';
+
+        if(frets[s]===actualFret){
+          const pitch = (GUITAR_STRINGS[s]%12 + actualFret) % 12;
+          const dot = document.createElement('span');
+          dot.className = 'fret highlighted';
+          if(pitch===currentRoot) dot.classList.add('root');
+          const idx = chordPitches.indexOf(pitch);
+          if(idx>=0){
+            const finger = document.createElement('span');
+            finger.className = 'finger-label';
+            finger.textContent = idx + 1;
+            dot.appendChild(finger);
+          }
+          cell.appendChild(dot);
+        } else if(frets[s]===-1 && f===1){
+          const mute = document.createElement('span');
+          mute.className = 'fret muted';
+          mute.textContent = '\u2715';
+          mute.style.cssText = 'color:#888;font-size:10px;';
+          cell.appendChild(mute);
+        }
+
+        // Fret markers at 3,5,7,9,12
+        if([3,5,7,9,12].includes(actualFret) && (s===2||s===3)){
+          const marker = document.createElement('span');
+          marker.className = 'fret-marker';
+          cell.appendChild(marker);
+        }
+        col.appendChild(cell);
+      }
+      const num = document.createElement('div');
+      num.className = 'fret-num';
+      num.textContent = actualFret;
+      col.appendChild(num);
+    }
+    fb.appendChild(col);
+  }
+}
+
+// ========== Progressions ==========
+function buildProgressions(){
+  const grid = document.getElementById('progGrid');
+  grid.innerHTML = '';
+
+  function ch(offset, type){
+    const n = ALL_NOTES[(currentRoot+offset)%12];
+    if(type==='major') return n;
+    if(type==='minor') return n+'m';
+    if(type==='7') return n+'7';
+    if(type==='dim') return n+'dim';
+    if(type==='m7b5') return n+'m7b5';
+    return n;
+  }
+
+  const progressions = [
+    {chords:ch(0,'major')+' - '+ch(5,'major')+' - '+ch(7,'major'),
+     desc:'I-IV-V 经典进行：大调中最基础的进行，主-下属-属和弦，广泛用于摇滚和民谣。'},
+    {chords:ch(2,'minor')+' - '+ch(7,'7')+' - '+ch(0,'major'),
+     desc:'ii-V-I 爵士经典：爵士乐中最常见的进行，营造丰富和弦色彩，即兴必备。'},
+    {chords:ch(0,'major')+' - '+ch(7,'7')+' - '+ch(9,'minor')+' - '+ch(5,'major'),
+     desc:'I-V-vi-IV 流行金曲：现代流行最常用的进行之一，卡农进行变体，优美流畅。'},
+    {chords:ch(9,'minor')+' - '+ch(5,'major')+' - '+ch(0,'major')+' - '+ch(7,'major'),
+     desc:'vi-IV-I-V 流行标配：六级开始的和弦进行，情感丰富，大量流行歌曲均使用。'},
+    {chords:ch(0,'major')+' - '+ch(9,'minor')+' - '+ch(5,'major')+' - '+ch(7,'7'),
+     desc:'I-vi-IV-V 50年代进行：也称为doo-wop进行，经典老歌常用，复古感十足。'},
+    {chords:ch(2,'minor')+' - '+ch(11,'m7b5')+' - '+ch(7,'7')+' - '+ch(0,'minor'),
+     desc:'ii-V-I（小调）：小调中的爵士进行，半减七-属七-主小和弦，营造感伤氛围。'}
+  ];
+
+  progressions.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'prog-card';
+    card.innerHTML = `<div class="prog-chords">${p.chords}</div><div class="prog-desc">${p.desc}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ========== Scales ==========
+function buildScales(){
+  const grid = document.getElementById('scaleGrid');
+  grid.innerHTML = '';
+
+  const r = currentRoot;
+  const scaleDefs = [
+    {name:'大调音阶', pat:[0,2,4,5,7,9,11], desc:'全全半全全全半'},
+    {name:'自然小调', pat:[0,2,3,5,7,8,10], desc:'全半全全半全全'},
+    {name:'和声小调', pat:[0,2,3,5,7,8,11], desc:'全半全全半增二半'},
+    {name:'五声音阶（大调）', pat:[0,2,4,7,9], desc:'去掉4级和7级的五音音阶'},
+  ];
+
+  scaleDefs.forEach(s=>{
+    const notes = s.pat.map(p=>ALL_NOTES[(r+p)%12]).join(' - ');
+    const card = document.createElement('div');
+    card.className = 'scale-card';
+    card.innerHTML = `<h3>${ALL_NOTES[r]} ${s.name}</h3>
+      <div class="scale-notes">${notes}</div>
+      <div style="font-size:0.8rem;color:var(--text2);margin-top:4px">${s.desc}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ========== Circle of Fifths ==========
+function drawCircleOfFifths(){
+  const svg = document.getElementById('circleSvg');
+  const R=150, RI=90;
+
+  const order = [
+    {m:'C',n:'Am'},{m:'G',n:'Em'},{m:'D',n:'Bm'},{m:'A',n:'F#m'},
+    {m:'E',n:'C#m'},{m:'B/Cb',n:'G#m/Abm'},{m:'F#/Gb',n:'D#m/Ebm'},
+    {m:'C#/Db',n:'A#m/Bbm'},{m:'Ab',n:'Fm'},{m:'Eb',n:'Cm'},
+    {m:'Bb',n:'Gm'},{m:'F',n:'Dm'},
+  ];
+
+  let h = '';
+  h += `<circle cx="0" cy="0" r="${R}" fill="none" stroke="#333" stroke-width="2"/>`;
+  h += `<circle cx="0" cy="0" r="${RI}" fill="none" stroke="#333" stroke-width="1.5"/>`;
+  h += `<circle cx="0" cy="0" r="${RI-30}" fill="none" stroke="#222" stroke-width="1"/>`;
+
+  for(let i=0; i<12; i++){
+    const a = i*Math.PI*2/12 - Math.PI/2;
+    h += `<line x1="0" y1="0" x2="${R*Math.cos(a)}" y2="${R*Math.sin(a)}" stroke="#222" stroke-width="0.5"/>`;
+  }
+
+  const rn = ALL_NOTES[currentRoot];
+  for(let i=0; i<12; i++){
+    const a = i*Math.PI*2/12 - Math.PI/2;
+    const p = order[i];
+    const isCur = p.m.split('/').includes(rn);
+    const ox = (R-22)*Math.cos(a), oy = (R-22)*Math.sin(a);
+    if(isCur) h += `<circle cx="${ox}" cy="${oy}" r="16" fill="#4fc3f7" opacity="0.45"/>`;
+    h += `<text x="${ox}" y="${oy+5}" text-anchor="middle" fill="${isCur?'#000':'#e0e0e0'}" font-size="13" font-weight="700">${p.m}</text>`;
+    const ix = (RI-16)*Math.cos(a), iy = (RI-16)*Math.sin(a);
+    h += `<text x="${ix}" y="${iy+4}" text-anchor="middle" fill="#aaa" font-size="11">${p.n}</text>`;
+  }
+
+  // Relative major/minor lines
+  for(let i=0; i<6; i++){
+    const a1 = i*Math.PI*2/12 - Math.PI/2;
+    const a2 = (i+3)*Math.PI*2/12 - Math.PI/2;
+    const rr=60;
+    h += `<line x1="${rr*Math.cos(a1)}" y1="${rr*Math.sin(a1)}" x2="${rr*Math.cos(a2)}" y2="${rr*Math.sin(a2)}" stroke="#333" stroke-width="0.8" stroke-dasharray="4,3"/>`;
+  }
+
+  h += `<circle cx="0" cy="0" r="28" fill="var(--surface2)" stroke="#333" stroke-width="1"/>`;
+  h += `<text x="0" y="-2" text-anchor="middle" font-size="9" fill="#888">五度圈</text>`;
+  h += `<text x="0" y="12" text-anchor="middle" font-size="8" fill="#666">Circle of 5ths</text>`;
+
+  svg.innerHTML = h;
+}
+
+// ========== Audio ==========
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function freqFromMidi(midi){ return 440*Math.pow(2,(midi-69)/12); }
+
+function playNote(midi, duration=0.6, startTime=null){
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  const t = ctx.currentTime + (startTime||0);
+  osc.frequency.setValueAtTime(freqFromMidi(midi), t);
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(0.3, t+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t+duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t+duration);
+}
+
+function playChord(){
+  const ct = CHORD_TYPES.find(t=>t.id===currentTypeId);
+  ct.formula.forEach(f=>playNote(currentRoot+60+f, 0.8));
+}
+
+function playArpeggio(){
+  const ct = CHORD_TYPES.find(t=>t.id===currentTypeId);
+  ct.formula.forEach((f,i)=>playNote(currentRoot+60+f, 0.5, i*0.12));
+}
+
+document.addEventListener('keydown',(e)=>{
+  if(e.code==='Space'){ e.preventDefault(); playChord(); }
+  if(e.key==='a'||e.key==='A'){ e.preventDefault(); playArpeggio(); }
+});
+
+init();
+</script>
+</body>
+</html>

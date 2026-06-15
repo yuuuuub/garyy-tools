@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字体预览 Font Preview</title>
+<style>
+:root {
+  --bg: #0f0f14;
+  --bg-card: #1a1a24;
+  --bg-card-hover: #222230;
+  --bg-input: #14141e;
+  --border: #2a2a3a;
+  --text: #e0e0e8;
+  --text-secondary: #8888a0;
+  --text-muted: #606078;
+  --accent: #6c8cff;
+  --accent-hover: #8aa4ff;
+  --accent-bg: rgba(108, 140, 255, 0.12);
+  --red: #ff6b6b;
+  --green: #51cf66;
+  --orange: #ffa94d;
+  --shadow: 0 2px 12px rgba(0,0,0,0.4);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+:root.light {
+  --bg: #f5f5f8;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f0f8;
+  --bg-input: #ffffff;
+  --border: #d8d8e0;
+  --text: #1a1a2e;
+  --text-secondary: #5a5a7a;
+  --text-muted: #9090a8;
+  --accent: #4c6ef5;
+  --accent-hover: #3b5bdb;
+  --accent-bg: rgba(76, 110, 245, 0.08);
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background .3s, color .3s;
+}
+
+/* Header */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  backdrop-filter: blur(12px);
+}
+.header h1 {
+  font-size: 20px; font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), #c084fc);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+.header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.header-right button {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 13px;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.header-right button:hover { background: var(--bg-card-hover); color: var(--text); }
+.header-right button.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+/* Controls */
+.controls {
+  padding: 16px 24px;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 65px; z-index: 99;
+}
+.controls input[type="text"] {
+  flex: 1; min-width: 200px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 14px; border-radius: var(--radius-sm);
+  font-size: 14px; outline: none; transition: border .2s;
+}
+.controls input[type="text"]:focus { border-color: var(--accent); }
+.controls select {
+  background: var(--bg-input); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 12px; border-radius: var(--radius-sm);
+  font-size: 13px; outline: none; cursor: pointer;
+}
+.controls select:focus { border-color: var(--accent); }
+.size-control {
+  display: flex; align-items: center; gap: 8px;
+}
+.size-control label { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.size-control input[type="range"] {
+  width: 100px; accent-color: var(--accent);
+}
+.size-control span {
+  font-size: 13px; color: var(--accent);
+  font-family: var(--font-mono); min-width: 28px; text-align: center;
+}
+
+/* Stats */
+.stats {
+  padding: 10px 24px;
+  font-size: 13px; color: var(--text-muted);
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  padding: 0 24px 32px;
+}
+
+/* Card */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: all .25s;
+  display: flex; flex-direction: column; gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+.card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg), var(--shadow);
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.card-name {
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: var(--accent-bg); color: var(--accent);
+  white-space: nowrap;
+}
+.card-preview {
+  font-size: 28px; line-height: 1.5;
+  word-break: break-all;
+  min-height: 50px;
+  transition: font-size .15s;
+}
+.card-actions {
+  display: flex; gap: 6px; opacity: 0; transition: opacity .2s;
+}
+.card:hover .card-actions { opacity: 1; }
+.card-actions button {
+  font-size: 11px; padding: 4px 10px;
+  background: var(--bg); color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; transition: all .15s;
+}
+.card-actions button:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: fadeIn .2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 520px; width: 100%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: slideUp .25s ease;
+}
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal h2 { font-size: 22px; margin-bottom: 6px; }
+.modal .modal-category {
+  display: inline-block; font-size: 12px; padding: 3px 10px;
+  border-radius: 10px; background: var(--accent-bg); color: var(--accent);
+  margin-bottom: 16px;
+}
+.modal .modal-preview {
+  font-size: 36px; line-height: 1.6; margin: 16px 0;
+  padding: 16px; background: var(--bg); border-radius: var(--radius-sm);
+  word-break: break-all;
+}
+.modal .modal-info { margin-top: 16px; }
+.modal .modal-info dt {
+  font-size: 12px; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-top: 12px;
+}
+.modal .modal-info dd {
+  font-size: 14px; color: var(--text); margin-top: 4px;
+  line-height: 1.5;
+}
+.modal .modal-css {
+  margin-top: 16px; padding: 12px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--green); word-break: break-all;
+  line-height: 1.6;
+  position: relative;
+}
+.modal .modal-close {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--bg); color: var(--text-secondary);
+  border: 1px solid var(--border); width: 32px; height: 32px;
+  border-radius: 50%; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.modal .modal-close:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.modal { position: relative; }
+.modal .copy-btn {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 11px; padding: 3px 8px;
+  background: var(--accent-bg); color: var(--accent);
+  border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  cursor: pointer; transition: all .15s;
+}
+.modal .copy-btn:hover { background: var(--accent); color: #fff; }
+.modal .copy-btn.copied { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--green); color: #fff;
+  padding: 10px 24px; border-radius: var(--radius-sm);
+  font-size: 13px; z-index: 300;
+  animation: toastIn .3s ease, toastOut .3s ease 1.7s forwards;
+  pointer-events: none;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Empty */
+.empty {
+  grid-column: 1 / -1;
+  text-align: center; padding: 60px 20px; color: var(--text-muted);
+}
+.empty svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: .4; }
+.empty p { font-size: 15px; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header { padding: 12px 16px; }
+  .header h1 { font-size: 17px; }
+  .controls { padding: 12px 16px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px 24px; }
+  .card-preview { font-size: 24px; }
+  .modal { padding: 20px; margin: 16px; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+
+<header class="header">
+  <h1>字体预览 Font Preview</h1>
+  <div class="header-right">
+    <button id="btnMode" onclick="toggleMode()" title="切换暗色/亮色主题">🌓 主题</button>
+  </div>
+</header>
+
+<div class="controls">
+  <input type="text" id="searchInput" placeholder="🔍 搜索字体名称..." oninput="filterFonts()">
+  <select id="categoryFilter" onchange="filterFonts()">
+    <option value="all">全部分类</option>
+    <option value="黑体">黑体 / 无衬线</option>
+    <option value="宋体">宋体 / 衬线</option>
+    <option value="楷体">楷体</option>
+    <option value="仿宋">仿宋</option>
+    <option value="手写">手写 / 毛笔</option>
+    <option value="艺术">艺术 / 创意</option>
+    <option value="英文">英文字体</option>
+  </select>
+  <div class="size-control">
+    <label>字号</label>
+    <input type="range" id="sizeSlider" min="14" max="72" value="28" oninput="changeSize()">
+    <span id="sizeLabel">28</span>
+  </div>
+  <button id="btnLang" onclick="toggleLang()" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap;transition:all .2s;">中 ⇄ EN</button>
+</div>
+
+<div class="stats" id="stats">共加载 55 款字体</div>
+
+<div class="grid" id="fontGrid"></div>
+
+<!-- Font Detail Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModal(event)">
+  <div class="modal" id="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h2 id="modalName"></h2>
+    <span class="modal-category" id="modalCategory"></span>
+    <div class="modal-preview" id="modalPreview"></div>
+    <div class="modal-css" id="modalCSS">
+      <button class="copy-btn" id="modalCopyBtn" onclick="copyModalCSS()">复制</button>
+      <span id="modalCSSCode"></span>
+    </div>
+    <dl class="modal-info">
+      <dt>字体族名</dt>
+      <dd id="modalFamily"></dd>
+      <dt>推荐用途</dt>
+      <dd id="modalUseCases"></dd>
+      <dt>字体来源</dt>
+      <dd id="modalSource"></dd>
+    </dl>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+// ========== 字体数据 ==========
+const FONTS = [
+  // ---- 黑体 / 无衬线 ----
+  { name:'Noto Sans SC', family:"'Noto Sans SC', sans-serif", cat:'黑体', google:'Noto+Sans+SC', use:'UI 界面、正文排版，现代感强，支持简繁中文', src:'Google Fonts' },
+  { name:'思源黑体', family:"'Source Han Sans SC', 'Noto Sans SC', sans-serif", cat:'黑体', google:null, use:'网页正文字体首选之一，字重丰富，与 Noto Sans SC 同源', src:'Adobe / Google' },
+  { name:'微软雅黑', family:"'Microsoft YaHei', 'PingFang SC', sans-serif", cat:'黑体', google:null, use:'Windows 系统默认中文字体，广泛兼容，适合正文', src:'系统字体' },
+  { name:'PingFang SC', family:"'PingFang SC', 'Microsoft YaHei', sans-serif", cat:'黑体', google:null, use:'macOS / iOS 系统默认中文字体，现代清晰', src:'系统字体 (Apple)' },
+  { name:'冬青黑体', family:"'Hiragino Sans GB', 'PingFang SC', sans-serif", cat:'黑体', google:null, use:'macOS 经典中文字体，字形优雅', src:'系统字体 (Apple)' },
+  { name:'华文黑体', family:"'STHeiti', 'PingFang SC', sans-serif", cat:'黑体', google:null, use:'macOS 传统黑体，兼容性好', src:'系统字体 (Apple)' },
+  { name:'SimHei', family:"SimHei, 'PingFang SC', sans-serif", cat:'黑体', google:null, use:'Windows 经典黑体，打印和屏幕阅读', src:'系统字体 (Windows)' },
+  { name:'文泉驿微米黑', family:"'WenQuanYi Micro Hei', 'PingFang SC', sans-serif", cat:'黑体', google:null, use:'Linux 开源中文字体，轻量清晰', src:'开源字体' },
+  { name:'文泉驿正黑', family:"'WenQuanYi Zen Hei', 'PingFang SC', sans-serif", cat:'黑体', google:null, use:'Linux 开源字体，字形规范', src:'开源字体' },
+
+  // ---- 宋体 / 衬线 ----
+  { name:'Noto Serif SC', family:"'Noto Serif SC', serif", cat:'宋体', google:'Noto+Serif+SC', use:'长篇阅读、书籍排版、正式文档，典雅庄重', src:'Google Fonts' },
+  { name:'思源宋体', family:"'Source Han Serif SC', 'Noto Serif SC', serif", cat:'宋体', google:null, use:'长篇正文、印刷出版，字重丰富完整', src:'Adobe / Google' },
+  { name:'SimSun', family:"SimSun, 'Noto Serif SC', serif", cat:'宋体', google:null, use:'Windows 系统宋体，传统公文排版', src:'系统字体 (Windows)' },
+  { name:'华文宋体', family:"'STSong', 'Noto Serif SC', serif", cat:'宋体', google:null, use:'macOS 宋体，印刷风格', src:'系统字体 (Apple)' },
+  { name:'NSimSun', family:"NSimSun, SimSun, serif", cat:'宋体', google:null, use:'Windows 新宋体，等宽宋体，适合代码注释中文', src:'系统字体 (Windows)' },
+
+  // ---- 楷体 ----
+  { name:'楷体', family:"KaiTi, STKaiti, 'Noto Serif SC', serif", cat:'楷体', google:null, use:'书法风格正文、教育文档、传统文化内容', src:'系统字体' },
+  { name:'华文楷体', family:"'STKaiti', KaiTi, serif", cat:'楷体', google:null, use:'macOS 楷体，字形优美', src:'系统字体 (Apple)' },
+  { name:'TW-Kai', family:"'TW-Kai', KaiTi, serif", cat:'楷体', google:null, use:'台湾楷体，字形传统规范', src:'系统字体' },
+  { name:'AR PL UKai CN', family:"'AR PL UKai CN', KaiTi, serif", cat:'楷体', google:null, use:'Linux 开源楷体，字形古朴', src:'开源字体' },
+
+  // ---- 仿宋 ----
+  { name:'仿宋', family:"FangSong, STFangsong, 'Noto Serif SC', serif", cat:'仿宋', google:null, use:'政府公文、正式函件，笔画清晰秀丽', src:'系统字体' },
+  { name:'华文仿宋', family:"'STFangsong', FangSong, serif", cat:'仿宋', google:null, use:'macOS 仿宋，字形端庄', src:'系统字体 (Apple)' },
+
+  // ---- 手写 / 毛笔 ----
+  { name:'Ma Shan Zheng', family:"'Ma Shan Zheng', cursive", cat:'手写', google:'Ma+Shan+Zheng', use:'活泼标题、儿童教育、趣味设计', src:'Google Fonts' },
+  { name:'Zhi Mang Xing', family:"'Zhi Mang Xing', cursive", cat:'手写', google:'Zhi+Mang+Xing', use:'艺术标题、海报、个性签名', src:'Google Fonts' },
+  { name:'Liu Jian Mao Cao', family:"'Liu Jian Mao Cao', cursive", cat:'手写', google:'Liu+Jian+Mao+Cao', use:'草书风格、文艺设计、标题字', src:'Google Fonts' },
+  { name:'Long Cang', family:"'Long Cang', cursive", cat:'手写', google:'Long+Cang', use:'手写笔记风格、轻松休闲场景', src:'Google Fonts' },
+  { name:'ZCOOL XiaoWei', family:"'ZCOOL XiaoWei', cursive", cat:'手写', google:'ZCOOL+XiaoWei', use:'文艺青年风、个性博客标题', src:'Google Fonts' },
+  { name:'ZCOOL KuaiLe', family:"'ZCOOL KuaiLe', cursive", cat:'手写', google:'ZCOOL+KuaiLe', use:'儿童读物、趣味内容、活泼标题', src:'Google Fonts' },
+
+  // ---- 艺术 / 创意 ----
+  { name:'ZCOOL QingKe HuangYou', family:"'ZCOOL QingKe HuangYou', cursive", cat:'艺术', google:'ZCOOL+QingKe+HuangYou', use:'创意海报、涂鸦风格、个性化设计', src:'Google Fonts' },
+
+  // ---- 英文字体 ----
+  { name:'Roboto', family:"'Roboto', sans-serif", cat:'英文', google:'Roboto:wght@300;400;500;700', use:'Android / Material Design 默认字体，现代通用', src:'Google Fonts' },
+  { name:'Open Sans', family:"'Open Sans', sans-serif", cat:'英文', google:'Open+Sans:wght@300;400;600;700', use:'Web 最流行的无衬线字体之一，易读性强', src:'Google Fonts' },
+  { name:'Lato', family:"'Lato', sans-serif", cat:'英文', google:'Lato:wght@300;400;700', use:'温暖现代的企业风格字体', src:'Google Fonts' },
+  { name:'Montserrat', family:"'Montserrat', sans-serif", cat:'英文', google:'Montserrat:wght@300;400;600;700', use:'几何风格标题字体，适合品牌标识', src:'Google Fonts' },
+  { name:'Poppins', family:"'Poppins', sans-serif", cat:'英文', google:'Poppins:wght@300;400;600;700', use:'几何现代风格，支持多语种', src:'Google Fonts' },
+  { name:'Inter', family:"'Inter', sans-serif", cat:'英文', google:'Inter:wght@300;400;600;700', use:'专为屏幕阅读优化的 UI 字体', src:'Google Fonts' },
+  { name:'Raleway', family:"'Raleway', sans-serif", cat:'英文', google:'Raleway:wght@300;400;600;700', use:'优雅细长标题字体，适合大字号使用', src:'Google Fonts' },
+  { name:'Nunito', family:"'Nunito', sans-serif", cat:'英文', google:'Nunito:wght@300;400;600;700', use:'圆润友好风格，适合温暖品牌', src:'Google Fonts' },
+  { name:'Playfair Display', family:"'Playfair Display', serif", cat:'英文', google:'Playfair+Display:wght@400;600;700', use:'优雅衬线字体，时尚杂志标题', src:'Google Fonts' },
+  { name:'Merriweather', family:"'Merriweather', serif", cat:'英文', google:'Merriweather:wght@300;400;700', use:'为屏幕阅读优化的衬线字体', src:'Google Fonts' },
+  { name:'Source Sans 3', family:"'Source Sans 3', sans-serif", cat:'英文', google:'Source+Sans+3:wght@300;400;600;700', use:'Adobe 开源 UI 字体，字形规范', src:'Google Fonts' },
+  { name:'Source Serif 4', family:"'Source Serif 4', serif", cat:'英文', google:'Source+Serif+4:wght@300;400;600;700', use:'Adobe 开源衬线字体，阅读舒适', src:'Google Fonts' },
+  { name:'Ubuntu', family:"'Ubuntu', sans-serif", cat:'英文', google:'Ubuntu:wght@300;400;700', use:'Ubuntu 系统字体，现代友好', src:'Google Fonts' },
+  { name:'Fira Sans', family:"'Fira Sans', sans-serif", cat:'英文', google:'Fira+Sans:wght@300;400;600;700', use:'Mozilla 设计，适合代码和 UI', src:'Google Fonts' },
+  { name:'Dancing Script', family:"'Dancing Script', cursive", cat:'英文', google:'Dancing+Script:wght@400;600;700', use:'优雅手写体，婚礼/邀请函', src:'Google Fonts' },
+  { name:'Pacifico', family:"'Pacifico', cursive", cat:'英文', google:'Pacifico', use:'轻松手写风格，适合品牌标识', src:'Google Fonts' },
+  { name:'Caveat', family:"'Caveat', cursive", cat:'英文', google:'Caveat:wght@400;700', use:'自然手写笔记风格', src:'Google Fonts' },
+  { name:'JetBrains Mono', family:"'JetBrains Mono', monospace", cat:'英文', google:'JetBrains+Mono:wght@300;400;600;700', use:'专为开发者设计的等宽代码字体', src:'Google Fonts' },
+  { name:'Fira Code', family:"'Fira Code', monospace", cat:'英文', google:'Fira+Code:wght@300;400;600;700', use:'带连字的等宽代码字体', src:'Google Fonts' },
+  { name:'Space Grotesk', family:"'Space Grotesk', sans-serif", cat:'英文', google:'Space+Grotesk:wght@300;400;600;700', use:'太空主题几何风格，科技感强', src:'Google Fonts' },
+  { name:'DM Sans', family:"'DM Sans', sans-serif", cat:'英文', google:'DM+Sans:wght@300;400;600;700', use:'几何无衬线，设计简洁清晰', src:'Google Fonts' },
+  { name:'Oswald', family:"'Oswald', sans-serif", cat:'英文', google:'Oswald:wght@300;400;600;700', use:'窄体无衬线，适合紧凑标题', src:'Google Fonts' },
+  { name:'Bebas Neue', family:"'Bebas Neue', sans-serif", cat:'英文', google:'Bebas+Neue', use:'全大写展示字体，海报标题', src:'Google Fonts' },
+  { name:'Inconsolata', family:"'Inconsolata', monospace", cat:'英文', google:'Inconsolata:wght@300;400;700', use:'经典的编程等宽字体', src:'Google Fonts' },
+  { name:'PT Sans', family:"'PT Sans', sans-serif", cat:'英文', google:'PT+Sans:wght@400;700', use:'俄罗斯设计，支持西里尔字母', src:'Google Fonts' },
+  { name:'Comfortaa', family:"'Comfortaa', sans-serif", cat:'英文', google:'Comfortaa:wght@300;400;700', use:'圆润几何风格，适合科技品牌', src:'Google Fonts' },
+];
+
+// ========== 全局状态 ==========
+let CN_TEXT = '永和九年，岁在癸丑，暮春之初，会于会稽山阴之兰亭，修禊事也。群贤毕至，少长咸集。此地有崇山峻岭，茂林修竹；又有清流激湍，映带左右，引以为流觞曲水，列坐其次。';
+let EN_TEXT = 'The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump! Bright vixens jump; dozy fowl quack.';
+let currentLang = 'zh';
+let currentText = CN_TEXT;
+let fontSize = 28;
+let activeFilter = 'all';
+let selectedFontIndex = -1;
+
+// ========== 加载 Google Fonts ==========
+function loadGoogleFonts() {
+  const fontsToLoad = FONTS.filter(f => f.google).map(f => f.google);
+  // Deduplicate
+  const unique = [...new Set(fontsToLoad)];
+  const familyParam = unique.map(f => `family=${encodeURIComponent(f)}`).join('&');
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?${familyParam}&display=swap`;
+  document.head.appendChild(link);
+}
+
+// ========== 渲染字体卡片 ==========
+function renderFonts(filteredFonts) {
+  const grid = document.getElementById('fontGrid');
+  grid.innerHTML = '';
+
+  if (filteredFonts.length === 0) {
+    grid.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <p>没有找到匹配的字体，试试其他关键词？</p>
+    </div>`;
+    document.getElementById('stats').textContent = `0 款字体`;
+    return;
+  }
+
+  document.getElementById('stats').textContent = `共 ${filteredFonts.length} 款字体`;
+
+  filteredFonts.forEach((font, displayIndex) => {
+    // 找到原始索引
+    const originalIndex = FONTS.indexOf(font);
+    const card = document.createElement('div');
+    card.className = 'card' + (originalIndex === selectedFontIndex ? ' selected' : '');
+    card.onclick = (e) => {
+      if (e.target.tagName === 'BUTTON') return;
+      selectFont(originalIndex);
+      openModal(originalIndex);
+    };
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="card-name">${font.name}</span>
+        <span class="card-badge">${font.cat}</span>
+      </div>
+      <div class="card-preview" style="font-family:${font.family}; font-size:${fontSize}px;">
+        ${escapeHtml(currentText)}
+      </div>
+      <div class="card-actions">
+        <button onclick="event.stopPropagation(); copyCSS(${originalIndex})" title="复制 CSS 引入代码">📋 复制 CSS</button>
+        <button onclick="event.stopPropagation(); openModal(${originalIndex})" title="查看详情">ℹ️ 详情</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ========== 过滤 ==========
+function filterFonts() {
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const category = document.getElementById('categoryFilter').value.toLowerCase();
+
+  let filtered = FONTS;
+  if (category !== 'all') {
+    filtered = filtered.filter(f => f.cat === category);
+  }
+  if (search) {
+    filtered = filtered.filter(f =>
+      f.name.toLowerCase().includes(search) ||
+      f.cat.toLowerCase().includes(search) ||
+      (f.use && f.use.toLowerCase().includes(search))
+    );
+  }
+  renderFonts(filtered);
+}
+
+// ========== 字号 ==========
+function changeSize() {
+  fontSize = parseInt(document.getElementById('sizeSlider').value);
+  document.getElementById('sizeLabel').textContent = fontSize;
+  document.querySelectorAll('.card-preview').forEach(el => {
+    el.style.fontSize = fontSize + 'px';
+  });
+}
+
+// ========== 语言切换 ==========
+function toggleLang() {
+  currentLang = currentLang === 'zh' ? 'en' : 'zh';
+  currentText = currentLang === 'zh' ? CN_TEXT : EN_TEXT;
+  document.getElementById('btnLang').textContent = currentLang === 'zh' ? '中 ⇄ EN' : 'EN ⇄ 中';
+  document.querySelectorAll('.card-preview').forEach(el => {
+    el.textContent = currentText;
+  });
+  // Also update modal if open
+  const modalPreview = document.getElementById('modalPreview');
+  if (modalPreview) {
+    modalPreview.textContent = currentText;
+  }
+}
+
+// ========== 主题切换 ==========
+function toggleMode() {
+  const root = document.documentElement;
+  root.classList.toggle('light');
+  const btn = document.getElementById('btnMode');
+  btn.textContent = root.classList.contains('light') ? '🌙 暗色' : '🌓 主题';
+  localStorage.setItem('font-preview-theme', root.classList.contains('light') ? 'light' : 'dark');
+}
+
+// 初始化主题
+(function initTheme() {
+  const saved = localStorage.getItem('font-preview-theme');
+  if (saved === 'light') {
+    document.documentElement.classList.add('light');
+    document.getElementById('btnMode').textContent = '🌙 暗色';
+  }
+})();
+
+// ========== 选中字体 ==========
+function selectFont(index) {
+  selectedFontIndex = index;
+  // 更新卡片样式
+  document.querySelectorAll('.card').forEach(card => card.classList.remove('selected'));
+  const cards = document.querySelectorAll('.card');
+  // 找到对应卡片的 displayIndex
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const category = document.getElementById('categoryFilter').value.toLowerCase();
+  let filtered = FONTS;
+  if (category !== 'all') filtered = filtered.filter(f => f.cat === category);
+  if (search) filtered = filtered.filter(f => f.name.toLowerCase().includes(search) || f.cat.toLowerCase().includes(search) || (f.use && f.use.toLowerCase().includes(search)));
+  const displayIndex = filtered.indexOf(FONTS[index]);
+  if (displayIndex >= 0 && cards[displayIndex]) {
+    cards[displayIndex].classList.add('selected');
+  }
+}
+
+// ========== Modal ==========
+function openModal(index) {
+  const font = FONTS[index];
+  document.getElementById('modalName').textContent = font.name;
+  document.getElementById('modalCategory').textContent = font.cat;
+  document.getElementById('modalPreview').textContent = currentText;
+  document.getElementById('modalPreview').style.fontFamily = font.family;
+  document.getElementById('modalPreview').style.fontSize = (fontSize + 8) + 'px';
+  document.getElementById('modalFamily').textContent = font.family;
+  document.getElementById('modalUseCases').textContent = font.use || '通用排版';
+  document.getElementById('modalSource').textContent = font.src || '系统字体';
+
+  // CSS 代码
+  const css = font.google
+    ? `@import url('https://fonts.googleapis.com/css2?family=${font.google}&display=swap');\nfont-family: ${font.family};`
+    : `/* 系统字体，无需加载 */\nfont-family: ${font.family};`;
+  document.getElementById('modalCSSCode').textContent = css;
+  document.getElementById('modalCopyBtn').textContent = '复制';
+  document.getElementById('modalCopyBtn').classList.remove('copied');
+
+  document.getElementById('modalOverlay').style.display = 'flex';
+  selectedFontIndex = index;
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+
+function copyModalCSS() {
+  const code = document.getElementById('modalCSSCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById('modalCopyBtn');
+    btn.textContent = '已复制!';
+    btn.classList.add('copied');
+    showToast('CSS 代码已复制到剪贴板');
+    setTimeout(() => {
+      btn.textContent = '复制';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// ========== 复制 CSS ==========
+function copyCSS(index) {
+  const font = FONTS[index];
+  const css = font.google
+    ? `@import url('https://fonts.googleapis.com/css2?family=${font.google}&display=swap');\nfont-family: ${font.family};`
+    : `/* 系统字体，无需加载 */\nfont-family: ${font.family};`;
+  navigator.clipboard.writeText(css).then(() => {
+    showToast(`${font.name} CSS 已复制到剪贴板`);
+  });
+}
+
+// ========== Toast ==========
+function showToast(msg) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.remove(); }, 2200);
+}
+
+// ========== 工具函数 ==========
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ========== 键盘快捷键 ==========
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('modalOverlay').style.display = 'none';
+  }
+  // Ctrl/Cmd + K 聚焦搜索
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+
+// ========== 初始化 ==========
+function init() {
+  loadGoogleFonts();
+  filterFonts();
+  document.getElementById('sizeSlider').value = fontSize;
+  document.getElementById('sizeLabel').textContent = fontSize;
+}
+
+init();
+</script>
+
+</body>
+</html>

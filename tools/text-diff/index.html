@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📝 文本差异对比</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface-2: #0f3460;
+    --text: #eaeaea;
+    --text-secondary: #a0a0b8;
+    --accent: #e94560;
+    --border: #2a2a4a;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --radius: 12px;
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --diff-add: #1a4731;
+    --diff-add-border: #22c55e;
+    --diff-del: #4a1a1a;
+    --diff-del-border: #ef4444;
+    --diff-mod: #4a3a1a;
+    --diff-mod-border: #eab308;
+  }
+
+  [data-theme="light"] {
+    --bg: #f5f5fa;
+    --surface: #ffffff;
+    --surface-2: #e8e8f0;
+    --text: #1a1a2e;
+    --text-secondary: #6a6a7a;
+    --accent: #e94560;
+    --border: #d8d8e8;
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    --diff-add: #dcfce7;
+    --diff-add-border: #22c55e;
+    --diff-del: #fecaca;
+    --diff-del-border: #ef4444;
+    --diff-mod: #fef3c7;
+    --diff-mod-border: #eab308;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background var(--transition), color var(--transition);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 32px;
+  }
+
+  /* 头部 */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  .header h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .theme-toggle {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text);
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .theme-toggle:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* 面板 */
+  .panel {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  /* 文本框区 */
+  .editor-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .editor-row {
+      flex-direction: column;
+      gap: 12px;
+    }
+  }
+
+  .editor-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .editor-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .editor-label .char-count {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    opacity: 0.7;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color var(--transition);
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+  }
+
+  /* 按钮 */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+    flex: 1;
+    padding: 14px;
+    font-size: 1rem;
+  }
+  .btn-accent:hover { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(233,68,96,0.4); }
+  .btn-accent:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { background: var(--surface-2); border-color: var(--accent); }
+
+  .btn-sm {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
+
+  /* 统计 */
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--surface-2);
+  }
+
+  .stat-badge.added { color: #22c55e; }
+  .stat-badge.deleted { color: #ef4444; }
+  .stat-badge.modified { color: #eab308; }
+
+  /* 差异结果 */
+  .diff-container {
+    background: var(--surface-2);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+  }
+
+  .diff-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.9rem;
+  }
+
+  .diff-line {
+    display: flex;
+    padding: 2px 12px;
+    min-height: 26px;
+    align-items: flex-start;
+    border-left: 4px solid transparent;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .diff-line .line-prefix {
+    width: 24px;
+    flex-shrink: 0;
+    text-align: center;
+    font-weight: 700;
+    user-select: none;
+    margin-right: 8px;
+  }
+
+  .diff-line .line-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .diff-line.same {
+    color: var(--text-secondary);
+  }
+
+  .diff-line.added {
+    background: var(--diff-add);
+    border-left-color: var(--diff-add-border);
+    color: #bbf7d0;
+  }
+  [data-theme="light"] .diff-line.added {
+    color: #166534;
+  }
+  .diff-line.added .line-prefix { color: var(--diff-add-border); }
+
+  .diff-line.deleted {
+    background: var(--diff-del);
+    border-left-color: var(--diff-del-border);
+    color: #fca5a5;
+  }
+  [data-theme="light"] .diff-line.deleted {
+    color: #991b1b;
+  }
+  .diff-line.deleted .line-prefix { color: var(--diff-del-border); }
+
+  .diff-line.modified {
+    background: var(--diff-mod);
+    border-left-color: var(--diff-mod-border);
+    color: #fde68a;
+  }
+  [data-theme="light"] .diff-line.modified {
+    color: #92400e;
+  }
+  .diff-line.modified .line-prefix { color: var(--diff-mod-border); }
+
+  /* 响应式 */
+  @media (max-width: 480px) {
+    body { padding: 10px; }
+    .container { gap: 12px; }
+    .panel { padding: 16px; }
+    .header h1 { font-size: 1.1rem; }
+    textarea { min-height: 140px; }
+    .btn { padding: 8px 14px; font-size: 0.82rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 头部 -->
+  <div class="header">
+    <h1>📝 文本差异对比</h1>
+    <button class="theme-toggle" id="themeToggle" title="切换暗色/亮色模式">
+      <span id="themeIcon">🌙</span>
+      <span id="themeLabel">暗色</span>
+    </button>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="panel">
+    <div class="editor-row">
+      <div class="editor-col">
+        <div class="editor-label">
+          <span>原始文本</span>
+          <span class="char-count" id="leftCount">0 行</span>
+        </div>
+        <textarea id="leftEditor" placeholder="在此粘贴原始文本..."></textarea>
+      </div>
+      <div class="editor-col">
+        <div class="editor-label">
+          <span>修改文本</span>
+          <span class="char-count" id="rightCount">0 行</span>
+        </div>
+        <textarea id="rightEditor" placeholder="在此粘贴修改后的文本..."></textarea>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn btn-accent" id="compareBtn">🔍 对比差异</button>
+      <button class="btn btn-outline btn-sm" id="swapBtn">⇄ 交换</button>
+      <button class="btn btn-outline btn-sm" id="clearBtn" style="margin-left:auto;">清空</button>
+    </div>
+  </div>
+
+  <!-- 统计信息 -->
+  <div class="panel" id="statsPanel" style="display:none;">
+    <div class="stats-row" id="statsRow"></div>
+  </div>
+
+  <!-- 差异结果 -->
+  <div class="panel" id="diffPanel" style="display:none;">
+    <div class="diff-container" id="diffOutput">
+      <div class="diff-empty">请输入两段文本并点击"对比差异"</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+  let theme = 'dark';
+
+  // ===== 行计数更新 =====
+  function updateLineCounts() {
+    const leftLines = $('leftEditor').value.split('\n').length;
+    const rightLines = $('rightEditor').value.split('\n').length;
+    $('leftCount').textContent = leftLines + ' 行';
+    $('rightCount').textContent = rightLines + ' 行';
+  }
+
+  $('leftEditor').addEventListener('input', updateLineCounts);
+  $('rightEditor').addEventListener('input', updateLineCounts);
+
+  // ===== 相似度计算 =====
+  function similarity(a, b) {
+    if (a === b) return 1;
+    if (!a || !b) return 0;
+    const maxLen = Math.max(a.length, b.length);
+    if (maxLen === 0) return 1;
+    // 简单编辑距离
+    const m = a.length, n = b.length;
+    let prev = new Array(n + 1);
+    let curr = new Array(n + 1);
+    for (let j = 0; j <= n; j++) prev[j] = j;
+    for (let i = 1; i <= m; i++) {
+      curr[0] = i;
+      for (let j = 1; j <= n; j++) {
+        if (a[i - 1] === b[j - 1]) {
+          curr[j] = prev[j - 1];
+        } else {
+          curr[j] = 1 + Math.min(prev[j], curr[j - 1], prev[j - 1]);
+        }
+      }
+      [prev, curr] = [curr, prev];
+    }
+    return 1 - prev[n] / maxLen;
+  }
+
+  // ===== LCS 长度矩阵 =====
+  function buildLCSTable(a, b) {
+    const m = a.length, n = b.length;
+    const dp = new Array(m + 1);
+    for (let i = 0; i <= m; i++) {
+      dp[i] = new Array(n + 1).fill(0);
+    }
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (a[i - 1] === b[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+    return dp;
+  }
+
+  // ===== 回溯LCS得到diff操作 =====
+  function backtrackDiff(a, b) {
+    const dp = buildLCSTable(a, b);
+    const ops = []; // {type: 'same'|'add'|'del'|'mod', leftIdx?, rightIdx?, content?}
+    let i = a.length, j = b.length;
+
+    // 先反向收集
+    const rev = [];
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+        rev.push({ type: 'same', leftIdx: i - 1, rightIdx: j - 1, content: a[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        rev.push({ type: 'add', rightIdx: j - 1, content: b[j - 1] });
+        j--;
+      } else {
+        rev.push({ type: 'del', leftIdx: i - 1, content: a[i - 1] });
+        i--;
+      }
+    }
+
+    // 反转得到正序
+    for (let k = rev.length - 1; k >= 0; k--) {
+      ops.push(rev[k]);
+    }
+
+    return ops;
+  }
+
+  // ===== 合并相邻的删除+新增为修改 =====
+  function mergeModifiedOps(ops, a, b) {
+    const merged = [];
+    let i = 0;
+    while (i < ops.length) {
+      if (ops[i].type === 'del' && i + 1 < ops.length && ops[i + 1].type === 'add') {
+        const delLine = ops[i].content;
+        const addLine = ops[i + 1].content;
+        const sim = similarity(delLine, addLine);
+        if (sim > 0.3) {
+          // 视为修改：显示两行（删除→新增）
+          merged.push({
+            type: 'mod-del',
+            content: delLine,
+            leftIdx: ops[i].leftIdx,
+            rightIdx: ops[i + 1].rightIdx
+          });
+          merged.push({
+            type: 'mod-add',
+            content: addLine,
+            leftIdx: ops[i].leftIdx,
+            rightIdx: ops[i + 1].rightIdx
+          });
+          i += 2;
+          continue;
+        }
+      }
+      merged.push(ops[i]);
+      i++;
+    }
+    return merged;
+  }
+
+  // ===== 计算统计 =====
+  function computeStats(diffOps) {
+    let added = 0, deleted = 0, modified = 0;
+    let seenModPair = false;
+    for (let i = 0; i < diffOps.length; i++) {
+      if (diffOps[i].type === 'add') added++;
+      else if (diffOps[i].type === 'del') deleted++;
+      else if (diffOps[i].type === 'mod-del') {
+        if (!seenModPair) {
+          modified++;
+          seenModPair = true;
+        }
+      } else if (diffOps[i].type === 'mod-add') {
+        // mod-add 和 mod-del 成对，已在 mod-del 中计数
+      } else {
+        seenModPair = false;
+      }
+    }
+    return { added, deleted, modified };
+  }
+
+  // ===== 渲染统计 =====
+  function renderStats(stats) {
+    const row = $('statsRow');
+    const hasChanges = stats.added > 0 || stats.deleted > 0 || stats.modified > 0;
+    if (!hasChanges) {
+      row.innerHTML = '<span style="font-size:0.85rem;color:var(--text-secondary);">✨ 两段文本完全相同</span>';
+    } else {
+      const parts = [];
+      if (stats.added > 0) parts.push(`<span class="stat-badge added">+${stats.added} 新增</span>`);
+      if (stats.deleted > 0) parts.push(`<span class="stat-badge deleted">-${stats.deleted} 删除</span>`);
+      if (stats.modified > 0) parts.push(`<span class="stat-badge modified">~${stats.modified} 修改</span>`);
+      row.innerHTML = parts.join('');
+    }
+    $('statsPanel').style.display = '';
+  }
+
+  // ===== 渲染差异 =====
+  function renderDiff(diffOps) {
+    const output = $('diffOutput');
+    if (diffOps.length === 0) {
+      output.innerHTML = '<div class="diff-empty">请输入两段文本并点击"对比差异"</div>';
+      return;
+    }
+
+    const allSame = diffOps.every(op => op.type === 'same');
+    if (allSame) {
+      output.innerHTML = '<div class="diff-empty">✨ 两段文本完全相同</div>';
+      return;
+    }
+
+    let html = '';
+    for (const op of diffOps) {
+      let cssClass, prefix;
+      switch (op.type) {
+        case 'same':
+          cssClass = 'same';
+          prefix = '  ';
+          break;
+        case 'add':
+          cssClass = 'added';
+          prefix = '+';
+          break;
+        case 'del':
+          cssClass = 'deleted';
+          prefix = '-';
+          break;
+        case 'mod-del':
+          cssClass = 'modified';
+          prefix = '~';
+          break;
+        case 'mod-add':
+          cssClass = 'modified';
+          prefix = '~';
+          break;
+        default:
+          cssClass = 'same';
+          prefix = '  ';
+      }
+      const escContent = escapeHtml(op.content || '');
+      html += `<div class="diff-line ${cssClass}"><span class="line-prefix">${prefix}</span><span class="line-content">${escContent}</span></div>`;
+    }
+    output.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ===== 执行对比 =====
+  function doCompare() {
+    const leftText = $('leftEditor').value;
+    const rightText = $('rightEditor').value;
+    const leftLines = leftText.split('\n');
+    const rightLines = rightText.split('\n');
+
+    if (!leftText.trim() && !rightText.trim()) {
+      $('diffOutput').innerHTML = '<div class="diff-empty">请输入两段文本并点击"对比差异"</div>';
+      $('statsPanel').style.display = 'none';
+      return;
+    }
+
+    let ops = backtrackDiff(leftLines, rightLines);
+    ops = mergeModifiedOps(ops, leftLines, rightLines);
+
+    const stats = computeStats(ops);
+    renderStats(stats);
+    renderDiff(ops);
+    $('diffPanel').style.display = '';
+  }
+
+  $('compareBtn').addEventListener('click', doCompare);
+
+  // Ctrl+Enter 快捷键
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      doCompare();
+    }
+  });
+
+  // ===== 交换 =====
+  $('swapBtn').addEventListener('click', () => {
+    const left = $('leftEditor').value;
+    const right = $('rightEditor').value;
+    $('leftEditor').value = right;
+    $('rightEditor').value = left;
+    updateLineCounts();
+    doCompare();
+  });
+
+  // ===== 清空 =====
+  $('clearBtn').addEventListener('click', () => {
+    $('leftEditor').value = '';
+    $('rightEditor').value = '';
+    updateLineCounts();
+    $('diffOutput').innerHTML = '<div class="diff-empty">请输入两段文本并点击"对比差异"</div>';
+    $('statsPanel').style.display = 'none';
+    $('diffPanel').style.display = 'none';
+  });
+
+  // ===== 主题切换 =====
+  $('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    theme = theme === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', theme);
+    $('themeIcon').textContent = theme === 'dark' ? '🌙' : '☀️';
+    $('themeLabel').textContent = theme === 'dark' ? '暗色' : '亮色';
+  });
+
+  // ===== 初始化 =====
+  updateLineCounts();
+})();
+</script>
+</body>
+</html>

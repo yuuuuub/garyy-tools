@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown 预览器</title>
+<style>
+/* ===== 基础重置与变量 ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-glass: rgba(22, 27, 34, 0.65);
+  --bg-glass-hover: rgba(22, 27, 34, 0.85);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(88, 166, 255, 0.4);
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --green: #3fb950;
+  --green-hover: #56d364;
+  --orange: #d2991d;
+  --red: #f85149;
+  --purple: #a371f7;
+  --code-bg: rgba(110, 118, 129, 0.15);
+  --code-block-bg: #0d1117;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glass: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== 应用容器 ===== */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100dvh;
+}
+
+/* ===== 顶部导航栏 ===== */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+  min-height: 52px;
+  gap: 12px;
+}
+
+#header .logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  user-select: none;
+}
+
+#header .logo svg { width: 24px; height: 24px; flex-shrink: 0; }
+
+#header .logo svg path { fill: var(--accent); }
+
+/* ===== 工具栏 ===== */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+#toolbar .tb-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-right: 1px solid var(--border);
+}
+
+#toolbar .tb-group:last-child { border-right: none; }
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.tb-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.tb-btn:active { transform: scale(0.95); }
+
+.tb-btn[title]::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+  box-shadow: var(--shadow-glass);
+}
+
+.tb-btn:hover[title]::after { opacity: 1; }
+
+/* ===== 主体区域 ===== */
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ===== 分隔条 ===== */
+#divider {
+  width: 4px;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+#divider:hover, #divider.active { background: var(--accent); }
+
+/* ===== 面板 ===== */
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  user-select: none;
+}
+
+.panel-header .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-header .panel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.panel-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== 编辑区域 ===== */
+#editor-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+#editor {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  tab-size: 2;
+}
+
+#editor::placeholder { color: var(--text-muted); }
+
+/* 行号装饰 */
+#editor-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(13, 17, 23, 0.6), transparent);
+  z-index: 1;
+}
+
+/* ===== 预览区域 ===== */
+#preview-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  background: var(--bg-primary);
+}
+
+/* 预览内容的样式 */
+.preview-content { line-height: 1.75; }
+
+.preview-content > *:first-child { margin-top: 0 !important; }
+
+.preview-content h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 28px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.preview-content h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+.preview-content h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  color: var(--text-primary);
+}
+
+.preview-content h4, .preview-content h5, .preview-content h6 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: var(--text-primary);
+}
+
+.preview-content p { margin: 8px 0 12px; color: var(--text-primary); }
+
+.preview-content a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.preview-content a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+.preview-content strong { font-weight: 700; color: #ffffff; }
+
+.preview-content em { font-style: italic; color: var(--text-secondary); }
+
+.preview-content del { opacity: 0.5; text-decoration: line-through; }
+
+.preview-content code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--orange);
+}
+
+.preview-content pre {
+  margin: 12px 0;
+  padding: 16px;
+  background: var(--code-block-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.preview-content pre code {
+  background: transparent;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  display: block;
+}
+
+/* 语法高亮 - 关键字 */
+.hl-keyword { color: #ff7b72; }
+.hl-string { color: #a5d6ff; }
+.hl-number { color: #79c0ff; }
+.hl-comment { color: #8b949e; font-style: italic; }
+.hl-function { color: #d2a8ff; }
+.hl-type { color: #ffa657; }
+.hl-variable { color: #ffa657; }
+.hl-operator { color: #ff7b72; }
+.hl-property { color: #79c0ff; }
+.hl-punctuation { color: #8b949e; }
+.hl-tag { color: #7ee787; }
+.hl-attr { color: #79c0ff; }
+
+.preview-content blockquote {
+  margin: 12px 0;
+  padding: 10px 16px;
+  border-left: 3px solid var(--accent);
+  background: rgba(88, 166, 255, 0.05);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  color: var(--text-secondary);
+}
+
+.preview-content blockquote p { margin: 4px 0; color: inherit; }
+
+.preview-content ul, .preview-content ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.preview-content li {
+  margin: 4px 0;
+  color: var(--text-primary);
+}
+
+.preview-content li::marker { color: var(--accent); }
+
+.preview-content li > ul, .preview-content li > ol { margin: 2px 0; }
+
+.preview-content hr {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.preview-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  margin: 8px 0;
+}
+
+.preview-content table {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+  font-size: 14px;
+  overflow-x: auto;
+  display: block;
+}
+
+.preview-content thead { border-bottom: 2px solid var(--border); }
+
+.preview-content th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  white-space: nowrap;
+}
+
+.preview-content td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.preview-content tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+
+.preview-content tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+
+.preview-content tbody tr:nth-child(even):hover { background: rgba(255, 255, 255, 0.05); }
+
+.preview-content input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--accent);
+}
+
+/* ===== 底部操作栏 ===== */
+#footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  min-height: 36px;
+}
+
+#stats { display: flex; gap: 16px; }
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.action-btn:active { transform: scale(0.97); }
+
+/* ===== Toast 提示 ===== */
+#toast {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ===== 移动端 Tab ===== */
+#mobile-tabs {
+  display: none;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+#mobile-tabs button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-bottom: 2px solid transparent;
+}
+
+#mobile-tabs button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+#mobile-tabs button:hover { color: var(--text-primary); }
+
+/* ===== 滚动条 ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ===== 空状态 ===== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 8px;
+  user-select: none;
+}
+
+.empty-state svg { width: 48px; height: 48px; opacity: 0.3; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  #mobile-tabs { display: flex; }
+  #main { flex-direction: column; }
+  #divider { display: none; }
+  .panel { display: none; }
+  .panel.active { display: flex; }
+  #header { flex-wrap: wrap; padding: 8px 12px; min-height: auto; gap: 6px; }
+  #header .logo { font-size: 14px; }
+  #toolbar { gap: 1px; }
+  #toolbar .tb-group { padding: 0 2px; border-right: none; }
+  .tb-btn { width: 28px; height: 28px; font-size: 13px; }
+  #preview-wrap { padding: 16px; }
+  .preview-content h1 { font-size: 22px; }
+  .preview-content h2 { font-size: 18px; }
+  .preview-content h3 { font-size: 16px; }
+  #editor { padding: 14px; font-size: 13px; }
+  #footer { flex-wrap: wrap; gap: 6px; }
+  .action-btn { font-size: 11px; padding: 4px 8px; }
+  .panel-header { padding: 6px 12px; font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  #toolbar .tb-group:nth-child(3),
+  #toolbar .tb-group:nth-child(4) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- 顶部导航栏 -->
+  <header id="header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/></svg>
+      Markdown 预览器
+    </div>
+    <div id="toolbar">
+      <div class="tb-group">
+        <button class="tb-btn" title="插入标题 H2" onclick="insertMarkdown('## ', '')">H2</button>
+        <button class="tb-btn" title="插入标题 H3" onclick="insertMarkdown('### ', '')">H3</button>
+        <button class="tb-btn" title="插入标题 H4" onclick="insertMarkdown('#### ', '')">H4</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" title="加粗" onclick="insertMarkdown('**', '**')"><b>B</b></button>
+        <button class="tb-btn" title="斜体" onclick="insertMarkdown('*', '*')"><i>I</i></button>
+        <button class="tb-btn" title="删除线" onclick="insertMarkdown('~~', '~~')"><s>S</s></button>
+        <button class="tb-btn" title="行内代码" onclick="insertMarkdown('`', '`')">&lt;/&gt;</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" title="无序列表" onclick="insertNewLine('- ')">&#8226;</button>
+        <button class="tb-btn" title="有序列表" onclick="insertNewLine('1. ')">1.</button>
+        <button class="tb-btn" title="任务列表" onclick="insertNewLine('- [ ] ')">&#9744;</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" title="引用块" onclick="insertNewLine('> ')">&#8227;</button>
+        <button class="tb-btn" title="链接" onclick="insertMarkdown('[', '](url)')">&#128279;</button>
+        <button class="tb-btn" title="图片" onclick="insertMarkdown('![', '](url)')">&#128247;</button>
+        <button class="tb-btn" title="表格" onclick="insertTable()">&#9638;</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" title="代码块" onclick="insertCodeBlock()">{ }</button>
+        <button class="tb-btn" title="水平分割线" onclick="insertNewLine('\n---\n')">&#8213;</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 移动端 Tab 切换 -->
+  <div id="mobile-tabs">
+    <button class="active" data-tab="editor-panel" onclick="switchTab('editor-panel')">&#9998; 编辑</button>
+    <button data-tab="preview-panel" onclick="switchTab('preview-panel')">&#128065; 预览</button>
+  </div>
+
+  <!-- 主体区域 -->
+  <div id="main">
+    <!-- 编辑面板 -->
+    <div id="editor-panel" class="panel active">
+      <div class="panel-header">
+        <span class="panel-title"><span class="panel-dot"></span> 编辑</span>
+        <span class="panel-label">Markdown</span>
+      </div>
+      <div id="editor-wrap">
+        <textarea id="editor" placeholder="在这里输入 Markdown 文本..." spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <!-- 分隔条 -->
+    <div id="divider"></div>
+
+    <!-- 预览面板 -->
+    <div id="preview-panel" class="panel">
+      <div class="panel-header">
+        <span class="panel-title"><span class="panel-dot" style="background:var(--green)"></span> 预览</span>
+        <span class="panel-label">HTML</span>
+      </div>
+      <div id="preview-wrap">
+        <div id="preview-content" class="preview-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部操作栏 -->
+  <footer id="footer">
+    <div id="stats">
+      <span id="char-count">字符: 0</span>
+      <span id="word-count">词数: 0</span>
+      <span id="line-count">行数: 0</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="action-btn" onclick="copyHTML()">&#128203; 复制 HTML</button>
+      <button class="action-btn" onclick="exportHTML()">&#128229; 导出 HTML</button>
+      <button class="action-btn" onclick="clearEditor()">&#128465; 清空</button>
+    </div>
+  </footer>
+</div>
+
+<!-- Toast 提示 -->
+<div id="toast"></div>
+
+<script>
+/* ===== 样例 Markdown 文本 ===== */
+const SAMPLE_MD = `# &#128640; Markdown 预览器
+
+欢迎使用 **Markdown 预览器**！这是一个功能丰富的 Markdown 实时预览工具。
+
+## &#9997; 基本语法
+
+### 文字格式
+
+- **加粗文本** 使用 \`**文本**\`
+- *斜体文本* 使用 \`*文本*\`
+- ~~删除线~~ 使用 \`~~文本~~\`
+- \`行内代码\` 使用 \`\\\`代码\\\`\`
+
+### 列表
+
+1. 有序列表项一
+2. 有序列表项二
+   1. 嵌套有序列表
+   2. 另一项
+3. 有序列表项三
+
+- 无序列表项
+- 另一项
+  - 嵌套无序列表
+  - 再嵌套一层
+
+### 任务列表
+
+- [x] 已完成的任务
+- [ ] 待完成的任务
+- [ ] 更多待办事项
+
+### 引用
+
+> 这是引用的文字。Markdown 预览器支持多级引用。
+>
+> > 嵌套引用看起来是这样的。
+>
+> 引用结束回到上一级。
+
+## &#128279; 链接与图片
+
+[访问 GitHub](https://github.com)
+
+图片示例（当 URL 有效时显示）：
+![Markdown Logo](https://markdown-here.com/img/icon256.png)
+
+## &#128187; 代码块
+
+**JavaScript 示例：**
+
+\`\`\`javascript
+// 快速排序算法
+function quickSort(arr) {
+  if (arr.length <= 1) return arr;
+  const pivot = arr[0];
+  const left = arr.slice(1).filter(x => x < pivot);
+  const right = arr.slice(1).filter(x => x >= pivot);
+  return [...quickSort(left), pivot, ...quickSort(right)];
+}
+
+// 使用示例
+const nums = [3, 6, 2, 8, 1, 9, 4];
+console.log(quickSort(nums)); // [1, 2, 3, 4, 6, 8, 9]
+\`\`\`
+
+**Python 示例：**
+
+\`\`\`python
+import json
+
+class MarkdownParser:
+    def __init__(self, text: str):
+        self.text = text
+        self.lines = text.split('\\n')
+
+    def parse(self) -> str:
+        result = []
+        for line in self.lines:
+            if line.startswith('# '):
+                result.append(f'<h1>{line[2:]}</h1>')
+            else:
+                result.append(f'<p>{line}</p>')
+        return '\\n'.join(result)
+
+parser = MarkdownParser("# Hello\\nWorld")
+print(parser.parse())
+\`\`\`
+
+**CSS 样式：**
+
+\`\`\`css
+.container {
+  display: flex;
+  gap: 16px;
+  padding: 24px;
+  background: var(--bg-primary);
+  border-radius: 12px;
+}
+
+.container .item {
+  flex: 1;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.container .item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+\`\`\`
+
+## &#128202; 表格
+
+| 特性 | 支持情况 | 说明 |
+|------|---------|------|
+| 标题 | &#10004; | 支持 H1 - H6 |
+| 文字格式 | &#10004; | 加粗、斜体、删除线 |
+| 列表 | &#10004; | 有序/无序/任务列表 |
+| 代码块 | &#10004; | 语法高亮 |
+| 表格 | &#10004; | 完整表格支持 |
+| 引用 | &#10004; | 支持嵌套引用 |
+| 链接 | &#10004; | 外部链接 |
+| 图片 | &#10004; | 支持外链图片 |
+
+---
+
+## &#127919; 使用技巧
+
+1. **工具栏**：顶部工具栏可快速插入 Markdown 语法
+2. **实时预览**：左侧输入，右侧即时渲染
+3. **复制导出**：底部按钮支持复制 HTML 或导出为文件
+4. **响应式**：手机端自动切换为标签页模式
+
+> &#128161; **提示**：试试在编辑区输入 Markdown 文本来体验实时预览效果！
+
+---
+
+*感谢使用 Markdown 预览器！* &#127881;
+`;
+
+/* ===== DOM 元素引用 ===== */
+const editor = document.getElementById('editor');
+const previewContent = document.getElementById('preview-content');
+const divider = document.getElementById('divider');
+const charCount = document.getElementById('char-count');
+const wordCount = document.getElementById('word-count');
+const lineCount = document.getElementById('line-count');
+const toast = document.getElementById('toast');
+
+/* ===== 加载样例文本 ===== */
+editor.value = SAMPLE_MD;
+
+/* ===== Toast 提示 ===== */
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+/* ===== Markdown 解析器 ===== */
+function highlightCode(lang, code) {
+  const escaped = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  if (!lang) return escaped;
+
+  const rules = {
+    comment:   /(\/\/.*$|\/\*[\s\S]*?\*\/|#.*$)/gm,
+    string:    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)/g,
+    number:    /\b(\d+\.?\d*)\b/g,
+    keyword:   /\b(function|const|let|var|return|if|else|for|while|do|switch|case|break|continue|new|this|typeof|instanceof|class|extends|import|export|default|try|catch|finally|throw|await|async|yield|from|as|of|in|void|delete|static|get|set)\b/g,
+    function:  /\b([a-zA-Z_$][\w$]*(?=\s*\())/g,
+    operator:  /(\+{1,2}|-{1,2}|\*{1,2}|\/{1,2}|%|={1,3}|!={1,2}|>{1,2}|<{1,2}|&{1,2}|\|{1,2}|\^|~|!|\?|:)/g,
+  };
+
+  const pyRules = {
+    comment:   /(#.*$)/gm,
+    string:    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|f"(?:\\.|[^"\\])*"|f'(?:\\.|[^'\\])*')/g,
+    number:    /\b(\d+\.?\d*)\b/g,
+    keyword:   /\b(def|class|return|if|elif|else|for|while|import|from|as|try|except|finally|raise|with|yield|lambda|pass|break|continue|and|or|not|in|is|None|True|False|self|async|await|print)\b/g,
+    function:  /\b([a-zA-Z_][\w]*(?=\s*\())/g,
+    decorator: /(@\w+)/g,
+  };
+
+  const cssRules = {
+    comment:   /(\/\*[\s\S]*?\*\/)/gm,
+    string:    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g,
+    selector:  /([.#][\w-]+(?=\s*\{))/g,
+    property:  /([\w-]+(?=\s*:))/g,
+    value:     /(:\s*)([^;]+)/g,
+    unit:      /(\d+)(px|em|rem|%|vh|vw|ms|s|deg)/g,
+  };
+
+  const htmlRules = {
+    comment:   /(&lt;!--[\s\S]*?--&gt;)/gm,
+    string:    /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g,
+    tag:       /(&lt;\/?)([\w-]+)/g,
+    attr:      /\s([\w-]+)(?=\s*=)/g,
+  };
+
+  let activeRules = rules;
+  if (/^(py(thon)?)$/i.test(lang)) activeRules = pyRules;
+  else if (/^(css|scss|less)$/i.test(lang)) activeRules = cssRules;
+  else if (/^(html|xml|svg)$/i.test(lang)) activeRules = htmlRules;
+
+  const markers = [];
+  Object.entries(activeRules).forEach(([cls, regex]) => {
+    let match;
+    const re = new RegExp(regex.source, regex.flags);
+    while ((match = re.exec(escaped)) !== null) {
+      markers.push({ start: match.index, end: match.index + match[0].length, cls: 'hl-' + cls });
+    }
+  });
+
+  markers.sort((a, b) => a.start - b.start);
+
+  const merged = [];
+  markers.forEach(m => {
+    const last = merged[merged.length - 1];
+    if (last && last.end >= m.start) {
+      last.end = Math.max(last.end, m.end);
+    } else {
+      merged.push({ ...m });
+    }
+  });
+
+  let result = '';
+  let pos = 0;
+  merged.forEach(m => {
+    result += escaped.slice(pos, m.start);
+    result += `<span class="${m.cls}">${escaped.slice(m.start, m.end)}</span>`;
+    pos = m.end;
+  });
+  result += escaped.slice(pos);
+  return result;
+}
+
+function parseMd(text) {
+  if (!text.trim()) return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>输入 Markdown 开始预览</span></div>';
+
+  let html = text;
+
+  // 1. 保护代码块
+  const codeBlocks = [];
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push({ lang: lang.trim(), code: code.trimEnd() });
+    return `%%CODEBLOCK_${idx}%%`;
+  });
+
+  // 2. 保护行内代码
+  const inlineCodes = [];
+  html = html.replace(/`([^`]+)`/g, (_, code) => {
+    const idx = inlineCodes.length;
+    inlineCodes.push(code);
+    return `%%INLINE_${idx}%%`;
+  });
+
+  // 3. 保护图片
+  const images = [];
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
+    const idx = images.length;
+    images.push({ alt, src });
+    return `%%IMAGE_${idx}%%`;
+  });
+
+  // 4. 保护链接
+  const links = [];
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+    const idx = links.length;
+    links.push({ text, url });
+    return `%%LINK_${idx}%%`;
+  });
+
+  // 5. 分割线
+  html = html.replace(/^(-{3,}|\*{3,}|_{3,})\s*$/gm, '<hr>');
+
+  // 6. 标题
+  html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+  html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // 7. 表格
+  html = html.replace(/(^\|.+\|\s*\n\|[- :|]+\|\s*\n((?:\|.+\|\s*\n?)*))/gm, (match) => {
+    const rows = match.trim().split('\n');
+    if (rows.length < 2) return match;
+    const headerCells = rows[0].split('|').filter(c => c.trim() !== '');
+    const alignRow = rows[1];
+    const aligns = alignRow.split('|').filter(c => c.trim() !== '').map(c => {
+      if (c.trim().startsWith(':') && c.trim().endsWith(':')) return 'center';
+      if (c.trim().endsWith(':')) return 'right';
+      return 'left';
+    });
+    let table = '<table><thead><tr>';
+    headerCells.forEach((cell, i) => {
+      table += `<th style="text-align:${aligns[i] || 'left'}">${cell.trim()}</th>`;
+    });
+    table += '</tr></thead><tbody>';
+    for (let i = 2; i < rows.length; i++) {
+      const cells = rows[i].split('|').filter(c => c.trim() !== '');
+      table += '<tr>';
+      cells.forEach((cell, j) => {
+        table += `<td style="text-align:${aligns[j] || 'left'}">${cell.trim()}</td>`;
+      });
+      table += '</tr>';
+    }
+    table += '</tbody></table>';
+    return table;
+  });
+
+  // 8. 引用块
+  html = html.replace(/^&gt; (.*)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/^> (.*)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/<\/blockquote>\n<blockquote>/g, '\n');
+
+  // 9. 任务列表
+  html = html.replace(/^- \[x\] (.+)$/gim, '<li><input type="checkbox" checked disabled> $1</li>');
+  html = html.replace(/^- \[ \] (.+)$/gim, '<li><input type="checkbox" disabled> $1</li>');
+
+  // 10. 无序列表
+  html = html.replace(/^(\s*)[-*+] (.+)$/gm, (_, indent, content) => {
+    return `${indent}<li>${content}</li>`;
+  });
+
+  // 11. 有序列表
+  html = html.replace(/^(\s*)\d+\. (.+)$/gm, (_, indent, content) => {
+    return `${indent}<li>${content}</li>`;
+  });
+
+  // 12. 包裹列表
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, (match) => {
+    if (match.includes('</li>')) {
+      return '<ul>\n' + match.trim() + '\n</ul>';
+    }
+    return match;
+  });
+
+  // 13. 粗体、斜体、删除线
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+  // 14. 段落
+  const lines = html.split('\n');
+  const processed = [];
+  let inBlock = false;
+  let blockBuffer = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // 跳过已处理的块级元素
+    if (/^<(h[1-6]|hr|table|blockquote|ul|ol|pre|div)/.test(trimmed)) {
+      if (blockBuffer.length > 0) {
+        processed.push(`<p>${blockBuffer.join('<br>')}</p>`);
+        blockBuffer = [];
+      }
+      processed.push(trimmed);
+      continue;
+    }
+
+    // 闭合标签也直接放行
+    if (/^<\/(ul|ol|table|blockquote)/.test(trimmed)) {
+      if (blockBuffer.length > 0) {
+        processed.push(`<p>${blockBuffer.join('<br>')}</p>`);
+        blockBuffer = [];
+      }
+      processed.push(trimmed);
+      continue;
+    }
+
+    if (trimmed === '') {
+      if (blockBuffer.length > 0) {
+        processed.push(`<p>${blockBuffer.join('<br>')}</p>`);
+        blockBuffer = [];
+      }
+      continue;
+    }
+
+    blockBuffer.push(line);
+  }
+
+  if (blockBuffer.length > 0) {
+    processed.push(`<p>${blockBuffer.join('<br>')}</p>`);
+  }
+
+  html = processed.join('\n');
+
+  // 15. 还原占位符
+  codeBlocks.forEach(({ lang, code }, idx) => {
+    const highlighted = highlightCode(lang, code);
+    const langLabel = lang ? `<span style="position:absolute;top:0;right:0;padding:2px 8px;font-size:11px;background:var(--bg-tertiary);color:var(--text-muted);border-radius:0 var(--radius-xs) 0 var(--radius-xs);">${lang}</span>` : '';
+    html = html.replace(`%%CODEBLOCK_${idx}%%`, `<pre style="position:relative;">${langLabel}<code>${highlighted}</code></pre>`);
+  });
+
+  inlineCodes.forEach((code, idx) => {
+    const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    html = html.replace(`%%INLINE_${idx}%%`, `<code>${escaped}</code>`);
+  });
+
+  images.forEach(({ alt, src }, idx) => {
+    html = html.replace(`%%IMAGE_${idx}%%`, `<img src="${src}" alt="${alt}" loading="lazy" onerror="this.style.display='none'">`);
+  });
+
+  links.forEach(({ text, url }, idx) => {
+    html = html.replace(`%%LINK_${idx}%%`, `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+  });
+
+  return html;
+}
+
+/* ===== 更新统计信息 ===== */
+function updateStats() {
+  const text = editor.value;
+  charCount.textContent = `字符: ${text.length}`;
+  const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+  const words = text.trim() ? text.trim().split(/\s+/).length + chineseChars : 0;
+  wordCount.textContent = `词数: ${words}`;
+  lineCount.textContent = `行数: ${text.split('\n').length}`;
+}
+
+/* ===== 更新预览 ===== */
+function updatePreview() {
+  const html = parseMd(editor.value);
+  previewContent.innerHTML = html;
+  updateStats();
+}
+
+/* ===== 插入 Markdown 语法 ===== */
+function insertMarkdown(before, after) {
+  const el = editor;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const selected = el.value.substring(start, end);
+  const replacement = selected ? before + selected + after : before + after;
+
+  el.focus();
+  document.execCommand('insertText', false, replacement);
+
+  if (!selected) {
+    el.selectionStart = start + before.length;
+    el.selectionEnd = start + before.length;
+  } else {
+    el.selectionStart = start;
+    el.selectionEnd = start + replacement.length;
+  }
+
+  el.dispatchEvent(new Event('input'));
+}
+
+function insertNewLine(text) {
+  const el = editor;
+  const start = el.selectionStart;
+  const before = el.value.substring(0, start);
+  const needNewline = before.length > 0 && !before.endsWith('\n');
+  const prefix = needNewline ? '\n' : '';
+
+  el.focus();
+  document.execCommand('insertText', false, prefix + text);
+  el.dispatchEvent(new Event('input'));
+}
+
+function insertCodeBlock() {
+  const el = editor;
+  const start = el.selectionStart;
+  const before = el.value.substring(0, start);
+  const needNewline = before.length > 0 && !before.endsWith('\n');
+  const prefix = needNewline ? '\n' : '';
+
+  el.focus();
+  document.execCommand('insertText', false, prefix + '```\n\n```');
+  el.selectionStart = start + prefix.length + 4;
+  el.selectionEnd = el.selectionStart;
+  el.dispatchEvent(new Event('input'));
+}
+
+function insertTable() {
+  const table = '\n| 列1 | 列2 | 列3 |\n|------|------|------|\n| 内容 | 内容 | 内容 |\n';
+  const el = editor;
+  const start = el.selectionStart;
+  const before = el.value.substring(0, start);
+  const needNewline = before.length > 0 && !before.endsWith('\n');
+  el.focus();
+  document.execCommand('insertText', false, (needNewline ? '\n' : '') + table);
+  el.dispatchEvent(new Event('input'));
+}
+
+/* ===== 复制 HTML ===== */
+function copyHTML() {
+  const html = parseMd(editor.value);
+  navigator.clipboard.writeText(html).then(() => {
+    showToast('HTML 已复制到剪贴板');
+  }).catch(() => {
+    const textarea = document.createElement('textarea');
+    textarea.value = html;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('HTML 已复制到剪贴板');
+  });
+}
+
+/* ===== 导出 HTML ===== */
+function exportHTML() {
+  const content = parseMd(editor.value);
+  const fullHTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown 预览导出</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  padding: 40px;
+  max-width: 900px;
+  margin: 0 auto;
+  line-height: 1.75;
+}
+h1 { font-size: 28px; font-weight: 700; margin: 28px 0 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); letter-spacing: -0.3px; }
+h2 { font-size: 22px; font-weight: 700; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+h3 { font-size: 18px; font-weight: 600; margin: 20px 0 10px; }
+h4,h5,h6 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+p { margin: 8px 0 12px; }
+a { color: #58a6ff; text-decoration: none; }
+a:hover { color: #79c0ff; text-decoration: underline; }
+strong { font-weight: 700; color: #ffffff; }
+em { font-style: italic; color: #8b949e; }
+del { opacity: 0.5; text-decoration: line-through; }
+code { font-family: 'SF Mono', 'Consolas', monospace; font-size: 13px; background: rgba(110,118,129,0.15); padding: 2px 6px; border-radius: 6px; color: #d2991d; }
+pre { margin: 12px 0; padding: 16px; background: #0d1117; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow-x: auto; }
+pre code { background: transparent; padding: 0; color: #e6edf3; font-size: 13px; line-height: 1.6; display: block; }
+blockquote { margin: 12px 0; padding: 10px 16px; border-left: 3px solid #58a6ff; background: rgba(88,166,255,0.05); border-radius: 0 6px 6px 0; color: #8b949e; }
+ul, ol { margin: 8px 0; padding-left: 24px; }
+li { margin: 4px 0; }
+li::marker { color: #58a6ff; }
+hr { margin: 24px 0; border: none; border-top: 1px solid rgba(255,255,255,0.08); }
+img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+table { width: 100%; margin: 12px 0; border-collapse: collapse; font-size: 14px; }
+thead { border-bottom: 2px solid rgba(255,255,255,0.08); }
+th { padding: 10px 14px; text-align: left; font-weight: 700; background: #21262d; }
+td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.hl-keyword{color:#ff7b72}.hl-string{color:#a5d6ff}.hl-number{color:#79c0ff}.hl-comment{color:#8b949e;font-style:italic}.hl-function{color:#d2a8ff}.hl-operator{color:#ff7b72}.hl-property{color:#79c0ff}.hl-tag{color:#7ee787}.hl-attr{color:#79c0ff}
+@media (max-width: 768px) { body { padding: 20px; } h1 { font-size: 22px; } h2 { font-size: 18px; } }
+</style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
+
+  const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `markdown-preview-${new Date().toISOString().slice(0,10)}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('HTML 文件已导出');
+}
+
+/* ===== 清空编辑器 ===== */
+function clearEditor() {
+  editor.value = '';
+  updatePreview();
+  showToast('编辑器已清空');
+}
+
+/* ===== 移动端 Tab 切换 ===== */
+function switchTab(panelId) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#mobile-tabs button').forEach(b => b.classList.remove('active'));
+
+  const panel = document.getElementById(panelId);
+  const tab = document.querySelector(`[data-tab="${panelId}"]`);
+  if (panel) panel.classList.add('active');
+  if (tab) tab.classList.add('active');
+}
+
+/* ===== 分栏拖拽 ===== */
+let isDragging = false;
+let startX = 0;
+let startLeftWidth = 0;
+
+divider.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  startX = e.clientX;
+  const editorPanel = document.getElementById('editor-panel');
+  startLeftWidth = editorPanel.getBoundingClientRect().width;
+  divider.classList.add('active');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const delta = e.clientX - startX;
+  const containerWidth = document.getElementById('main').getBoundingClientRect().width;
+  const newLeftPercent = ((startLeftWidth + delta) / containerWidth) * 100;
+  const clamped = Math.max(20, Math.min(80, newLeftPercent));
+  document.getElementById('editor-panel').style.flex = `0 0 ${clamped}%`;
+  document.getElementById('preview-panel').style.flex = `0 0 ${100 - clamped}%`;
+});
+
+document.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  divider.classList.remove('active');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+});
+
+// 触屏支持
+divider.addEventListener('touchstart', (e) => {
+  isDragging = true;
+  startX = e.touches[0].clientX;
+  const editorPanel = document.getElementById('editor-panel');
+  startLeftWidth = editorPanel.getBoundingClientRect().width;
+  divider.classList.add('active');
+  e.preventDefault();
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (!isDragging) return;
+  const delta = e.touches[0].clientX - startX;
+  const containerWidth = document.getElementById('main').getBoundingClientRect().width;
+  const newLeftPercent = ((startLeftWidth + delta) / containerWidth) * 100;
+  const clamped = Math.max(20, Math.min(80, newLeftPercent));
+  document.getElementById('editor-panel').style.flex = `0 0 ${clamped}%`;
+  document.getElementById('preview-panel').style.flex = `0 0 ${100 - clamped}%`;
+});
+
+document.addEventListener('touchend', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  divider.classList.remove('active');
+});
+
+/* ===== 键盘快捷键 ===== */
+editor.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    showToast('预览已更新（自动保存）');
+  }
+});
+
+/* ===== 事件监听 ===== */
+editor.addEventListener('input', updatePreview);
+
+/* ===== 初始化 ===== */
+updatePreview();
+</script>
+
+</body>
+</html>

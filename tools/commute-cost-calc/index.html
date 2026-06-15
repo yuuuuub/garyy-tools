@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚇 通勤成本计算器</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --card-bg: #1a1a1a;
+    --text: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --border: #2a2a2a;
+    --input-bg: #252525;
+    --highlight: #f59e0b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --tag-bg: #1e1b4b;
+    --tag-text: #a5b4fc;
+  }
+  [data-theme="light"] {
+    --bg: #f5f5f5;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --text-secondary: #666;
+    --border: #e0e0e0;
+    --input-bg: #f0f0f0;
+    --tag-bg: #eef2ff;
+    --tag-text: #4f46e5;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  .container {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding: 16px 0;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .theme-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .theme-toggle:hover { background: var(--input-bg); }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+
+  .input-group {
+    margin-bottom: 14px;
+  }
+  .input-group:last-child { margin-bottom: 0; }
+
+  .input-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .input-group input, .input-group select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .input-group input:focus, .input-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+  }
+  .input-row .input-group { flex: 1; }
+
+  .highlight-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 4px 0;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .stat-item {
+    background: var(--input-bg);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-item .label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .stat-item .value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .fun-fact {
+    background: var(--input-bg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .fun-fact .icon { font-size: 1.3rem; flex-shrink: 0; }
+  .fun-fact .text { font-size: 0.88rem; line-height: 1.5; }
+
+  .tag {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+
+  .comparison {
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .comparison.better { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+  .comparison.worse { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+  .comparison.neutral { background: var(--input-bg); color: var(--text-secondary); }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 16px 0;
+  }
+
+  @media (min-width: 640px) {
+    body { padding: 32px; }
+    h1 { font-size: 1.6rem; }
+    .stat-grid { grid-template-columns: 1fr 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🚇 通勤成本计算器</h1>
+    <button class="theme-toggle" id="themeBtn" aria-label="切换主题">🌙</button>
+  </header>
+
+  <!-- 输入 -->
+  <div class="card">
+    <div class="card-title">📋 基本信息</div>
+    <div class="input-row">
+      <div class="input-group">
+        <label for="commuteTime">单程通勤时间（分钟）</label>
+        <input type="number" id="commuteTime" value="45" min="1" placeholder="例如：45">
+      </div>
+      <div class="input-group">
+        <label for="workDays">每月通勤天数</label>
+        <input type="number" id="workDays" value="22" min="1" max="31" placeholder="例如：22">
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="input-group">
+        <label for="dailyCost">每日通勤费用（元）</label>
+        <input type="number" id="dailyCost" value="10" min="0" step="0.01" placeholder="例如：10">
+      </div>
+      <div class="input-group">
+        <label for="monthlySalary">月薪（元）</label>
+        <input type="number" id="monthlySalary" value="15000" min="0" step="100" placeholder="例如：15000">
+      </div>
+    </div>
+  </div>
+
+  <!-- 结果 -->
+  <div class="card" id="resultsCard">
+    <div class="card-title">📊 成本分析</div>
+    <div class="stat-grid">
+      <div class="stat-item">
+        <div class="label">每天通勤时间</div>
+        <div class="value" id="dailyTime">--</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">每月通勤时间</div>
+        <div class="value" id="monthlyTime">--</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">每年通勤时间</div>
+        <div class="value" id="yearlyTime">--</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">每天金钱成本</div>
+        <div class="value" id="dailyMoney">--</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">每月金钱成本</div>
+        <div class="value" id="monthlyMoney">--</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">每年金钱成本</div>
+        <div class="value" id="yearlyMoney">--</div>
+      </div>
+    </div>
+    <hr>
+    <div class="highlight-value" id="totalCost">--</div>
+    <div style="color: var(--text-secondary); font-size: 0.85rem;">年度总成本（金钱 + 机会成本）</div>
+    <div style="margin-top: 8px;">
+      <span class="tag" id="tagTimeCost">时间机会成本</span>
+      <span class="tag" id="tagMoneyCost">直接金钱成本</span>
+    </div>
+  </div>
+
+  <!-- 趣味展示 -->
+  <div class="card" id="funCard">
+    <div class="card-title">💡 换个角度看</div>
+    <div class="fun-fact">
+      <span class="icon">📅</span>
+      <span class="text" id="factWorkdays">你每年在通勤上花了 -- 个工作日</span>
+    </div>
+    <div class="fun-fact">
+      <span class="icon">📺</span>
+      <span class="text" id="factDrama">够追 -- 部剧了</span>
+    </div>
+    <div class="fun-fact">
+      <span class="icon">✈️</span>
+      <span class="text" id="factFlight">这笔钱够飞 -- 次北京到三亚往返</span>
+    </div>
+    <div class="fun-fact">
+      <span class="icon">☕</span>
+      <span class="text" id="factCoffee">相当于每天少喝 -- 杯拿铁</span>
+    </div>
+  </div>
+
+  <!-- 租房对比 -->
+  <div class="card">
+    <div class="card-title">🏠 住近 vs 通勤</div>
+    <div class="input-group">
+      <label for="rentDiff">公司附近每月房租差价（元）</label>
+      <input type="number" id="rentDiff" value="2000" min="0" step="100" placeholder="例如：2000">
+    </div>
+    <div class="input-row">
+      <div class="input-group">
+        <label for="nearTime">住近后单程时间（分钟）</label>
+        <input type="number" id="nearTime" value="10" min="0" placeholder="例如：10">
+      </div>
+      <div class="input-group">
+        <label for="nearDailyCost">住近后每日通勤费（元）</label>
+        <input type="number" id="nearNearDailyCost" value="0" min="0" step="0.01" placeholder="例如：0">
+      </div>
+    </div>
+    <div class="comparison neutral" id="comparisonResult">
+      输入房租差价后显示对比结果
+    </div>
+  </div>
+
+  <div class="footer">
+    通勤成本计算器 · 数据仅供娱乐参考
+  </div>
+</div>
+
+<script>
+(function() {
+  const $ = (id) => document.getElementById(id);
+
+  const el = {
+    commuteTime: $('commuteTime'),
+    workDays: $('workDays'),
+    dailyCost: $('dailyCost'),
+    monthlySalary: $('monthlySalary'),
+    rentDiff: $('rentDiff'),
+    nearTime: $('nearTime'),
+    nearDailyCost: $('nearNearDailyCost'),
+    dailyTime: $('dailyTime'),
+    monthlyTime: $('monthlyTime'),
+    yearlyTime: $('yearlyTime'),
+    dailyMoney: $('dailyMoney'),
+    monthlyMoney: $('monthlyMoney'),
+    yearlyMoney: $('yearlyMoney'),
+    totalCost: $('totalCost'),
+    tagTimeCost: $('tagTimeCost'),
+    tagMoneyCost: $('tagMoneyCost'),
+    factWorkdays: $('factWorkdays'),
+    factDrama: $('factDrama'),
+    factFlight: $('factFlight'),
+    factCoffee: $('factCoffee'),
+    comparisonResult: $('comparisonResult'),
+    themeBtn: $('themeBtn'),
+  };
+
+  function fmtMin(minutes) {
+    if (minutes <= 0) return '0 分钟';
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h === 0) return m + ' 分钟';
+    if (m === 0) return h + ' 小时';
+    return h + ' 小时 ' + m + ' 分钟';
+  }
+
+  function fmtDays(minutes) {
+    if (minutes <= 0) return '0 天';
+    const days = minutes / 60 / 24;
+    if (days < 1) return days.toFixed(1) + ' 天';
+    return Math.round(days) + ' 天';
+  }
+
+  function fmtMoney(n) {
+    if (Math.abs(n) < 10000) return '¥' + Math.round(n).toLocaleString('zh-CN');
+    return '¥' + (n / 10000).toFixed(2) + ' 万';
+  }
+
+  function getValues() {
+    const commuteMin = parseFloat(el.commuteTime.value) || 0;
+    const workDaysPerMonth = parseFloat(el.workDays.value) || 22;
+    const dailyCost = parseFloat(el.dailyCost.value) || 0;
+    const monthlySalary = parseFloat(el.monthlySalary.value) || 0;
+    const hourlyRate = monthlySalary / workDaysPerMonth / 8; // 时薪
+    return { commuteMin, workDaysPerMonth, dailyCost, monthlySalary, hourlyRate };
+  }
+
+  function calc() {
+    const v = getValues();
+
+    const dailyMin = v.commuteMin * 2;
+    const monthlyMin = dailyMin * v.workDaysPerMonth;
+    const yearlyMin = dailyMin * v.workDaysPerMonth * 12;
+
+    const dailyMoney = v.dailyCost;
+    const monthlyMoney = dailyMoney * v.workDaysPerMonth;
+    const yearlyMoney = dailyMoney * v.workDaysPerMonth * 12;
+
+    // 机会成本：通勤时间 × 时薪
+    const yearlyOpportunityCost = (yearlyMin / 60) * v.hourlyRate;
+    const totalYearlyCost = yearlyMoney + yearlyOpportunityCost;
+
+    el.dailyTime.textContent = fmtMin(dailyMin);
+    el.monthlyTime.textContent = fmtMin(monthlyMin);
+    el.yearlyTime.textContent = fmtMin(yearlyMin);
+    el.dailyMoney.textContent = fmtMoney(dailyMoney);
+    el.monthlyMoney.textContent = fmtMoney(monthlyMoney);
+    el.yearlyMoney.textContent = fmtMoney(yearlyMoney);
+    el.totalCost.textContent = fmtMoney(totalYearlyCost);
+
+    el.tagTimeCost.textContent = '时间机会成本 ' + fmtMoney(yearlyOpportunityCost);
+    el.tagMoneyCost.textContent = '直接金钱成本 ' + fmtMoney(yearlyMoney);
+
+    // 趣味展示
+    const workdayHours = 8 * 60; // 480分钟/工作日
+    const yearlyWorkdays = yearlyMin / workdayHours;
+    el.factWorkdays.innerHTML = '你每年在通勤上花了 <strong>' + yearlyWorkdays.toFixed(1) + '</strong> 个工作日';
+
+    const dramaMin = 45 * 30; // 一部剧30集，每集45分钟
+    const dramas = yearlyMin / dramaMin;
+    el.factDrama.innerHTML = '够追 <strong>' + dramas.toFixed(1) + '</strong> 部剧了（30集/部）';
+
+    const flightCost = 2000; // 北京三亚往返约2000元
+    const flights = yearlyMoney / flightCost;
+    el.factFlight.innerHTML = '这笔钱够飞 <strong>' + flights.toFixed(1) + '</strong> 次北京到三亚往返';
+
+    const coffeePrice = 30; // 拿铁30元
+    const dailyCoffee = dailyMoney / coffeePrice;
+    el.factCoffee.innerHTML = '相当于每天少喝 <strong>' + dailyCoffee.toFixed(1) + '</strong> 杯拿铁';
+
+    // 租房对比
+    updateComparison(v, yearlyMin, yearlyMoney);
+  }
+
+  function updateComparison(v, yearlyMinCurrent, yearlyMoneyCurrent) {
+    const rentDiff = parseFloat(el.rentDiff.value) || 0;
+    const nearMin = parseFloat(el.nearTime.value) || 0;
+    const nearDailyCost = parseFloat(el.nearDailyCost.value) || 0;
+
+    if (rentDiff <= 0) {
+      el.comparisonResult.className = 'comparison neutral';
+      el.comparisonResult.textContent = '输入房租差价后显示对比结果';
+      return;
+    }
+
+    const yearlyRentExtra = rentDiff * 12;
+    const nearDailyMin = nearMin * 2;
+    const yearlyNearMin = nearDailyMin * v.workDaysPerMonth * 12;
+    const yearlyNearMoney = nearDailyCost * v.workDaysPerMonth * 12;
+
+    const currentTotal = yearlyMoneyCurrent + (yearlyMinCurrent / 60) * v.hourlyRate;
+    const nearTotal = yearlyNearMoney + (yearlyNearMin / 60) * v.hourlyRate + yearlyRentExtra;
+
+    const timeSavedMin = yearlyMinCurrent - yearlyNearMin;
+    const timeSavedDays = timeSavedMin / 60 / 24;
+    const savedHours = Math.round(timeSavedMin / 60);
+
+    if (nearTotal < currentTotal) {
+      const saveAmount = currentTotal - nearTotal;
+      el.comparisonResult.className = 'comparison better';
+      el.comparisonResult.innerHTML =
+        '✅ <strong>住公司附近更划算！</strong><br>' +
+        '每年节省 ' + fmtMoney(saveAmount) + '，还能省下约 <strong>' + fmtDays(timeSavedMin) + '</strong> 通勤时间';
+    } else {
+      const extraAmount = nearTotal - currentTotal;
+      el.comparisonResult.className = 'comparison worse';
+      el.comparisonResult.innerHTML =
+        '📌 <strong>通勤更划算</strong><br>' +
+        '住近每年多花 ' + fmtMoney(extraAmount) + '，但能节省约 <strong>' + fmtDays(timeSavedMin) + '</strong> 通勤时间（' + savedHours + ' 小时/年）';
+    }
+  }
+
+  // 绑定事件
+  const allInputs = [el.commuteTime, el.workDays, el.dailyCost, el.monthlySalary, el.rentDiff, el.nearTime, el.nearDailyCost];
+  allInputs.forEach(function(inp) {
+    inp.addEventListener('input', calc);
+  });
+
+  // 主题切换
+  el.themeBtn.addEventListener('click', function() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    el.themeBtn.textContent = next === 'dark' ? '🌙' : '☀️';
+    localStorage.setItem('theme', next);
+  });
+
+  // 恢复主题
+  (function() {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      el.themeBtn.textContent = '☀️';
+    }
+  })();
+
+  // 初始计算
+  calc();
+})();
+</script>
+</body>
+</html>

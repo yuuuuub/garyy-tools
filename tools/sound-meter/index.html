@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分贝测试仪 - 实时噪音测量</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text2: #8b949e;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --accent: #58a6ff;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+    }
+    .container {
+      max-width: 720px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    /* Header */
+    header {
+      text-align: center;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .disclaimer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .disclaimer-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--yellow);
+    }
+    /* Gauge section */
+    .gauge-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .gauge-wrapper {
+      position: relative;
+      width: 320px;
+      height: 220px;
+    }
+    canvas#gaugeCanvas {
+      display: block;
+      width: 320px;
+      height: 220px;
+    }
+    /* Current dB display */
+    .db-display {
+      margin-top: -10px;
+      text-align: center;
+    }
+    .db-value {
+      font-size: 72px;
+      font-weight: 800;
+      line-height: 1;
+      transition: color 0.3s;
+    }
+    .db-value.safe { color: var(--green); }
+    .db-value.moderate { color: var(--yellow); }
+    .db-value.loud { color: var(--red); }
+    .db-value.dangerous { color: var(--purple); }
+    .db-unit {
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--text2);
+      margin-left: 2px;
+    }
+    .db-label {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 2px;
+      min-height: 18px;
+      transition: all 0.3s;
+    }
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 6px;
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text2);
+    }
+    /* Timer */
+    .timer-display {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    }
+    /* Button */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 40px;
+      font-size: 17px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s;
+      color: #fff;
+      background: var(--accent);
+      user-select: none;
+    }
+    .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn:active { transform: scale(0.97); }
+    .btn.stop {
+      background: var(--red);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      filter: none;
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    /* Chart section */
+    .chart-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .chart-subtitle {
+      font-size: 11px;
+      color: var(--text2);
+    }
+    canvas#chartCanvas {
+      display: block;
+      width: 100%;
+      height: 200px;
+      border-radius: 8px;
+    }
+    /* Reference section */
+    .ref-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .ref-section h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .ref-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ref-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .ref-icon {
+      font-size: 20px;
+      width: 32px;
+      text-align: center;
+    }
+    .ref-name {
+      flex: 1;
+      font-weight: 500;
+    }
+    .ref-bar-wrap {
+      width: 100px;
+      height: 6px;
+      background: var(--bg);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .ref-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s;
+    }
+    .ref-db {
+      font-weight: 700;
+      font-size: 14px;
+      min-width: 52px;
+      text-align: right;
+    }
+    /* Permission guide */
+    .guide-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .guide-section h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .guide-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .guide-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .guide-step .step-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+    /* Footer */
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text2);
+      padding-bottom: 16px;
+    }
+    /* Error toast */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--red);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      text-align: center;
+      max-width: 90vw;
+    }
+    .toast.show { opacity: 1; }
+    /* Responsive */
+    @media (max-width: 480px) {
+      .gauge-wrapper { width: 280px; height: 200px; }
+      canvas#gaugeCanvas { width: 280px; height: 200px; }
+      .db-value { font-size: 56px; }
+      .stats-row { gap: 20px; }
+      .ref-bar-wrap { width: 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <h1>分贝测试仪</h1>
+    <div class="disclaimer-badge">
+      <span class="dot"></span>
+      非校准设备，测量结果仅供参考
+    </div>
+  </header>
+
+  <!-- Gauge Section -->
+  <div class="gauge-section">
+    <div class="gauge-wrapper">
+      <canvas id="gaugeCanvas"></canvas>
+    </div>
+    <div class="db-display">
+      <span class="db-value" id="dbValue">--</span><span class="db-unit">dB</span>
+      <div class="db-label" id="dbLabel">等待开始...</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-value" id="peakValue">0</div>
+        <div class="stat-label">峰值 (dB)</div>
+      </div>
+      <div class="stat-item">
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="avgValue">0</div>
+        <div class="stat-label">平均值 (dB)</div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn" id="btnStart" onclick="startListening()">开始监听</button>
+      <button class="btn stop" id="btnStop" onclick="stopListening()" style="display:none;">停止监听</button>
+    </div>
+  </div>
+
+  <!-- Chart Section -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <span class="chart-title">音量历史图表</span>
+      <span class="chart-subtitle">最近 60 秒</span>
+    </div>
+    <canvas id="chartCanvas"></canvas>
+  </div>
+
+  <!-- Reference Section -->
+  <div class="ref-section">
+    <h2>参考对比</h2>
+    <div class="ref-list" id="refList"></div>
+  </div>
+
+  <!-- Permission Guide -->
+  <div class="guide-section">
+    <h2>麦克风权限说明</h2>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="step-num">1</span>
+        <span>点击页面上的<strong>"开始监听"</strong>按钮。</span>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">2</span>
+        <span>浏览器会弹出权限请求，请点击<strong>"允许"</strong>以授权麦克风访问。</span>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">3</span>
+        <span>若未弹出提示，请检查浏览器地址栏左侧的权限图标，手动开启麦克风权限。</span>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">4</span>
+        <span>本网站仅使用麦克风分析音量大小，<strong>不会录制或上传任何音频数据</strong>。所有处理均在本地浏览器完成。</span>
+      </div>
+      <div class="guide-step">
+        <span class="step-num">5</span>
+        <span>必须使用 <strong>HTTPS</strong> 连接（GitHub Pages 默认支持），否则浏览器会阻止麦克风访问。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    分贝测试仪 &middot; 非专业校准设备 &middot; 仅供娱乐参考 &middot; 数据仅在本地处理
+  </footer>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ==================== DOM ELEMENTS ====================
+  const gaugeCanvas = document.getElementById('gaugeCanvas');
+  const gaugeCtx = gaugeCanvas.getContext('2d');
+  const chartCanvas = document.getElementById('chartCanvas');
+  const chartCtx = chartCanvas.getContext('2d');
+  const dbValueEl = document.getElementById('dbValue');
+  const dbLabelEl = document.getElementById('dbLabel');
+  const peakValueEl = document.getElementById('peakValue');
+  const avgValueEl = document.getElementById('avgValue');
+  const timerDisplay = document.getElementById('timerDisplay');
+  const btnStart = document.getElementById('btnStart');
+  const btnStop = document.getElementById('btnStop');
+  const toast = document.getElementById('toast');
+
+  // ==================== AUDIO STATE ====================
+  let audioContext = null;
+  let analyser = null;
+  let microphone = null;
+  let dataArray = null;
+  let isListening = false;
+  let animationId = null;
+
+  // ==================== MEASUREMENT STATE ====================
+  let currentDb = 0;
+  let peakDb = 0;
+  let averageDb = 0;
+  let dbHistory = [];       // Recent dB values for chart
+  let dbAllHistory = [];    // All dB values for average
+  let timerSeconds = 0;
+  let timerInterval = null;
+  let startTime = 0;
+
+  // ==================== GAUGE CONFIG ====================
+  // 270-degree gauge: from 135° to 405° (canvas: PI*0.75 to PI*2.25)
+  const GAUGE_START = Math.PI * 0.75;
+  const GAUGE_END   = Math.PI * 2.25;
+  const GAUGE_RANGE = GAUGE_END - GAUGE_START;
+  const DB_MIN = 20;
+  const DB_MAX = 120;
+
+  // ==================== CHART CONFIG ====================
+  const CHART_MAX_POINTS = 120; // ~60 seconds at 500ms interval
+
+  // ==================== REFERENCE DATA ====================
+  const references = [
+    { name: '耳语', icon: '🤫', db: 30, color: '#3fb950' },
+    { name: '安静图书馆', icon: '📚', db: 40, color: '#3fb950' },
+    { name: '正常交谈', icon: '💬', db: 60, color: '#3fb950' },
+    { name: '吸尘器', icon: '🧹', db: 70, color: '#d29922' },
+    { name: '繁忙交通', icon: '🚗', db: 85, color: '#f85149' },
+    { name: '摇滚音乐会', icon: '🎸', db: 110, color: '#bc8cff' },
+    { name: '喷气式飞机', icon: '✈️', db: 120, color: '#bc8cff' },
+  ];
+
+  // ==================== INIT ====================
+  function init() {
+    // Set canvas resolutions
+    gaugeCanvas.width = 640;
+    gaugeCanvas.height = 440;
+    chartCanvas.width = chartCanvas.clientWidth * 2;
+    chartCanvas.height = 400;
+
+    // Draw initial gauge
+    drawGauge(0);
+    // Draw initial chart
+    drawChart();
+    // Build reference list
+    buildReferenceList();
+    // Handle resize
+    window.addEventListener('resize', () => {
+      chartCanvas.width = chartCanvas.clientWidth * 2;
+      chartCanvas.height = 400;
+      drawChart();
+    });
+  }
+
+  // ==================== TOAST ====================
+  let toastTimer = null;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  // ==================== START / STOP ====================
+  async function startListening() {
+    if (isListening) return;
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      microphone = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      // FFT size: 2048 gives 1024 frequency bins; we use time domain for RMS
+      // Actually, let's use a moderate size for time domain analysis
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.8;
+      microphone.connect(analyser);
+      dataArray = new Float32Array(analyser.fftSize);
+
+      // Reset state
+      currentDb = 0;
+      peakDb = 0;
+      averageDb = 0;
+      dbHistory = [];
+      dbAllHistory = [];
+      timerSeconds = 0;
+      startTime = Date.now();
+
+      // UI
+      isListening = true;
+      btnStart.style.display = 'none';
+      btnStop.style.display = 'inline-flex';
+      dbValueEl.textContent = '--';
+      dbLabelEl.textContent = '正在测量...';
+      peakValueEl.textContent = '0';
+      avgValueEl.textContent = '0';
+      timerDisplay.textContent = '00:00:00';
+
+      // Start timer
+      timerInterval = setInterval(updateTimer, 1000);
+      // Start measurement loop
+      measureLoop();
+
+      showToast('麦克风已连接，正在测量音量...');
+    } catch (err) {
+      console.error('麦克风访问失败:', err);
+      let msg = '无法访问麦克风。';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = '麦克风权限被拒绝，请在浏览器设置中允许访问麦克风。';
+      } else if (err.name === 'NotFoundError') {
+        msg = '未检测到麦克风设备。';
+      } else if (err.name === 'NotReadableError') {
+        msg = '麦克风被其他应用占用，请关闭其他使用麦克风的程序。';
+      }
+      showToast(msg);
+    }
+  }
+
+  function stopListening() {
+    if (!isListening) return;
+
+    // Stop measurement loop
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    // Stop timer
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    // Disconnect and close
+    if (microphone) {
+      microphone.disconnect();
+      microphone = null;
+    }
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+    analyser = null;
+    dataArray = null;
+    isListening = false;
+
+    // UI
+    btnStart.style.display = 'inline-flex';
+    btnStop.style.display = 'none';
+    dbValueEl.textContent = '--';
+    dbLabelEl.textContent = '监听已停止';
+    dbValueEl.className = 'db-value';
+
+    // Reset gauge needle
+    currentDb = 0;
+    drawGauge(0);
+
+    showToast('监听已停止。');
+  }
+
+  // ==================== TIMER ====================
+  function updateTimer() {
+    if (!isListening) return;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    timerDisplay.textContent =
+      String(h).padStart(2, '0') + ':' +
+      String(m).padStart(2, '0') + ':' +
+      String(s).padStart(2, '0');
+  }
+
+  // ==================== MEASUREMENT LOOP ====================
+  function measureLoop() {
+    if (!isListening) return;
+
+    // Get time domain data
+    analyser.getFloatTimeDomainData(dataArray);
+
+    // Calculate RMS
+    let sumSquares = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      sumSquares += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sumSquares / dataArray.length);
+
+    // Convert RMS to approximate dB
+    // Typical RMS ranges:
+    //   ~0.00001 -> quiet room (~20-30 dB)
+    //   ~0.001   -> moderate (~50-60 dB)
+    //   ~0.01    -> loud (~70-80 dB)
+    //   ~0.1     -> very loud (~90-100 dB)
+    //   ~0.5     -> painful (~110-120 dB)
+    // We use a calibrated mapping with the formula: dB = 20 * log10(rms / ref) + offset
+    // Let's set ref such that rms=0.00002 maps to ~20 dB (very quiet)
+    // dB = 20 * log10(rms / 0.000001) - some_offset
+    // Testing:
+    //   rms=0.00003: 20*log10(30) ≈ 29.5 => 29.5 - 9.5 = 20  (quiet room)
+    //   rms=0.001:   20*log10(1000) = 60 => 60-9.5 = 50.5 (normal)
+    //   rms=0.01:    20*log10(10000) = 80 => 80-9.5 = 70.5 (vacuum)
+    //   rms=0.05:    20*log10(50000) = 94 => 94-9.5 = 84.5 (traffic)
+    //   rms=0.3:     20*log10(300000) = 109.5 => 109.5-9.5 = 100
+    // This seems reasonable. Let's use this mapping.
+
+    let rawDb = 0;
+    if (rms > 0.000001) {
+      rawDb = 20 * Math.log10(rms / 0.000001) - 9.5;
+      // Clamp to range
+      rawDb = Math.max(DB_MIN, Math.min(DB_MAX, rawDb));
+    } else {
+      rawDb = DB_MIN;
+    }
+
+    // Smoothing (exponential moving average)
+    const smoothing = 0.3;
+    currentDb = currentDb * (1 - smoothing) + rawDb * smoothing;
+
+    // Ensure within range
+    currentDb = Math.max(DB_MIN, Math.min(DB_MAX, currentDb));
+
+    // Update peak
+    if (currentDb > peakDb) peakDb = currentDb;
+
+    // Update average
+    dbAllHistory.push(currentDb);
+    if (dbAllHistory.length > 0) {
+      averageDb = dbAllHistory.reduce((a, b) => a + b, 0) / dbAllHistory.length;
+    }
+
+    // Update history for chart (every ~150ms to match ~60fps-ish display)
+    // We push every sample; chart will downsample for display
+    dbHistory.push(currentDb);
+    if (dbHistory.length > CHART_MAX_POINTS) {
+      dbHistory.shift();
+    }
+
+    // Update UI
+    updateDisplay();
+    drawGauge(currentDb);
+    drawChart();
+
+    // Next frame
+    animationId = requestAnimationFrame(measureLoop);
+  }
+
+  // ==================== UPDATE DISPLAY ====================
+  function updateDisplay() {
+    // dB value
+    dbValueEl.textContent = Math.round(currentDb);
+
+    // Color class
+    dbValueEl.className = 'db-value';
+    if (currentDb < 70) {
+      dbValueEl.classList.add('safe');
+      dbLabelEl.textContent = '安全范围 - 对听力无害';
+    } else if (currentDb < 85) {
+      dbValueEl.classList.add('moderate');
+      dbLabelEl.textContent = '中等噪音 - 长时间暴露可能有影响';
+    } else if (currentDb < 100) {
+      dbValueEl.classList.add('loud');
+      dbLabelEl.textContent = '高噪音 - 建议佩戴耳塞';
+    } else {
+      dbValueEl.classList.add('dangerous');
+      dbLabelEl.textContent = '危险噪音 - 可能立即损伤听力！';
+    }
+
+    // Peak
+    peakValueEl.textContent = Math.round(peakDb);
+
+    // Average
+    avgValueEl.textContent = Math.round(averageDb);
+
+    // Color the stat values based on threshold
+    if (peakDb >= 100) {
+      peakValueEl.style.color = 'var(--purple)';
+    } else if (peakDb >= 85) {
+      peakValueEl.style.color = 'var(--red)';
+    } else if (peakDb >= 70) {
+      peakValueEl.style.color = 'var(--yellow)';
+    } else {
+      peakValueEl.style.color = 'var(--accent)';
+    }
+
+    if (averageDb >= 100) {
+      avgValueEl.style.color = 'var(--purple)';
+    } else if (averageDb >= 85) {
+      avgValueEl.style.color = 'var(--red)';
+    } else if (averageDb >= 70) {
+      avgValueEl.style.color = 'var(--yellow)';
+    } else {
+      avgValueEl.style.color = 'var(--accent)';
+    }
+  }
+
+  // ==================== DRAW GAUGE ====================
+  function drawGauge(db) {
+    const ctx = gaugeCtx;
+    const w = gaugeCanvas.width;
+    const h = gaugeCanvas.height;
+    const cx = w / 2;
+    const cy = h * 0.85;
+    const radius = Math.min(w, h) * 0.62;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw gauge background arc (track)
+    const trackWidth = 26;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, GAUGE_START, GAUGE_END);
+    ctx.strokeStyle = '#21262d';
+    ctx.lineWidth = trackWidth;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Draw color zones on the arc
+    // Map dB ranges to angle ranges
+    function dbToAngle(val) {
+      const fraction = (val - DB_MIN) / (DB_MAX - DB_MIN);
+      return GAUGE_START + fraction * GAUGE_RANGE;
+    }
+
+    const zones = [
+      { start: 20, end: 70,  color: '#3fb950' }, // Green
+      { start: 70, end: 85,  color: '#d29922' }, // Yellow
+      { start: 85, end: 100, color: '#f85149' }, // Red
+      { start: 100, end: 120, color: '#bc8cff' }, // Purple
+    ];
+
+    zones.forEach(zone => {
+      const a1 = dbToAngle(zone.start);
+      const a2 = dbToAngle(zone.end);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, a1, a2);
+      ctx.strokeStyle = zone.color;
+      ctx.lineWidth = trackWidth;
+      ctx.lineCap = 'butt';
+      ctx.stroke();
+    });
+
+    // Draw tick marks and labels
+    const tickInterval = 10; // Every 10 dB
+    for (let db = DB_MIN; db <= DB_MAX; db += tickInterval) {
+      const angle = dbToAngle(db);
+      const isMajor = (db % 20 === 0);
+      const tickLength = isMajor ? 16 : 10;
+      const tickWidth = isMajor ? 2.5 : 1.5;
+
+      const innerR = radius - trackWidth / 2;
+      const outerR = radius + trackWidth / 2 + tickLength;
+      const x1 = cx + innerR * Math.cos(angle);
+      const y1 = cy + innerR * Math.sin(angle);
+      const x2 = cx + outerR * Math.cos(angle);
+      const y2 = cy + outerR * Math.sin(angle);
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = isMajor ? '#8b949e' : '#484f58';
+      ctx.lineWidth = tickWidth;
+      ctx.stroke();
+
+      // Labels for major ticks
+      if (isMajor || db === DB_MIN || db === DB_MAX) {
+        const labelR = outerR + 22;
+        const lx = cx + labelR * Math.cos(angle);
+        const ly = cy + labelR * Math.sin(angle);
+        ctx.fillStyle = '#8b949e';
+        ctx.font = 'bold 20px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(db, lx, ly);
+      }
+    }
+
+    // Draw needle
+    const needleAngle = dbToAngle(Math.max(DB_MIN, Math.min(DB_MAX, db)));
+    const needleLength = radius - trackWidth / 2 - 8;
+    const needleWidth = 4;
+
+    // Needle shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    // Needle base circle
+    const baseR = 14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+    ctx.fillStyle = '#30363d';
+    ctx.fill();
+    ctx.strokeStyle = '#484f58';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Needle shape
+    const tipX = cx + needleLength * Math.cos(needleAngle);
+    const tipY = cy + needleLength * Math.sin(needleAngle);
+
+    // Perpendicular offset for needle width
+    const perpAngle = needleAngle + Math.PI / 2;
+    const hw = needleWidth / 2;
+
+    ctx.beginPath();
+    ctx.moveTo(
+      cx + hw * Math.cos(perpAngle),
+      cy + hw * Math.sin(perpAngle)
+    );
+    ctx.lineTo(tipX, tipY);
+    ctx.lineTo(
+      cx - hw * Math.cos(perpAngle),
+      cy - hw * Math.sin(perpAngle)
+    );
+    ctx.closePath();
+
+    // Needle gradient
+    const needleGrad = ctx.createLinearGradient(cx, cy, tipX, tipY);
+    // Color based on zone
+    let needleColor;
+    if (db < 70) needleColor = '#3fb950';
+    else if (db < 85) needleColor = '#d29922';
+    else if (db < 100) needleColor = '#f85149';
+    else needleColor = '#bc8cff';
+    needleGrad.addColorStop(0, needleColor);
+    needleGrad.addColorStop(1, '#ffffff');
+
+    ctx.fillStyle = needleGrad;
+    ctx.fill();
+    ctx.strokeStyle = needleColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Needle center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    // Draw digital readout inside gauge
+    ctx.fillStyle = '#e6edf3';
+    ctx.font = 'bold 30px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const readoutY = cy - radius + 32;
+    ctx.fillText(Math.round(db) + ' dB', cx, readoutY);
+  }
+
+  // ==================== DRAW CHART ====================
+  function drawChart() {
+    const ctx = chartCtx;
+    const w = chartCanvas.width;
+    const h = chartCanvas.height;
+    const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+    const pw = w - padding.left - padding.right;
+    const ph = h - padding.top - padding.bottom;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(padding.left, padding.top, pw, ph);
+
+    // Grid lines (horizontal)
+    const gridLevels = [20, 40, 60, 80, 100, 120];
+    ctx.strokeStyle = '#21262d';
+    ctx.lineWidth = 1;
+    gridLevels.forEach(level => {
+      const y = padding.top + ph - ((level - DB_MIN) / (DB_MAX - DB_MIN)) * ph;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(w - padding.right, y);
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = '#484f58';
+      ctx.font = '18px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(level, padding.left - 8, y);
+    });
+
+    // Color zone backgrounds on chart (subtle)
+    const zoneColors = [
+      { start: 20, end: 70, color: 'rgba(63,185,80,0.06)' },
+      { start: 70, end: 85, color: 'rgba(210,153,34,0.06)' },
+      { start: 85, end: 100, color: 'rgba(248,81,73,0.06)' },
+      { start: 100, end: 120, color: 'rgba(188,140,255,0.06)' },
+    ];
+    zoneColors.forEach(zone => {
+      const y1 = padding.top + ph - ((zone.start - DB_MIN) / (DB_MAX - DB_MIN)) * ph;
+      const y2 = padding.top + ph - ((zone.end - DB_MIN) / (DB_MAX - DB_MIN)) * ph;
+      ctx.fillStyle = zone.color;
+      ctx.fillRect(padding.left, y2, pw, y1 - y2);
+    });
+
+    // Draw data line
+    if (dbHistory.length > 1) {
+      // Downsample to fit canvas
+      const maxDraw = pw;
+      const step = Math.max(1, Math.floor(dbHistory.length / maxDraw));
+      const drawPoints = [];
+      for (let i = 0; i < dbHistory.length; i += step) {
+        // Average the samples in this bucket
+        let sum = 0;
+        let count = 0;
+        for (let j = i; j < Math.min(i + step, dbHistory.length); j++) {
+          sum += dbHistory[j];
+          count++;
+        }
+        const avg = sum / count;
+        const x = padding.left + (i / dbHistory.length) * pw;
+        const y = padding.top + ph - ((avg - DB_MIN) / (DB_MAX - DB_MIN)) * ph;
+        drawPoints.push({ x, y, db: avg });
+      }
+
+      if (drawPoints.length > 1) {
+        // Shadow/glow under the line
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(drawPoints[0].x, padding.top + ph);
+        drawPoints.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(drawPoints[drawPoints.length - 1].x, padding.top + ph);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + ph);
+        grad.addColorStop(0, 'rgba(88,166,255,0.20)');
+        grad.addColorStop(1, 'rgba(88,166,255,0.02)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+
+        // Draw the line with segment colors based on dB level
+        for (let i = 0; i < drawPoints.length - 1; i++) {
+          const p1 = drawPoints[i];
+          const p2 = drawPoints[i + 1];
+          const midDb = (p1.db + p2.db) / 2;
+
+          let color;
+          if (midDb < 70) color = '#3fb950';
+          else if (midDb < 85) color = '#d29922';
+          else if (midDb < 100) color = '#f85149';
+          else color = '#bc8cff';
+
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.5;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.stroke();
+        }
+
+        // Draw dot at the latest point
+        const last = drawPoints[drawPoints.length - 1];
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#58a6ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    } else {
+      // No data yet
+      ctx.fillStyle = '#484f58';
+      ctx.font = '22px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('等待数据...', padding.left + pw / 2, padding.top + ph / 2);
+    }
+
+    // Border
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(padding.left, padding.top, pw, ph);
+
+    // Axis label
+    ctx.fillStyle = '#484f58';
+    ctx.font = '14px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('dB', padding.left - 36, padding.top + ph / 2);
+  }
+
+  // ==================== BUILD REFERENCE LIST ====================
+  function buildReferenceList() {
+    const container = document.getElementById('refList');
+    container.innerHTML = '';
+
+    references.forEach(ref => {
+      const item = document.createElement('div');
+      item.className = 'ref-item';
+
+      const barWidth = Math.max(5, (ref.db / DB_MAX) * 100);
+      const barColor = ref.color;
+
+      item.innerHTML = `
+        <span class="ref-icon">${ref.icon}</span>
+        <span class="ref-name">${ref.name}</span>
+        <span class="ref-bar-wrap"><span class="ref-bar" style="width:${barWidth}%;background:${barColor};"></span></span>
+        <span class="ref-db">${ref.db} dB</span>
+      `;
+
+      container.appendChild(item);
+    });
+  }
+
+  // ==================== STARTUP ====================
+  init();
+</script>
+
+</body>
+</html>

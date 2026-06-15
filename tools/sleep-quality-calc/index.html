@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>😴 睡眠质量计算器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0f0a1a;
+      --bg-secondary: #1a1030;
+      --bg-card: #221840;
+      --border: #362860;
+      --text-primary: #e8e0f0;
+      --text-secondary: #a898c8;
+      --accent: #7c5cbf;
+      --accent-glow: #9b7fd4;
+      --accent-soft: #5c3d9e;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(124, 92, 191, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(74, 46, 120, 0.08) 0%, transparent 60%);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding-top: 10px;
+    }
+
+    header .icon { font-size: 48px; display: block; margin-bottom: 6px; }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #c4b5fd, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group:last-of-type { margin-bottom: 18px; }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      color: var(--text-primary);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 92, 191, 0.2);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(124, 92, 191, 0.35);
+    }
+
+    .btn:active { transform: translateY(0); opacity: 0.9; }
+
+    /* Results Section */
+    .results { display: none; }
+
+    .results.active { display: block; }
+
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      margin: 0 auto 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 4px solid;
+      position: relative;
+    }
+
+    .score-circle.great { border-color: var(--success); color: var(--success); }
+    .score-circle.good { border-color: #a3e635; color: #a3e635; }
+    .score-circle.fair { border-color: var(--warning); color: var(--warning); }
+    .score-circle.poor { border-color: var(--danger); color: var(--danger); }
+
+    .score-value { font-size: 36px; font-weight: 800; line-height: 1; }
+    .score-label { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+    .score-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .metric-item {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent-glow);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    .cycle-bar-wrap {
+      margin-top: 12px;
+    }
+
+    .cycle-bar-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .cycle-bar {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .cycle-chunk {
+      height: 24px;
+      border-radius: 4px;
+      flex: 1;
+      min-width: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      position: relative;
+    }
+
+    .cycle-chunk.complete {
+      background: linear-gradient(135deg, #7c5cbf, #5c3d9e);
+      color: #fff;
+    }
+
+    .cycle-chunk.partial {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      color: #fff;
+    }
+
+    .cycle-indicator {
+      font-size: 12px;
+      color: var(--warning);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .advice-list {
+      list-style: none;
+      margin-top: 6px;
+    }
+
+    .advice-list li {
+      font-size: 13px;
+      padding: 9px 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    .advice-list li .advice-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    .fun-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .fun-stat {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fun-stat-emoji { font-size: 28px; flex-shrink: 0; }
+    .fun-stat-content { flex: 1; }
+    .fun-stat-value { font-size: 18px; font-weight: 700; color: var(--accent-glow); }
+    .fun-stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+    .age-input-wrap { margin-top: 8px; }
+
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 20px;
+      padding-bottom: 20px;
+      opacity: 0.6;
+    }
+
+    /* input type=time dark mode styling */
+    input[type="time"]::-webkit-calendar-picker-indicator {
+      filter: invert(0.7) sepia(1) hue-rotate(230deg) saturate(2);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="icon">😴</span>
+      <h1>睡眠质量计算器</h1>
+      <p class="subtitle">了解你的睡眠，睡得更好</p>
+    </header>
+
+    <div class="card">
+      <div class="form-group">
+        <label>入睡时间</label>
+        <input type="time" id="bedtime" value="23:00">
+      </div>
+      <div class="form-group">
+        <label>起床时间</label>
+        <input type="time" id="waketime" value="07:00">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>入睡耗时（分钟）</label>
+          <input type="number" id="sleepLatency" value="15" min="0" max="180" placeholder="几分钟睡着">
+        </div>
+        <div class="form-group">
+          <label>夜间醒来次数</label>
+          <input type="number" id="awakenings" value="1" min="0" max="30" placeholder="醒来次数">
+        </div>
+      </div>
+      <!-- 趣味换算 age input, initially hidden -->
+      <div class="form-group age-input-wrap" id="ageWrap">
+        <label>你的年龄（用于趣味换算）</label>
+        <input type="number" id="age" value="25" min="1" max="120" placeholder="输入年龄">
+      </div>
+      <button class="btn" onclick="calculate()">分析我的睡眠</button>
+    </div>
+
+    <div class="results" id="results">
+      <!-- Score -->
+      <div class="card" style="text-align:center;">
+        <div class="score-circle" id="scoreCircle">
+          <span class="score-value" id="scoreValue">--</span>
+          <span class="score-label">分</span>
+        </div>
+        <div class="score-title" id="scoreTitle"></div>
+        <div class="metric-grid">
+          <div class="metric-item">
+            <div class="metric-value" id="totalSleep">--</div>
+            <div class="metric-label">实际睡眠时长</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-value" id="deepSleep">--</div>
+            <div class="metric-label">估算深度睡眠</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-value" id="sleepCycles">--</div>
+            <div class="metric-label">睡眠周期</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-value" id="efficiency">--</div>
+            <div class="metric-label">在床效率</div>
+          </div>
+        </div>
+
+        <!-- Cycle visualization -->
+        <div class="cycle-bar-wrap" id="cycleBarWrap" style="display:none;">
+          <div class="cycle-bar-label">睡眠周期可视化（每块 = 90 分钟）</div>
+          <div class="cycle-bar" id="cycleBar"></div>
+          <div class="cycle-indicator" id="cycleIndicator" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- 健康建议 -->
+      <div class="card" id="adviceCard">
+        <div class="card-title">💡 改善建议</div>
+        <ul class="advice-list" id="adviceList"></ul>
+      </div>
+
+      <!-- 趣味换算 -->
+      <div class="card" id="funCard">
+        <div class="card-title">📊 趣味数据</div>
+        <div class="fun-stats" id="funStats"></div>
+      </div>
+    </div>
+
+    <footer>睡眠质量计算器 · 数据仅供娱乐参考</footer>
+  </div>
+
+  <script>
+    function parseTime(t) {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function fmtDuration(totalMin) {
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      if (h === 0) return m + ' 分钟';
+      if (m === 0) return h + ' 小时';
+      return h + ' 小时 ' + m + ' 分钟';
+    }
+
+    function seededRandom(seed) {
+      let s = seed;
+      return function() {
+        s = (s * 16807 + 0) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    }
+
+    function calculate() {
+      const bedtime = document.getElementById('bedtime').value;
+      const waketime = document.getElementById('waketime').value;
+      const latency = parseInt(document.getElementById('sleepLatency').value) || 0;
+      const awakenings = parseInt(document.getElementById('awakenings').value) || 0;
+      const age = parseInt(document.getElementById('age').value) || 0;
+
+      if (!bedtime || !waketime) return;
+
+      let bedMin = parseTime(bedtime);
+      let wakeMin = parseTime(waketime);
+
+      // If wake time is before/equal to bed time, it crosses midnight
+      if (wakeMin <= bedMin) wakeMin += 24 * 60;
+
+      const timeInBed = wakeMin - bedMin;
+      const awakeDuringNight = awakenings * 8; // avg 8 min per awakening
+      const actualSleepMin = Math.max(0, timeInBed - latency - awakeDuringNight);
+
+      if (actualSleepMin <= 0) {
+        alert('实际睡眠时长过短，请检查输入数据。');
+        return;
+      }
+
+      // Deep sleep estimation
+      // First half of night: ~30% deep sleep of that portion
+      // Second half: ~10% deep sleep
+      const halfWay = actualSleepMin / 2;
+      const deepFirstHalf = Math.min(halfWay, actualSleepMin) * 0.30;
+      const deepSecondHalf = Math.max(0, actualSleepMin - halfWay) * 0.10;
+      let deepSleepMin = Math.round(deepFirstHalf + deepSecondHalf);
+
+      // Sleep cycles (90 min)
+      const CYCLE_LEN = 90;
+      const fullCycles = Math.floor(actualSleepMin / CYCLE_LEN);
+      const remainder = actualSleepMin % CYCLE_LEN;
+      const wakingMidCycle = remainder > 0 && remainder < CYCLE_LEN;
+
+      // Sleep score calculation (out of 100)
+      let score = 0;
+      const scoreDetail = {};
+
+      // Duration score (40 pts max): optimal 7-9 hours
+      const sleepH = actualSleepMin / 60;
+      if (sleepH >= 7 && sleepH <= 9) score += 40;
+      else if (sleepH >= 6.5 && sleepH < 7 || sleepH > 9 && sleepH <= 9.5) score += 32;
+      else if (sleepH >= 6 && sleepH < 6.5 || sleepH > 9.5 && sleepH <= 10) score += 22;
+      else if (sleepH >= 5 && sleepH < 6) score += 12;
+      else score += 5;
+
+      // Continuity score (25 pts max)
+      if (awakenings === 0) score += 25;
+      else if (awakenings === 1) score += 20;
+      else if (awakenings === 2) score += 15;
+      else if (awakenings <= 4) score += 8;
+      else score += 3;
+
+      // Latency score (20 pts max)
+      if (latency >= 10 && latency <= 20) score += 20;
+      else if (latency >= 5 && latency < 10 || latency > 20 && latency <= 30) score += 15;
+      else if (latency < 5) score += 10;
+      else if (latency > 30 && latency <= 60) score += 8;
+      else score += 4;
+
+      // Deep sleep ratio score (15 pts max)
+      const deepRatio = deepSleepMin / actualSleepMin;
+      if (deepRatio >= 0.20 && deepRatio <= 0.30) score += 15;
+      else if (deepRatio >= 0.15 && deepRatio < 0.20 || deepRatio > 0.30 && deepRatio <= 0.35) score += 10;
+      else if (deepRatio > 0.35) score += 6;
+      else score += 6;
+
+      // Cap at 100
+      score = Math.min(100, Math.round(score));
+
+      // Efficiency (time asleep / time in bed)
+      const efficiencyPct = Math.round((actualSleepMin / timeInBed) * 100);
+
+      // --- Update UI ---
+      const resultsEl = document.getElementById('results');
+      resultsEl.classList.add('active');
+      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Score circle
+      const circle = document.getElementById('scoreCircle');
+      circle.className = 'score-circle';
+      if (score >= 85) circle.classList.add('great');
+      else if (score >= 70) circle.classList.add('good');
+      else if (score >= 50) circle.classList.add('fair');
+      else circle.classList.add('poor');
+
+      document.getElementById('scoreValue').textContent = score;
+      let scoreText = '';
+      if (score >= 85) scoreText = '💎 优秀睡眠';
+      else if (score >= 70) scoreText = '👍 睡眠良好';
+      else if (score >= 50) scoreText = '⚠️ 需要改善';
+      else scoreText = '🚨 亟需关注';
+      document.getElementById('scoreTitle').textContent = scoreText;
+
+      document.getElementById('totalSleep').textContent = fmtDuration(actualSleepMin);
+      document.getElementById('deepSleep').textContent = fmtDuration(deepSleepMin);
+      document.getElementById('sleepCycles').textContent = fullCycles + (wakingMidCycle ? '.' + remainder + '' : '') + ' 个周期';
+      document.getElementById('efficiency').textContent = efficiencyPct + '%';
+
+      // Cycle bar visualization
+      const cycleBarWrap = document.getElementById('cycleBarWrap');
+      const cycleBar = document.getElementById('cycleBar');
+      const cycleIndicator = document.getElementById('cycleIndicator');
+      cycleBarWrap.style.display = 'block';
+      cycleBar.innerHTML = '';
+      cycleIndicator.style.display = 'none';
+
+      for (let i = 0; i < fullCycles; i++) {
+        const el = document.createElement('div');
+        el.className = 'cycle-chunk complete';
+        el.textContent = '#' + (i + 1);
+        cycleBar.appendChild(el);
+      }
+      if (wakingMidCycle && remainder > 0) {
+        const el = document.createElement('div');
+        el.className = 'cycle-chunk partial';
+        el.textContent = remainder + '分';
+        el.style.flex = '0 0 ' + Math.max(30, Math.round((remainder / CYCLE_LEN) * 60)) + 'px';
+        cycleBar.appendChild(el);
+        cycleIndicator.style.display = 'flex';
+        cycleIndicator.innerHTML = '⚠️ 第 ' + (fullCycles + 1) + ' 个睡眠周期未完成（' + remainder + ' 分钟）。在周期中间醒来可能会感到疲惫、昏沉。';
+      }
+
+      // Advice
+      const adviceList = document.getElementById('adviceList');
+      adviceList.innerHTML = '';
+      const advices = [];
+
+      if (sleepH < 7) {
+        advices.push({ icon: '⏰', text: '你的睡眠时长不足建议的 7-9 小时。尽量提前 30 分钟上床，逐步调整作息。' });
+      } else if (sleepH > 9.5) {
+        advices.push({ icon: '⏰', text: '睡眠时间偏长，超过 9.5 小时可能与健康风险相关。尝试将睡眠控制在 7-9 小时。' });
+      }
+
+      if (awakenings >= 3) {
+        advices.push({ icon: '🌙', text: '夜间醒来次数较多（' + awakenings + ' 次），可能影响深度睡眠。建议睡前避免咖啡因、酒精，保持卧室凉爽安静。' });
+      }
+
+      if (latency > 30) {
+        advices.push({ icon: '🧘', text: '入睡时间超过 30 分钟，可能存在入睡困难。试试睡前冥想、深呼吸练习，或离开床做放松活动直到感到困倦。' });
+      } else if (latency < 5) {
+        advices.push({ icon: '😪', text: '你入睡很快（不到 5 分钟），这可能意味着你过度疲劳。注意白天的精力状态。' });
+      }
+
+      if (wakingMidCycle) {
+        advices.push({ icon: '🔄', text: '你在睡眠周期中间醒来。试着将闹钟调整为 90 分钟的整数倍，在周期结束时醒来会更轻松。' });
+      }
+
+      if (deepRatio < 0.15) {
+        advices.push({ icon: '💤', text: '深度睡眠比例偏低。避免睡前使用电子屏幕（蓝光抑制褪黑素），保持规律作息有助于提升深度睡眠。' });
+      }
+
+      if (advices.length === 0) {
+        advices.push({ icon: '🌟', text: '你的睡眠质量很好！保持现有作息规律，继续坚持。' });
+      }
+
+      advices.forEach(a => {
+        const li = document.createElement('li');
+        li.innerHTML = '<span class="advice-icon">' + a.icon + '</span>' + a.text;
+        adviceList.appendChild(li);
+      });
+
+      // Fun stats
+      const funStats = document.getElementById('funStats');
+      funStats.innerHTML = '';
+
+      if (age > 0) {
+        // Lifetime sleep: rough estimate: age * 365 * average daily sleep
+        // Average person sleeps ~8h/day from birth, but varies by age
+        // Rough: 0-2 years: 14h, 2-12: 10h, 12-18: 9h, 18+: 7.5h
+        let lifetimeHours = 0;
+        if (age <= 2) {
+          lifetimeHours = age * 365 * 14;
+        } else if (age <= 12) {
+          lifetimeHours = 2 * 365 * 14 + (age - 2) * 365 * 10;
+        } else if (age <= 18) {
+          lifetimeHours = 2 * 365 * 14 + 10 * 365 * 10 + (age - 12) * 365 * 9;
+        } else {
+          lifetimeHours = 2 * 365 * 14 + 10 * 365 * 10 + 6 * 365 * 9 + (age - 18) * 365 * 7.5;
+        }
+        const lifetimeDays = Math.round(lifetimeHours / 24);
+        const lifetimeYears = (lifetimeHours / 24 / 365).toFixed(1);
+
+        funStats.innerHTML += `
+          <div class="fun-stat">
+            <span class="fun-stat-emoji">🛏️</span>
+            <div class="fun-stat-content">
+              <div class="fun-stat-value">${lifetimeDays.toLocaleString()} 天</div>
+              <div class="fun-stat-label">你这一生大约已经睡了 ${lifetimeYears} 年</div>
+            </div>
+          </div>`;
+      }
+
+      // Beat X% - use score as seed for deterministic randomness
+      const rng = seededRandom(score * 100 + awakenings);
+      let beatPct;
+      if (score >= 90) beatPct = Math.round(85 + rng() * 13);
+      else if (score >= 80) beatPct = Math.round(65 + rng() * 20);
+      else if (score >= 70) beatPct = Math.round(45 + rng() * 20);
+      else if (score >= 60) beatPct = Math.round(25 + rng() * 20);
+      else if (score >= 50) beatPct = Math.round(10 + rng() * 15);
+      else beatPct = Math.round(1 + rng() * 10);
+      beatPct = Math.max(1, Math.min(99, beatPct));
+
+      funStats.innerHTML += `
+        <div class="fun-stat">
+          <span class="fun-stat-emoji">🏆</span>
+          <div class="fun-stat-content">
+            <div class="fun-stat-value">${beatPct}%</div>
+            <div class="fun-stat-label">你的睡眠效率打败了 ${beatPct}% 的人</div>
+          </div>
+        </div>`;
+    }
+  </script>
+</body>
+</html>

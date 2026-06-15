@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>历史时间线 - Timeline Gen</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-secondary: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #f78166;
+  --accent3: #3fb950;
+  --accent4: #d2a8ff;
+  --accent5: #f0c44a;
+  --accent6: #ff7b72;
+  --line: #30363d;
+  --node: #58a6ff;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 10;
+}
+header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent4));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+select, button, input {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+select:hover, button:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+button.primary:hover {
+  background: #409eff;
+}
+button.danger { border-color: var(--accent6); color: var(--accent6); }
+button.danger:hover { background: rgba(255,123,114,0.15); }
+.toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.toolbar label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.toolbar input[type="range"] { width: 100px; padding: 0; border: none; cursor: pointer; }
+.toolbar span { font-size: 12px; color: var(--text-secondary); min-width: 36px; }
+.main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.sidebar {
+  width: 280px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+.sidebar h3 {
+  padding: 16px 16px 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.preset-list {
+  list-style: none;
+}
+.preset-list li {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.preset-list li:hover {
+  background: rgba(88,166,255,0.08);
+  border-left-color: var(--accent);
+}
+.preset-list li.active {
+  background: rgba(88,166,255,0.12);
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+.preset-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.divider {
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+.custom-section {
+  padding: 0 16px 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+.custom-section h3 {
+  padding: 16px 0 8px;
+  margin: 0;
+}
+.custom-event {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  position: relative;
+}
+.custom-event .event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.custom-event .event-year {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.custom-event .event-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+.custom-event .event-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.custom-event .remove-btn {
+  background: none;
+  border: none;
+  color: var(--accent6);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.custom-event .remove-btn:hover { color: #ff4444; }
+.add-event-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.add-event-form input, .add-event-form select {
+  width: 100%;
+  padding: 6px 10px;
+}
+.add-event-form .year-input {
+  display: flex;
+  gap: 6px;
+}
+.add-event-form .year-input input { flex: 1; }
+.add-event-form button { width: 100%; }
+.timeline-view {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.timeline-canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  cursor: grab;
+}
+.timeline-canvas-wrap:active { cursor: grabbing; }
+.timeline-canvas-wrap.dragging { cursor: grabbing; }
+canvas#timelineCanvas {
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+}
+.event-popup {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+  z-index: 100;
+  max-width: 360px;
+  pointer-events: auto;
+  display: none;
+}
+.event-popup.visible { display: block; }
+.event-popup .popup-year {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.event-popup .popup-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.event-popup .popup-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.popup-color {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 40px;
+}
+.empty-state svg { margin-bottom: 16px; opacity: 0.3; }
+.empty-state h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+.legend-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 24px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.legend-item span:first-child {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+@media (max-width: 768px) {
+  .main-container { flex-direction: column; }
+  .sidebar { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+  .custom-section { max-height: 150px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>历史时间线</h1>
+  <div class="header-actions">
+    <button onclick="resetView()" title="重置视图">↺ 重置</button>
+    <button class="primary" onclick="exportImage()">📷 导出图片</button>
+    <select id="orientationSelect" onchange="switchOrientation()">
+      <option value="horizontal">水平排列</option>
+      <option value="vertical">垂直排列</option>
+    </select>
+  </div>
+</header>
+
+<div class="toolbar">
+  <label>缩放 <input type="range" id="zoomSlider" min="0.2" max="3" step="0.1" value="1" oninput="setZoom(this.value)"></label>
+  <span id="zoomLabel">100%</span>
+  <label>年份跨度 <input type="range" id="spanSlider" min="0.5" max="5" step="0.1" value="1" oninput="setSpan(this.value)"></label>
+  <span id="spanLabel">1x</span>
+  <label><input type="checkbox" id="showLabels" checked onchange="renderTimeline()"> 显示标签</label>
+  <label><input type="checkbox" id="showGrid" checked onchange="renderTimeline()"> 显示网格</label>
+</div>
+
+<div class="main-container">
+  <aside class="sidebar">
+    <h3>📋 预设时间线</h3>
+    <ul class="preset-list" id="presetList"></ul>
+    <div class="divider"></div>
+    <div class="custom-section" id="customSection">
+      <h3>✏️ 自定义时间线</h3>
+      <div class="add-event-form">
+        <div class="year-input">
+          <input type="text" id="customYear" placeholder="年份 (如 -221 或 618)">
+          <input type="text" id="customDate" placeholder="具体日期 (可选)">
+        </div>
+        <input type="text" id="customTitle" placeholder="事件标题">
+        <input type="text" id="customDesc" placeholder="事件描述">
+        <select id="customColor">
+          <option value="#58a6ff">蓝色</option>
+          <option value="#f78166">橙色</option>
+          <option value="#3fb950">绿色</option>
+          <option value="#d2a8ff">紫色</option>
+          <option value="#f0c44a">金色</option>
+          <option value="#ff7b72">红色</option>
+        </select>
+        <button class="primary" onclick="addCustomEvent()">+ 添加事件</button>
+      </div>
+      <div id="customEvents"></div>
+    </div>
+  </aside>
+
+  <div class="timeline-view" id="timelineView">
+    <div class="timeline-canvas-wrap" id="canvasWrap">
+      <canvas id="timelineCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="legend-bar" id="legendBar"></div>
+
+<div class="event-popup" id="eventPopup"></div>
+
+<script>
+// ========== 预设时间线数据 ==========
+const PRESETS = {
+  '中国朝代': {
+    color: '#d2a8ff',
+    events: [
+      { year: -2070, title: '夏朝建立', desc: '禹建立中国历史上第一个世袭王朝——夏朝，标志着中国原始社会的结束和阶级社会的开始。', color: '#d2a8ff' },
+      { year: -1600, title: '商朝建立', desc: '商汤灭夏，建立商朝。青铜文明高度发达，甲骨文作为最早的成熟文字体系出现。', color: '#d2a8ff' },
+      { year: -1046, title: '周朝建立', desc: '周武王伐纣，建立周朝。分封制和礼乐制度奠定了中国古代政治文化的基础。', color: '#d2a8ff' },
+      { year: -770, title: '春秋时期开始', desc: '周平王东迁洛邑，春秋时代开始。诸侯争霸，百家争鸣，思想文化空前繁荣。', color: '#a371f7' },
+      { year: -475, title: '战国时期开始', desc: '七雄并立，兼并战争激烈。各国变法图强，最终秦国统一天下。', color: '#a371f7' },
+      { year: -221, title: '秦朝统一', desc: '秦始皇嬴政统一六国，建立中国第一个大一统封建王朝。推行郡县制、统一度量衡、文字。', color: '#ff7b72' },
+      { year: -202, title: '汉朝建立', desc: '刘邦建立汉朝。丝绸之路开通，儒学成为正统思想，中国进入第一个鼎盛时期。', color: '#f0c44a' },
+      { year: 220, title: '三国时期', desc: '曹丕称帝建立魏国，三国鼎立局面形成。英雄辈出的时代，文学艺术大发展。', color: '#f78166' },
+      { year: 280, title: '西晋统一', desc: '司马炎灭东吴，短暂统一全国。八王之乱后五胡乱华，开启南北朝分裂时期。', color: '#f78166' },
+      { year: 581, title: '隋朝建立', desc: '杨坚建立隋朝，结束南北朝分裂。开创科举制度，开凿大运河，为唐朝盛世奠基。', color: '#3fb950' },
+      { year: 618, title: '唐朝建立', desc: '李渊称帝建立唐朝，开启中国古代最辉煌的王朝。贞观之治、开元盛世，万国来朝。', color: '#3fb950' },
+      { year: 907, title: '五代十国', desc: '唐朝灭亡后中原地区经历后梁、后唐、后晋、后汉、后周五个朝代更迭。', color: '#8b949e' },
+      { year: 960, title: '宋朝建立', desc: '赵匡胤陈桥兵变建立宋朝。经济文化高度繁荣，科技发明层出不穷，商业革命发生。', color: '#58a6ff' },
+      { year: 1271, title: '元朝建立', desc: '忽必烈建立元朝，定都大都（今北京）。版图空前辽阔，中西文化交流频繁。', color: '#58a6ff' },
+      { year: 1368, title: '明朝建立', desc: '朱元璋建立明朝。郑和下西洋宣扬国威，资本主义萌芽出现，小说戏曲繁荣。', color: '#ff7b72' },
+      { year: 1644, title: '清朝建立', desc: '清军入关定都北京，成为中国最后一个封建王朝。康乾盛世后走向衰落。', color: '#f0c44a' },
+      { year: 1912, title: '中华民国成立', desc: '辛亥革命推翻清朝统治，孙中山就任临时大总统，中国结束两千多年封建帝制。', color: '#58a6ff' },
+      { year: 1949, title: '中华人民共和国成立', desc: '毛泽东在天安门城楼宣告中华人民共和国成立，中国人民从此站起来了。', color: '#ff7b72' }
+    ]
+  },
+  'World Wars': {
+    color: '#ff7b72',
+    events: [
+      { year: 1914, title: '第一次世界大战爆发', desc: '奥匈帝国向塞尔维亚宣战，一战全面爆发。同盟国与协约国两大阵营展开激战。', color: '#ff7b72' },
+      { year: 1915, title: '加利波利战役', desc: '协约国进攻奥斯曼帝国失败，伤亡惨重，加里波利战役成为一战的转折点之一。', color: '#f78166' },
+      { year: 1916, title: '凡尔登战役（索姆河战役）', desc: '两次大战役造成数百万伤亡成为一战中最惨烈的战役。首次大规模使用坦克。', color: '#ff7b72' },
+      { year: 1917, title: '俄国革命 & 美国参战', desc: '俄国爆发十月革命退出战争，美国对德宣战加入协约国，战局发生重大转折。', color: '#d2a8ff' },
+      { year: 1918, title: '一战结束', desc: '11月11日签订停战协定，德意志帝国、奥匈帝国、奥斯曼帝国俄国帝国崩溃。', color: '#8b949e' },
+      { year: 1919, title: '凡尔赛和约（巴黎和会）', desc: '签订《凡尔赛和约》，重划欧洲版图，德国承担战争责任并支付巨额赔款。', color: '#3fb950' },
+      { year: 1929, title: '经济大萧条', desc: '华尔街股市崩盘引发全球经济危机，各国经济受损，为法西斯主义崛起创造了条件。', color: '#f0c44a' },
+      { year: 1933, title: '希特勒上台', desc: '希特勒就任德国总理，纳粹党掌权，德国开始重整军备走向扩张之路。', color: '#ff7b72' },
+      { year: 1939, title: '第二次世界大战爆发', desc: '9月1日德国闪击波兰，英法对德宣战，第二次世界大战全面爆发。', color: '#ff7b72' },
+      { year: 1941, title: '珍珠港事件', desc: '12月7日日本偷袭珍珠港，美国正式参战。太平洋战争全面展开。', color: '#ff7b72' },
+      { year: 1942, title: '太平洋地区转折点', desc: '中途岛海战美国获胜成为太平洋战争转折。斯大林格勒保卫战扭转东线局势。', color: '#58a6ff' },
+      { year: 1944, title: '诺曼底登陆 (D-Day)', desc: '6月6日盟军在诺曼底登陆开辟第二战场，加速纳粹德国的覆灭。', color: '#58a6ff' },
+      { year: 1945, title: '二战结束', desc: '5月德国投降（欧洲战场），8月日本投降（亚洲/太平洋战场）。联合国成立。', color: '#3fb950' }
+    ]
+  },
+  '科技发展': {
+    color: '#3fb950',
+    events: [
+      { year: 1440, title: '古腾堡印刷术', desc: '约翰内斯·古腾堡发明活字印刷机，使书籍大规模生产成为可能，推动知识传播和文艺复兴。', color: '#3fb950' },
+      { year: 1769, title: '瓦特改良蒸汽机', desc: '詹姆斯·瓦特对蒸汽机进行重大改进，引发工业革命，人类社会从农业文明迈向工业文明。', color: '#f0c44a' },
+      { year: 1831, title: '法拉第电磁感应', desc: '迈克尔·法拉第发现电磁感应现象，为发电机和电动机奠定理论基础，开启电气时代。', color: '#58a6ff' },
+      { year: 1876, title: '电话发明', desc: '亚历山大·格拉汉姆·贝尔发明电话，实现了人类历史上首次远距离实时语音通信。', color: '#d2a8ff' },
+      { year: 1879, title: '电灯发明', desc: '托马斯·爱迪生发明实用白炽灯，彻底改变了人类生活方式，夜晚不再黑暗。', color: '#f0c44a' },
+      { year: 1903, title: '飞机发明', desc: '莱特兄弟成功试飞世界上第一架动力飞机，开启了人类进入航空时代的序幕。', color: '#58a6ff' },
+      { year: 1945, title: '原子能时代', desc: '第一颗原子弹试爆成功，核能的发现和利用开启了既能毁灭世界也能造福人类的新纪元。', color: '#ff7b72' },
+      { year: 1947, title: '晶体管发明', desc: '贝尔实验室发明晶体管，取代真空管，开启了电子微型化时代和信息技术革命。', color: '#3fb950' },
+      { year: 1969, title: '人类登月', desc: '阿波罗11号成功登月，尼尔·阿姆斯特朗成为登月第一人，"个人一小步人类一大步"。', color: '#58a6ff' },
+      { year: 1971, title: '微处理器诞生', desc: '英特尔推出4004微处理器，个人计算机时代来临，人类进入数字化时代。', color: '#d2a8ff' },
+      { year: 1989, title: '万维网发明', desc: '蒂姆·伯纳斯-李发明万维网（World Wide Web），彻底改变人类信息传播交流方式。', color: '#3fb950' },
+      { year: 1991, title: '互联网开放', desc: '万维网对公众开放，互联网从军事科研领域走向大众，全球化信息时代正式到来。', color: '#58a6ff' },
+      { year: 2022, title: 'AI爆发（ChatGPT）', desc: 'OpenAI发布ChatGPT，人工智能对话模型取得突破，引发全球AI应用浪潮。', color: '#d2a8ff' }
+    ]
+  },
+  '唐朝': {
+    color: '#3fb950',
+    events: [
+      { year: 618, title: '唐朝建立', desc: '李渊在长安称帝建立唐朝，年号武德。隋末群雄割据的局面开始走向统一。', color: '#3fb950' },
+      { year: 626, title: '玄武门之变', desc: '秦王李世民发动玄武门之变，杀太子建成、齐王元吉，李渊被迫退位，李世民登基。', color: '#ff7b72' },
+      { year: 627, title: '贞观之治开始', desc: '唐太宗李世民即位，任贤纳谏、轻徭薄赋，开创了中国古代最著名的太平盛世。', color: '#3fb950' },
+      { year: 630, title: '灭东突厥', desc: '唐军灭东突厥汗国，西域各国尊唐太宗为"天可汗"，唐朝国际威望空前提高。', color: '#58a6ff' },
+      { year: 641, title: '文成公主入藏', desc: '文成公主远嫁吐蕃赞普松赞干布，唐蕃和亲促进汉藏文化交流和民族团结。', color: '#d2a8ff' },
+      { year: 690, title: '武则天称帝', desc: '武则天改国号为周称帝,成为中国历史上唯一的女皇帝。发展科举制度选拔人才。', color: '#f0c44a' },
+      { year: 705, title: '神龙革命（中宗复位）', desc: '宰相张柬之等发动政变逼迫武则天退位唐中宗李显复位恢复唐朝国号。', color: '#f78166' },
+      { year: 712, title: '唐玄宗即位', desc: '李隆基即位（唐玄宗），次年改元开元。任用贤相姚崇、宋璟开创开元盛世。', color: '#3fb950' },
+      { year: 755, title: '安史之乱爆发', desc: '安禄山在范阳起兵叛乱，席卷中原攻占洛阳长安。唐朝由盛转衰的重大转折点。', color: '#ff7b72' },
+      { year: 763, title: '安史之乱结束', desc: '唐军在回纥帮助下收复洛阳，持续八年的安史之乱结束。唐朝元气大伤藩镇割据开始。', color: '#8b949e' },
+      { year: 780, title: '两税法实施', desc: '宰相杨炎推行两税法（两次征收合并），废租庸调制度是中国赋税制度重大改革。', color: '#f0c44a' },
+      { year: 835, title: '甘露之变', desc: '唐文宗谋划诛杀宦官失败，宦官仇士良大肆屠杀朝臣。宦官专权达到顶峰。', color: '#ff7b72' },
+      { year: 907, title: '唐朝灭亡', desc: '朱温逼迫唐哀帝禅位建立后梁，享国289年的唐朝灭亡。五代十国时期开始。', color: '#8b949e' }
+    ]
+  },
+  '宋朝': {
+    color: '#58a6ff',
+    events: [
+      { year: 960, title: '陈桥兵变（北宋建立）', desc: '赵匡胤在陈桥驿黄袍加身建立宋朝定都开封。结束五代十国分裂局面。', color: '#58a6ff' },
+      { year: 961, title: '杯酒释兵权', desc: '宋太祖赵匡胤宴请禁军将领以高官厚禄换取兵权，解除武将兵权避免篡位。', color: '#d2a8ff' },
+      { year: 1004, title: '澶渊之盟', desc: '宋辽签订澶渊之盟，每年向辽纳银绢停止交战，开启宋辽百年和平。', color: '#3fb950' },
+      { year: 1043, title: '庆历新政', desc: '范仲淹推行庆历新政改革吏治，虽然仅一年便宣告失败但为后续改革积累了经验。', color: '#f0c44a' },
+      { year: 1069, title: '王安石变法', desc: '宋神宗支持王安石推行全面改革变法，包括青苗法、免役法、方田均税法等措施。', color: '#f0c44a' },
+      { year: 1085, title: '元祐更化', desc: '高太后垂帘听政废除王安石新法恢复旧法旧党当政造成新旧党争激烈。', color: '#f78166' },
+      { year: 1125, title: '辽国灭亡', desc: '金国灭亡辽国，北宋失去北方屏障濒临金国直接军事威胁。靖康之变临近。', color: '#ff7b72' },
+      { year: 1127, title: '靖康之变（南宋建立）', desc: '金兵攻破汴京俘虏徽钦二帝北宋灭亡赵构南渡建立南宋迁都临安（杭州）。', color: '#ff7b72' },
+      { year: 1141, title: '绍兴和议', desc: '宋江签订绍兴和议南宋向金称臣每年纳贡，宋金划淮水秦岭为界。', color: '#3fb950' },
+      { year: 1206, title: '蒙古帝国建立', desc: '成吉思汗统一蒙古各部建立蒙古帝国，开始了蒙古帝国的对外征服和扩张。', color: '#f0c44a' },
+      { year: 1234, title: '蒙宋灭金', desc: '蒙古南宋联合攻灭金朝，金国灭亡后蒙古与南宋直接为邻，战争一触即发。', color: '#f78166' },
+      { year: 1271, title: '元朝的建立（蒙古更名）', desc: '忽必烈称帝改国号为"元"，南宋面临生死存亡危机。', color: '#58a6ff' },
+      { year: 1279, title: '崖山海战（南宋灭亡）', desc: '元军在崖山彻底击败南宋残余军队，陆秀夫负帝跳海殉国。享国319年的宋朝灭亡。', color: '#ff7b72' }
+    ]
+  }
+};
+
+// ========== 应用状态 ==========
+let currentTimeline = null;
+let currentName = '';
+let zoom = 1;
+let spanMult = 1;
+let orientation = 'horizontal';
+let customEvents = [];
+let activePreset = '';
+let panX = 0, panY = 0;
+let isDragging = false, dragStartX = 0, dragStartY = 0;
+let canvas = document.getElementById('timelineCanvas');
+let ctx = canvas.getContext('2d');
+let wrap = document.getElementById('canvasWrap');
+
+// ========== 初始化 ==========
+function init() {
+  renderPresetList();
+  bindCanvasEvents();
+  loadTimeline(Object.keys(PRESETS)[0], true);
+}
+
+function renderPresetList() {
+  const list = document.getElementById('presetList');
+  const colors = ['#d2a8ff','#ff7b72','#3fb950','#3fb950','#58a6ff'];
+  const icons = ['🏯','⚔️','🔬','🏮','📜'];
+  let html = '';
+  let i = 0;
+  for (const name in PRESETS) {
+    html += `<li onclick="loadTimeline('${name}', true)" class="${activePreset === name ? 'active' : ''}" id="preset_${i}">
+      <span class="preset-dot" style="background:${colors[i]}"></span>${icons[i]} ${name}
+    </li>`;
+    i++;
+  }
+  list.innerHTML = html;
+}
+
+function loadTimeline(name, isPreset) {
+  activePreset = isPreset ? name : '';
+  currentName = isPreset ? name : '自定义时间线';
+  if (isPreset) {
+    currentTimeline = PRESETS[name];
+  } else {
+    currentTimeline = { color: '#58a6ff', events: [...customEvents] };
+  }
+  renderPresetList();
+  renderCustomEvents();
+  renderLegend();
+  panX = 40; panY = 40;
+  resizeCanvas();
+  renderTimeline();
+}
+
+function renderCustomEvents() {
+  const container = document.getElementById('customEvents');
+  let html = '';
+  customEvents.forEach((e, idx) => {
+    html += `<div class="custom-event">
+      <div class="event-header">
+        <span class="event-year">${e.year}${e.date ? ' / ' + e.date : ''}</span>
+        <button class="remove-btn" onclick="removeCustomEvent(${idx})">&times;</button>
+      </div>
+      <div class="event-title">${e.title}</div>
+      <div class="event-desc">${e.desc || ''}</div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function addCustomEvent() {
+  const yearVal = document.getElementById('customYear').value.trim();
+  const dateVal = document.getElementById('customDate').value.trim();
+  const titleVal = document.getElementById('customTitle').value.trim();
+  const descVal = document.getElementById('customDesc').value.trim();
+  const colorVal = document.getElementById('customColor').value;
+  if (!yearVal || !titleVal) { alert('请至少填写年份和标题'); return; }
+  const year = parseInt(yearVal);
+  if (isNaN(year)) { alert('年份请输入有效数字'); return; }
+  customEvents.push({ year, date: dateVal, title: titleVal, desc: descVal, color: colorVal });
+  document.getElementById('customYear').value = '';
+  document.getElementById('customDate').value = '';
+  document.getElementById('customTitle').value = '';
+  document.getElementById('customDesc').value = '';
+  renderCustomEvents();
+  if (!activePreset) {
+    currentTimeline = { color: '#58a6ff', events: [...customEvents] };
+    renderLegend();
+    renderTimeline();
+  }
+}
+
+function removeCustomEvent(idx) {
+  customEvents.splice(idx, 1);
+  renderCustomEvents();
+  if (!activePreset) {
+    currentTimeline = { color: '#58a6ff', events: [...customEvents] };
+    renderLegend();
+    renderTimeline();
+  }
+}
+
+function renderLegend() {
+  const bar = document.getElementById('legendBar');
+  if (!currentTimeline || !currentTimeline.events.length) { bar.innerHTML = ''; return; }
+  const uniqueColors = [...new Set(currentTimeline.events.map(e => e.color))];
+  let html = '';
+  uniqueColors.forEach(c => {
+    const e = currentTimeline.events.find(ev => ev.color === c);
+    html += `<div class="legend-item"><span style="background:${c}"></span>${e ? e.title : ''}</div>`;
+  });
+  bar.innerHTML = html;
+}
+
+// ========== Canvas 渲染 ==========
+function resizeCanvas() {
+  const wrapEl = wrap;
+  if (orientation === 'horizontal') {
+    const eventCount = currentTimeline ? currentTimeline.events.length : 0;
+    const w = Math.max(wrapEl.clientWidth, eventCount * 200 * spanMult * zoom + 160);
+    const h = Math.max(wrapEl.clientHeight, 500);
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  } else {
+    const eventCount = currentTimeline ? currentTimeline.events.length : 0;
+    const w = Math.max(wrapEl.clientWidth, 800);
+    const h = Math.max(wrapEl.clientHeight, eventCount * 140 * spanMult * zoom + 160);
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  }
+}
+
+function renderTimeline() {
+  if (!canvas || !ctx) return;
+  resizeCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  if (!currentTimeline || !currentTimeline.events.length) return;
+
+  const events = [...currentTimeline.events].sort((a, b) => a.year - b.year);
+  const minYear = events[0].year;
+  const maxYear = events[events.length - 1].year;
+  const yearRange = maxYear - minYear || 1;
+  const showGrid = document.getElementById('showGrid').checked;
+  const showLabels = document.getElementById('showLabels').checked;
+
+  if (orientation === 'horizontal') {
+    drawHorizontalTimeline(events, minYear, maxYear, yearRange, w, h, showGrid, showLabels);
+  } else {
+    drawVerticalTimeline(events, minYear, maxYear, yearRange, w, h, showGrid, showLabels);
+  }
+}
+
+function drawHorizontalTimeline(events, minYear, maxYear, yearRange, w, h, showGrid, showLabels) {
+  const margin = 60;
+  const trackY = h / 2;
+  const usableW = w - margin * 2;
+  const nodeRadius = 8;
+
+  // Main timeline line
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(margin, trackY);
+  ctx.lineTo(w - margin, trackY);
+  ctx.stroke();
+
+  // Year tick marks
+  const gridStep = Math.max(1, Math.floor(yearRange / 12));
+  const startGrid = Math.floor(minYear / gridStep) * gridStep;
+  for (let y = startGrid; y <= maxYear; y += gridStep) {
+    const x = margin + ((y - minYear) / yearRange) * usableW;
+    if (showGrid) {
+      ctx.strokeStyle = '#1c2128';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, margin);
+      ctx.lineTo(x, h - margin);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#484f58';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, trackY - 12);
+    ctx.lineTo(x, trackY + 12);
+    ctx.stroke();
+    if (showLabels) {
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(y < 0 ? '前' + Math.abs(y) : String(y), x, trackY + 26);
+    }
+  }
+
+  // Events
+  const labelHeight = 14;
+  let lastLabelX = -999;
+  let sideToggle = 0;
+  events.forEach((event, idx) => {
+    const x = margin + ((event.year - minYear) / yearRange) * usableW;
+
+    // Node
+    ctx.beginPath();
+    ctx.arc(x, trackY, nodeRadius, 0, Math.PI * 2);
+    ctx.fillStyle = event.color || '#58a6ff';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Connector line
+    const labelSide = (idx % 2 === 0) ? -1 : 1;
+    const labelOffset = 40 + (Math.floor(idx / 2) % 3) * 28;
+    const labelY = trackY + labelSide * labelOffset;
+
+    ctx.strokeStyle = event.color || '#58a6ff';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, trackY);
+    ctx.lineTo(x, labelY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (showLabels) {
+      ctx.font = 'bold 12px sans-serif';
+      const yearText = event.year < 0 ? '前' + Math.abs(event.year) : String(event.year);
+      const titleText = yearText + ' ' + event.title;
+      const textWidth = Math.min(ctx.measureText(titleText).width + 16, 220);
+      const textX = x - textWidth / 2;
+      const textY = labelY + (labelSide > 0 ? 4 : -labelHeight - 4);
+
+      // Label background
+      ctx.fillStyle = 'rgba(22,27,34,0.9)';
+      ctx.strokeStyle = event.color || '#58a6ff';
+      ctx.lineWidth = 1;
+      roundRect(ctx, textX, textY, textWidth, labelHeight + 8, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#e6edf3';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(titleText, x, textY + labelHeight / 2 + 4);
+    }
+
+    // Hit area for click
+    event._x = x;
+    event._y = trackY;
+    event._labelX = x;
+    event._labelY = labelY;
+  });
+
+  // Save event positions for click handling
+  currentTimeline._events = events;
+  currentTimeline._orientation = 'horizontal';
+  currentTimeline._trackY = trackY;
+  currentTimeline._margin = margin;
+  currentTimeline._usableW = usableW;
+  currentTimeline._minYear = minYear;
+  currentTimeline._yearRange = yearRange;
+  currentTimeline._nodeRadius = nodeRadius;
+}
+
+function drawVerticalTimeline(events, minYear, maxYear, yearRange, w, h, showGrid, showLabels) {
+  const margin = 60;
+  const trackX = w / 2;
+  const usableH = h - margin * 2;
+  const nodeRadius = 8;
+
+  // Main timeline line
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(trackX, margin);
+  ctx.lineTo(trackX, h - margin);
+  ctx.stroke();
+
+  // Year tick marks
+  const gridStep = Math.max(1, Math.floor(yearRange / 12));
+  const startGrid = Math.floor(minYear / gridStep) * gridStep;
+  for (let y = startGrid; y <= maxYear; y += gridStep) {
+    const py = margin + ((y - minYear) / yearRange) * usableH;
+    if (showGrid) {
+      ctx.strokeStyle = '#1c2128';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(margin, py);
+      ctx.lineTo(w - margin, py);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#484f58';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(trackX - 12, py);
+    ctx.lineTo(trackX + 12, py);
+    ctx.stroke();
+    if (showLabels) {
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(y < 0 ? '前' + Math.abs(y) : String(y), trackX - 16, py + 4);
+    }
+  }
+
+  // Events
+  events.forEach((event, idx) => {
+    const py = margin + ((event.year - minYear) / yearRange) * usableH;
+
+    // Node
+    ctx.beginPath();
+    ctx.arc(trackX, py, nodeRadius, 0, Math.PI * 2);
+    ctx.fillStyle = event.color || '#58a6ff';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Connector line
+    const labelSide = (idx % 2 === 0) ? -1 : 1;
+    const labelX = trackX + labelSide * 180;
+
+    ctx.strokeStyle = event.color || '#58a6ff';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(trackX, py);
+    ctx.lineTo(labelX, py);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (showLabels) {
+      const textAlign = labelSide > 0 ? 'left' : 'right';
+      const textX = labelSide > 0 ? labelX + 8 : labelX - 8;
+      ctx.font = 'bold 12px sans-serif';
+      const yearText = event.year < 0 ? '前' + Math.abs(event.year) : String(event.year);
+      ctx.fillStyle = '#8b949e';
+      ctx.textAlign = textAlign;
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(yearText, textX, py - 2);
+      ctx.fillStyle = '#e6edf3';
+      ctx.textBaseline = 'top';
+      ctx.fillText(event.title, textX, py + 2);
+    }
+
+    event._x = trackX;
+    event._y = py;
+    event._labelX = labelX;
+    event._labelY = py;
+  });
+
+  currentTimeline._events = events;
+  currentTimeline._orientation = 'vertical';
+  currentTimeline._trackX = trackX;
+  currentTimeline._margin = margin;
+  currentTimeline._usableH = usableH;
+  currentTimeline._minYear = minYear;
+  currentTimeline._yearRange = yearRange;
+  currentTimeline._nodeRadius = nodeRadius;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+// ========== 事件处理 ==========
+function bindCanvasEvents() {
+  canvas.addEventListener('click', (e) => {
+    if (isDragging) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    handleCanvasClick(mx, my);
+  });
+
+  wrap.addEventListener('mousedown', (e) => {
+    if (e.target === canvas) {
+      isDragging = true;
+      dragStartX = e.clientX - panX;
+      dragStartY = e.clientY - panY;
+      wrap.classList.add('dragging');
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    panX = e.clientX - dragStartX;
+    panY = e.clientY - dragStartY;
+    wrap.scrollLeft = -panX;
+    wrap.scrollTop = -panY;
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    wrap.classList.remove('dragging');
+    if (wrap.scrollLeft < 0) wrap.scrollLeft = 0;
+    if (wrap.scrollTop < 0) wrap.scrollTop = 0;
+  });
+
+  // Touch events
+  wrap.addEventListener('touchstart', (e) => {
+    if (e.target === canvas) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX - panX;
+      dragStartY = e.touches[0].clientY - panY;
+    }
+  });
+
+  wrap.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    panX = e.touches[0].clientX - dragStartX;
+    panY = e.touches[0].clientY - dragStartY;
+    wrap.scrollLeft = -panX;
+    wrap.scrollTop = -panY;
+  });
+
+  wrap.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+
+  document.getElementById('eventPopup').addEventListener('click', () => {
+    document.getElementById('eventPopup').classList.remove('visible');
+  });
+}
+
+function handleCanvasClick(mx, my) {
+  if (!currentTimeline || !currentTimeline._events) return;
+  const events = currentTimeline._events;
+  const radius = currentTimeline._nodeRadius || 8;
+  const orientation = currentTimeline._orientation || 'horizontal';
+
+  for (const event of events) {
+    const dx = mx - event._x;
+    const dy = my - event._y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < radius + 6) {
+      showPopup(event);
+      return;
+    }
+  }
+}
+
+function showPopup(event) {
+  const popup = document.getElementById('eventPopup');
+  const yearText = event.year < 0 ? '公元前' + Math.abs(event.year) + '年' : '公元' + event.year + '年';
+  const dateText = event.date ? ' / ' + event.date : '';
+  popup.innerHTML = `
+    <div class="popup-year"><span class="popup-color" style="background:${event.color || '#58a6ff'}"></span>${yearText}${dateText}</div>
+    <div class="popup-title">${event.title}</div>
+    <div class="popup-desc">${event.desc || '暂无详细描述'}</div>
+  `;
+  popup.classList.add('visible');
+
+  // Position popup near center of screen
+  const canvasRect = canvas.getBoundingClientRect();
+  let px = event._labelX + canvasRect.left;
+  let py = event._labelY + canvasRect.top;
+
+  if (px + 360 > window.innerWidth) px = window.innerWidth - 370;
+  if (py + 200 > window.innerHeight) py = window.innerHeight - 210;
+  if (px < 10) px = 10;
+  if (py < 10) py = 10;
+
+  popup.style.left = px + 'px';
+  popup.style.top = py + 'px';
+
+  // Auto-hide after 5 seconds
+  clearTimeout(popup._timeout);
+  popup._timeout = setTimeout(() => popup.classList.remove('visible'), 5000);
+}
+
+// ========== 控制功能 ==========
+function setZoom(val) {
+  zoom = parseFloat(val);
+  document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+  renderTimeline();
+}
+
+function setSpan(val) {
+  spanMult = parseFloat(val);
+  document.getElementById('spanLabel').textContent = spanMult + 'x';
+  renderTimeline();
+}
+
+function switchOrientation() {
+  orientation = document.getElementById('orientationSelect').value;
+  panX = 40; panY = 40;
+  renderTimeline();
+}
+
+function resetView() {
+  panX = 40; panY = 40;
+  zoom = 1;
+  spanMult = 1;
+  document.getElementById('zoomSlider').value = 1;
+  document.getElementById('spanSlider').value = 1;
+  document.getElementById('zoomLabel').textContent = '100%';
+  document.getElementById('spanLabel').textContent = '1x';
+  renderTimeline();
+}
+
+function switchToCustom() {
+  loadTimeline('', false);
+}
+
+// ========== 导出图片 ==========
+function exportImage() {
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = canvas.width;
+  tmpCanvas.height = canvas.height;
+  const tmpCtx = tmpCanvas.getContext('2d');
+
+  // Render to temp canvas
+  tmpCtx.fillStyle = '#0d1117';
+  tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+  tmpCtx.drawImage(canvas, 0, 0);
+
+  const link = document.createElement('a');
+  link.download = 'timeline-' + (currentName || 'export').replace(/\s/g, '-') + '.png';
+  link.href = tmpCanvas.toDataURL('image/png');
+  link.click();
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  renderTimeline();
+});
+
+// Keyboard shortcuts
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('eventPopup').classList.remove('visible');
+  }
+  if (e.key === '+' || e.key === '=') {
+    e.preventDefault();
+    zoom = Math.min(3, zoom + 0.1);
+    document.getElementById('zoomSlider').value = zoom;
+    document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+    renderTimeline();
+  }
+  if (e.key === '-') {
+    e.preventDefault();
+    zoom = Math.max(0.2, zoom - 0.1);
+    document.getElementById('zoomSlider').value = zoom;
+    document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+    renderTimeline();
+  }
+});
+
+// Initialize
+init();
+
+// Switch to custom timeline button
+document.getElementById('customSection').querySelector('h3').style.cursor = 'pointer';
+document.getElementById('customSection').querySelector('h3').addEventListener('click', switchToCustom);
+document.getElementById('customSection').querySelector('h3').title = '点击切换到自定义时间线';
+</script>
+
+</body>
+</html>

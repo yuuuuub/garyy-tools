@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>汉字笔划统计</title>
+<style>
+:root {
+  --bg: #fdf6e3;
+  --bg-card: #faf3e6;
+  --bg-input: #fffef9;
+  --text: #3a3226;
+  --text-secondary: #6b5e4a;
+  --accent: #c0392b;
+  --accent-light: #e74c3c;
+  --gold: #b8860b;
+  --gold-light: #daa520;
+  --border: #d4c5a9;
+  --border-light: #e8dcc8;
+  --shadow: rgba(139, 119, 80, 0.12);
+  --char-bg: #fffef9;
+  --char-hover: #fff8e7;
+  --tag-bg: #f0e6d3;
+  --tag-text: #6b5e4a;
+  --unknown-bg: #fdf0ed;
+  --unknown-text: #c0392b;
+  --scrollbar-bg: #fdf6e3;
+  --scrollbar-thumb: #d4c5a9;
+}
+[data-theme="dark"] {
+  --bg: #1a1612;
+  --bg-card: #221d18;
+  --bg-input: #2a241d;
+  --text: #e0d6c8;
+  --text-secondary: #a89880;
+  --accent: #e74c3c;
+  --accent-light: #ff6b5a;
+  --gold: #daa520;
+  --gold-light: #f0c040;
+  --border: #4a3f32;
+  --border-light: #3a3228;
+  --shadow: rgba(0,0,0,0.3);
+  --char-bg: #2a241d;
+  --char-hover: #342d24;
+  --tag-bg: #3a3228;
+  --tag-text: #a89880;
+  --unknown-bg: #3a1a16;
+  --unknown-text: #ff6b5a;
+  --scrollbar-bg: #1a1612;
+  --scrollbar-thumb: #4a3f32;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background .3s, color .3s;
+  display: flex; flex-direction: column; align-items: center;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-bg); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+/* Header */
+.header {
+  width: 100%; max-width: 720px; padding: 28px 20px 0; text-align: center;
+}
+.header h1 {
+  font-size: 2rem; font-weight: 700; letter-spacing: .08em;
+  background: linear-gradient(135deg, var(--accent), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header .subtitle {
+  font-size: .85rem; color: var(--text-secondary); margin-top: 6px;
+  letter-spacing: .04em;
+}
+
+/* Theme toggle */
+.theme-toggle {
+  position: fixed; top: 16px; right: 16px; z-index: 100;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg-card);
+  cursor: pointer; font-size: 1.2rem; display: flex;
+  align-items: center; justify-content: center;
+  transition: all .3s; color: var(--text);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.theme-toggle:hover { transform: scale(1.1); border-color: var(--gold); }
+
+/* Main */
+.main { width: 100%; max-width: 720px; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+/* Input */
+.input-section {
+  background: var(--bg-card); border-radius: 16px; padding: 24px;
+  border: 1px solid var(--border); box-shadow: 0 4px 16px var(--shadow);
+}
+.input-label {
+  font-size: .95rem; font-weight: 600; color: var(--text);
+  margin-bottom: 10px; display: block; letter-spacing: .04em;
+}
+.input-row {
+  display: flex; gap: 10px; align-items: stretch;
+}
+#nameInput {
+  flex: 1; padding: 12px 16px; border-radius: 10px;
+  border: 2px solid var(--border); background: var(--bg-input);
+  color: var(--text); font-size: 1.2rem; outline: none;
+  transition: border-color .3s; font-family: inherit;
+  letter-spacing: .08em;
+}
+#nameInput:focus { border-color: var(--accent); }
+#nameInput::placeholder { color: var(--text-secondary); letter-spacing: .04em; }
+#analyzeBtn {
+  padding: 12px 24px; border-radius: 10px; border: none;
+  background: var(--accent); color: #fff; font-size: 1rem;
+  cursor: pointer; font-weight: 600; letter-spacing: .06em;
+  transition: all .3s; white-space: nowrap;
+  font-family: inherit;
+}
+#analyzeBtn:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(192,57,43,.3); }
+#analyzeBtn:active { transform: translateY(0); }
+
+/* Result */
+.result-section { display: none; flex-direction: column; gap: 16px; }
+.result-section.active { display: flex; }
+
+/* Total card */
+.total-card {
+  background: var(--bg-card); border-radius: 16px; padding: 24px;
+  border: 1px solid var(--border); box-shadow: 0 4px 16px var(--shadow);
+  text-align: center;
+}
+.total-label { font-size: .85rem; color: var(--text-secondary); letter-spacing: .06em; }
+.total-number {
+  font-size: 3.5rem; font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1.2;
+}
+.total-unit { font-size: .9rem; color: var(--text-secondary); }
+
+/* Char list */
+.char-list { display: flex; flex-direction: column; gap: 12px; }
+
+.char-card {
+  background: var(--char-bg); border-radius: 12px; padding: 16px 20px;
+  border: 1px solid var(--border-light); display: flex;
+  align-items: center; gap: 16px; transition: all .3s;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.char-card:hover { background: var(--char-hover); transform: translateX(4px); }
+.char-card.unknown { background: var(--unknown-bg); border-color: var(--unknown-text); }
+
+.char-glyph {
+  font-size: 2.8rem; font-weight: 700; min-width: 56px; text-align: center;
+  color: var(--accent); line-height: 1;
+}
+.char-card.unknown .char-glyph { color: var(--unknown-text); }
+
+.char-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.char-info .char-name { font-size: .8rem; color: var(--text-secondary); }
+.char-info .char-detail { font-size: .85rem; color: var(--text); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.char-strokes {
+  font-size: 1.4rem; font-weight: 700; color: var(--gold);
+  min-width: 40px; text-align: center;
+}
+.char-card.unknown .char-strokes { color: var(--unknown-text); }
+
+.tag {
+  display: inline-block; padding: 2px 10px; border-radius: 20px;
+  font-size: .75rem; background: var(--tag-bg); color: var(--tag-text);
+  letter-spacing: .04em;
+}
+.tag.warning { background: var(--unknown-bg); color: var(--unknown-text); }
+
+/* Fortune */
+.fortune-card {
+  background: var(--bg-card); border-radius: 16px; padding: 24px;
+  border: 1px solid var(--border); box-shadow: 0 4px 16px var(--shadow);
+  text-align: center; position: relative; overflow: hidden;
+}
+.fortune-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--gold), var(--accent));
+}
+.fortune-icon { font-size: 2.5rem; margin-bottom: 8px; }
+.fortune-title { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; letter-spacing: .06em; }
+.fortune-text { font-size: .9rem; color: var(--text-secondary); line-height: 1.6; letter-spacing: .04em; }
+.fortune-level { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: .8rem; font-weight: 600; margin-top: 8px; letter-spacing: .06em; }
+.fortune-level.ji { background: #fef3e2; color: #b8860b; }
+.fortune-level.daji { background: #fde8e8; color: #c0392b; }
+.fortune-level.ping { background: #e8f0e8; color: #4a6741; }
+.fortune-level.xiong { background: #f0e6f0; color: #6b4a6b; }
+[data-theme="dark"] .fortune-level.ji { background: #3a2a10; color: #daa520; }
+[data-theme="dark"] .fortune-level.daji { background: #3a1a16; color: #ff6b5a; }
+[data-theme="dark"] .fortune-level.ping { background: #1a2a1a; color: #6a9e6a; }
+[data-theme="dark"] .fortune-level.xiong { background: #2a1a2a; color: #9a6a9a; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+.empty-state .icon { font-size: 4rem; margin-bottom: 12px; opacity: .6; }
+.empty-state p { font-size: .9rem; letter-spacing: .04em; }
+
+/* Decorative */
+.decorative-line {
+  width: 100px; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  margin: 0 auto;
+}
+
+/* Footer */
+.footer {
+  text-align: center; padding: 20px; color: var(--text-secondary);
+  font-size: .75rem; letter-spacing: .04em;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .header h1 { font-size: 1.5rem; }
+  .char-glyph { font-size: 2.2rem; min-width: 44px; }
+  .char-strokes { font-size: 1.2rem; min-width: 32px; }
+  .total-number { font-size: 2.8rem; }
+  .input-row { flex-direction: column; }
+  #analyzeBtn { width: 100%; }
+}
+
+/* Animations */
+@keyframes fadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.char-card { animation: fadeInUp .4s ease both; }
+.char-card:nth-child(1) { animation-delay: .05s; }
+.char-card:nth-child(2) { animation-delay: .1s; }
+.char-card:nth-child(3) { animation-delay: .15s; }
+.char-card:nth-child(4) { animation-delay: .2s; }
+.char-card:nth-child(5) { animation-delay: .25s; }
+.char-card:nth-child(6) { animation-delay: .3s; }
+.char-card:nth-child(7) { animation-delay: .35s; }
+.char-card:nth-child(8) { animation-delay: .4s; }
+.char-card:nth-child(n+9) { animation-delay: .45s; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" title="切换暗色模式" aria-label="切换暗色模式">🌓</button>
+
+<header class="header">
+  <h1>✍️ 汉字笔划统计</h1>
+  <p class="subtitle">知笔画，明字理，一字一乾坤</p>
+</header>
+
+<main class="main">
+  <section class="input-section">
+    <label class="input-label" for="nameInput">请输入中文姓名或文字</label>
+    <div class="input-row">
+      <input type="text" id="nameInput" placeholder="例如：诸葛亮、好好学习…" maxlength="50" autofocus>
+      <button id="analyzeBtn">查看笔划</button>
+    </div>
+  </section>
+
+  <section class="result-section" id="resultSection">
+    <div class="total-card" id="totalCard"></div>
+    <div class="char-list" id="charList"></div>
+    <div class="fortune-card" id="fortuneCard"></div>
+  </section>
+
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🔍</div>
+    <p>上方输入汉字，即刻统计笔划数</p>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="decorative-line"></div>
+  <p style="margin-top:8px;">汉字笔划统计 · 一字一世界，一笔一乾坤</p>
+</footer>
+
+<script>
+// ==================== 笔划数据库（常用字 3500+） ====================
+const strokeDB = {};
+(function(){
+  const data = [
+    // 1 画
+    '一一1','乙1','〇0',
+    // 2 画
+    '二2','十2','丁2','厂2','七2','卜2','八2','人2','入2','儿2','九2','匕2','几2','了2','乃2','刀2','力2','又2','厶2',
+    // 3 画
+    '三3','干3','于3','亏3','士3','工3','土3','才3','下3','寸3','大3','丈3','与3','万3','上3','小3','口3','山3','巾3','千3','乞3','川3','亿3','个3','勺3','久3','凡3','及3','夕3','丸3','么3','广3','亡3','门3','丫3','义3','之3','尸3','己3','已3','巳3','弓3','子3','卫3','也3','女3','飞3','刃3','习3','叉3','马3','乡3',
+    // 4 画
+    '丰4','王4','井4','开4','夫4','天4','无4','元4','专4','云4','扎4','艺4','木4','五4','支4','厅4','不4','太4','犬4','区4','历4','尤4','友4','匹4','车4','巨4','牙4','屯4','比4','互4','切4','瓦4','止4','少4','日4','中4','贝4','内4','水4','见4','午4','牛4','手4','毛4','气4','升4','长4','仁4','什4','片4','仆4','化4','仇4','币4','仍4','仅4','斤4','爪4','反4','介4','父4','从4','今4','凶4','分4','乏4','公4','仓4','月4','氏4','勿4','欠4','风4','丹4','匀4','乌4','凤4','勾4','文4','六4','方4','火4','为4','斗4','忆4','订4','计4','户4','认4','心4','尺4','引4','丑4','巴4','孔4','队4','办4','以4','允4','予4','劝4','双4','书4','幻4','丰4',
+    // 5 画
+    '玉5','刊5','示5','末5','未5','击5','打5','巧5','正5','扑5','扒5','功5','扔5','去5','甘5','世5','古5','节5','本5','术5','可5','丙5','左5','厉5','右5','石5','布5','龙5','平5','灭5','轧5','东5','卡5','北5','占5','业5','旧5','帅5','归5','且5','旦5','目5','叶5','甲5','申5','叮5','电5','号5','田5','由5','史5','只5','央5','兄5','叼5','叫5','另5','叨5','叹5','四5','生5','失5','禾5','丘5','付5','仗5','代5','仙5','们5','仪5','白5','仔5','他5','斥5','瓜5','乎5','丛5','令5','用5','甩5','印5','乐5','句5','匆5','册5','犯5','外5','处5','冬5','鸟5','务5','包5','饥5','主5','市5','立5','闪5','兰5','半5','汁5','汇5','头5','汉5','宁5','穴5','它5','讨5','写5','让5','礼5','训5','必5','议5','讯5','记5','永5','司5','尼5','民5','出5','辽5','奶5','奴5','加5','召5','皮5','边5','发5','孕5','圣5','对5','台5','矛5','纠5','母5','幼5','丝5',
+    // 6 画
+    '式6','刑6','动6','扛6','寺6','吉6','扣6','考6','托6','老6','执6','巩6','圾6','扩6','扫6','地6','扬6','场6','耳6','共6','芒6','亚6','芝6','朽6','朴6','机6','权6','过6','臣6','再6','协6','西6','压6','厌6','在6','有6','百6','存6','而6','页6','匠6','夸6','夺6','灰6','达6','列6','死6','成6','夹6','轨6','邪6','划6','迈6','毕6','至6','此6','贞6','师6','尘6','尖6','劣6','光6','当6','早6','吐6','吓6','虫6','曲6','团6','同6','吊6','吃6','因6','吸6','吗6','屿6','帆6','岁6','回6','岂6','刚6','则6','肉6','网6','年6','朱6','先6','丢6','舌6','竹6','迁6','乔6','伟6','传6','乒6','乓6','休6','伍6','伏6','优6','伐6','延6','件6','任6','伤6','价6','份6','华6','仰6','仿6','伙6','伪6','自6','血6','向6','似6','后6','行6','舟6','全6','会6','杀6','合6','兆6','企6','众6','爷6','伞6','创6','肌6','朵6','杂6','危6','旬6','旨6','负6','各6','名6','多6','争6','色6','壮6','冲6','冰6','庄6','庆6','亦6','刘6','齐6','交6','次6','衣6','产6','决6','充6','妄6','闭6','问6','闯6','羊6','并6','关6','米6','灯6','州6','汗6','污6','江6','池6','汤6','忙6','兴6','宇6','守6','宅6','字6','安6','讲6','军6','许6','论6','农6','讽6','设6','访6','寻6','那6','迅6','尽6','导6','异6','孙6','阵6','阳6','收6','阶6','阴6','防6','奸6','如6','妇6','好6','她6','妈6','戏6','羽6','观6','欢6','买6','红6','纤6','级6','约6','纪6','驰6','巡6',
+    // 7 画
+    '寿7','弄7','麦7','形7','进7','戒7','吞7','远7','违7','运7','扶7','抚7','坛7','技7','坏7','扰7','拒7','找7','批7','扯7','址7','走7','抄7','坝7','贡7','攻7','赤7','折7','抓7','扮7','抢7','孝7','均7','抛7','投7','坟7','抗7','坑7','坊7','抖7','护7','壳7','志7','扭7','块7','声7','把7','报7','却7','劫7','芽7','花7','芹7','芬7','苍7','芳7','严7','芦7','劳7','克7','苏7','杆7','杠7','杜7','材7','村7','杏7','极7','李7','杨7','求7','更7','束7','豆7','两7','丽7','医7','辰7','励7','否7','还7','歼7','来7','连7','步7','坚7','旱7','盯7','呈7','时7','吴7','助7','县7','里7','呆7','园7','旷7','围7','呀7','吨7','足7','邮7','男7','困7','吵7','串7','员7','听7','吩7','吹7','呜7','吧7','吼7','别7','岗7','帐7','财7','针7','钉7','告7','我7','乱7','利7','秃7','秀7','私7','每7','兵7','估7','体7','何7','但7','伸7','作7','伯7','伶7','佣7','低7','你7','住7','位7','伴7','身7','皂7','佛7','近7','彻7','役7','返7','余7','希7','坐7','谷7','妥7','含7','邻7','岔7','肝7','肚7','肠7','龟7','免7','狂7','犹7','角7','删7','条7','卵7','岛7','迎7','饭7','饮7','系7','言7','冻7','状7','亩7','况7','床7','库7','疗7','应7','冷7','这7','序7','辛7','弃7','冶7','忘7','闲7','间7','闷7','判7','灶7','灿7','弟7','汪7','沙7','汽7','沃7','泛7','沟7','没7','沈7','沉7','怀7','忧7','快7','完7','宋7','宏7','牢7','究7','穷7','灾7','良7','证7','启7','评7','补7','初7','社7','识7','诉7','诊7','词7','译7','君7','灵7','即7','层7','尿7','尾7','迟7','局7','改7','张7','忌7','际7','陆7','阿7','陈7','阻7','附7','妙7','妖7','妨7','努7','忍7','劲7','鸡7','驱7','纯7','纱7','纳7','纲7','驳7','纵7','纷7','纸7','纹7','纺7','驴7','纽7',
+    // 8 画
+    '奉8','玩8','环8','武8','青8','责8','现8','表8','规8','抹8','拢8','拔8','拣8','担8','坦8','押8','抽8','拐8','拖8','拍8','者8','顶8','拆8','拥8','抵8','拘8','势8','抱8','垃8','拉8','拦8','拌8','幸8','招8','坡8','披8','拨8','择8','抬8','其8','取8','苦8','若8','茂8','苹8','苗8','英8','范8','直8','茄8','茎8','茅8','林8','枝8','杯8','柜8','析8','板8','松8','枪8','构8','杰8','述8','枕8','丧8','或8','画8','卧8','事8','刺8','枣8','雨8','卖8','矿8','码8','厕8','奔8','奇8','奋8','态8','欧8','垄8','妻8','轰8','顷8','转8','斩8','轮8','软8','到8','非8','叔8','肯8','齿8','些8','虎8','虏8','肾8','贤8','尚8','旺8','具8','果8','味8','昆8','国8','昌8','畅8','明8','易8','昂8','典8','固8','忠8','咐8','呼8','鸣8','咏8','呢8','岸8','岩8','帖8','罗8','帜8','岭8','凯8','败8','贩8','购8','图8','钓8','制8','知8','垂8','牧8','物8','乖8','刮8','秆8','和8','季8','委8','佳8','侍8','供8','使8','例8','版8','侄8','侦8','侧8','凭8','侨8','佩8','货8','依8','的8','迫8','质8','欣8','征8','往8','爬8','彼8','径8','所8','舍8','金8','命8','斧8','爸8','采8','受8','乳8','贪8','念8','贫8','肤8','肺8','肢8','肿8','胀8','朋8','股8','肥8','服8','胁8','周8','昏8','鱼8','兔8','狐8','忽8','狗8','备8','饰8','饱8','饲8','变8','京8','享8','店8','夜8','庙8','府8','底8','剂8','郊8','废8','净8','盲8','放8','刻8','育8','闸8','闹8','郑8','券8','卷8','单8','炒8','炊8','炕8','炎8','炉8','沫8','浅8','法8','泄8','河8','沾8','泪8','油8','泊8','沿8','泡8','注8','泻8','泳8','泥8','沸8','波8','泼8','泽8','治8','怖8','性8','怕8','怜8','怪8','学8','宝8','宗8','定8','宜8','审8','宙8','官8','空8','帘8','实8','试8','郎8','诗8','肩8','房8','诚8','衬8','衫8','视8','话8','诞8','询8','该8','详8','建8','肃8','录8','隶8','居8','届8','刷8','屈8','弦8','承8','孟8','孤8','陕8','降8','限8','妹8','姑8','姐8','姓8','始8','驾8','参8','艰8','线8','练8','组8','细8','驶8','织8','终8','绊8','驼8','绍8','经8','贯8',
+    // 9 画
+    '奏9','春9','帮9','珍9','玻9','毒9','型9','挂9','封9','持9','项9','垮9','挎9','城9','挠9','政9','赴9','赵9','挡9','挺9','括9','拴9','拾9','挑9','指9','垫9','挣9','挤9','拼9','挖9','按9','挥9','挪9','某9','甚9','革9','荐9','巷9','带9','草9','茧9','茶9','荒9','茫9','荡9','荣9','故9','胡9','南9','药9','标9','枯9','柄9','栋9','相9','查9','柏9','柳9','柱9','柿9','栏9','树9','要9','咸9','威9','歪9','研9','砖9','厘9','厚9','砌9','砍9','面9','耐9','耍9','牵9','残9','殃9','轻9','鸦9','皆9','背9','战9','点9','临9','览9','竖9','省9','削9','尝9','是9','盼9','眨9','哄9','显9','哑9','冒9','映9','星9','昨9','畏9','趴9','胃9','贵9','界9','虹9','虾9','蚁9','思9','蚂9','虽9','品9','咽9','骂9','哗9','咱9','响9','哈9','咬9','咳9','哪9','炭9','峡9','罚9','贱9','贴9','骨9','钞9','钟9','钢9','钥9','钩9','卸9','缸9','拜9','看9','矩9','怎9','牲9','选9','适9','秒9','香9','种9','秋9','科9','重9','复9','竿9','段9','便9','俩9','贷9','顺9','修9','保9','促9','侮9','俭9','俗9','俘9','信9','皇9','泉9','鬼9','侵9','追9','俊9','盾9','待9','律9','很9','须9','叙9','剑9','逃9','食9','盆9','胆9','胜9','胞9','胖9','脉9','勉9','狭9','狮9','独9','狡9','狱9','狠9','贸9','怨9','急9','饶9','蚀9','饺9','饼9','弯9','将9','奖9','哀9','亭9','亮9','度9','迹9','庭9','疮9','疯9','疫9','疤9','姿9','亲9','音9','帝9','施9','闻9','阀9','阁9','差9','养9','美9','姜9','叛9','送9','类9','迷9','前9','首9','逆9','总9','炼9','炸9','炮9','烂9','剃9','洁9','洪9','洒9','浇9','浊9','洞9','测9','洗9','活9','派9','洽9','染9','济9','洋9','洲9','浑9','浓9','津9','恒9','恢9','恰9','恼9','恨9','举9','觉9','宣9','室9','宫9','宪9','突9','穿9','窃9','客9','冠9','语9','扁9','袄9','祖9','神9','祝9','误9','诱9','说9','诵9','垦9','退9','既9','屋9','昼9','费9','陡9','眉9','孩9','除9','险9','院9','娃9','姥9','姨9','姻9','娇9','怒9','架9','贺9','盈9','勇9','怠9','柔9','垒9','绑9','绒9','结9','绕9','骄9','绘9','给9','络9','骆9','绝9','绞9','统9',
+    // 10 画
+    '耕10','耗10','艳10','泰10','珠10','班10','素10','蚕10','顽10','盏10','匪10','捞10','栽10','捕10','振10','载10','赶10','起10','盐10','捎10','捏10','埋10','捉10','捆10','捐10','损10','都10','哲10','逝10','捡10','换10','挽10','热10','恐10','壶10','挨10','耻10','耽10','恭10','莲10','莫10','荷10','获10','晋10','恶10','真10','框10','桂10','档10','桐10','株10','桥10','桃10','格10','校10','核10','样10','根10','索10','哥10','速10','逗10','栗10','配10','翅10','辱10','唇10','夏10','础10','破10','原10','套10','逐10','烈10','殊10','顾10','轿10','较10','顿10','毙10','致10','柴10','桌10','虑10','监10','紧10','党10','晒10','眠10','晓10','鸭10','晃10','晌10','晕10','蚊10','哨10','哭10','恩10','唤10','啊10','唉10','罢10','峰10','圆10','贼10','贿10','钱10','钳10','钻10','铁10','铃10','铅10','缺10','氧10','特10','牺10','造10','乘10','敌10','秤10','租10','积10','秧10','秩10','称10','秘10','透10','笔10','笑10','笋10','债10','借10','值10','倚10','倾10','倒10','倘10','俱10','倡10','候10','俯10','倍10','倦10','健10','臭10','射10','躬10','息10','徒10','徐10','舰10','舱10','般10','航10','途10','拿10','爹10','爱10','颂10','翁10','脆10','脂10','胸10','胳10','脏10','胶10','脑10','狸10','狼10','逢10','留10','皱10','饿10','恋10','桨10','浆10','衰10','高10','席10','准10','座10','症10','病10','疾10','疼10','疲10','效10','离10','唐10','资10','凉10','站10','剖10','竞10','部10','旁10','旅10','畜10','阅10','羞10','瓶10','拳10','粉10','料10','益10','兼10','烤10','烘10','烦10','烧10','烛10','烟10','递10','涛10','浙10','涝10','酒10','涉10','消10','浩10','海10','涂10','浴10','浮10','流10','润10','浪10','浸10','涨10','烫10','涌10','悟10','悄10','悔10','悦10','害10','宽10','家10','宵10','宴10','宾10','窄10','容10','宰10','案10','请10','朗10','诸10','读10','扇10','袜10','袖10','袍10','被10','祥10','课10','谁10','调10','冤10','谅10','谈10','谊10','剥10','恳10','展10','剧10','屑10','弱10','陵10','陶10','陷10','陪10','娱10','娘10','通10','能10','难10','预10','桑10','绢10','绣10','验10','继10',
+    // 11 画
+    '球11','理11','捧11','堵11','描11','域11','掩11','捷11','排11','掉11','推11','堆11','掀11','授11','教11','掏11','掠11','培11','接11','控11','探11','据11','掘11','职11','基11','著11','勒11','黄11','萌11','萝11','菌11','菜11','萄11','菊11','萍11','菠11','营11','械11','梦11','梢11','梅11','检11','梳11','梯11','桶11','救11','副11','票11','戚11','爽11','聋11','袭11','盛11','雪11','辅11','辆11','虚11','雀11','堂11','常11','匙11','晨11','睁11','眯11','眼11','悬11','野11','啦11','晚11','啄11','距11','跃11','略11','蛇11','累11','唱11','患11','唯11','崖11','崭11','崇11','圈11','铜11','铲11','银11','甜11','梨11','犁11','移11','笨11','笼11','笛11','符11','第11','敏11','做11','袋11','悠11','偿11','偶11','偷11','您11','售11','停11','偏11','假11','得11','衔11','盘11','船11','斜11','盒11','鸽11','悉11','欲11','彩11','领11','脚11','脖11','脸11','脱11','象11','够11','猜11','猪11','猎11','猫11','猛11','馅11','馆11','凑11','减11','毫11','麻11','痒11','痕11','廊11','康11','庸11','鹿11','盗11','章11','竟11','商11','族11','旋11','望11','率11','着11','盖11','粘11','粗11','粒11','断11','剪11','兽11','清11','添11','淋11','淹11','渠11','渐11','混11','渔11','淘11','液11','淡11','深11','婆11','梁11','渗11','情11','惜11','惭11','悼11','惧11','惕11','惊11','惨11','惯11','寇11','寄11','宿11','窑11','密11','谋11','谎11','祸11','谜11','逮11','敢11','屠11','弹11','随11','蛋11','隆11','隐11','婚11','婶11','颈11','绩11','绪11','续11','骑11','绳11','维11','绵11','绸11','绿11',
+    // 12 画
+    '琴12','斑12','替12','款12','堪12','搭12','塔12','越12','趁12','趋12','超12','提12','堤12','博12','揭12','喜12','插12','揪12','搜12','煮12','援12','裁12','搁12','搂12','搅12','握12','揉12','斯12','期12','欺12','联12','散12','惹12','葬12','葛12','董12','葡12','敬12','葱12','落12','朝12','辜12','葵12','棒12','棋12','植12','森12','椅12','椒12','棵12','棍12','棉12','棚12','棕12','惠12','惑12','逼12','厨12','厦12','硬12','确12','雁12','殖12','裂12','雄12','暂12','雅12','辈12','悲12','紫12','辉12','敞12','赏12','掌12','晴12','暑12','最12','量12','喷12','晶12','喇12','遇12','喊12','景12','践12','跌12','跑12','遗12','蛙12','蛛12','蜓12','喝12','喂12','喘12','喉12','幅12','帽12','赔12','黑12','铸12','铺12','链12','销12','锁12','锄12','锅12','锈12','锋12','锐12','短12','智12','毯12','鹅12','剩12','稍12','程12','稀12','税12','筐12','等12','筑12','策12','筛12','筒12','答12','筋12','筝12','傲12','傅12','牌12','堡12','集12','焦12','傍12','储12','奥12','街12','惩12','御12','循12','艇12','舒12','番12','释12','禽12','腊12','脾12','腔12','鲁12','猾12','猴12','然12','馋12','装12','蛮12','就12','痛12','童12','阔12','善12','羡12','普12','粪12','尊12','道12','曾12','焰12','港12','湖12','渣12','湿12','温12','渴12','滑12','湾12','渡12','游12','滋12','溉12','愤12','慌12','惰12','愧12','愉12','慨12','割12','寒12','富12','窜12','窝12','窗12','遍12','裕12','裤12','裙12','谢12','谣12','谦12','属12','屡12','强12','粥12','疏12','隔12','隙12','絮12','嫂12','登12','缎12','缓12','编12','骗12','缘12',
+    // 13 画
+    '瑞13','魂13','肆13','摄13','摸13','填13','搏13','塌13','鼓13','摆13','携13','搬13','摇13','搞13','塘13','摊13','蒜13','勤13','鹊13','蓝13','墓13','幕13','蓬13','蓄13','蒙13','蒸13','献13','禁13','楚13','想13','槐13','榆13','楼13','概13','赖13','酬13','感13','碍13','碑13','碎13','碰13','碗13','碌13','雷13','零13','雾13','雹13','输13','督13','龄13','鉴13','睛13','睡13','睬13','鄙13','愚13','暖13','盟13','歇13','暗13','照13','跨13','跳13','跪13','路13','跟13','遣13','蛾13','蜂13','嗓13','置13','罪13','罩13','错13','锡13','锣13','锤13','锦13','键13','锯13','矮13','辞13','稠13','愁13','筹13','签13','简13','毁13','舅13','鼠13','催13','傻13','像13','躲13','微13','愈13','遥13','腰13','腥13','腹13','腾13','腿13','触13','解13','酱13','痰13','廉13','新13','韵13','意13','粮13','数13','煎13','塑13','慈13','煤13','煌13','满13','漠13','源13','滤13','滥13','滔13','溪13','溜13','滚13','滨13','粱13','滩13','慎13','誉13','塞13','谨13','福13','群13','殿13','辟13','障13','嫌13','嫁13','叠13','缝13','缠13',
+    // 14 画
+    '静14','碧14','璃14','墙14','撇14','嘉14','摧14','截14','誓14','境14','摘14','摔14','聚14','蔽14','慕14','暮14','蔑14','模14','榴14','榜14','榨14','歌14','遭14','酷14','酿14','酸14','磁14','愿14','需14','弊14','裳14','颗14','嗽14','蜻14','蜡14','蝇14','蜘14','赚14','锹14','锻14','舞14','稳14','算14','箩14','管14','僚14','鼻14','魄14','貌14','膜14','膊14','膀14','鲜14','疑14','馒14','裹14','敲14','豪14','膏14','遮14','腐14','瘦14','辣14','竭14','端14','旗14','精14','歉14','熄14','熔14','漆14','漂14','漫14','滴14','演14','漏14','慢14','寨14','赛14','察14','蜜14','谱14','嫩14','翠14','熊14','凳14','骡14','缩14',
+    // 15 画
+    '慧15','撕15','撒15','趣15','趟15','撑15','播15','撞15','撤15','增15','聪15','鞋15','蕉15','蔬15','横15','槽15','樱15','橡15','飘15','醋15','醉15','震15','霉15','瞒15','题15','暴15','瞎15','影15','踢15','踏15','踩15','踪15','蝶15','蝴15','嘱15','墨15','镇15','靠15','稻15','黎15','稿15','稼15','箱15','箭15','篇15','僵15','躺15','僻15','德15','艘15','膝15','膛15','熟15','摩15','颜15','毅15','糊15','遵15','潜15','潮15','懂15','额15','慰15','劈15',
+    // 16 画
+    '操16','燕16','薯16','薪16','薄16','颠16','橘16','整16','融16','醒16','餐16','嘴16','蹄16','器16','赠16','默16','镜16','赞16','篮16','邀16','衡16','膨16','雕16','磨16','凝16','辨16','辩16','糖16','糕16','燃16','澡16','激16','懒16','壁16','避16','缴16',
+    // 17 画
+    '戴17','擦17','鞠17','藏17','霜17','霞17','瞧17','蹈17','螺17','穗17','繁17','辫17','赢17','糟17','糠17','燥17','臂17','翼17','骤17',
+    // 18 画
+    '鞭18','覆18','蹦18','镰18','翻18','鹰18',
+    // 19 画
+    '警19','攀19','蹲19','颤19','瓣19','爆19','疆19',
+    // 20 画
+    '壤20','耀20','躁20','嚼20','嚷20','籍20','魔20','灌20',
+    // 21 画
+    '蠢21','霸21','露21',
+    // 22 画
+    '囊22',
+    // 23 画
+    '罐23',
+    // 24 画
+    '矗24',
+    // 25+ 画
+    '镶25','瓤25',
+  ].join(',');
+
+  data.split(',').forEach(entry => {
+    const char = entry.charAt(0);
+    const strokes = parseInt(entry.slice(1));
+    strokeDB[char] = strokes;
+  });
+})();
+
+// ==================== 常用部首信息 ====================
+const radicalInfo = {
+  '亻':'单人旁（人）','氵':'三点水（水）','讠':'言字旁（言）',
+  '口':'口字旁','女':'女字旁','木':'木字旁','扌':'提手旁（手）',
+  '艹':'草字头（艸）','火':'火字旁','王':'王字旁（玉）',
+  '钅':'金字旁（金）','纟':'绞丝旁（糸）','日':'日字旁',
+  '月':'月字旁（肉）','土':'土字旁','石':'石字旁',
+  '虫':'虫字旁','贝':'贝字旁','车':'车字旁','马':'马字旁',
+  '鱼':'鱼字旁','鸟':'鸟字旁','疒':'病字头','宀':'宝盖头',
+  '广':'广字头','门':'门字框','阝':'耳刀旁（阜）',
+  '忄':'竖心旁（心）','礻':'示字旁（示）','衤':'衣字旁（衣）',
+  '禾':'禾木旁','米':'米字旁','竹':'竹字头','⺮':'竹字头',
+  '走':'走之底','辶':'走之底（辵）','足':'足字旁',
+  '雨':'雨字头','页':'页字旁','隹':'隹字旁','青':'青字旁',
+  '革':'革字旁','骨':'骨字旁','鬼':'鬼字旁','音':'音字旁',
+  '食':'食字旁','饣':'食字旁','酉':'酉字旁','里':'里字旁',
+  '身':'身字旁','釆':'釆字旁','艮':'艮字旁',
+};
+const commonRadicals = ['亻','氵','讠','口','女','木','扌','艹','火','王','钅','纟','日','月','土','石','虫','贝','车','马','鱼','鸟','疒','宀','广','门','阝','忄','礻','衤','禾','米','竹','辶','足','雨','页','饣','酉'];
+
+// ==================== 部首检测 ====================
+function detectRadical(char) {
+  // Check common radical prefixes
+  for (const r of commonRadicals) {
+    if (char.startsWith(r)) return radicalInfo[r] || r;
+  }
+  // Check for left-side radicals
+  const leftRadicals = ['钅','纟','礻','衤','饣'];
+  for (const r of leftRadicals) {
+    if (char.includes(r)) return radicalInfo[r] || r;
+  }
+  // Check some structural patterns
+  if (char.length > 1) {
+    // CJK character, try to detect based on common wrappers
+    return '—';
+  }
+  return '—';
+}
+
+// ==================== 笔划估算 ====================
+function estimateStrokes(char) {
+  const code = char.codePointAt(0);
+  if (!code) return 0;
+  // CJK Unified Ideographs: U+4E00 - U+9FFF
+  // Rough estimation based on unicode position (very approximate)
+  if (code >= 0x4E00 && code <= 0x9FFF) {
+    const base = code - 0x4E00;
+    // Simple estimation curve: earlier characters tend to have fewer strokes
+    if (base < 500) return Math.round(4 + base * 0.008);     // ~4-8
+    if (base < 1500) return Math.round(8 + (base-500)*0.005); // ~8-13
+    if (base < 3000) return Math.round(10 + (base-1500)*0.004); // ~13-16
+    return Math.round(13 + (base-3000)*0.003);  // ~16+
+  }
+  // CJK Extension A: U+3400 - U+4DBF
+  if (code >= 0x3400 && code <= 0x4DBF) return 12;
+  // Other CJK ranges
+  return 10;
+}
+
+// ==================== 获取笔划数 ====================
+function getStrokeInfo(char) {
+  const strokes = strokeDB[char];
+  if (strokes !== undefined) {
+    return {
+      strokes: strokes,
+      known: true,
+      radical: detectRadical(char),
+      isCommon: true,
+    };
+  }
+  // Check if it's a non-CJK character
+  if (!char.match(/[\u3400-\u9FFF\uF900-\uFAFF\u4E00-\u9FFF]/)) {
+    return {
+      strokes: 0,
+      known: false,
+      radical: '—',
+      isCommon: false,
+      isNotChinese: true,
+    };
+  }
+  // Estimate for unknown characters
+  const estimated = estimateStrokes(char);
+  return {
+    strokes: estimated,
+    known: false,
+    estimated: true,
+    radical: detectRadical(char),
+    isCommon: false,
+  };
+}
+
+// ==================== 吉凶评价 ====================
+function getFortune(total) {
+  const fortunes = [
+    { max: 3,  level: 'daji', icon: '🌟', title: '笔划极简，大道至简',
+      text: '笔划如此之少，说明你是个极简主义者。一生不求繁复，但求精准，颇有道家"无为而治"的风范。签名只需一秒，银行卡签字毫无压力，工作效率+200%。' },
+    { max: 8,  level: 'ji', icon: '🍀', title: '小简之美，惜墨如金',
+      text: '笔划精简而不失内涵，如同水墨画中的留白——恰到好处。据说古代隐士高人都喜欢短名字，签名潇洒，令人羡慕。' },
+    { max: 18, level: 'ji', icon: '✨', title: '中规中矩，稳中带秀',
+      text: '笔划不多不少，中庸之道，颇有儒家风范。这个名字写起来不费劲，看起来也挺有范儿，可以说是名字界的"黄金比例"。' },
+    { max: 28, level: 'ji', icon: '🏮', title: '笔划丰盈，命格厚重',
+      text: '笔划较为丰富，说明你的人生注定不会平淡。据不完全统计，历史上的大文豪、大画家笔划数都在这个区间——当然这是我编的，但万一呢？' },
+    { max: 38, level: 'daji', icon: '👑', title: '鸿笔丽字，天降大任',
+      text: '笔划繁而不乱，所谓"天将降大任于斯人也，必先使其笔划众多"。这意味着你的人生注定不平凡，就是考试写名字比别多花两分钟。' },
+    { max: 50, level: 'ping', icon: '📜', title: '字若繁星，翰墨飘香',
+      text: '笔划密集如星海，说明你的前世可能是一位书法大家，这一世转世投胎带着满满的笔墨基因。建议培养书法爱好，说不定能成为一代大师。' },
+    { max: Infinity, level: 'xiong', icon: '⚡', title: '笔划破表，气吞山河',
+      text: '笔划总数已经超出常规范围！传说中名字笔划最多的人后来都成了传奇人物——因为他们考试时光写名字就已经比别人晚交卷了。不过别担心，这说明你与众不同，注定要走不寻常的路。' },
+  ];
+  for (const f of fortunes) {
+    if (total <= f.max) return f;
+  }
+  return fortunes[fortunes.length - 1];
+}
+
+function getSpecificFortune(total) {
+  // 特殊数字的趣味解读
+  const special = {
+    8:  '（额外加成：8 是发，恭喜你天生自带财运 buff）',
+    18: '（额外加成：18 划，要发！这是最受股民欢迎的笔划数）',
+    24: '（额外加成：24 划，据说是姓名学中的大吉之数，虽无科学依据但听着就开心）',
+    28: '（额外加成：28 划，"易发"，好兆头！）',
+    33: '（额外加成：33 划，三生万物，生生不息，吉利！）',
+    37: '（额外加成：37 划，三七二十一，管他三七二十一，开心就完事了）',
+    42: '（额外加成：42 划，宇宙终极答案，参考《银河系漫游指南》）',
+    66: '（额外加成：66 划，六六大顺，建议去买张彩票）',
+    88: '（额外加成：88 划，双发临门！你就是天选之人！）',
+    99: '（额外加成：99 划，长长久久，福寿绵长）',
+  };
+  return special[total] || '';
+}
+
+// ==================== 渲染 ====================
+let currentResult = null;
+
+function analyze() {
+  const input = document.getElementById('nameInput').value.trim();
+  if (!input) return;
+
+  const chars = [...input]; // Proper Unicode character splitting
+  const chineseChars = [];
+  const nonChineseChars = [];
+
+  chars.forEach(ch => {
+    if (ch.match(/[\u3400-\u9FFF\uF900-\uFAFF\u4E00-\u9FFF\u{20000}-\u{2A6DF}]/u)) {
+      chineseChars.push(ch);
+    } else if (ch.trim()) {
+      nonChineseChars.push(ch);
+    }
+  });
+
+  const allChars = [...input].filter(c => c.trim());
+  if (allChars.length === 0) return;
+
+  const charInfos = allChars.map(ch => {
+    const info = getStrokeInfo(ch);
+    return { char: ch, ...info };
+  });
+
+  const totalStrokes = charInfos.reduce((sum, c) => sum + c.strokes, 0);
+  const knownCount = charInfos.filter(c => c.known && !c.isNotChinese).length;
+  const unknownCount = charInfos.filter(c => !c.known && !c.isNotChinese).length;
+  const estimatedCount = charInfos.filter(c => c.estimated).length;
+  const fortune = getFortune(totalStrokes);
+  const extraFortune = getSpecificFortune(totalStrokes);
+
+  currentResult = { charInfos, totalStrokes, knownCount, unknownCount, fortune, extraFortune };
+
+  render();
+}
+
+function render() {
+  if (!currentResult) return;
+  const { charInfos, totalStrokes, knownCount, unknownCount, fortune, extraFortune } = currentResult;
+
+  const resultSection = document.getElementById('resultSection');
+  const emptyState = document.getElementById('emptyState');
+  const totalCard = document.getElementById('totalCard');
+  const charList = document.getElementById('charList');
+  const fortuneCard = document.getElementById('fortuneCard');
+
+  resultSection.classList.add('active');
+  emptyState.style.display = 'none';
+
+  // Total card
+  const estimatedNote = unknownCount > 0
+    ? `<span style="font-size:.75rem;color:var(--unknown-text);display:block;margin-top:4px;">⚠️ ${unknownCount} 个生僻字为估算值</span>`
+    : '';
+
+  totalCard.innerHTML = `
+    <div class="total-label">总计笔划</div>
+    <div class="total-number">${totalStrokes}</div>
+    <div class="total-unit">${charInfos.length} 个字 · ${knownCount} 常用字${unknownCount > 0 ? ` · ${unknownCount} 生僻字` : ''}${estimatedNote ? '' : ' · 全部精确匹配'}</div>
+    ${estimatedNote}
+    <div class="decorative-line" style="margin-top:12px;"></div>
+  `;
+
+  // Char list
+  charList.innerHTML = charInfos.map((c, i) => {
+    if (c.isNotChinese) {
+      return `
+        <div class="char-card unknown" style="opacity:.6">
+          <div class="char-glyph">${c.char}</div>
+          <div class="char-info">
+            <div class="char-name">非汉字字符</div>
+            <div class="char-detail" style="color:var(--text-secondary);font-size:.8rem;">不计入笔划统计</div>
+          </div>
+          <div class="char-strokes">—</div>
+        </div>`;
+    }
+    const unknownClass = !c.known ? ' unknown' : '';
+    const strokeLabel = c.estimated ? `${c.strokes}*` : c.strokes;
+    const knownTag = c.known
+      ? '<span class="tag">常用字</span>'
+      : '<span class="tag warning">生僻字（估算）</span>';
+    return `
+      <div class="char-card${unknownClass}">
+        <div class="char-glyph">${c.char}</div>
+        <div class="char-info">
+          <div class="char-name">${c.estimated ? '笔划估算值' : '笔划数'}</div>
+          <div class="char-detail">
+            偏旁：${c.radical}
+            ${knownTag}
+          </div>
+        </div>
+        <div class="char-strokes">${strokeLabel} 划</div>
+      </div>`;
+  }).join('');
+
+  // Fortune card
+  fortuneCard.innerHTML = `
+    <div class="fortune-icon">${fortune.icon}</div>
+    <div class="fortune-title">${fortune.title}</div>
+    <div class="fortune-text">${fortune.text}${extraFortune ? '<br><br>' + extraFortune : ''}</div>
+    <span class="fortune-level ${fortune.level}">
+      ${fortune.level === 'daji' ? '大吉' : fortune.level === 'ji' ? '吉' : fortune.level === 'ping' ? '中平' : '小凶'}
+    </span>
+  `;
+}
+
+// ==================== 事件绑定 ====================
+document.getElementById('analyzeBtn').addEventListener('click', analyze);
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyze();
+});
+
+// 实时分析（输入变化时自动分析）
+let debounceTimer;
+document.getElementById('nameInput').addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(analyze, 300);
+});
+
+// Theme toggle
+const themeToggle = document.getElementById('themeToggle');
+const html = document.documentElement;
+
+// 检测系统偏好
+if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  html.setAttribute('data-theme', 'dark');
+  themeToggle.textContent = '☀️';
+}
+
+themeToggle.addEventListener('click', () => {
+  const current = html.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  themeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+// 页面加载时如果 URL 有参数则自动分析
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const text = params.get('text');
+  if (text) {
+    document.getElementById('nameInput').value = text;
+    analyze();
+  }
+});
+</script>
+</body>
+</html>

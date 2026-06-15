@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💸 这个会值多少钱</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f0f0f;
+    --card-bg: #1a1a1a;
+    --card-border: #2a2a2a;
+    --text: #e0e0e0;
+    --text-secondary: #888;
+    --accent: #ff6b6b;
+    --accent-glow: rgba(255, 107, 107, 0.3);
+    --bar-bg: #2a2a2a;
+    --bar-fill: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    --input-bg: #252525;
+    --input-border: #3a3a3a;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    text-align: center;
+    background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: -12px;
+  }
+  /* 总成本显示 */
+  .cost-hero {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .cost-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--accent-glow);
+    opacity: 0;
+    transition: opacity 0.5s;
+    border-radius: 16px;
+  }
+  .cost-hero.burning::before { opacity: 0.08; }
+  .cost-hero.burning { border-color: rgba(255,107,107,0.5); }
+  .cost-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+  .cost-value {
+    font-size: 52px;
+    font-weight: 800;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.1s ease;
+  }
+  .cost-unit { font-size: 18px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+  .cost-equivalents {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .equiv-item {
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+  }
+  .equiv-item .icon { font-size: 24px; display: block; margin-bottom: 4px; }
+  .equiv-item .count { font-size: 18px; font-weight: 700; color: #ffd93d; }
+  .equiv-item .label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .equiv-item .note { font-size: 10px; color: #555; margin-top: 1px; }
+
+  /* 输入区域 */
+  .input-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .input-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    -webkit-text-fill-color: var(--text);
+    background: none;
+  }
+  .input-group {
+    margin-bottom: 14px;
+  }
+  .input-group:last-child { margin-bottom: 0; }
+  .input-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .input-group label span:last-child {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .input-group input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bar-bg);
+    outline: none;
+  }
+  .input-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+  .input-group input[type="number"] {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input[type="number"]:focus { border-color: var(--accent); }
+
+  /* 快捷场景 */
+  .preset-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    -webkit-text-fill-color: var(--text-secondary);
+    background: none;
+  }
+  .presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .preset-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 12px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .preset-btn:hover { border-color: var(--accent); background: rgba(255,107,107,0.06); }
+  .preset-btn:active { transform: scale(0.97); }
+  .preset-btn .name { display: block; font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .preset-btn .info { display: block; font-size: 11px; color: var(--text-secondary); }
+
+  /* 累加模式 */
+  .ticker-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+  }
+  .ticker-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    -webkit-text-fill-color: var(--text);
+    background: none;
+  }
+  .ticker-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+  .ticker-display {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .ticker-btns { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+  .btn {
+    padding: 10px 24px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-start {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-start:hover { background: #ee5a24; }
+  .btn-start:active { transform: scale(0.96); }
+  .btn-reset {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--input-border);
+  }
+  .btn-reset:active { transform: scale(0.96); }
+  .btn-start.stop { background: #555; }
+
+  /* 吐槽金句 */
+  .roast-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .roast-card::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    right: -20px;
+    width: 80px; height: 80px;
+    background: var(--accent-glow);
+    border-radius: 50%;
+    filter: blur(30px);
+  }
+  .roast-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+  .roast-text { font-size: 15px; font-weight: 600; line-height: 1.6; position: relative; z-index: 1; }
+  .roast-sub { font-size: 12px; color: var(--text-secondary); margin-top: 6px; position: relative; z-index: 1; }
+
+  /* 引用 */
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    padding: 8px 0;
+  }
+
+  /* 预设单位 */
+  .preset-unit { font-size: 11px; color: #555; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💸 这个会值多少钱</h1>
+  <p class="subtitle">一场会议的真实成本，比你想象的辣眼睛</p>
+
+  <!-- 总成本展示 -->
+  <div class="cost-hero" id="costHero">
+    <div class="cost-label">当前会议烧掉</div>
+    <div class="cost-value" id="costValue">¥0<span class="cost-unit">.00</span></div>
+    <div class="cost-equivalents">
+      <div class="equiv-item">
+        <span class="icon">🍲</span>
+        <span class="count" id="equivHotpot">0</span>
+        <span class="label">顿火锅</span>
+        <span class="note">按500元/顿</span>
+      </div>
+      <div class="equiv-item">
+        <span class="icon">🧋</span>
+        <span class="count" id="equivMilkTea">0</span>
+        <span class="label">杯奶茶</span>
+        <span class="note">按20元/杯</span>
+      </div>
+      <div class="equiv-item">
+        <span class="icon">🎉</span>
+        <span class="count" id="equivTeamBuild">0</span>
+        <span class="label">次团建</span>
+        <span class="note">按500元/人</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 输入区域 -->
+  <div class="input-card">
+    <h3>⚙️ 会议配置</h3>
+    <div class="input-group">
+      <label>👥 参会人数 <span id="peopleLabel">10</span></label>
+      <input type="range" min="1" max="500" value="10" id="peopleRange" step="1">
+      <input type="number" min="1" max="500" value="10" id="peopleInput">
+    </div>
+    <div class="input-group">
+      <label>💰 平均月薪（元） <span id="salaryLabel">¥15,000</span></label>
+      <input type="range" min="3000" max="100000" value="15000" id="salaryRange" step="500">
+      <input type="number" min="3000" max="100000" value="15000" id="salaryInput" step="500">
+    </div>
+    <div class="input-group">
+      <label>⏱️ 会议时长（分钟） <span id="durationLabel">30</span></label>
+      <input type="range" min="1" max="480" value="30" id="durationRange" step="1">
+      <input type="number" min="1" max="480" value="30" id="durationInput">
+    </div>
+  </div>
+
+  <!-- 快捷场景 -->
+  <div class="preset-section">
+    <h3>⚡ 快捷场景</h3>
+    <div class="presets">
+      <button class="preset-btn" data-people="10" data-duration="15" data-salary="15000">
+        <span class="name">📋 每日站会</span>
+        <span class="info">10人 × 15分钟</span>
+      </button>
+      <button class="preset-btn" data-people="20" data-duration="60" data-salary="18000">
+        <span class="name">📅 周会</span>
+        <span class="info">20人 × 60分钟</span>
+      </button>
+      <button class="preset-btn" data-people="100" data-duration="120" data-salary="20000">
+        <span class="name">🏢 全员大会</span>
+        <span class="info">100人 × 120分钟</span>
+      </button>
+      <button class="preset-btn" data-people="15" data-duration="90" data-salary="16000">
+        <span class="name">🥱 无效会议</span>
+        <span class="info">15人 × 90分钟</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 累加模式 -->
+  <div class="ticker-card">
+    <h3>🕐 连续开会中…</h3>
+    <p class="ticker-sub">每秒跳动一次，模拟开会烧钱速度</p>
+    <div class="ticker-display" id="tickerDisplay">¥0<span style="font-size:18px;">.00</span></div>
+    <div class="ticker-btns">
+      <button class="btn btn-start" id="btnTicker" onclick="toggleTicker()">▶ 开始计时</button>
+      <button class="btn btn-reset" onclick="resetTicker()">↺ 重置</button>
+    </div>
+  </div>
+
+  <!-- 吐槽金句 -->
+  <div class="roast-card" id="roastCard">
+    <span class="roast-icon" id="roastIcon">😐</span>
+    <p class="roast-text" id="roastText">还没开始呢，先别慌。</p>
+    <p class="roast-sub" id="roastSub">输入参数看看你的会议有多烧钱</p>
+  </div>
+
+  <div class="footer">
+    数据仅供娱乐，认真你就输了 · 月工作小时按 176h 计算
+  </div>
+</div>
+
+<script>
+// 常量
+const HOURS_PER_MONTH = 176;
+const HOTPOT_COST = 500;    // 元/顿
+const MILKTEA_COST = 20;    // 元/杯
+const TEAMBUILD_COST = 500; // 元/人
+
+// DOM 元素
+const peopleRange = document.getElementById('peopleRange');
+const peopleInput = document.getElementById('peopleInput');
+const peopleLabel = document.getElementById('peopleLabel');
+const salaryRange = document.getElementById('salaryRange');
+const salaryInput = document.getElementById('salaryInput');
+const salaryLabel = document.getElementById('salaryLabel');
+const durationRange = document.getElementById('durationRange');
+const durationInput = document.getElementById('durationInput');
+const durationLabel = document.getElementById('durationLabel');
+const costValue = document.getElementById('costValue');
+const costHero = document.getElementById('costHero');
+const equivHotpot = document.getElementById('equivHotpot');
+const equivMilkTea = document.getElementById('equivMilkTea');
+const equivTeamBuild = document.getElementById('equivTeamBuild');
+const roastIcon = document.getElementById('roastIcon');
+const roastText = document.getElementById('roastText');
+const roastSub = document.getElementById('roastSub');
+const tickerDisplay = document.getElementById('tickerDisplay');
+const btnTicker = document.getElementById('btnTicker');
+
+// 状态
+let tickerInterval = null;
+let tickerSeconds = 0;
+let tickerPeople = 10;
+let tickerSalary = 15000;
+
+// 读取当前输入值
+function getPeople() { return parseInt(peopleInput.value) || 10; }
+function getSalary() { return parseInt(salaryInput.value) || 15000; }
+function getDuration() { return parseInt(durationInput.value) || 30; }
+
+// 计算会议成本
+function calcCost(people, salary, minutes) {
+  const hourlyRate = salary / HOURS_PER_MONTH;
+  return people * hourlyRate * (minutes / 60);
+}
+
+// 格式化金额
+function formatCost(amount) {
+  const parts = amount.toFixed(2).split('.');
+  return { integer: parts[0], decimal: '.' + parts[1] };
+}
+
+// 格式化大数
+function formatNum(n) {
+  if (n >= 1) {
+    if (n >= 1000) return n.toFixed(1).replace(/\.0$/, '');
+    return n.toFixed(1).replace(/\.0$/, '');
+  }
+  return n.toFixed(1);
+}
+
+// 更新等价物
+function updateEquivalents(cost) {
+  const hotpotCount = cost / HOTPOT_COST;
+  const milkTeaCount = cost / MILKTEA_COST;
+  const teamBuildCount = cost / (getPeople() * TEAMBUILD_COST);
+
+  equivHotpot.textContent = formatNum(hotpotCount);
+  equivMilkTea.textContent = formatNum(milkTeaCount);
+  // 团建：cost / (people * 500) 计算够多少人搞团建
+  const peopleCount = getPeople();
+  if (peopleCount > 0) {
+    equivTeamBuild.textContent = formatNum(cost / (peopleCount * TEAMBUILD_COST));
+  } else {
+    equivTeamBuild.textContent = '0';
+  }
+}
+
+// 吐槽金句
+function getRoast(cost, people) {
+  if (cost <= 0) {
+    return { icon: '😐', text: '还没开始呢，先别慌。', sub: '输入参数看看你的会议有多烧钱' };
+  }
+  if (cost < 100) {
+    return { icon: '🤷', text: '九牛一毛，不值一提。', sub: '这点钱还不够买杯咖啡' };
+  }
+  if (cost < 500) {
+    return { icon: '😏', text: '还行，不算贵，但省下来能干嘛？', sub: '够吃一顿像样的午饭了' };
+  }
+  if (cost < 2000) {
+    return { icon: '😬', text: '这个会有点贵了…', sub: '省下来够全组喝一周奶茶' };
+  }
+  if (cost < 5000) {
+    return { icon: '😰', text: '开会就是在烧钱啊！', sub: '这钱能搞一次像样的团建了' };
+  }
+  if (cost < 15000) {
+    return { icon: '🔥', text: '燃烧吧，经费！', sub: '够给每人发几百块红包了' };
+  }
+  if (cost < 50000) {
+    return { icon: '💀', text: '老板，这钱花得不值啊！', sub: '这是拿团队经费在火里烤' };
+  }
+  if (cost < 150000) {
+    return { icon: '☠️', text: '这哪是开会，这是烧金库！', sub: '省下来能招一个初级员工了' };
+  }
+  return { icon: '👻', text: '不敢算下去了……', sub: '这会议成本已经突破天际' };
+}
+
+// 更新 UI
+function updateUI(secondsOverride = null) {
+  const people = getPeople();
+  const salary = getSalary();
+  const duration = secondsOverride !== null ? secondsOverride / 60 : getDuration();
+
+  const cost = calcCost(people, salary, duration);
+  const formatted = formatCost(cost);
+
+  // 更新成本显示
+  costValue.innerHTML = '¥' + formatted.integer + '<span class="cost-unit">' + formatted.decimal + '</span>';
+
+  // 燃烧效果
+  if (cost > 500) {
+    costHero.classList.add('burning');
+  } else {
+    costHero.classList.remove('burning');
+  }
+
+  // 等价物
+  updateEquivalents(cost);
+
+  // 吐槽
+  const roast = getRoast(cost, people);
+  roastIcon.textContent = roast.icon;
+  roastText.textContent = roast.text;
+  roastSub.textContent = roast.sub;
+}
+
+// 同步 range / number 输入
+function syncInputs(slider, numberInput, label, formatter) {
+  const val = parseInt(slider.value);
+  numberInput.value = val;
+  if (label) label.textContent = formatter(val);
+  updateUI();
+}
+
+// 绑定事件
+peopleRange.addEventListener('input', () => syncInputs(peopleRange, peopleInput, peopleLabel, v => v));
+peopleInput.addEventListener('input', () => {
+  let v = parseInt(peopleInput.value) || 1;
+  v = Math.max(1, Math.min(500, v));
+  peopleRange.value = v;
+  peopleInput.value = v;
+  peopleLabel.textContent = v;
+  updateUI();
+});
+
+salaryRange.addEventListener('input', () => syncInputs(salaryRange, salaryInput, salaryLabel, v => '¥' + v.toLocaleString()));
+salaryInput.addEventListener('input', () => {
+  let v = parseInt(salaryInput.value) || 3000;
+  v = Math.round(v / 500) * 500;
+  v = Math.max(3000, Math.min(100000, v));
+  salaryRange.value = v;
+  salaryInput.value = v;
+  salaryLabel.textContent = '¥' + v.toLocaleString();
+  updateUI();
+});
+
+durationRange.addEventListener('input', () => syncInputs(durationRange, durationInput, durationLabel, v => v + ' 分钟'));
+durationInput.addEventListener('input', () => {
+  let v = parseInt(durationInput.value) || 1;
+  v = Math.max(1, Math.min(480, v));
+  durationRange.value = v;
+  durationInput.value = v;
+  durationLabel.textContent = v + ' 分钟';
+  updateUI();
+});
+
+// 快捷场景
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = parseInt(btn.dataset.people);
+    const d = parseInt(btn.dataset.duration);
+    const s = parseInt(btn.dataset.salary);
+
+    peopleRange.value = p;
+    peopleInput.value = p;
+    peopleLabel.textContent = p;
+
+    salaryRange.value = s;
+    salaryInput.value = s;
+    salaryLabel.textContent = '¥' + s.toLocaleString();
+
+    durationRange.value = d;
+    durationInput.value = d;
+    durationLabel.textContent = d + ' 分钟';
+
+    updateUI();
+  });
+});
+
+// 累加模式
+function updateTickerDisplay() {
+  const cost = calcCost(tickerPeople, tickerSalary, tickerSeconds / 60);
+  const formatted = formatCost(cost);
+  tickerDisplay.innerHTML = '¥' + formatted.integer + '<span style="font-size:18px;">' + formatted.decimal + '</span>';
+}
+
+function toggleTicker() {
+  if (tickerInterval) {
+    // 暂停
+    clearInterval(tickerInterval);
+    tickerInterval = null;
+    btnTicker.textContent = '▶ 继续计时';
+    btnTicker.classList.add('stop');
+  } else {
+    // 开始/继续
+    tickerPeople = getPeople();
+    tickerSalary = getSalary();
+    btnTicker.textContent = '⏸ 暂停';
+    btnTicker.classList.remove('stop');
+    tickerInterval = setInterval(() => {
+      tickerSeconds++;
+      updateTickerDisplay();
+    }, 1000);
+  }
+}
+
+function resetTicker() {
+  clearInterval(tickerInterval);
+  tickerInterval = null;
+  tickerSeconds = 0;
+  btnTicker.textContent = '▶ 开始计时';
+  btnTicker.classList.add('stop');
+  updateTickerDisplay();
+}
+
+// 初始计算
+updateUI();
+</script>
+</body>
+</html>

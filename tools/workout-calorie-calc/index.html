@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏃 健身热量计算器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0f0a17;
+      --bg-secondary: #1a1030;
+      --bg-card: #1f1435;
+      --border: #2e2048;
+      --text-primary: #f0e8ff;
+      --text-secondary: #b8a0d0;
+      --accent: #f97316;
+      --accent-glow: #fb923c;
+      --accent-soft: #ea580c;
+      --accent2: #a78bfa;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(249, 115, 22, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(167, 139, 250, 0.06) 0%, transparent 60%);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding-top: 10px;
+    }
+
+    header .icon { font-size: 48px; display: block; margin-bottom: 6px; }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fb923c, #f97316, #ea580c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group:last-of-type { margin-bottom: 18px; }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      color: var(--text-primary);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .form-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23b8a0d0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    .form-group select option {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 380px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(249, 115, 22, 0.35);
+    }
+
+    .btn:active { transform: translateY(0); opacity: 0.9; }
+
+    /* Results Section */
+    .results { display: none; }
+
+    .results.active { display: block; }
+
+    .calorie-circle {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      margin: 0 auto 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 4px solid var(--accent);
+      color: var(--accent-glow);
+      background: radial-gradient(circle at center, rgba(249,115,22,0.1) 0%, transparent 70%);
+    }
+
+    .calorie-value {
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .calorie-label { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+    .calorie-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 6px;
+      color: var(--accent-glow);
+    }
+
+    .met-badge {
+      display: inline-block;
+      background: rgba(249,115,22,0.2);
+      color: var(--accent-glow);
+      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      margin-top: 4px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .metric-item {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent-glow);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    .food-equiv {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .food-item {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .food-emoji { font-size: 28px; flex-shrink: 0; }
+    .food-info { flex: 1; }
+    .food-name { font-size: 14px; font-weight: 600; }
+    .food-cal { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    .food-minutes {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent-glow);
+      white-space: nowrap;
+    }
+    .food-minutes span {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.7;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 20px;
+      padding-bottom: 20px;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="icon">🏃</span>
+      <h1>健身热量计算器</h1>
+      <p class="subtitle">科学计算运动消耗，健康减脂不盲目</p>
+    </header>
+
+    <div class="card">
+      <div class="form-group">
+        <label>体重（kg）</label>
+        <input type="number" id="weight" value="70" min="30" max="200" step="0.1" placeholder="输入体重">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>运动类型</label>
+          <select id="exercise">
+            <option value="running">🏃 跑步</option>
+            <option value="swimming">🏊 游泳</option>
+            <option value="cycling">🚴 骑车</option>
+            <option value="rope">🪢 跳绳</option>
+            <option value="yoga">🧘 瑜伽</option>
+            <option value="hiit">💪 HIIT</option>
+            <option value="walking">🚶 散步</option>
+            <option value="stairs">🪜 爬楼梯</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>运动强度</label>
+          <select id="intensity">
+            <option value="light">🌱 轻度</option>
+            <option value="moderate" selected>🔥 中度</option>
+            <option value="vigorous">💥 剧烈</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>运动时长（分钟）</label>
+        <input type="number" id="duration" value="30" min="1" max="600" placeholder="运动时长">
+      </div>
+      <button class="btn" onclick="calculate()">计算热量消耗</button>
+    </div>
+
+    <div class="results" id="results">
+      <!-- Calorie Result -->
+      <div class="card" style="text-align:center;">
+        <div class="calorie-circle">
+          <span class="calorie-value" id="calorieValue">--</span>
+          <span class="calorie-label">千卡</span>
+        </div>
+        <div class="calorie-title" id="calorieTitle"></div>
+        <div class="met-badge" id="metBadge"></div>
+        <div class="metric-grid">
+          <div class="metric-item">
+            <div class="metric-value" id="perMinKcal">--</div>
+            <div class="metric-label">每分钟消耗</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-value" id="perHourKcal">--</div>
+            <div class="metric-label">每小时消耗</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 食物换算 -->
+      <div class="card" id="foodCard">
+        <div class="card-title">🍔 消耗这些食物需要运动多久？</div>
+        <div class="food-equiv" id="foodEquiv"></div>
+      </div>
+    </div>
+
+    <footer>健身热量计算器 · 计算基于 MET 代谢当量 · 数据仅供参考</footer>
+  </div>
+
+  <script>
+    // MET values: [轻度, 中度, 剧烈]
+    const metTable = {
+      running:   [6.0, 8.0, 12.0],
+      swimming:  [5.0, 7.0, 10.0],
+      cycling:   [4.0, 6.8, 10.0],
+      rope:      [8.0, 10.0, 12.0],
+      yoga:      [2.5, 3.5, 4.0],
+      hiit:      [6.0, 8.0, 12.5],
+      walking:   [2.8, 3.5, 4.5],
+      stairs:    [4.0, 6.0, 9.0],
+    };
+
+    const intensityMap = { light: 0, moderate: 1, vigorous: 2 };
+
+    // Food reference: [emoji, name, kcal]
+    const foods = [
+      ['🧋', '一杯奶茶', 350],
+      ['🍲', '一顿火锅', 1500],
+      ['🍟', '一包薯片', 500],
+      ['🍗', '一份炸鸡', 800],
+    ];
+
+    function calculate() {
+      const weight = parseFloat(document.getElementById('weight').value) || 0;
+      const exercise = document.getElementById('exercise').value;
+      const intensity = document.getElementById('intensity').value;
+      const duration = parseFloat(document.getElementById('duration').value) || 0;
+
+      if (weight <= 0 || duration <= 0) {
+        alert('请正确填写体重和运动时长。');
+        return;
+      }
+
+      const metIdx = intensityMap[intensity];
+      const met = metTable[exercise][metIdx];
+      const hours = duration / 60;
+      const calories = Math.round(met * weight * hours);
+
+      const perMin = (calories / duration).toFixed(1);
+      const perHour = Math.round(calories / hours);
+
+      // Show results
+      const resultsEl = document.getElementById('results');
+      resultsEl.classList.add('active');
+      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      document.getElementById('calorieValue').textContent = calories;
+      document.getElementById('calorieTitle').textContent =
+        '相当于消耗了 ' + calories + ' 千卡热量';
+      document.getElementById('metBadge').textContent = 'MET 值: ' + met.toFixed(2);
+      document.getElementById('perMinKcal').textContent = perMin + ' kcal';
+      document.getElementById('perHourKcal').textContent = perHour + ' kcal';
+
+      // Food equivalents
+      const foodEquiv = document.getElementById('foodEquiv');
+      foodEquiv.innerHTML = '';
+
+      const kcalPerMin = calories / duration;
+
+      foods.forEach(([emoji, name, foodKcal]) => {
+        const neededMin = Math.round(foodKcal / kcalPerMin);
+        let timeStr = '';
+        if (neededMin >= 60) {
+          const h = Math.floor(neededMin / 60);
+          const m = neededMin % 60;
+          timeStr = h + ' 小时' + (m > 0 ? ' ' + m + ' 分钟' : '');
+        } else {
+          timeStr = neededMin + ' 分钟';
+        }
+
+        const item = document.createElement('div');
+        item.className = 'food-item';
+        item.innerHTML =
+          '<span class="food-emoji">' + emoji + '</span>' +
+          '<div class="food-info">' +
+            '<div class="food-name">' + name + '</div>' +
+            '<div class="food-cal">' + foodKcal + ' kcal</div>' +
+          '</div>' +
+          '<div class="food-minutes">' + neededMin + ' <span>分钟</span></div>';
+        foodEquiv.appendChild(item);
+      });
+    }
+  </script>
+</body>
+</html>

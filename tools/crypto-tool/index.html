@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>加密工具箱 - Crypto Tool</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #111118;
+      --bg-card: #16161f;
+      --bg-input: #0d0d15;
+      --border: #2a2a3a;
+      --border-active: #00e676;
+      --text-primary: #e0e0e0;
+      --text-secondary: #8888a0;
+      --text-dim: #555570;
+      --accent: #00e676;
+      --accent-glow: rgba(0, 230, 118, 0.2);
+      --danger: #ff1744;
+      --danger-glow: rgba(255, 23, 68, 0.2);
+      --warning: #ffab00;
+      --info: #448aff;
+      --radius: 8px;
+      --radius-sm: 4px;
+      --font-mono: 'Courier New', 'Fira Code', 'JetBrains Mono', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      line-height: 1.6;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(0, 230, 118, 0.03) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 90%, rgba(68, 138, 255, 0.03) 0%, transparent 60%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.003) 2px, rgba(255,255,255,0.003) 4px);
+    }
+
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 36px 0 24px;
+      position: relative;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .header .logo-icon {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 0 12px var(--accent-glow));
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-shadow: 0 0 20px var(--accent-glow);
+      font-family: var(--font-mono);
+    }
+    .header .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .header .disclaimer {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 6px 14px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .header .disclaimer .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    /* Method Selector */
+    .method-tabs {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding: 6px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .method-tab {
+      flex: 1;
+      min-width: 90px;
+      padding: 10px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      font-family: var(--font-sans);
+    }
+    .method-tab:hover {
+      color: var(--accent);
+      background: rgba(0, 230, 118, 0.05);
+    }
+    .method-tab.active {
+      background: rgba(0, 230, 118, 0.1);
+      border-color: var(--accent);
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    /* Card */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-title .badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .badge-safe { background: rgba(0,230,118,0.15); color: var(--accent); }
+    .badge-warn { background: rgba(255,171,0,0.15); color: var(--warning); }
+    .badge-info { background: rgba(68,138,255,0.15); color: var(--info); }
+    .badge-danger { background: rgba(255,23,68,0.15); color: var(--danger); }
+
+    /* Form elements */
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    textarea, input[type="text"], input[type="password"], select {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: var(--font-mono);
+      resize: vertical;
+      transition: border-color 0.2s;
+      outline: none;
+      line-height: 1.5;
+    }
+    textarea:focus, input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    textarea { min-height: 100px; }
+    select {
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%238888a0'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row > * { flex: 1; }
+
+    /* Buttons */
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: var(--font-sans);
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 20px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+    .btn-danger:hover {
+      box-shadow: 0 0 20px var(--danger-glow);
+      transform: translateY(-1px);
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-outline:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+
+    /* Result area */
+    .result-area {
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      padding: 4px 10px;
+      font-size: 10px;
+      background: rgba(0,230,118,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(0,230,118,0.3);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-sans);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .copy-btn:hover {
+      background: rgba(0,230,118,0.25);
+    }
+    .copy-btn.copied {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* Security Info */
+    .security-info {
+      margin-top: 12px;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .security-info.warning { border-left-color: var(--warning); }
+    .security-info.danger { border-left-color: var(--danger); }
+    .security-info.info { border-left-color: var(--info); }
+    .security-info strong { color: var(--text-primary); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #000;
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Password strength */
+    .pw-strength {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .pw-strength-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 1px;
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .container { padding: 12px 14px; }
+      .method-tab { font-size: 12px; padding: 8px 10px; }
+      .form-row { flex-direction: column; }
+      .header h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <span class="logo-icon">&#x1F575;</span>
+      <h1>加密工具箱</h1>
+      <p class="subtitle">加密工具</p>
+      <div class="disclaimer">
+        <span class="dot"></span>
+        所有处理均在本地浏览器中完成，数据不会上传到任何服务器
+      </div>
+    </header>
+
+    <!-- Method Selector -->
+    <div class="method-tabs" id="methodTabs">
+      <button class="method-tab active" data-method="aes">&#x1F512; AES-256-GCM</button>
+      <button class="method-tab" data-method="base64">&#x1F4E6; Base64</button>
+      <button class="method-tab" data-method="rot13">&#x1F504; ROT13</button>
+      <button class="method-tab" data-method="caesar">&#x1F3B0; 凯撒密码</button>
+      <button class="method-tab" data-method="vigenere">&#x2694; 维吉尼亚密码</button>
+    </div>
+
+    <!-- AES-256-GCM -->
+    <div class="card method-panel" id="panel-aes">
+      <div class="card-title">
+        AES-256-GCM 加密
+        <span class="badge badge-safe">军事级安全</span>
+      </div>
+
+      <div class="form-group">
+        <label for="aes-password">密码 / 密钥</label>
+        <input type="password" id="aes-password" placeholder="输入加密密码（越长越好）" autocomplete="off">
+        <div class="pw-strength"><div class="pw-strength-bar" id="pwBar" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px" id="pwHint">请输入密码</div>
+      </div>
+
+      <div class="form-group">
+        <label for="aes-input">输入文本</label>
+        <textarea id="aes-input" placeholder="在此输入要加密的文本..."></textarea>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="aes-encrypt">&#x1F510; 加密</button>
+        <button class="btn btn-danger" id="aes-decrypt">&#x1F513; 解密</button>
+        <button class="btn btn-outline" id="aes-generate-pw">生成强密码</button>
+      </div>
+
+      <div class="form-group" style="margin-top:16px">
+        <label for="aes-output">输出结果</label>
+        <div class="result-area">
+          <textarea id="aes-output" readonly placeholder="加密后的 Base64 文本将显示在此处..." style="min-height:120px"></textarea>
+          <button class="copy-btn" data-target="aes-output">复制</button>
+        </div>
+      </div>
+
+      <div class="security-info">
+        <strong>AES-256-GCM</strong> — 美国国家安全局(NSA)批准用于绝密级信息保护的加密标准。密钥长度 256 位，采用 GCM 模式提供认证加密。每次加密生成随机 IV（初始化向量），即使相同文本每次加密结果也不同。加密输出为 Base64 格式，包含 IV、密文和认证标签。适合在朋友间安全分享加密消息。
+      </div>
+    </div>
+
+    <!-- Base64 -->
+    <div class="card method-panel" id="panel-base64" style="display:none">
+      <div class="card-title">
+        Base64 编解码
+        <span class="badge badge-warn">非加密</span>
+      </div>
+
+      <div class="form-group">
+        <label for="b64-input">输入文本</label>
+        <textarea id="b64-input" placeholder="在此输入文本或 Base64 字符串..."></textarea>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="b64-encode">&#x1F4E4; Base64 编码</button>
+        <button class="btn btn-danger" id="b64-decode">&#x1F4E5; Base64 解码</button>
+      </div>
+
+      <div class="form-group" style="margin-top:16px">
+        <label for="b64-output">输出结果</label>
+        <div class="result-area">
+          <textarea id="b64-output" readonly placeholder="编解码结果将显示在此处..." style="min-height:120px"></textarea>
+          <button class="copy-btn" data-target="b64-output">复制</button>
+        </div>
+      </div>
+
+      <div class="security-info warning">
+        <strong>警告：Base64 不是加密算法！</strong> Base64 是一种编码方式，将二进制数据转换为 ASCII 字符串，方便传输和存储。任何人都可以直接解码，无需密钥。它提供零安全性，仅用于数据格式化。不要用 Base64 来"加密"敏感信息。
+      </div>
+    </div>
+
+    <!-- ROT13 -->
+    <div class="card method-panel" id="panel-rot13" style="display:none">
+      <div class="card-title">
+        ROT13 转换
+        <span class="badge badge-info">经典密码</span>
+      </div>
+
+      <div class="form-group">
+        <label for="rot13-input">输入文本</label>
+        <textarea id="rot13-input" placeholder="在此输入文本..."></textarea>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="rot13-go">&#x1F504; ROT13 转换</button>
+      </div>
+
+      <div class="form-group" style="margin-top:16px">
+        <label for="rot13-output">输出结果</label>
+        <div class="result-area">
+          <textarea id="rot13-output" readonly placeholder="ROT13 转换结果将显示在此处..." style="min-height:120px"></textarea>
+          <button class="copy-btn" data-target="rot13-output">复制</button>
+        </div>
+      </div>
+
+      <div class="security-info info">
+        <strong>ROT13（Rotate by 13）</strong> — 凯撒密码的特例，字母表偏移 13 位。由于英文字母有 26 个，应用两次 ROT13 即恢复原文（ROT13(ROT13(x)) = x）。在早期互联网论坛中常用于隐藏剧透或不雅内容。不提供任何实际安全性，可在几秒内被破解。
+      </div>
+    </div>
+
+    <!-- Caesar -->
+    <div class="card method-panel" id="panel-caesar" style="display:none">
+      <div class="card-title">
+        凯撒密码 (Caesar Cipher)
+        <span class="badge badge-info">经典密码</span>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex:0 0 140px;min-width:100px">
+          <label for="caesar-shift">偏移量</label>
+          <select id="caesar-shift">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13 (R O T 13)</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+            <option value="16">16</option>
+            <option value="17">17</option>
+            <option value="18">18</option>
+            <option value="19">19</option>
+            <option value="20">20</option>
+            <option value="21">21</option>
+            <option value="22">22</option>
+            <option value="23">23</option>
+            <option value="24">24</option>
+            <option value="25">25</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="caesar-input">输入文本</label>
+        <textarea id="caesar-input" placeholder="在此输入文本..."></textarea>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="caesar-encrypt">&#x1F510; 加密</button>
+        <button class="btn btn-danger" id="caesar-decrypt">&#x1F513; 解密</button>
+      </div>
+
+      <div class="form-group" style="margin-top:16px">
+        <label for="caesar-output">输出结果</label>
+        <div class="result-area">
+          <textarea id="caesar-output" readonly placeholder="凯撒密码结果将显示在此处..." style="min-height:120px"></textarea>
+          <button class="copy-btn" data-target="caesar-output">复制</button>
+        </div>
+      </div>
+
+      <div class="security-info info">
+        <strong>凯撒密码</strong> — 传说由尤利乌斯·凯撒用于军事通信，每个字母按固定偏移量移动。例如偏移 3 时，A→D, B→E, C→F。只有 25 种可能偏移，极易被暴力破解。仅适用于教学演示，不应用于保护任何实际数据。
+      </div>
+    </div>
+
+    <!-- Vigenère -->
+    <div class="card method-panel" id="panel-vigenere" style="display:none">
+      <div class="card-title">
+        维吉尼亚密码 (Vigenère Cipher)
+        <span class="badge badge-info">经典密码</span>
+      </div>
+
+      <div class="form-group">
+        <label for="vig-key">密钥</label>
+        <input type="text" id="vig-key" placeholder="输入加密密钥（仅支持英文字母）" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="vig-input">输入文本</label>
+        <textarea id="vig-input" placeholder="在此输入文本..."></textarea>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="vig-encrypt">&#x1F510; 加密</button>
+        <button class="btn btn-danger" id="vig-decrypt">&#x1F513; 解密</button>
+      </div>
+
+      <div class="form-group" style="margin-top:16px">
+        <label for="vig-output">输出结果</label>
+        <div class="result-area">
+          <textarea id="vig-output" readonly placeholder="维吉尼亚密码结果将显示在此处..." style="min-height:120px"></textarea>
+          <button class="copy-btn" data-target="vig-output">复制</button>
+        </div>
+      </div>
+
+      <div class="security-info info">
+        <strong>维吉尼亚密码</strong> — 16 世纪由吉奥万·巴蒂斯塔·贝拉索发明，后以布莱斯·德·维吉尼亚命名。使用关键词对不同位置的字母施加不同偏移，一度被称为"不可破解的密码"。19 世纪被卡西斯基分析法攻破。现代计算机可在数秒内破解短密钥的维吉尼亚密码。仅供学习娱乐。
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      加密工具箱 &mdash; 所有加解密操作完全在浏览器本地执行 &mdash; 不上传、不存储、不跟踪
+    </footer>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">已复制到剪贴板</div>
+
+  <script>
+    (function() {
+      // ===== Utility Functions =====
+      const $ = (sel) => document.querySelector(sel);
+      const $$ = (sel) => document.querySelectorAll(sel);
+
+      function showToast(msg) {
+        const t = $('#toast');
+        t.textContent = msg || '已复制到剪贴板';
+        t.classList.add('show');
+        clearTimeout(t._timeout);
+        t._timeout = setTimeout(() => t.classList.remove('show'), 1800);
+      }
+
+      function str2ab(str) {
+        const enc = new TextEncoder();
+        return enc.encode(str);
+      }
+
+      function ab2str(buf) {
+        const dec = new TextDecoder();
+        return dec.decode(buf);
+      }
+
+      function b64Encode(buf) {
+        let binary = '';
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      function b64Decode(str) {
+        try {
+          const binary = atob(str);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // ===== Tab Switching =====
+      $('#methodTabs').addEventListener('click', function(e) {
+        const tab = e.target.closest('.method-tab');
+        if (!tab) return;
+        const method = tab.dataset.method;
+        // Update tabs
+        $$('.method-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        // Show panel
+        $$('.method-panel').forEach(p => p.style.display = 'none');
+        $('#panel-' + method).style.display = 'block';
+      });
+
+      // ===== Copy Buttons =====
+      document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.copy-btn');
+        if (!btn) return;
+        const targetId = btn.dataset.target;
+        const textarea = document.getElementById(targetId);
+        if (!textarea || !textarea.value) return;
+        navigator.clipboard.writeText(textarea.value).then(() => {
+          btn.textContent = '已复制';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '复制';
+            btn.classList.remove('copied');
+          }, 1500);
+          showToast();
+        }).catch(() => {
+          textarea.select();
+          document.execCommand('copy');
+          showToast();
+        });
+      });
+
+      // ===== Password Strength =====
+      $('#aes-password').addEventListener('input', function() {
+        const pw = this.value;
+        const bar = $('#pwBar');
+        const hint = $('#pwHint');
+        let strength = 0;
+        if (pw.length >= 8) strength += 25;
+        if (pw.length >= 16) strength += 25;
+        if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) strength += 15;
+        if (/[0-9]/.test(pw)) strength += 15;
+        if (/[^a-zA-Z0-9]/.test(pw)) strength += 20;
+        if (pw.length === 0) strength = 0;
+
+        bar.style.width = strength + '%';
+        if (strength < 30) {
+          bar.style.background = 'var(--danger)';
+          hint.textContent = pw.length === 0 ? '请输入密码' : '弱 — 建议使用更长、更复杂的密码';
+        } else if (strength < 60) {
+          bar.style.background = 'var(--warning)';
+          hint.textContent = '中等 — 可以继续加强';
+        } else {
+          bar.style.background = 'var(--accent)';
+          hint.textContent = '强 — 密码强度良好';
+        }
+      });
+
+      // Generate strong password
+      $('#aes-generate-pw').addEventListener('click', function() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:,.<>?';
+        const len = 24;
+        const array = new Uint8Array(len);
+        crypto.getRandomValues(array);
+        let pw = '';
+        for (let i = 0; i < len; i++) {
+          pw += chars[array[i] % chars.length];
+        }
+        const input = $('#aes-password');
+        input.value = pw;
+        input.dispatchEvent(new Event('input'));
+        showToast('已生成随机强密码');
+      });
+
+      // ===== AES-256-GCM =====
+      async function aesEncrypt(plaintext, password) {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw', str2ab(password), 'PBKDF2', false, ['deriveKey']
+        );
+        const key = await crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt: salt, iterations: 600000, hash: 'SHA-256' },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt']
+        );
+
+        const ciphertext = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          str2ab(plaintext)
+        );
+
+        // Combine: salt (16) + iv (12) + ciphertext
+        const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+        combined.set(salt, 0);
+        combined.set(iv, salt.length);
+        combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
+
+        return b64Encode(combined);
+      }
+
+      async function aesDecrypt(base64Data, password) {
+        const data = b64Decode(base64Data);
+        if (!data) throw new Error('Base64 解码失败，请检查密文格式');
+
+        if (data.length < 28) throw new Error('密文数据太短，格式有误');
+
+        const salt = data.slice(0, 16);
+        const iv = data.slice(16, 28);
+        const ciphertext = data.slice(28);
+
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw', str2ab(password), 'PBKDF2', false, ['deriveKey']
+        );
+        const key = await crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt: salt, iterations: 600000, hash: 'SHA-256' },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+
+        const plaintext = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          ciphertext
+        );
+
+        return ab2str(plaintext);
+      }
+
+      $('#aes-encrypt').addEventListener('click', async function() {
+        const password = $('#aes-password').value;
+        const plaintext = $('#aes-input').value;
+        const output = $('#aes-output');
+
+        if (!password) { showToast('请输入密码'); return; }
+        if (!plaintext) { showToast('请输入要加密的文本'); return; }
+
+        try {
+          output.value = '正在加密...';
+          const result = await aesEncrypt(plaintext, password);
+          output.value = result;
+          showToast('加密成功');
+        } catch (e) {
+          output.value = '加密失败：' + e.message;
+        }
+      });
+
+      $('#aes-decrypt').addEventListener('click', async function() {
+        const password = $('#aes-password').value;
+        const ciphertext = $('#aes-input').value;
+        const output = $('#aes-output');
+
+        if (!password) { showToast('请输入密码'); return; }
+        if (!ciphertext) { showToast('请输入要解密的 Base64 密文'); return; }
+
+        try {
+          output.value = '正在解密...';
+          const result = await aesDecrypt(ciphertext.trim(), password);
+          output.value = result;
+          showToast('解密成功');
+        } catch (e) {
+          output.value = '解密失败：' + e.message;
+        }
+      });
+
+      // ===== Base64 =====
+      $('#b64-encode').addEventListener('click', function() {
+        const input = $('#b64-input').value;
+        const output = $('#b64-output');
+        if (!input) { showToast('请输入文本'); return; }
+        try {
+          output.value = btoa(unescape(encodeURIComponent(input)));
+          showToast('编码成功');
+        } catch (e) {
+          output.value = '编码失败：' + e.message;
+        }
+      });
+
+      $('#b64-decode').addEventListener('click', function() {
+        const input = $('#b64-input').value.trim();
+        const output = $('#b64-output');
+        if (!input) { showToast('请输入 Base64 字符串'); return; }
+        try {
+          output.value = decodeURIComponent(escape(atob(input)));
+          showToast('解码成功');
+        } catch (e) {
+          output.value = '解码失败：请检查输入是否为有效的 Base64 字符串';
+        }
+      });
+
+      // ===== ROT13 =====
+      function rot13Char(ch) {
+        const code = ch.charCodeAt(0);
+        if (code >= 65 && code <= 90) {
+          return String.fromCharCode(((code - 65 + 13) % 26) + 65);
+        }
+        if (code >= 97 && code <= 122) {
+          return String.fromCharCode(((code - 97 + 13) % 26) + 97);
+        }
+        return ch;
+      }
+
+      $('#rot13-go').addEventListener('click', function() {
+        const input = $('#rot13-input').value;
+        const output = $('#rot13-output');
+        if (!input) { showToast('请输入文本'); return; }
+        output.value = input.split('').map(rot13Char).join('');
+        showToast('ROT13 转换完成');
+      });
+
+      // ===== Caesar Cipher =====
+      function caesarTransform(text, shift, decrypt) {
+        const s = parseInt(shift);
+        const actualShift = decrypt ? (26 - (s % 26)) : (s % 26);
+        return text.split('').map(ch => {
+          const code = ch.charCodeAt(0);
+          if (code >= 65 && code <= 90) {
+            return String.fromCharCode(((code - 65 + actualShift) % 26) + 65);
+          }
+          if (code >= 97 && code <= 122) {
+            return String.fromCharCode(((code - 97 + actualShift) % 26) + 97);
+          }
+          return ch;
+        }).join('');
+      }
+
+      $('#caesar-encrypt').addEventListener('click', function() {
+        const input = $('#caesar-input').value;
+        const shift = $('#caesar-shift').value;
+        const output = $('#caesar-output');
+        if (!input) { showToast('请输入文本'); return; }
+        output.value = caesarTransform(input, shift, false);
+        showToast('凯撒加密完成');
+      });
+
+      $('#caesar-decrypt').addEventListener('click', function() {
+        const input = $('#caesar-input').value;
+        const shift = $('#caesar-shift').value;
+        const output = $('#caesar-output');
+        if (!input) { showToast('请输入文本'); return; }
+        output.value = caesarTransform(input, shift, true);
+        showToast('凯撒解密完成');
+      });
+
+      // ===== Vigenère Cipher =====
+      function vigenereTransform(text, key, decrypt) {
+        if (!key) return text;
+        const cleanKey = key.replace(/[^a-zA-Z]/g, '').toLowerCase();
+        if (!cleanKey) return text;
+
+        return text.split('').map((ch, i) => {
+          const code = ch.charCodeAt(0);
+          const keyChar = cleanKey[i % cleanKey.length];
+          const keyShift = keyChar.charCodeAt(0) - 97;
+
+          let newCode;
+          if (code >= 65 && code <= 90) {
+            if (decrypt) {
+              newCode = ((code - 65 - keyShift + 26) % 26) + 65;
+            } else {
+              newCode = ((code - 65 + keyShift) % 26) + 65;
+            }
+            return String.fromCharCode(newCode);
+          }
+          if (code >= 97 && code <= 122) {
+            if (decrypt) {
+              newCode = ((code - 97 - keyShift + 26) % 26) + 97;
+            } else {
+              newCode = ((code - 97 + keyShift) % 26) + 97;
+            }
+            return String.fromCharCode(newCode);
+          }
+          return ch;
+        }).join('');
+      }
+
+      $('#vig-encrypt').addEventListener('click', function() {
+        const input = $('#vig-input').value;
+        const key = $('#vig-key').value;
+        const output = $('#vig-output');
+        if (!input) { showToast('请输入文本'); return; }
+        if (!key) { showToast('请输入密钥'); return; }
+        if (!/[a-zA-Z]/.test(key)) { showToast('密钥必须包含至少一个英文字母'); return; }
+        output.value = vigenereTransform(input, key, false);
+        showToast('维吉尼亚加密完成');
+      });
+
+      $('#vig-decrypt').addEventListener('click', function() {
+        const input = $('#vig-input').value;
+        const key = $('#vig-key').value;
+        const output = $('#vig-output');
+        if (!input) { showToast('请输入文本'); return; }
+        if (!key) { showToast('请输入密钥'); return; }
+        if (!/[a-zA-Z]/.test(key)) { showToast('密钥必须包含至少一个英文字母'); return; }
+        output.value = vigenereTransform(input, key, true);
+        showToast('维吉尼亚解密完成');
+      });
+
+    })();
+  </script>
+</body>
+</html>

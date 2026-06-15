@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f1a">
+<title>秒表计时器</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #16213e;
+  --bg-card: #1a1a2e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b8;
+  --text-muted: #6a6a80;
+  --accent: #6c5ce7;
+  --accent-hover: #7d6ff0;
+  --accent-glow: rgba(108, 92, 231, 0.4);
+  --danger: #e74c3c;
+  --danger-hover: #f05a4a;
+  --success: #00cec9;
+  --success-hover: #00e5e0;
+  --warning: #fdcb6e;
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-secondary);
+  border-radius: 24px;
+  padding: 28px 24px 24px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 20%, rgba(108, 92, 231, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(0, 206, 201, 0.04) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container > * { position: relative; z-index: 1; }
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+/* Tab Switch */
+.tabs {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 4px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--bg-card);
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tab:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Panels */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ----- Digital Display ----- */
+.display-wrapper {
+  position: relative;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.digital-display {
+  font-family: var(--font-mono);
+  font-size: clamp(2.4rem, 8vw, 3.8rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-shadow: 0 0 30px var(--accent-glow);
+  transition: color var(--transition);
+}
+
+.digital-display.warning {
+  color: var(--warning);
+  text-shadow: 0 0 30px rgba(253, 203, 110, 0.5);
+}
+
+.digital-display.danger {
+  color: var(--danger);
+  text-shadow: 0 0 30px rgba(231, 76, 60, 0.5);
+  animation: pulse-danger 0.5s ease-in-out infinite;
+}
+
+.digital-display.finished {
+  color: var(--success);
+  text-shadow: 0 0 30px rgba(0, 206, 201, 0.6);
+}
+
+.millis {
+  font-size: 0.45em;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.colon {
+  color: var(--accent);
+  margin: 0 0.02em;
+}
+
+.digital-display.warning .colon { color: var(--warning); }
+.digital-display.danger .colon { color: var(--danger); }
+.digital-display.finished .colon { color: var(--success); }
+
+/* Percentage label */
+.percentage-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-weight: 500;
+  transition: color var(--transition);
+}
+
+/* ----- Progress Ring (Countdown) ----- */
+.ring-container {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin: 0 auto 20px;
+}
+
+.ring-container svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.ring-bg {
+  fill: none;
+  stroke: var(--bg-tertiary);
+  stroke-width: 8;
+}
+
+.ring-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease, stroke 0.5s ease;
+}
+
+.ring-progress.warning { stroke: var(--warning); }
+.ring-progress.danger { stroke: var(--danger); }
+
+.ring-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.ring-center-text .small {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* ----- Buttons ----- */
+.btn-row, .preset-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 12px 20px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn-start {
+  background: var(--success);
+  color: #0f0f1a;
+  border-color: var(--success);
+  box-shadow: 0 4px 16px rgba(0, 206, 201, 0.3);
+}
+.btn-start:hover { background: var(--success-hover); box-shadow: 0 4px 20px rgba(0, 206, 201, 0.4); }
+
+.btn-pause {
+  background: var(--warning);
+  color: #0f0f1a;
+  border-color: var(--warning);
+  box-shadow: 0 4px 16px rgba(253, 203, 110, 0.3);
+}
+.btn-pause:hover { box-shadow: 0 4px 20px rgba(253, 203, 110, 0.4); }
+
+.btn-reset {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.btn-reset:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.2); }
+
+.btn-lap {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+.btn-lap:hover { background: var(--accent-hover); box-shadow: 0 4px 20px var(--accent-glow); }
+
+.btn-preset {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--border);
+  flex: 0 0 auto;
+}
+.btn-preset:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.15); }
+.btn-preset.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ----- Time Input (Countdown) ----- */
+.time-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.time-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-unit label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.time-unit .val {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  width: 48px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 6px 4px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.time-unit .val::-webkit-inner-spin-button,
+.time-unit .val::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.adj-btn {
+  width: 32px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  line-height: 1;
+  padding: 0;
+}
+.adj-btn:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.2); }
+.adj-btn:active { background: var(--bg-primary); }
+
+.time-separator {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 2px;
+  align-self: flex-end;
+  padding-bottom: 4px;
+}
+
+/* ----- Lap List ----- */
+.lap-section {
+  margin-top: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.lap-section::-webkit-scrollbar { width: 4px; }
+.lap-section::-webkit-scrollbar-track { background: transparent; }
+.lap-section::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.lap-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr;
+  padding: 12px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+  background: var(--bg-tertiary);
+  z-index: 1;
+}
+
+.lap-list { list-style: none; }
+
+.lap-item {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background var(--transition);
+}
+
+.lap-item:last-child { border-bottom: none; }
+
+.lap-item.best { background: rgba(0, 206, 201, 0.08); color: var(--success); }
+.lap-item.worst { background: rgba(231, 76, 60, 0.08); color: var(--danger); }
+
+.lap-num { font-weight: 600; color: var(--text-muted); }
+.best .lap-num { color: var(--success); }
+.worst .lap-num { color: var(--danger); }
+
+.lap-diff { font-size: 0.7rem; }
+.lap-diff.positive::before { content: '+'; }
+.lap-diff.zero { color: var(--text-muted); }
+
+.no-laps {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ----- Flash Animation ----- */
+@keyframes flash-bg {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(231, 76, 60, 0.15); }
+}
+
+@keyframes flash-border {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: var(--danger); }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.flash { animation: flash-bg 0.6s ease-in-out 6, flash-border 0.6s ease-in-out 6, shake 0.4s ease-in-out 2; }
+
+/* ----- Responsive ----- */
+@media (max-width: 400px) {
+  .container { padding: 20px 16px 16px; border-radius: 20px; }
+  .digital-display { font-size: 2rem; }
+  .btn { padding: 10px 14px; font-size: 0.82rem; }
+  .lap-item { font-size: 0.72rem; padding: 8px 12px; grid-template-columns: 32px 1fr 1fr 1fr; }
+  .lap-header { padding: 10px 12px; grid-template-columns: 32px 1fr 1fr 1fr; font-size: 0.68rem; }
+  .ring-container { width: 140px; height: 140px; }
+  .time-unit .val { width: 40px; font-size: 1.3rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <div class="header"><h1>秒表计时器</h1></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="stopwatch" id="tabStopwatch">秒表</button>
+    <button class="tab" data-tab="countdown" id="tabCountdown">倒计时</button>
+  </div>
+
+  <!-- ============ STOPWATCH PANEL ============ -->
+  <div class="panel active" id="panelStopwatch">
+    <div class="display-wrapper">
+      <div class="digital-display" id="swDisplay">00<span class="colon">:</span>00<span class="colon">:</span>00<span class="millis">.00</span></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-start" id="swStart">开始</button>
+      <button class="btn btn-lap" id="swLap" disabled>计次</button>
+      <button class="btn btn-reset" id="swReset">重置</button>
+    </div>
+
+    <div class="lap-section">
+      <div class="lap-header">
+        <span>#</span><span>计次时间</span><span>总时间</span><span>差距</span>
+      </div>
+      <ul class="lap-list" id="lapList">
+        <li class="no-laps">暂无计次记录</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ COUNTDOWN PANEL ============ -->
+  <div class="panel" id="panelCountdown">
+    <!-- Progress Ring -->
+    <div class="ring-container" id="ringContainer">
+      <svg viewBox="0 0 180 180">
+        <circle class="ring-bg" cx="90" cy="90" r="82"/>
+        <circle class="ring-progress" id="ringProgress" cx="90" cy="90" r="82"
+          stroke-dasharray="515.22" stroke-dashoffset="0"/>
+      </svg>
+      <div class="ring-center-text">
+        <span id="ringPercent">100%</span><br>
+        <span class="small">剩余</span>
+      </div>
+    </div>
+
+    <!-- Digital Display -->
+    <div class="display-wrapper">
+      <div class="digital-display" id="cdDisplay">00<span class="colon">:</span>00<span class="colon">:</span>00<span class="millis">.00</span></div>
+      <div class="percentage-label" id="percentLabel">—</div>
+    </div>
+
+    <!-- Time Input -->
+    <div class="time-input-row" id="timeInputRow">
+      <div class="time-unit">
+        <button class="adj-btn" data-target="cdHours" data-dir="1">+</button>
+        <input type="number" class="val" id="cdHours" value="0" min="0" max="99" readonly>
+        <button class="adj-btn" data-target="cdHours" data-dir="-1">−</button>
+        <label>时</label>
+      </div>
+      <span class="time-separator">:</span>
+      <div class="time-unit">
+        <button class="adj-btn" data-target="cdMinutes" data-dir="1">+</button>
+        <input type="number" class="val" id="cdMinutes" value="5" min="0" max="59" readonly>
+        <button class="adj-btn" data-target="cdMinutes" data-dir="-1">−</button>
+        <label>分</label>
+      </div>
+      <span class="time-separator">:</span>
+      <div class="time-unit">
+        <button class="adj-btn" data-target="cdSeconds" data-dir="1">+</button>
+        <input type="number" class="val" id="cdSeconds" value="0" min="0" max="59" readonly>
+        <button class="adj-btn" data-target="cdSeconds" data-dir="-1">−</button>
+        <label>秒</label>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="preset-row" id="presetRow">
+      <button class="btn btn-preset" data-preset="30">30秒</button>
+      <button class="btn btn-preset active" data-preset="300">1分</button>
+      <button class="btn btn-preset" data-preset="300">5分</button>
+      <button class="btn btn-preset" data-preset="600">10分</button>
+      <button class="btn btn-preset" data-preset="1500">番茄 25分</button>
+      <button class="btn btn-preset" data-preset="3000">50分</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-start" id="cdStart">开始</button>
+      <button class="btn btn-reset" id="cdReset">重置</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─────────────────────── DOM refs ───────────────────────
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  // Tabs
+  const tabStopwatch = $('#tabStopwatch');
+  const tabCountdown = $('#tabCountdown');
+  const panelStopwatch = $('#panelStopwatch');
+  const panelCountdown = $('#panelCountdown');
+
+  // Stopwatch
+  const swDisplay = $('#swDisplay');
+  const swStartBtn = $('#swStart');
+  const swLapBtn = $('#swLap');
+  const swResetBtn = $('#swReset');
+  const lapList = $('#lapList');
+
+  // Countdown
+  const cdDisplay = $('#cdDisplay');
+  const cdStartBtn = $('#cdStart');
+  const cdResetBtn = $('#cdReset');
+  const ringProgress = $('#ringProgress');
+  const ringPercent = $('#ringPercent');
+  const percentLabel = $('#percentLabel');
+  const cdHours = $('#cdHours');
+  const cdMinutes = $('#cdMinutes');
+  const cdSeconds = $('#cdSeconds');
+  const timeInputRow = $('#timeInputRow');
+  const appContainer = $('#app');
+  const presetRow = $('#presetRow');
+
+  // ─────────────────────── Tab Switching ───────────────────────
+  tabStopwatch.addEventListener('click', () => switchTab('stopwatch'));
+  tabCountdown.addEventListener('click', () => switchTab('countdown'));
+
+  function switchTab(tab) {
+    const activeTab = tab === 'stopwatch' ? tabStopwatch : tabCountdown;
+    const activePanel = tab === 'stopwatch' ? panelStopwatch : panelCountdown;
+    const inactiveTab = tab === 'stopwatch' ? tabCountdown : tabStopwatch;
+    const inactivePanel = tab === 'stopwatch' ? panelCountdown : panelStopwatch;
+
+    inactiveTab.classList.remove('active');
+    inactivePanel.classList.remove('active');
+    activeTab.classList.add('active');
+    activePanel.classList.add('active');
+
+    // Pause countdown if switching away
+    if (tab === 'stopwatch' && countdownState.running) {
+      pauseCountdown();
+    }
+    if (tab === 'countdown' && stopwatchState.running) {
+      pauseStopwatch();
+    }
+
+    updateAllButtons();
+  }
+
+  // ─────────────────────── Utility ───────────────────────
+  const CIRCUMFERENCE = 2 * Math.PI * 82; // ≈515.22
+
+  function formatTime(totalMs, showMillis = true) {
+    const negative = totalMs < 0;
+    totalMs = Math.abs(totalMs);
+    const hours = Math.floor(totalMs / 3600000);
+    const mins = Math.floor((totalMs % 3600000) / 60000);
+    const secs = Math.floor((totalMs % 60000) / 1000);
+    const ms = Math.floor((totalMs % 1000) / 10);
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(mins).padStart(2, '0');
+    const ss = String(secs).padStart(2, '0');
+    const msStr = String(ms).padStart(2, '0');
+    const sign = negative ? '−' : '';
+    if (showMillis) {
+      return { html: `${sign}${hh}<span class="colon">:</span>${mm}<span class="colon">:</span>${ss}<span class="millis">.${msStr}</span>`, hh, mm, ss, ms: msStr, negative };
+    }
+    return { html: `${sign}${hh}:${mm}:${ss}`, hh, mm, ss, ms: msStr, negative };
+  }
+
+  function formatSimple(totalMs) {
+    const f = formatTime(totalMs, false);
+    return `${f.negative ? '−' : ''}${f.hh}:${f.mm}:${f.ss}`;
+  }
+
+  function formatDiff(diffMs) {
+    if (diffMs === 0) return '±0.00';
+    const sign = diffMs > 0 ? '+' : '';
+    const absMs = Math.abs(diffMs);
+    const mins = Math.floor(absMs / 60000);
+    const secs = Math.floor((absMs % 60000) / 1000);
+    const ms = Math.floor((absMs % 1000) / 10);
+    return `${sign}${mins > 0 ? mins + ':' : ''}${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+  }
+
+  // ─────────────────────── Stopwatch ───────────────────────
+  const stopwatchState = {
+    running: false,
+    startTime: 0,
+    elapsedBeforePause: 0,
+    lapStartTime: 0,
+    laps: [],
+    displayMs: 0,
+    rafId: null,
+  };
+
+  function tickStopwatch() {
+    if (!stopwatchState.running) return;
+    const now = performance.now();
+    stopwatchState.displayMs = stopwatchState.elapsedBeforePause + (now - stopwatchState.startTime);
+    updateSwDisplay();
+    stopwatchState.rafId = requestAnimationFrame(tickStopwatch);
+  }
+
+  function updateSwDisplay() {
+    const f = formatTime(stopwatchState.displayMs, true);
+    swDisplay.innerHTML = f.html;
+  }
+
+  function startStopwatch() {
+    stopwatchState.running = true;
+    stopwatchState.startTime = performance.now();
+    updateAllButtons();
+    stopwatchState.rafId = requestAnimationFrame(tickStopwatch);
+  }
+
+  function pauseStopwatch() {
+    stopwatchState.running = false;
+    if (stopwatchState.rafId) {
+      cancelAnimationFrame(stopwatchState.rafId);
+      stopwatchState.rafId = null;
+    }
+    stopwatchState.elapsedBeforePause = stopwatchState.displayMs;
+    updateAllButtons();
+  }
+
+  function resetStopwatch() {
+    if (stopwatchState.rafId) {
+      cancelAnimationFrame(stopwatchState.rafId);
+      stopwatchState.rafId = null;
+    }
+    stopwatchState.running = false;
+    stopwatchState.elapsedBeforePause = 0;
+    stopwatchState.displayMs = 0;
+    stopwatchState.laps = [];
+    updateSwDisplay();
+    updateAllButtons();
+    renderLaps();
+  }
+
+  function recordLap() {
+    const totalMs = stopwatchState.displayMs;
+    const prevTotal = stopwatchState.laps.length > 0
+      ? stopwatchState.laps[stopwatchState.laps.length - 1].totalMs
+      : 0;
+    const lapMs = totalMs - prevTotal;
+
+    stopwatchState.laps.push({ totalMs, lapMs });
+    renderLaps();
+  }
+
+  function renderLaps() {
+    lapList.innerHTML = '';
+
+    if (stopwatchState.laps.length === 0) {
+      lapList.innerHTML = '<li class="no-laps">暂无计次记录</li>';
+      return;
+    }
+
+    // Find best/worst lap times
+    let bestIdx = 0;
+    let worstIdx = 0;
+    for (let i = 1; i < stopwatchState.laps.length; i++) {
+      if (stopwatchState.laps[i].lapMs < stopwatchState.laps[bestIdx].lapMs) bestIdx = i;
+      if (stopwatchState.laps[i].lapMs > stopwatchState.laps[worstIdx].lapMs) worstIdx = i;
+    }
+
+    // Render from newest to oldest (reverse)
+    const reversed = [...stopwatchState.laps].reverse();
+    for (let i = 0; i < reversed.length; i++) {
+      const lapNum = reversed.length - i;
+      const lap = reversed[i];
+      const origIdx = stopwatchState.laps.length - 1 - i;
+
+      let cls = '';
+      if (stopwatchState.laps.length > 1) {
+        if (origIdx === bestIdx) cls = 'best';
+        else if (origIdx === worstIdx) cls = 'worst';
+      }
+
+      // Diff from previous lap (compare lap times, not cumulative)
+      const prevOrigIdx = origIdx - 1;
+      let diffHtml = '—';
+      let diffClass = '';
+      if (prevOrigIdx >= 0) {
+        const diffMs = lap.lapMs - stopwatchState.laps[prevOrigIdx].lapMs;
+        diffHtml = formatDiff(diffMs);
+        if (diffMs > 0) diffClass = 'positive';
+        else if (diffMs === 0) diffClass = 'zero';
+      }
+
+      const lapFmt = formatSimple(lap.lapMs);
+      const totalFmt = formatSimple(lap.totalMs);
+
+      const li = document.createElement('li');
+      li.className = `lap-item ${cls}`;
+      li.innerHTML = `
+        <span class="lap-num">${lapNum}</span>
+        <span>${lapFmt}</span>
+        <span>${totalFmt}</span>
+        <span class="lap-diff ${diffClass}">${diffHtml}</span>
+      `;
+      lapList.appendChild(li);
+    }
+  }
+
+  // ─────────────────────── Countdown ───────────────────────
+  const countdownState = {
+    running: false,
+    totalMs: 300000,         // default 5 min
+    remainingMs: 300000,
+    startTime: 0,
+    remainingBeforePause: 300000,
+    rafId: null,
+    alarmed: false,
+  };
+
+  function readInputTime() {
+    const h = parseInt(cdHours.value, 10) || 0;
+    const m = parseInt(cdMinutes.value, 10) || 0;
+    const s = parseInt(cdSeconds.value, 10) || 0;
+    return (h * 3600 + m * 60 + s) * 1000;
+  }
+
+  function applyInputTime() {
+    const totalMs = readInputTime();
+    countdownState.totalMs = totalMs;
+    countdownState.remainingMs = totalMs;
+    countdownState.remainingBeforePause = totalMs;
+    countdownState.alarmed = false;
+    appContainer.classList.remove('flash');
+    updateCdDisplay();
+    updateRing();
+    updateCdDisplayClasses();
+  }
+
+  function setPresetTime(ms) {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    cdHours.value = h;
+    cdMinutes.value = m;
+    cdSeconds.value = s;
+    applyInputTime();
+  }
+
+  function tickCountdown() {
+    if (!countdownState.running) return;
+    const now = performance.now();
+    const elapsed = now - countdownState.startTime;
+    countdownState.remainingMs = countdownState.remainingBeforePause - elapsed;
+
+    if (countdownState.remainingMs <= 0) {
+      countdownState.remainingMs = 0;
+      countdownState.running = false;
+      if (countdownState.rafId) {
+        cancelAnimationFrame(countdownState.rafId);
+        countdownState.rafId = null;
+      }
+      updateCdDisplay();
+      updateRing();
+      updateAllButtons();
+      triggerAlarm();
+      return;
+    }
+
+    updateCdDisplay();
+    updateRing();
+    updateCdDisplayClasses();
+    countdownState.rafId = requestAnimationFrame(tickCountdown);
+  }
+
+  function updateCdDisplay() {
+    const f = formatTime(countdownState.remainingMs, true);
+    cdDisplay.innerHTML = f.html;
+    const pct = countdownState.totalMs > 0
+      ? Math.round((countdownState.remainingMs / countdownState.totalMs) * 100)
+      : 0;
+    percentLabel.textContent = countdownState.remainingMs > 0
+      ? `剩余 ${pct}%`
+      : '时间到！';
+  }
+
+  function updateCdDisplayClasses() {
+    cdDisplay.classList.remove('warning', 'danger', 'finished');
+    if (countdownState.remainingMs <= 0) {
+      cdDisplay.classList.add('finished');
+    } else if (countdownState.totalMs > 0 && countdownState.remainingMs / countdownState.totalMs < 0.1) {
+      cdDisplay.classList.add('danger');
+    } else if (countdownState.totalMs > 0 && countdownState.remainingMs / countdownState.totalMs < 0.3) {
+      cdDisplay.classList.add('warning');
+    }
+  }
+
+  function updateRing() {
+    const total = countdownState.totalMs;
+    const remaining = countdownState.remainingMs;
+    const fraction = total > 0 ? remaining / total : 1;
+    const offset = CIRCUMFERENCE * (1 - fraction);
+
+    ringProgress.style.strokeDashoffset = offset;
+
+    // Color classes
+    ringProgress.classList.remove('warning', 'danger');
+    if (remaining <= 0) {
+      ringProgress.style.stroke = 'var(--danger)';
+    } else if (fraction < 0.1) {
+      ringProgress.classList.add('danger');
+    } else if (fraction < 0.3) {
+      ringProgress.classList.add('warning');
+    }
+
+    ringPercent.textContent = Math.round(fraction * 100) + '%';
+  }
+
+  function startCountdown() {
+    if (countdownState.remainingMs <= 0) return;
+    countdownState.running = true;
+    countdownState.alarmed = false;
+    appContainer.classList.remove('flash');
+    countdownState.startTime = performance.now();
+    countdownState.remainingBeforePause = countdownState.remainingMs;
+    updateAllButtons();
+    countdownState.rafId = requestAnimationFrame(tickCountdown);
+  }
+
+  function pauseCountdown() {
+    countdownState.running = false;
+    if (countdownState.rafId) {
+      cancelAnimationFrame(countdownState.rafId);
+      countdownState.rafId = null;
+    }
+    countdownState.remainingBeforePause = countdownState.remainingMs;
+    updateAllButtons();
+  }
+
+  function resetCountdown() {
+    if (countdownState.rafId) {
+      cancelAnimationFrame(countdownState.rafId);
+      countdownState.rafId = null;
+    }
+    countdownState.running = false;
+    countdownState.alarmed = false;
+    appContainer.classList.remove('flash');
+    stopAlarm();
+    applyInputTime();
+    updateAllButtons();
+  }
+
+  // ─────────────────────── Web Audio Alarm ───────────────────────
+  let alarmCtx = null;
+  let alarmOsc = null;
+  let alarmInterval = null;
+
+  function triggerAlarm() {
+    if (countdownState.alarmed) return;
+    countdownState.alarmed = true;
+
+    // Flash animation
+    appContainer.classList.add('flash');
+    setTimeout(() => appContainer.classList.remove('flash'), 4000);
+
+    // Audio alarm - beep pattern
+    try {
+      alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+      let beepCount = 0;
+      const maxBeeps = 12;
+
+      function beep() {
+        if (beepCount >= maxBeeps) {
+          stopAlarm();
+          return;
+        }
+        const osc = alarmCtx.createOscillator();
+        const gain = alarmCtx.createGain();
+        osc.connect(gain);
+        gain.connect(alarmCtx.destination);
+
+        // Alternate frequencies for interesting pattern
+        osc.frequency.value = beepCount % 2 === 0 ? 880 : 660;
+        osc.type = 'square';
+        gain.gain.setValueAtTime(0.3, alarmCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, alarmCtx.currentTime + 0.2);
+
+        osc.start(alarmCtx.currentTime);
+        osc.stop(alarmCtx.currentTime + 0.25);
+
+        beepCount++;
+        alarmInterval = setTimeout(beep, 500);
+      }
+      beep();
+    } catch (e) {
+      // Audio not available
+    }
+  }
+
+  function stopAlarm() {
+    if (alarmInterval) {
+      clearTimeout(alarmInterval);
+      alarmInterval = null;
+    }
+    if (alarmCtx) {
+      alarmCtx.close().catch(() => {});
+      alarmCtx = null;
+    }
+    alarmOsc = null;
+  }
+
+  // ─────────────────────── Button state management ───────────────────────
+  function updateAllButtons() {
+    // Stopwatch buttons
+    if (stopwatchState.running) {
+      swStartBtn.textContent = '暂停';
+      swStartBtn.className = 'btn btn-pause';
+      swLapBtn.disabled = false;
+      swLapBtn.style.opacity = '1';
+      swResetBtn.style.display = '';
+    } else {
+      swStartBtn.textContent = '开始';
+      swStartBtn.className = 'btn btn-start';
+      swLapBtn.disabled = stopwatchState.displayMs === 0;
+      swLapBtn.style.opacity = stopwatchState.displayMs === 0 ? '0.4' : '1';
+      swResetBtn.style.display = '';
+    }
+
+    if (stopwatchState.displayMs === 0 && !stopwatchState.running) {
+      swLapBtn.disabled = true;
+      swLapBtn.style.opacity = '0.4';
+    }
+
+    // Countdown buttons
+    if (countdownState.running) {
+      cdStartBtn.textContent = '暂停';
+      cdStartBtn.className = 'btn btn-pause';
+    } else {
+      cdStartBtn.textContent = '开始';
+      cdStartBtn.className = 'btn btn-start';
+    }
+
+    // Toggle input visibility during countdown
+    const showInput = !countdownState.running && countdownState.remainingMs === countdownState.totalMs;
+    timeInputRow.style.display = showInput ? '' : 'none';
+    presetRow.style.display = showInput ? '' : 'none';
+  }
+
+  // ─────────────────────── Event Listeners ───────────────────────
+  swStartBtn.addEventListener('click', () => {
+    if (stopwatchState.running) {
+      pauseStopwatch();
+    } else {
+      startStopwatch();
+    }
+  });
+
+  swLapBtn.addEventListener('click', () => {
+    if (stopwatchState.running) {
+      recordLap();
+    }
+  });
+
+  swResetBtn.addEventListener('click', () => {
+    resetStopwatch();
+  });
+
+  cdStartBtn.addEventListener('click', () => {
+    if (countdownState.running) {
+      pauseCountdown();
+    } else {
+      startCountdown();
+    }
+  });
+
+  cdResetBtn.addEventListener('click', () => {
+    resetCountdown();
+  });
+
+  // +/- buttons for time input
+  $$('.adj-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (countdownState.running) return;
+      const target = document.getElementById(btn.dataset.target);
+      const dir = parseInt(btn.dataset.dir, 10);
+      const max = target.id === 'cdHours' ? 99 : 59;
+      let val = parseInt(target.value, 10) || 0;
+      val += dir;
+      if (val < 0) val = 0;
+      if (val > max) val = max;
+      target.value = val;
+      applyInputTime();
+    });
+  });
+
+  // Preset buttons
+  $$('.btn-preset').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (countdownState.running) return;
+      const ms = parseInt(btn.dataset.preset, 10);
+      setPresetTime(ms);
+      // Highlight active preset
+      $$('.btn-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // ─────────────────────── Keyboard shortcuts ───────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      const activePanel = panelStopwatch.classList.contains('active') ? 'stopwatch' : 'countdown';
+      if (activePanel === 'stopwatch') {
+        if (stopwatchState.running) pauseStopwatch();
+        else startStopwatch();
+      } else {
+        if (countdownState.running) pauseCountdown();
+        else startCountdown();
+      }
+    }
+    if (e.code === 'KeyL' && panelStopwatch.classList.contains('active')) {
+      if (stopwatchState.running) recordLap();
+    }
+    if (e.code === 'KeyR') {
+      e.preventDefault();
+      const activePanel = panelStopwatch.classList.contains('active') ? 'stopwatch' : 'countdown';
+      if (activePanel === 'stopwatch') resetStopwatch();
+      else resetCountdown();
+    }
+  });
+
+  // ─────────────────────── Initialization ───────────────────────
+  updateSwDisplay();
+  updateCdDisplay();
+  updateRing();
+  updateAllButtons();
+  // Set initial preset active -> 1min matches default 5min, let's set to 5min like the initial value
+  // Actually initial is 5 min (300s), let's highlight 5min preset
+  $$('.btn-preset').forEach(b => b.classList.remove('active'));
+  const fiveMinPreset = document.querySelector('.btn-preset[data-preset="300"]');
+  if (fiveMinPreset) fiveMinPreset.classList.add('active');
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (stopwatchState.rafId) cancelAnimationFrame(stopwatchState.rafId);
+    if (countdownState.rafId) cancelAnimationFrame(countdownState.rafId);
+    stopAlarm();
+  });
+
+})();
+</script>
+</body>
+</html>

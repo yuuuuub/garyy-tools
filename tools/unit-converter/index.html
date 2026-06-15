@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>万能单位换算器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      background: #0f172a; color: #e2e8f0; min-height: 100vh;
+      display: flex; justify-content: center; padding: 16px;
+    }
+    .container {
+      width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 20px;
+      padding-top: 10px; padding-bottom: 32px;
+    }
+    h1 {
+      text-align: center; font-size: 1.5rem; font-weight: 700;
+      color: #f1f5f9; letter-spacing: 0.02em;
+    }
+    .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    }
+    .tab {
+      padding: 6px 14px; border-radius: 20px; border: 1px solid #334155;
+      background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 0.85rem;
+      transition: all 0.2s; user-select: none; white-space: nowrap;
+    }
+    .tab:hover { border-color: #38bdf8; color: #38bdf8; }
+    .tab.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+    .input-group {
+      background: #1e293b; border-radius: 12px; padding: 16px;
+      border: 1px solid #334155;
+    }
+    .input-group label {
+      display: block; font-size: 0.75rem; color: #94a3b8;
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .input-row {
+      display: flex; gap: 8px; align-items: stretch;
+    }
+    .input-row input {
+      flex: 1; padding: 10px 14px; border-radius: 8px; border: 2px solid #334155;
+      background: #0f172a; color: #f1f5f9; font-size: 1.1rem; outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-row input:focus { border-color: #0ea5e9; }
+    .input-row select {
+      padding: 10px 8px; border-radius: 8px; border: 2px solid #334155;
+      background: #0f172a; color: #f1f5f9; font-size: 0.9rem; outline: none;
+      cursor: pointer; min-width: 100px;
+    }
+    .input-row select:focus { border-color: #0ea5e9; }
+    .results {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .result-item {
+      background: #1e293b; border-radius: 10px; padding: 12px 16px;
+      border: 1px solid #334155; display: flex; justify-content: space-between;
+      align-items: center; transition: background 0.15s;
+    }
+    .result-item:hover { background: #263348; }
+    .result-unit {
+      font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .result-value {
+      font-size: 1.05rem; font-weight: 600; color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+    }
+    .swap-btn {
+      align-self: center; background: #334155; border: none; color: #94a3b8;
+      width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+      font-size: 1rem; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; margin: 4px 0;
+    }
+    .swap-btn:hover { background: #0ea5e9; color: #fff; }
+    @media (max-width: 360px) {
+      .container { padding: 8px; gap: 14px; }
+      h1 { font-size: 1.25rem; }
+      .tab { padding: 5px 10px; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>万能单位换算器</h1>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div class="input-group">
+      <label>输入数值进行换算</label>
+      <div class="input-row">
+        <input type="number" id="inputValue" value="1" step="any" placeholder="输入数值...">
+        <select id="inputUnit"></select>
+      </div>
+    </div>
+
+    <button class="swap-btn" id="swapBtn" title="交换单位">&#8645;</button>
+
+    <div class="results" id="results"></div>
+  </div>
+
+  <script>
+    const categories = {
+      length: {
+        name: '长度',
+        units: {
+          mm: { name: '毫米', toBase: v => v / 1000, fromBase: v => v * 1000 },
+          cm: { name: '厘米', toBase: v => v / 100, fromBase: v => v * 100 },
+          m: { name: '米', toBase: v => v, fromBase: v => v },
+          km: { name: '千米', toBase: v => v * 1000, fromBase: v => v / 1000 },
+          inch: { name: '英寸', toBase: v => v * 0.0254, fromBase: v => v / 0.0254 },
+          ft: { name: '英尺', toBase: v => v * 0.3048, fromBase: v => v / 0.3048 },
+          yard: { name: '码', toBase: v => v * 0.9144, fromBase: v => v / 0.9144 },
+          mile: { name: '英里', toBase: v => v * 1609.344, fromBase: v => v / 1609.344 },
+        }
+      },
+      weight: {
+        name: '重量',
+        units: {
+          mg: { name: '毫克', toBase: v => v / 1000000, fromBase: v => v * 1000000 },
+          g: { name: '克', toBase: v => v / 1000, fromBase: v => v * 1000 },
+          kg: { name: '千克', toBase: v => v, fromBase: v => v },
+          ton: { name: '吨', toBase: v => v * 1000, fromBase: v => v / 1000 },
+          oz: { name: '盎司', toBase: v => v * 0.0283495, fromBase: v => v / 0.0283495 },
+          lb: { name: '磅', toBase: v => v * 0.453592, fromBase: v => v / 0.453592 },
+        }
+      },
+      temperature: {
+        name: '温度',
+        units: {
+          celsius: { name: '摄氏度', toBase: v => v, fromBase: v => v },
+          fahrenheit: { name: '华氏度', toBase: v => (v - 32) * 5/9, fromBase: v => v * 9/5 + 32 },
+          kelvin: { name: '开尔文', toBase: v => v - 273.15, fromBase: v => v + 273.15 },
+        }
+      },
+      area: {
+        name: '面积',
+        units: {
+          m2: { name: '平方米', toBase: v => v, fromBase: v => v },
+          km2: { name: '平方公里', toBase: v => v * 1000000, fromBase: v => v / 1000000 },
+          hectare: { name: '公顷', toBase: v => v * 10000, fromBase: v => v / 10000 },
+          mu: { name: '亩', toBase: v => v * 666.6667, fromBase: v => v / 666.6667 },
+          ft2: { name: '平方英尺', toBase: v => v * 0.092903, fromBase: v => v / 0.092903 },
+          acre: { name: '英亩', toBase: v => v * 4046.856, fromBase: v => v / 4046.856 },
+        }
+      },
+      volume: {
+        name: '体积',
+        units: {
+          ml: { name: '毫升', toBase: v => v / 1000, fromBase: v => v * 1000 },
+          l: { name: '升', toBase: v => v, fromBase: v => v },
+          m3: { name: '立方米', toBase: v => v * 1000, fromBase: v => v / 1000 },
+          gallon: { name: '加仑', toBase: v => v * 3.78541, fromBase: v => v / 3.78541 },
+          pint: { name: '品脱', toBase: v => v * 0.473176, fromBase: v => v / 0.473176 },
+        }
+      },
+      speed: {
+        name: '速度',
+        units: {
+          ms: { name: '米/秒', toBase: v => v, fromBase: v => v },
+          kmh: { name: '千米/时', toBase: v => v / 3.6, fromBase: v => v * 3.6 },
+          mph: { name: '英里/时', toBase: v => v * 0.44704, fromBase: v => v / 0.44704 },
+          knot: { name: '节', toBase: v => v * 0.514444, fromBase: v => v / 0.514444 },
+        }
+      },
+      data: {
+        name: '数据存储',
+        units: {
+          B: { name: '字节', toBase: v => v, fromBase: v => v },
+          KB: { name: 'KB', toBase: v => v * 1024, fromBase: v => v / 1024 },
+          MB: { name: 'MB', toBase: v => v * 1048576, fromBase: v => v / 1048576 },
+          GB: { name: 'GB', toBase: v => v * 1073741824, fromBase: v => v / 1073741824 },
+          TB: { name: 'TB', toBase: v => v * 1099511627776, fromBase: v => v / 1099511627776 },
+        }
+      },
+      time: {
+        name: '时间',
+        units: {
+          sec: { name: '秒', toBase: v => v, fromBase: v => v },
+          min: { name: '分', toBase: v => v * 60, fromBase: v => v / 60 },
+          hour: { name: '时', toBase: v => v * 3600, fromBase: v => v / 3600 },
+          day: { name: '天', toBase: v => v * 86400, fromBase: v => v / 86400 },
+          week: { name: '周', toBase: v => v * 604800, fromBase: v => v / 604800 },
+          month: { name: '月', toBase: v => v * 2629800, fromBase: v => v / 2629800 },
+          year: { name: '年', toBase: v => v * 31557600, fromBase: v => v / 31557600 },
+        }
+      },
+    };
+
+    const categoryKeys = Object.keys(categories);
+    let currentCategory = 'length';
+    let inputUnit = 'm';
+
+    const tabsEl = document.getElementById('tabs');
+    const inputValueEl = document.getElementById('inputValue');
+    const inputUnitEl = document.getElementById('inputUnit');
+    const resultsEl = document.getElementById('results');
+    const swapBtn = document.getElementById('swapBtn');
+
+    function renderTabs() {
+      tabsEl.innerHTML = categoryKeys.map(k => {
+        const activeClass = k === currentCategory ? ' active' : '';
+        return `<span class="tab${activeClass}" data-cat="${k}">${categories[k].name}</span>`;
+      }).join('');
+    }
+
+    function renderUnitSelect() {
+      const units = categories[currentCategory].units;
+      inputUnitEl.innerHTML = Object.entries(units).map(([key, u]) =>
+        `<option value="${key}"${key === inputUnit ? ' selected' : ''}>${u.name}</option>`
+      ).join('');
+    }
+
+    function safeNum(v) {
+      if (!isFinite(v) || isNaN(v)) return '—';
+      if (Math.abs(v) < 1e-10 && v !== 0) return v.toExponential(4);
+      return parseFloat(v.toPrecision(10)).toString();
+    }
+
+    function convert() {
+      const rawVal = parseFloat(inputValueEl.value);
+      const val = isNaN(rawVal) ? 0 : rawVal;
+      const units = categories[currentCategory].units;
+      const baseVal = units[inputUnit].toBase(val);
+      const entries = Object.entries(units);
+
+      resultsEl.innerHTML = entries.map(([key, u]) => {
+        const result = u.fromBase(baseVal);
+        return `<div class="result-item">
+          <span class="result-unit">${u.name}</span>
+          <span class="result-value">${safeNum(result)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function switchCategory(cat) {
+      if (currentCategory === cat) return;
+      currentCategory = cat;
+      inputUnit = Object.keys(categories[cat].units)[0];
+      renderTabs();
+      renderUnitSelect();
+      convert();
+    }
+
+    tabsEl.addEventListener('click', e => {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      switchCategory(tab.dataset.cat);
+    });
+
+    inputUnitEl.addEventListener('change', () => {
+      inputUnit = inputUnitEl.value;
+      convert();
+    });
+
+    inputValueEl.addEventListener('input', convert);
+
+    swapBtn.addEventListener('click', () => {
+      const units = categories[currentCategory].units;
+      const unitKeys = Object.keys(units);
+      const idx = unitKeys.indexOf(inputUnit);
+      const nextIdx = (idx + 1) % unitKeys.length;
+      inputUnit = unitKeys[nextIdx];
+      renderUnitSelect();
+      convert();
+    });
+
+    // Init
+    renderTabs();
+    renderUnitSelect();
+    convert();
+  </script>
+</body>
+</html>

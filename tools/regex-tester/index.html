@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>正则表达式测试器 - Regex Tester</title>
+<style>
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --bg-input: #0d1117;
+    --border: #30363d;
+    --border-focus: #58a6ff;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-tertiary: #6e7681;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --green: #3fb950;
+    --green-bg: rgba(63, 185, 80, 0.15);
+    --red: #f85149;
+    --red-bg: rgba(248, 81, 73, 0.15);
+    --yellow: #d29922;
+    --yellow-bg: rgba(210, 153, 34, 0.15);
+    --purple: #a371f7;
+    --purple-bg: rgba(163, 113, 247, 0.15);
+    --orange: #f0883e;
+    --cyan: #39d2c0;
+    --match-bg-1: rgba(88, 166, 255, 0.35);
+    --match-bg-2: rgba(163, 113, 247, 0.35);
+    --match-border-1: rgba(88, 166, 255, 0.6);
+    --group-bg: rgba(63, 185, 80, 0.25);
+    --radius: 8px;
+    --radius-sm: 6px;
+    --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    --transition: 0.15s ease;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  .app-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .app-header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+  }
+  .app-header .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  .main-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 24px 40px;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto 1fr;
+    gap: 16px;
+  }
+
+  /* Pattern input row */
+  .pattern-section {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pattern-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .pattern-input-wrap {
+    flex: 1;
+    min-width: 280px;
+    position: relative;
+  }
+  .pattern-input-wrap .delimiter {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 16px;
+    pointer-events: none;
+    user-select: none;
+  }
+  #pattern-input {
+    width: 100%;
+    padding: 10px 12px 10px 28px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    outline: none;
+    transition: border var(--transition), box-shadow var(--transition);
+  }
+  #pattern-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+  }
+  #pattern-input.error {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(248, 81, 73, 0.15);
+  }
+  #pattern-input.valid {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.1);
+  }
+
+  /* flags */
+  .flags-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .flag-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-right: 4px;
+    user-select: none;
+  }
+  .flag-btn {
+    padding: 5px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all var(--transition);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .flag-btn:hover { border-color: var(--text-tertiary); color: var(--text-primary); }
+  .flag-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .flag-btn.active:hover { background: var(--accent-hover); }
+
+  /* Error display */
+  .error-display {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--red);
+    background: var(--red-bg);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .error-display.visible { display: flex; }
+  .error-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+
+  /* Quick patterns */
+  .quick-patterns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .quick-btn {
+    padding: 4px 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--font-sans);
+    transition: all var(--transition);
+    white-space: nowrap;
+    user-select: none;
+  }
+  .quick-btn:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* text content area */
+  .text-section { grid-column: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  /* Tab bar */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    transition: all var(--transition);
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Highlight textarea overlay */
+  .highlight-container {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-input);
+    min-height: 200px;
+  }
+  .highlight-container:focus-within {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+  }
+  .highlight-backdrop {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+    color: transparent;
+    pointer-events: none;
+    z-index: 1;
+    border-radius: var(--radius);
+  }
+  .highlight-backdrop mark {
+    background: var(--match-bg-1);
+    border-radius: 2px;
+    color: transparent;
+    border-bottom: 2px solid var(--accent);
+  }
+  .highlight-backdrop mark.group {
+    background: var(--group-bg);
+    border-bottom-color: var(--green);
+  }
+  #test-textarea {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-height: 200px;
+    max-height: 420px;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+    outline: none;
+    resize: vertical;
+    caret-color: var(--accent);
+  }
+  #test-textarea::selection {
+    background: rgba(88, 166, 255, 0.3);
+  }
+
+  /* Replace tab */
+  .replace-panel { display: none; flex-direction: column; gap: 10px; }
+  .replace-panel.visible { display: flex; }
+  .replace-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  #replace-input {
+    flex: 1;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    outline: none;
+    transition: border var(--transition);
+  }
+  #replace-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+  }
+  .btn {
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--bg-tertiary); border-color: var(--text-tertiary); }
+  .btn-primary {
+    background: #238636;
+    border-color: rgba(240, 246, 252, 0.1);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #2ea043; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 14px; }
+  .btn-icon {
+    width: 28px; height: 28px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Results section */
+  .results-section {
+    grid-column: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .results-header {
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .results-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .results-badge {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .results-count-info {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+  }
+  .results-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .no-matches {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 14px;
+  }
+  .match-card {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .match-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition);
+  }
+  .match-card-header:hover { background: var(--bg-tertiary); }
+  .match-card-index {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .match-card-pos {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .match-card-text {
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--match-bg-1);
+    word-break: break-all;
+    border-bottom: 1px solid var(--border);
+  }
+  .match-card-groups {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    display: none;
+  }
+  .match-card.expanded .match-card-groups { display: flex; }
+  .group-item {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .group-label {
+    color: var(--green);
+    font-weight: 600;
+    min-width: 48px;
+    flex-shrink: 0;
+  }
+  .group-value {
+    color: var(--text-secondary);
+    word-break: break-all;
+    background: var(--group-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .group-undefined {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+  .match-card-expand-icon {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    transition: transform 0.2s;
+  }
+  .match-card.expanded .match-card-expand-icon { transform: rotate(180deg); }
+
+  /* Side panel */
+  .side-panel {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel-card-header {
+    padding: 10px 14px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .panel-card-header:hover { color: var(--text-primary); }
+  .panel-card-arrow {
+    font-size: 10px;
+    transition: transform 0.2s;
+    color: var(--text-tertiary);
+  }
+  .panel-card.collapsed .panel-card-arrow { transform: rotate(-90deg); }
+  .panel-card.collapsed .panel-card-body { display: none; }
+  .panel-card-body {
+    padding: 12px 14px;
+    font-size: 13px;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  /* History */
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition);
+    margin-bottom: 2px;
+  }
+  .history-item:hover { background: var(--bg-tertiary); }
+  .history-pattern {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+    word-break: break-all;
+    flex: 1;
+    min-width: 0;
+  }
+  .history-flags {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .history-remove {
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 11px;
+    border: none;
+    background: none;
+  }
+  .history-remove:hover { color: var(--red); }
+  .history-empty {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    padding: 12px 0;
+  }
+
+  /* Cheatsheet */
+  .cheatsheet-section {
+    margin-bottom: 12px;
+  }
+  .cheatsheet-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--purple);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .cheatsheet-item {
+    display: flex;
+    gap: 8px;
+    padding: 3px 0;
+    align-items: baseline;
+    font-size: 12px;
+  }
+  .cheatsheet-pattern {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    min-width: 90px;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: background var(--transition);
+  }
+  .cheatsheet-pattern:hover {
+    background: var(--bg-tertiary);
+  }
+  .cheatsheet-desc {
+    color: var(--text-secondary);
+  }
+
+  /* Copy button */
+  .copy-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all var(--transition);
+  }
+  .copy-btn:hover { color: var(--accent); background: var(--bg-tertiary); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--text-primary);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 1000;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
+    pointer-events: none;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .main-container {
+      grid-template-columns: 1fr;
+      padding: 12px;
+    }
+    .side-panel {
+      grid-column: 1;
+      grid-row: auto;
+    }
+    .results-section { grid-column: 1; }
+    .text-section { grid-column: 1; }
+    .pattern-row { flex-direction: column; align-items: stretch; }
+    .flags-row { justify-content: flex-start; }
+    .quick-patterns { justify-content: flex-start; }
+    .header-actions { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="app-header">
+  <h1>
+    <span class="logo-icon">R</span>
+    正则表达式测试器
+  </h1>
+  <div class="header-actions">
+    <button class="btn btn-sm" onclick="clearAll()" title="清空所有">清空</button>
+  </div>
+</header>
+
+<!-- Main Content -->
+<div class="main-container">
+
+  <!-- Pattern Section -->
+  <section class="pattern-section">
+    <div class="pattern-row">
+      <div class="pattern-input-wrap">
+        <span class="delimiter">/</span>
+        <input type="text" id="pattern-input" placeholder="输入正则表达式..." autocomplete="off" autofocus>
+      </div>
+    </div>
+    <div class="flags-row">
+      <span class="flag-label">标志：</span>
+      <button class="flag-btn active" data-flag="g" onclick="toggleFlag('g')" title="全局匹配">g</button>
+      <button class="flag-btn" data-flag="i" onclick="toggleFlag('i')" title="忽略大小写">i</button>
+      <button class="flag-btn" data-flag="m" onclick="toggleFlag('m')" title="多行模式">m</button>
+      <button class="flag-btn" data-flag="s" onclick="toggleFlag('s')" title="dotAll 模式">s</button>
+      <button class="flag-btn" data-flag="u" onclick="toggleFlag('u')" title="Unicode 模式">u</button>
+    </div>
+    <div class="error-display" id="error-display">
+      <span class="error-icon">&#9888;</span>
+      <span id="error-message"></span>
+    </div>
+    <div class="quick-patterns">
+      <span class="flag-label">快速模式：</span>
+      <button class="quick-btn" onclick="applyQuickPattern('email')">邮箱</button>
+      <button class="quick-btn" onclick="applyQuickPattern('phone_cn')">手机号(中国)</button>
+      <button class="quick-btn" onclick="applyQuickPattern('url')">URL</button>
+      <button class="quick-btn" onclick="applyQuickPattern('id_cn')">身份证(中国)</button>
+      <button class="quick-btn" onclick="applyQuickPattern('ipv4')">IPv4</button>
+      <button class="quick-btn" onclick="applyQuickPattern('date')">日期 YYYY-MM-DD</button>
+      <button class="quick-btn" onclick="applyQuickPattern('hex_color')">十六进制颜色</button>
+      <button class="quick-btn" onclick="applyQuickPattern('chinese')">中文字符</button>
+      <button class="quick-btn" onclick="applyQuickPattern('number')">数字提取</button>
+    </div>
+  </section>
+
+  <!-- Text Section -->
+  <section class="text-section">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-test" onclick="switchTab('test')">匹配测试</button>
+      <button class="tab-btn" id="tab-replace" onclick="switchTab('replace')">替换功能</button>
+    </div>
+
+    <!-- Test Tab -->
+    <div id="panel-test">
+      <label style="font-size:13px; color: var(--text-secondary); margin-bottom: 4px; display: block;">测试文本：</label>
+      <div class="highlight-container" id="highlight-container">
+        <div class="highlight-backdrop" id="highlight-backdrop"></div>
+        <textarea id="test-textarea" placeholder="在此粘贴或输入测试文本...&#10;支持多行文本，匹配结果将高亮显示&#10;每个匹配项将在下方结果面板中展示详细信息" spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <!-- Replace Tab -->
+    <div class="replace-panel" id="panel-replace">
+      <div class="replace-row">
+        <input type="text" id="replace-input" placeholder="替换文本（支持 $1, $2 等反向引用）">
+        <button class="btn btn-primary btn-sm" onclick="doReplace()">执行替换</button>
+        <button class="btn btn-sm" onclick="resetReplace()">重置</button>
+      </div>
+      <div class="replace-row">
+        <button class="btn btn-sm" onclick="copyResult()">复制结果</button>
+        <span style="font-size:12px; color: var(--text-tertiary);" id="replace-count"></span>
+      </div>
+      <div class="highlight-container" style="min-height: 160px;" id="replace-result-container">
+        <div class="highlight-backdrop" id="replace-backdrop"></div>
+        <textarea id="replace-result" placeholder="替换结果将显示在这里..." readonly spellcheck="false"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results Section -->
+  <section class="results-section">
+    <div class="results-header">
+      <h2>匹配结果</h2>
+      <div class="results-count-info">
+        <span id="match-count-badge" class="results-badge">0</span>
+        <span id="exec-time" style="color: var(--text-tertiary);"></span>
+      </div>
+    </div>
+    <div class="results-list" id="results-list">
+      <div class="no-matches">输入正则表达式和测试文本以查看匹配结果</div>
+    </div>
+  </section>
+
+  <!-- Side Panel -->
+  <aside class="side-panel">
+    <!-- History -->
+    <div class="panel-card" id="history-card">
+      <div class="panel-card-header" onclick="togglePanel('history-card')">
+        最近使用
+        <span class="panel-card-arrow">&#9660;</span>
+      </div>
+      <div class="panel-card-body" id="history-list">
+        <div class="history-empty">暂无历史记录</div>
+      </div>
+    </div>
+
+    <!-- Cheatsheet -->
+    <div class="panel-card" id="cheatsheet-card">
+      <div class="panel-card-header" onclick="togglePanel('cheatsheet-card')">
+        速查表
+        <span class="panel-card-arrow">&#9660;</span>
+      </div>
+      <div class="panel-card-body">
+        <div class="cheatsheet-section">
+          <h4>字符类</h4>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\d')">\d</span><span class="cheatsheet-desc">数字 [0-9]</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\D')">\D</span><span class="cheatsheet-desc">非数字</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\w')">\w</span><span class="cheatsheet-desc">单词字符 [a-zA-Z0-9_]</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\W')">\W</span><span class="cheatsheet-desc">非单词字符</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\s')">\s</span><span class="cheatsheet-desc">空白字符</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\S')">\S</span><span class="cheatsheet-desc">非空白字符</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('.')">.</span><span class="cheatsheet-desc">任意字符（除换行）</span></div>
+        </div>
+        <div class="cheatsheet-section">
+          <h4>量词</h4>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('*')">*</span><span class="cheatsheet-desc">0 次或多次</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('+')">+</span><span class="cheatsheet-desc">1 次或多次</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('?')">?</span><span class="cheatsheet-desc">0 次或 1 次</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('{n}')">{n}</span><span class="cheatsheet-desc">恰好 n 次</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('{n,}')">{n,}</span><span class="cheatsheet-desc">至少 n 次</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('{n,m}')">{n,m}</span><span class="cheatsheet-desc">n 到 m 次</span></div>
+        </div>
+        <div class="cheatsheet-section">
+          <h4>锚点与边界</h4>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('^')">^</span><span class="cheatsheet-desc">行首</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('$')">$</span><span class="cheatsheet-desc">行尾</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\b')">\b</span><span class="cheatsheet-desc">单词边界</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\B')">\B</span><span class="cheatsheet-desc">非单词边界</span></div>
+        </div>
+        <div class="cheatsheet-section">
+          <h4>分组与引用</h4>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('( )')">( )</span><span class="cheatsheet-desc">捕获组</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('(?: )')">(?: )</span><span class="cheatsheet-desc">非捕获组</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('(?<name> )')">(?&lt;name&gt; )</span><span class="cheatsheet-desc">命名捕获组</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('|')">|</span><span class="cheatsheet-desc">或（交替）</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('\\1')">\1</span><span class="cheatsheet-desc">反向引用第 1 组</span></div>
+        </div>
+        <div class="cheatsheet-section">
+          <h4>断言</h4>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('(?= )')">(?= )</span><span class="cheatsheet-desc">正向前瞻</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('(?! )')">(?! )</span><span class="cheatsheet-desc">负向前瞻</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('(?<= )')">(?&lt;= )</span><span class="cheatsheet-desc">正向后顾</span></div>
+          <div class="cheatsheet-item"><span class="cheatsheet-pattern" onclick="insertPattern('(?<! )')">(?&lt;! )</span><span class="cheatsheet-desc">负向后顾</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// === State ===
+const state = {
+  pattern: '',
+  flags: { g: true, i: false, m: false, s: false, u: false },
+  testText: '',
+  activeTab: 'test',
+  regex: null,
+  isValid: false,
+  errorMsg: '',
+  matches: [],
+  history: [],
+};
+
+// === DOM References ===
+const $patternInput = document.getElementById('pattern-input');
+const $testTextarea = document.getElementById('test-textarea');
+const $highlightBackdrop = document.getElementById('highlight-backdrop');
+const $highlightContainer = document.getElementById('highlight-container');
+const $errorDisplay = document.getElementById('error-display');
+const $errorMessage = document.getElementById('error-message');
+const $resultsList = document.getElementById('results-list');
+const $matchCountBadge = document.getElementById('match-count-badge');
+const $execTime = document.getElementById('exec-time');
+const $replaceInput = document.getElementById('replace-input');
+const $replaceResult = document.getElementById('replace-result');
+const $replaceBackdrop = document.getElementById('replace-backdrop');
+const $replaceCount = document.getElementById('replace-count');
+const $historyList = document.getElementById('history-list');
+
+// === Init ===
+function init() {
+  loadHistory();
+  loadStateFromURL();
+  bindEvents();
+  updateAll();
+  renderHistory();
+}
+
+function loadStateFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('p')) {
+    state.pattern = params.get('p');
+    $patternInput.value = state.pattern;
+  }
+  if (params.has('f')) {
+    const f = params.get('f');
+    state.flags.g = f.includes('g');
+    state.flags.i = f.includes('i');
+    state.flags.m = f.includes('m');
+    state.flags.s = f.includes('s');
+    state.flags.u = f.includes('u');
+    updateFlagButtons();
+  }
+  if (params.has('t')) {
+    state.testText = params.get('t');
+    $testTextarea.value = state.testText;
+  }
+}
+
+function saveStateToURL() {
+  const params = new URLSearchParams();
+  if (state.pattern) params.set('p', state.pattern);
+  const f = getFlagsString();
+  if (f) params.set('f', f);
+  if (state.testText) params.set('t', state.testText);
+  const newUrl = params.toString() ? '?' + params.toString() : window.location.pathname;
+  window.history.replaceState(null, '', newUrl);
+}
+
+// === Flags ===
+function getFlagsString() {
+  let s = '';
+  if (state.flags.g) s += 'g';
+  if (state.flags.i) s += 'i';
+  if (state.flags.m) s += 'm';
+  if (state.flags.s) s += 's';
+  if (state.flags.u) s += 'u';
+  return s;
+}
+
+function toggleFlag(flag) {
+  state.flags[flag] = !state.flags[flag];
+  updateFlagButtons();
+  updateAll();
+}
+
+function updateFlagButtons() {
+  document.querySelectorAll('.flag-btn').forEach(btn => {
+    const f = btn.dataset.flag;
+    if (state.flags[f]) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+}
+
+// === Tabs ===
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.getElementById('tab-test').classList.toggle('active', tab === 'test');
+  document.getElementById('tab-replace').classList.toggle('active', tab === 'replace');
+  document.getElementById('panel-test').style.display = tab === 'test' ? 'block' : 'none';
+  document.getElementById('panel-replace').classList.toggle('visible', tab === 'replace');
+}
+
+// === Events ===
+function bindEvents() {
+  $patternInput.addEventListener('input', (e) => {
+    state.pattern = e.target.value;
+    updateAll();
+  });
+
+  $testTextarea.addEventListener('input', (e) => {
+    state.testText = e.target.value;
+    updateAll();
+  });
+
+  $testTextarea.addEventListener('scroll', () => {
+    syncScroll($testTextarea, $highlightBackdrop);
+  });
+
+  // Sync textarea size with backdrop for highlight overlay
+  $testTextarea.addEventListener('keydown', () => {
+    requestAnimationFrame(() => syncScroll($testTextarea, $highlightBackdrop));
+  });
+}
+
+function syncScroll(source, target) {
+  target.scrollTop = source.scrollTop;
+  target.scrollLeft = source.scrollLeft;
+}
+
+// === Regex Compilation ===
+function compileRegex() {
+  if (!state.pattern) {
+    state.regex = null;
+    state.isValid = true;
+    state.errorMsg = '';
+    state.matches = [];
+    return;
+  }
+  try {
+    const flags = getFlagsString();
+    state.regex = new RegExp(state.pattern, flags);
+    state.isValid = true;
+    state.errorMsg = '';
+  } catch (e) {
+    state.regex = null;
+    state.isValid = false;
+    state.errorMsg = e.message;
+    state.matches = [];
+  }
+}
+
+// === Match Execution ===
+function executeMatches() {
+  state.matches = [];
+  if (!state.regex || !state.testText) return;
+
+  const startTime = performance.now();
+
+  if (state.flags.g) {
+    // Global match - find all
+    const matches = [];
+    let match;
+    // Reset lastIndex
+    state.regex.lastIndex = 0;
+    while ((match = state.regex.exec(state.testText)) !== null) {
+      const groups = [];
+      for (let i = 0; i < match.length; i++) {
+        groups.push({
+          index: i,
+          value: match[i],
+          start: i === 0 ? match.index : undefined,
+        });
+      }
+      // Add named groups
+      if (match.groups) {
+        for (const [name, value] of Object.entries(match.groups)) {
+          groups.push({ index: name, value: value, isNamed: true });
+        }
+      }
+      matches.push({
+        index: matches.length,
+        text: match[0],
+        position: match.index,
+        length: match[0].length,
+        groups: groups,
+      });
+      if (match[0].length === 0) {
+        // Avoid infinite loop on zero-length matches
+        state.regex.lastIndex++;
+        if (state.regex.lastIndex > state.testText.length) break;
+      }
+    }
+    state.matches = matches;
+  } else {
+    // Single match
+    const match = state.regex.exec(state.testText);
+    if (match) {
+      const groups = [];
+      for (let i = 0; i < match.length; i++) {
+        groups.push({
+          index: i,
+          value: match[i],
+          start: i === 0 ? match.index : undefined,
+        });
+      }
+      if (match.groups) {
+        for (const [name, value] of Object.entries(match.groups)) {
+          groups.push({ index: name, value: value, isNamed: true });
+        }
+      }
+      state.matches = [{
+        index: 0,
+        text: match[0],
+        position: match.index,
+        length: match[0].length,
+        groups: groups,
+      }];
+    }
+  }
+
+  const endTime = performance.now();
+  state.execTime = (endTime - startTime).toFixed(2);
+}
+
+// === Highlight Backdrop ===
+function updateHighlight() {
+  if (!state.testText) {
+    $highlightBackdrop.innerHTML = '';
+    return;
+  }
+
+  if (!state.regex || !state.isValid || state.matches.length === 0) {
+    // No matches, show plain text (escaped)
+    $highlightBackdrop.innerHTML = escapeHtml(state.testText);
+    return;
+  }
+
+  // Build highlighted HTML
+  // We need to handle overlapping matches by marking regions
+  const markers = [];
+  for (const m of state.matches) {
+    markers.push({ start: m.position, end: m.position + m.length, type: 'match', text: m.text });
+    // Mark groups within matches
+    for (const g of m.groups) {
+      if (g.isNamed || g.index === 0) continue;
+      if (g.value === undefined) continue;
+      // We can't easily get group positions from JS regex API unfortunately
+      // So we'll just highlight the full match
+    }
+  }
+
+  // Sort markers and merge overlapping
+  markers.sort((a, b) => a.start - b.start || a.end - b.end);
+
+  let html = '';
+  let lastPos = 0;
+
+  for (const marker of markers) {
+    if (marker.start < lastPos) continue; // Skip overlapping (keep first)
+    // Add text before this marker
+    html += escapeHtml(state.testText.slice(lastPos, marker.start));
+    // Add highlighted match
+    html += '<mark>' + escapeHtml(state.testText.slice(marker.start, marker.end)) + '</mark>';
+    lastPos = marker.end;
+  }
+  // Add remaining text
+  html += escapeHtml(state.testText.slice(lastPos));
+
+  $highlightBackdrop.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// === Update Results Panel ===
+function updateResults() {
+  // Update badge
+  $matchCountBadge.textContent = state.matches.length;
+  if (state.execTime !== undefined) {
+    $execTime.textContent = state.execTime + 'ms';
+  } else {
+    $execTime.textContent = '';
+  }
+
+  if (!state.pattern && !state.testText) {
+    $resultsList.innerHTML = '<div class="no-matches">输入正则表达式和测试文本以查看匹配结果</div>';
+    return;
+  }
+  if (!state.isValid) {
+    $resultsList.innerHTML = '<div class="no-matches">正则表达式无效，请修正错误</div>';
+    return;
+  }
+  if (!state.pattern) {
+    $resultsList.innerHTML = '<div class="no-matches">请输入正则表达式</div>';
+    return;
+  }
+  if (!state.testText) {
+    $resultsList.innerHTML = '<div class="no-matches">请输入测试文本</div>';
+    return;
+  }
+  if (state.matches.length === 0) {
+    $resultsList.innerHTML = '<div class="no-matches">没有找到匹配项</div>';
+    return;
+  }
+
+  let html = '';
+  for (const m of state.matches) {
+    html += `
+      <div class="match-card" id="match-${m.index}">
+        <div class="match-card-header" onclick="toggleMatchCard(${m.index})">
+          <span class="match-card-index">匹配 #${m.index + 1}</span>
+          <span class="match-card-pos">位置 ${m.position} | 长度 ${m.length}</span>
+          <span class="match-card-expand-icon">&#9660;</span>
+        </div>
+        <div class="match-card-text">${escapeHtml(m.text)}</div>
+        <div class="match-card-groups">
+    `;
+    // Show groups (skip index 0 which is the full match)
+    const namedGroups = m.groups.filter(g => g.isNamed);
+    const numberedGroups = m.groups.filter(g => !g.isNamed && g.index > 0);
+
+    if (numberedGroups.length === 0 && namedGroups.length === 0) {
+      html += '<span class="group-undefined" style="padding:4px 0;">无捕获组</span>';
+    } else {
+      for (const g of numberedGroups) {
+        if (g.value !== undefined) {
+          html += `<div class="group-item"><span class="group-label">$${g.index}</span><span class="group-value">${escapeHtml(g.value)}</span></div>`;
+        } else {
+          html += `<div class="group-item"><span class="group-label">$${g.index}</span><span class="group-undefined">(未参与匹配)</span></div>`;
+        }
+      }
+      for (const g of namedGroups) {
+        if (g.value !== undefined) {
+          html += `<div class="group-item"><span class="group-label">&lt;${escapeHtml(String(g.index))}&gt;</span><span class="group-value">${escapeHtml(g.value)}</span></div>`;
+        } else {
+          html += `<div class="group-item"><span class="group-label">&lt;${escapeHtml(String(g.index))}&gt;</span><span class="group-undefined">(未参与匹配)</span></div>`;
+        }
+      }
+    }
+    html += '</div></div>';
+  }
+  $resultsList.innerHTML = html;
+}
+
+function toggleMatchCard(index) {
+  const card = document.getElementById('match-' + index);
+  if (card) {
+    card.classList.toggle('expanded');
+  }
+}
+
+// === Error Display ===
+function updateErrorDisplay() {
+  if (!state.isValid && state.pattern) {
+    $errorDisplay.classList.add('visible');
+    $errorMessage.textContent = state.errorMsg;
+    $patternInput.classList.add('error');
+    $patternInput.classList.remove('valid');
+  } else if (state.isValid && state.pattern) {
+    $errorDisplay.classList.remove('visible');
+    $errorMessage.textContent = '';
+    $patternInput.classList.remove('error');
+    $patternInput.classList.add('valid');
+  } else {
+    $errorDisplay.classList.remove('visible');
+    $errorMessage.textContent = '';
+    $patternInput.classList.remove('error');
+    $patternInput.classList.remove('valid');
+  }
+}
+
+// === Replace ===
+function doReplace() {
+  if (!state.regex || !state.isValid) {
+    showToast('正则表达式无效');
+    return;
+  }
+  const replacement = $replaceInput.value;
+  const result = state.testText.replace(state.regex, replacement);
+  $replaceResult.value = result;
+  $replaceBackdrop.textContent = result;
+  const count = state.testText.split(state.regex).length - 1;
+  $replaceCount.textContent = '共替换 ' + (count >= 0 ? count : 0) + ' 处';
+}
+
+function resetReplace() {
+  $replaceResult.value = state.testText;
+  $replaceBackdrop.textContent = state.testText;
+  $replaceCount.textContent = '';
+}
+
+function copyResult() {
+  const text = $replaceResult.value;
+  if (!text) { showToast('没有可复制的内容'); return; }
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制到剪贴板');
+  }).catch(() => {
+    showToast('复制失败');
+  });
+}
+
+// === History ===
+function saveToHistory() {
+  if (!state.pattern) return;
+  // Remove duplicate
+  state.history = state.history.filter(h => h.pattern !== state.pattern || h.flags !== getFlagsString());
+  state.history.unshift({ pattern: state.pattern, flags: getFlagsString(), time: Date.now() });
+  // Keep max 30
+  if (state.history.length > 30) state.history = state.history.slice(0, 30);
+  localStorage.setItem('regex-tester-history', JSON.stringify(state.history));
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem('regex-tester-history');
+    if (raw) state.history = JSON.parse(raw);
+  } catch (e) {
+    state.history = [];
+  }
+}
+
+function renderHistory() {
+  if (state.history.length === 0) {
+    $historyList.innerHTML = '<div class="history-empty">暂无历史记录</div>';
+    return;
+  }
+  let html = '';
+  for (const h of state.history) {
+    html += `
+      <div class="history-item">
+        <span class="history-pattern" onclick="loadFromHistory('${escapeAttr(h.pattern)}', '${escapeAttr(h.flags)}')" title="${escapeHtml(h.pattern)}">${escapeHtml(h.pattern)}</span>
+        <span class="history-flags">${h.flags || '(无标志)'}</span>
+        <button class="history-remove" onclick="event.stopPropagation(); removeHistory('${escapeAttr(h.pattern)}', '${escapeAttr(h.flags)}')" title="删除">&#10005;</button>
+      </div>`;
+  }
+  $historyList.innerHTML = html;
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function loadFromHistory(pattern, flags) {
+  state.pattern = pattern;
+  $patternInput.value = pattern;
+  state.flags.g = flags.includes('g');
+  state.flags.i = flags.includes('i');
+  state.flags.m = flags.includes('m');
+  state.flags.s = flags.includes('s');
+  state.flags.u = flags.includes('u');
+  updateFlagButtons();
+  updateAll();
+}
+
+function removeHistory(pattern, flags) {
+  state.history = state.history.filter(h => !(h.pattern === pattern && h.flags === flags));
+  localStorage.setItem('regex-tester-history', JSON.stringify(state.history));
+  renderHistory();
+}
+
+// === Quick Patterns ===
+function applyQuickPattern(type) {
+  const patterns = {
+    email: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+    phone_cn: '^1[3-9]\\d{9}$',
+    url: '^https?://[\\w.-]+(:\\d+)?(/[\\w./%-]*)?(\\?[\\w=&%-]*)?(#\\w*)?$',
+    id_cn: '^[1-9]\\d{5}(19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])\\d{3}[\\dXx]$',
+    ipv4: '^((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]?\\d)$',
+    date: '^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$',
+    hex_color: '^#([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$',
+    chinese: '[\\u4e00-\\u9fff]+',
+    number: '-?\\d+\\.?\\d*',
+  };
+  const pattern = patterns[type];
+  if (pattern) {
+    state.pattern = pattern;
+    $patternInput.value = pattern;
+    updateAll();
+  }
+}
+
+// === Cheatsheet Pattern Click ===
+function insertPattern(pattern) {
+  const input = $patternInput;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const current = state.pattern;
+  const newPattern = current.slice(0, start) + pattern + current.slice(end);
+  state.pattern = newPattern;
+  $patternInput.value = newPattern;
+  // Set cursor position after inserted pattern
+  const newPos = start + pattern.length;
+  input.setSelectionRange(newPos, newPos);
+  input.focus();
+  updateAll();
+}
+
+// === Panels ===
+function togglePanel(cardId) {
+  const card = document.getElementById(cardId);
+  card.classList.toggle('collapsed');
+}
+
+// === Toast ===
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.getElementById('toast-container').appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) toast.parentNode.removeChild(toast);
+  }, 2000);
+}
+
+// === Clear ===
+function clearAll() {
+  state.pattern = '';
+  state.flags = { g: true, i: false, m: false, s: false, u: false };
+  state.testText = '';
+  state.matches = [];
+  state.regex = null;
+  state.isValid = true;
+  state.errorMsg = '';
+  $patternInput.value = '';
+  $testTextarea.value = '';
+  $patternInput.classList.remove('error', 'valid');
+  updateFlagButtons();
+  updateAll();
+  showToast('已清空');
+}
+
+// === Main Update ===
+function updateAll() {
+  compileRegex();
+  executeMatches();
+  updateErrorDisplay();
+  updateHighlight();
+  updateResults();
+  saveStateToURL();
+  // Save to history on valid pattern
+  if (state.isValid && state.pattern.length > 0) {
+    // Debounce save
+    clearTimeout(updateAll._saveTimeout);
+    updateAll._saveTimeout = setTimeout(() => {
+      saveToHistory();
+      renderHistory();
+    }, 500);
+  }
+}
+
+// === Keyboard shortcuts ===
+document.addEventListener('keydown', (e) => {
+  // Ctrl+Enter to focus pattern input
+  if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+    e.preventDefault();
+    $patternInput.focus();
+  }
+  // Ctrl+Shift+F to focus test textarea
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+    e.preventDefault();
+    $testTextarea.focus();
+  }
+});
+
+// === Initialize ===
+init();
+
+// Set some default demo content
+if (!state.pattern && !state.testText) {
+  state.pattern = '(\\w+)@(\\w+\\.\\w+)';
+  state.flags = { g: true, i: true, m: false, s: false, u: false };
+  $patternInput.value = state.pattern;
+  updateFlagButtons();
+  state.testText = `联系邮箱列表：
+张三 zhangsan@example.com
+李四 lisi@company.cn
+王五 wangwu@test.org
+小明 xm123@school.edu.cn
+支持格式：user@domain.com
+
+其他联系方式：
+电话：13812345678
+网址：https://www.example.com
+日期：2023-12-25
+IP：192.168.1.100
+颜色：#FF5733`;
+  $testTextarea.value = state.testText;
+  updateAll();
+}
+</script>
+
+</body>
+</html>

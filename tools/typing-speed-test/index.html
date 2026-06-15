@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>⌨️ 打字速度测试</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5;
+  --surface:#fff;
+  --text:#1a1a2e;
+  --text-secondary:#6b7280;
+  --border:#e5e7eb;
+  --accent:#6366f1;
+  --accent-hover:#4f46e5;
+  --success:#10b981;
+  --error:#ef4444;
+  --error-bg:#fef2f2;
+  --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+  --radius:12px;
+  --cursor-color:#6366f1;
+  --char-untouched:#9ca3af;
+  --char-correct:#10b981;
+  --char-wrong:#ef4444;
+  --char-current-bg:rgba(99,102,241,.15);
+  --transition:.2s ease;
+}
+[data-theme="dark"]{
+  --bg:#0f172a;
+  --surface:#1e293b;
+  --text:#e2e8f0;
+  --text-secondary:#94a3b8;
+  --border:#334155;
+  --accent:#818cf8;
+  --accent-hover:#6366f1;
+  --success:#34d399;
+  --error:#f87171;
+  --error-bg:#451a1a;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+  --char-untouched:#64748b;
+  --char-correct:#34d399;
+  --char-wrong:#f87171;
+  --char-current-bg:rgba(129,140,248,.2);
+}
+html{font-size:16px}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:16px;
+  transition:background var(--transition),color var(--transition);
+}
+.container{width:100%;max-width:800px}
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:20px;
+  flex-wrap:wrap;
+  gap:12px;
+}
+h1{font-size:1.5rem;font-weight:700;white-space:nowrap}
+.theme-toggle{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:50%;
+  width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  font-size:1.2rem;
+  transition:all var(--transition);
+  box-shadow:var(--shadow);
+  color:var(--text);
+}
+.theme-toggle:hover{transform:scale(1.05)}
+.stats-bar{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-bottom:16px;
+}
+@media(max-width:500px){
+  .stats-bar{grid-template-columns:repeat(2,1fr)}
+  h1{font-size:1.2rem}
+}
+.stat-card{
+  background:var(--surface);
+  border-radius:var(--radius);
+  padding:14px 12px;
+  text-align:center;
+  box-shadow:var(--shadow);
+  border:1px solid var(--border);
+  transition:all var(--transition);
+}
+.stat-value{font-size:1.6rem;font-weight:700;line-height:1.2}
+.stat-label{font-size:.75rem;color:var(--text-secondary);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.text-display{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  margin-bottom:12px;
+  box-shadow:var(--shadow);
+  min-height:120px;
+  font-size:1.25rem;
+  line-height:2.2;
+  letter-spacing:.5px;
+  position:relative;
+  overflow:hidden;
+  transition:all var(--transition);
+}
+.text-display.focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.char{
+  position:relative;
+  display:inline;
+  transition:color .15s ease,background .15s ease;
+}
+.char.correct{color:var(--char-correct)}
+.char.wrong{color:var(--char-wrong);background:var(--error-bg);border-radius:2px}
+.char.untouched{color:var(--char-untouched)}
+.char.current{
+  background:var(--char-current-bg);
+  border-radius:2px;
+  animation:cursor-blink 1s infinite;
+}
+@keyframes cursor-blink{0%,100%{box-shadow:inset 0 -3px 0 var(--accent)}50%{box-shadow:inset 0 -3px 0 transparent}}
+.textarea-wrapper{position:relative}
+#typing-input{
+  width:100%;
+  border:2px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  font-size:1.1rem;
+  font-family:inherit;
+  background:var(--surface);
+  color:var(--text);
+  resize:none;
+  min-height:80px;
+  outline:none;
+  transition:border var(--transition),box-shadow var(--transition);
+  line-height:1.7;
+}
+#typing-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+#typing-input::placeholder{color:var(--text-secondary)}
+.controls{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+.btn{
+  padding:10px 20px;
+  border-radius:8px;
+  border:none;
+  font-size:.9rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all var(--transition);
+  font-family:inherit;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.language-btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.lang-btn{
+  padding:6px 14px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text-secondary);
+  font-size:.8rem;
+  cursor:pointer;
+  transition:all var(--transition);
+  font-family:inherit;
+}
+.lang-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.lang-btn:hover:not(.active){background:var(--border)}
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:100;
+  padding:20px;
+  animation:fadeIn .3s ease;
+  backdrop-filter:blur(4px);
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--surface);
+  border-radius:var(--radius);
+  padding:32px 28px;
+  max-width:440px;
+  width:100%;
+  text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+  animation:slideUp .3s ease;
+  border:1px solid var(--border);
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal h2{font-size:1.8rem;margin-bottom:8px}
+.modal .big-emoji{font-size:4rem;margin:12px 0}
+.result-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin:20px 0;
+}
+.result-item{
+  background:var(--bg);
+  border-radius:8px;
+  padding:14px 10px;
+}
+.result-item .rv{font-size:1.4rem;font-weight:700}
+.result-item .rl{font-size:.75rem;color:var(--text-secondary);margin-top:2px}
+.rating-large{font-size:1.5rem;margin:8px 0 16px;font-weight:600}
+.best-record{
+  margin:16px 0;
+  padding:12px;
+  background:var(--bg);
+  border-radius:8px;
+  font-size:.85rem;
+  color:var(--text-secondary);
+}
+.best-record span{color:var(--accent);font-weight:600}
+.hidden{display:none!important}
+.progress-bar{
+  height:4px;
+  background:var(--border);
+  border-radius:2px;
+  margin-top:8px;
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  background:var(--accent);
+  border-radius:2px;
+  transition:width .3s ease;
+  width:0;
+}
+</style>
+</head>
+<body data-theme="light">
+<div class="container">
+  <header>
+    <h1>⌨️ 打字速度测试</h1>
+    <button class="theme-toggle" id="themeToggle" title="切换暗色模式" aria-label="切换暗色模式">🌙</button>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-value" id="wpmDisplay">0</div>
+      <div class="stat-label">字/分钟</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="accuracyDisplay">100%</div>
+      <div class="stat-label">准确率</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="timeDisplay">0:00</div>
+      <div class="stat-label">用时</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="progressDisplay">0%</div>
+      <div class="stat-label">进度</div>
+    </div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="text-display" id="textDisplay"></div>
+
+  <div class="controls">
+    <button class="btn btn-primary" id="retryBtn">🔄 换一篇</button>
+    <button class="btn btn-primary" id="restartBtn">↺ 重新开始</button>
+    <button class="btn btn-secondary" id="historyBtn">🏆 历史最佳</button>
+  </div>
+
+  <div class="language-btns">
+    <button class="lang-btn active" data-lang="chinese">中文</button>
+    <button class="lang-btn" data-lang="english">English</button>
+  </div>
+
+  <div class="textarea-wrapper">
+    <textarea id="typing-input" placeholder="在此输入，开始计时..." rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="resultModal">
+  <div class="modal">
+    <div id="resultContent"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="historyModal">
+  <div class="modal" id="historyContent"></div>
+</div>
+
+<script>
+(function(){
+  const CHINESE_TEXTS = [
+    "春天的脚步悄无声息地走近了大地，万物复苏，生机勃勃。柳树抽出了嫩绿的新芽，在微风中轻轻摇曳。桃花、杏花竞相开放，把山坡点缀得五彩缤纷。小溪解冻了，欢快地唱着歌向远方流去。燕子从南方飞回来了，在蓝天下自由地翱翔。",
+    "人工智能技术正在深刻改变我们的生活方式。从智能手机上的语音助手到自动驾驶汽车，从医疗诊断到金融分析，人工智能已经渗透到各个领域。机器学习算法能够从海量数据中发现规律，做出预测和决策。未来，随着技术的不断进步，人工智能将为人类带来更多便利和可能性。",
+    "秋天是一个收获的季节，金黄色的稻穗在阳光下闪闪发光。农民们忙碌地在田间劳作，脸上洋溢着丰收的喜悦。果园里，红彤彤的苹果挂满枝头，香甜的梨子压弯了树枝。秋风送爽，落叶纷飞，给大地铺上了一层金色的地毯。",
+    "阅读是人类获取知识的重要途径。一本好书就像一位智慧的导师，能够启迪我们的思想，丰富我们的心灵。每天抽出一点时间阅读，日积月累，你会发现自己的视野变得更加开阔，思维变得更加敏捷。无论是文学经典还是科普读物，都能给我们带来不同的收获。",
+    "健康是人生最宝贵的财富。保持良好的生活习惯，合理饮食，适度运动，充足睡眠，这些看似简单的事情，坚持下来却并不容易。每天早晨起床后喝一杯温水，饭后散步半小时，晚上十一点前入睡，这些小小的改变，长期坚持，会让你的身体更加健康。",
+    "宇宙浩瀚无垠，充满了无数的奥秘等待人类去探索。从伽利略第一次将望远镜指向夜空，到如今詹姆斯韦伯太空望远镜传回遥远星系的清晰图像，人类对宇宙的认知不断深入。我们生活在银河系中一颗普通的恒星周围，但这并不妨碍我们怀揣着探索星辰大海的梦想。",
+    "音乐是人类共同的语言，它能够跨越国界和文化的障碍，直达人心。优美的旋律可以抚慰伤痛，激昂的节奏可以振奋精神。无论是古典音乐的高雅深沉，还是流行音乐的轻松明快，每一种音乐形式都有其独特的魅力。学会欣赏不同类型的音乐，会让生活更加丰富多彩。",
+    "梦想是照亮人生的灯塔，指引着我们前进的方向。每个人的心中都有一个或大或小的梦想，它可能是环游世界，可能是创办自己的公司，也可能是学会一门乐器。无论梦想是什么，重要的是要勇敢地迈出第一步，并坚持不懈地努力。只有行动才能把梦想变为现实。",
+    "友谊是人生旅途中最温暖的陪伴。真正的朋友会在你困难时伸出援手，在你迷茫时给予建议，在你成功时真心为你高兴。朋友之间的信任和理解，是经过时间考验的珍贵情感。珍惜身边的朋友，用心经营每一段友谊，生活会因此变得更加美好。",
+    "科技的发展日新月异，每隔几年就会有一次重大的技术突破。从互联网的普及到移动支付的广泛应用，从电动车的兴起到太空旅游的实现，科技正在以前所未有的速度改变世界。我们要保持学习的热情，跟上时代的步伐，才能在未来立于不败之地。",
+    "耐心是一种难得的品质。在这个快节奏的时代，我们总是希望事情能够立竿见影，但很多事情需要时间的沉淀和积累。就像种一棵树，从播种到长成参天大树，需要经历无数个日日夜夜。学会耐心等待，享受过程，你会发现沿途的风景同样美丽。",
+    "幸福不在于拥有多少财富，而在于内心的满足和平静。清晨的第一缕阳光，午后的一杯清茶，傍晚与家人的散步，这些都是生活中最简单却最真实的幸福。学会感恩，珍惜当下，你会发现幸福其实一直都在身边。",
+    "学习一门新语言，就像是打开了一扇通往新世界的窗户。你不仅能够与更多人交流，还能深入了解不同的文化和思维方式。虽然学习的过程可能会遇到困难，但每一次进步都会带来满满的成就感。只要保持兴趣和毅力，你一定能够掌握它。",
+    "自然界充满了神奇的现象，从极光的绚丽多彩到萤火虫的点点微光，从火山爆发的壮观到珊瑚礁的缤纷，每一种自然景观都令人叹为观止。我们应该珍惜和保护这个美丽的地球，让子孙后代也能欣赏到大自然的鬼斧神工。",
+    "时间是最公平的，每个人每天都只有二十四小时。如何利用好这些时间，决定了我们人生的高度。善于规划时间的人，总能在忙碌中找到平衡，既完成工作，又享受生活。不要把时间浪费在无意义的事情上，把每一分每一秒都用在值得的地方。"
+  ];
+
+  const ENGLISH_TEXTS = [
+    "The quick brown fox jumps over the lazy dog. This pangram contains every letter of the English alphabet at least once. It has been used for testing typewriters and keyboards since the late nineteenth century, making it one of the most famous sentences in the English language.",
+    "Technology has transformed the way we communicate with each other. From sending letters that took days to arrive, to instant messaging that connects people across the globe in milliseconds, the evolution of communication has been remarkable. Smartphones have become an essential part of our daily lives.",
+    "Reading is to the mind what exercise is to the body. It strengthens our cognitive abilities, expands our vocabulary, and enhances our understanding of the world. A good book can transport us to different times and places, introducing us to characters and ideas that stay with us forever.",
+    "The ocean covers more than seventy percent of the Earth's surface, yet we have explored less than twenty percent of it. Deep beneath the waves lies a mysterious world filled with creatures that seem to come from another planet. There is still so much to discover about our own blue planet.",
+    "Success is not final, failure is not fatal. It is the courage to continue that counts. Every great achievement in history was preceded by countless setbacks and challenges. What separates those who succeed from those who give up is simply the determination to keep moving forward.",
+    "Nature has a way of calming the mind and restoring the spirit. A walk through a forest, the sound of waves crashing on the shore, or simply sitting in a garden can reduce stress and improve mental health. We should make time to connect with nature regularly.",
+    "Music speaks what cannot be expressed, soothes the mind and gives it rest, heals the heart and makes it whole, flows from heaven to the soul. Whether you prefer classical symphonies or modern pop songs, music has the power to change your mood instantly.",
+    "Learning never exhausts the mind. In fact, it energizes and stimulates our brain, keeping it active and healthy. Every new skill we acquire, every new concept we understand, adds to the richness of our lives. The day we stop learning is the day we stop growing.",
+    "A journey of a thousand miles begins with a single step. This ancient Chinese proverb reminds us that no matter how daunting a task may seem, it can be accomplished by taking the first step and continuing one step at a time with patience and perseverance.",
+    "The greatest glory in living lies not in never falling, but in rising every time we fall. Life is full of challenges and obstacles, but each difficulty we overcome makes us stronger and wiser. Embrace the struggles, for they shape who you become."
+  ];
+
+  const el={
+    textDisplay: document.getElementById('textDisplay'),
+    typingInput: document.getElementById('typing-input'),
+    wpmDisplay: document.getElementById('wpmDisplay'),
+    accuracyDisplay: document.getElementById('accuracyDisplay'),
+    timeDisplay: document.getElementById('timeDisplay'),
+    progressDisplay: document.getElementById('progressDisplay'),
+    progressFill: document.getElementById('progressFill'),
+    retryBtn: document.getElementById('retryBtn'),
+    restartBtn: document.getElementById('restartBtn'),
+    historyBtn: document.getElementById('historyBtn'),
+    resultModal: document.getElementById('resultModal'),
+    resultContent: document.getElementById('resultContent'),
+    historyModal: document.getElementById('historyModal'),
+    historyContent: document.getElementById('historyContent'),
+    themeToggle: document.getElementById('themeToggle')
+  };
+
+  let state={
+    text:'',
+    textChars:[],
+    lang:'chinese',
+    currentPos:0,
+    totalTyped:0,
+    correctTyped:0,
+    startTime:null,
+    timerInterval:null,
+    finished:false,
+    elapsed:0
+  };
+
+  function getBestRecord(lang){
+    try{return JSON.parse(localStorage.getItem('typing_best_'+lang))||null}catch(e){return null}
+  }
+  function saveBestRecord(lang,record){
+    try{localStorage.setItem('typing_best_'+lang,JSON.stringify(record))}catch(e){}
+  }
+
+  function pickText(){
+    const arr=state.lang==='chinese'?CHINESE_TEXTS:ENGLISH_TEXTS;
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+
+  function resetState(){
+    state.text=pickText();
+    state.textChars=[...state.text]; // spread into array (handles CJK and ASCII)
+    state.currentPos=0;
+    state.totalTyped=0;
+    state.correctTyped=0;
+    state.startTime=null;
+    state.elapsed=0;
+    state.finished=false;
+    if(state.timerInterval){clearInterval(state.timerInterval);state.timerInterval=null}
+  }
+
+  function getRating(wpm,accuracy){
+    if(accuracy>=98&&wpm>=80)return{emoji:'🚀',name:'火箭'};
+    if(accuracy>=95&&wpm>=60)return{emoji:'🐆',name:'猎豹'};
+    if(accuracy>=90&&wpm>=30)return{emoji:'🐰',name:'兔子'};
+    return{emoji:'🐢',name:'乌龟'};
+  }
+
+  function formatTime(seconds){
+    const m=Math.floor(seconds/60);
+    const s=seconds%60;
+    return m+':'+String(s).padStart(2,'0');
+  }
+
+  function updateStats(){
+    const now=Date.now();
+    if(state.startTime){
+      state.elapsed=Math.floor((now-state.startTime)/1000);
+    }
+    const minutes=state.elapsed/60;
+    const wpm=minutes>0?Math.round(state.correctTyped/minutes):0;
+    const accuracy=state.totalTyped>0?Math.round((state.correctTyped/state.totalTyped)*100):100;
+    const progress=state.textChars.length>0?Math.round((state.currentPos/state.textChars.length)*100):0;
+
+    el.wpmDisplay.textContent=wpm;
+    el.accuracyDisplay.textContent=accuracy+'%';
+    el.timeDisplay.textContent=formatTime(state.elapsed);
+    el.progressDisplay.textContent=progress+'%';
+    el.progressFill.style.width=progress+'%';
+  }
+
+  function renderText(){
+    let html='';
+    for(let i=0;i<state.textChars.length;i++){
+      let cls='char untreated';
+      if(i<state.currentPos){
+        // Check if the typed character matches
+        cls='char correct';
+        // We need the typed chars to check. Let me reconsider...
+        // Actually we need to track typed chars per position
+      }else if(i===state.currentPos){
+        cls='char current';
+      }
+      html+='<span class="'+cls+'">'+escapeHtml(state.textChars[i])+'</span>';
+    }
+    el.textDisplay.innerHTML=html;
+  }
+
+  // Better approach: track typed chars array
+  let typedChars=[];
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderTextFull(){
+    let html='';
+    for(let i=0;i<state.textChars.length;i++){
+      let cls='char untouched';
+      if(i<typedChars.length){
+        cls='char '+(typedChars[i]===state.textChars[i]?'correct':'wrong');
+      }else if(i===typedChars.length&&!state.finished){
+        cls='char current';
+      }
+      html+='<span class="'+cls+'">'+escapeHtml(state.textChars[i])+'</span>';
+    }
+    el.textDisplay.innerHTML=html;
+  }
+
+  function handleInput(){
+    if(state.finished)return;
+
+    const val=el.typingInput.value;
+
+    // Start timer on first input
+    if(!state.startTime&&val.length>0){
+      state.startTime=Date.now();
+      state.timerInterval=setInterval(updateStats,200);
+      el.textDisplay.classList.add('focus');
+    }
+
+    typedChars=[...val];
+    state.currentPos=typedChars.length;
+
+    // Recalculate correct/typed
+    state.correctTyped=0;
+    state.totalTyped=typedChars.length;
+    for(let i=0;i<typedChars.length;i++){
+      if(i<state.textChars.length&&typedChars[i]===state.textChars[i]){
+        state.correctTyped++;
+      }
+    }
+
+    renderTextFull();
+    updateStats();
+
+    // Check completion
+    if(state.currentPos>=state.textChars.length){
+      finish();
+    }
+  }
+
+  function finish(){
+    state.finished=true;
+    if(state.timerInterval){clearInterval(state.timerInterval);state.timerInterval=null}
+    const minutes=state.elapsed/60;
+    const wpm=minutes>0?Math.round(state.correctTyped/minutes):0;
+    const accuracy=state.totalTyped>0?Math.round((state.correctTyped/state.totalTyped)*100):100;
+    const rating=getRating(wpm,accuracy);
+
+    // Save best record
+    const record={wpm,accuracy,time:state.elapsed,date:new Date().toLocaleString()};
+    const best=getBestRecord(state.lang);
+    let isNewBest=false;
+    if(!best||wpm>best.wpm||(wpm===best.wpm&&accuracy>best.accuracy)){
+      saveBestRecord(state.lang,record);
+      isNewBest=true;
+    }
+
+    // Show modal
+    el.resultContent.innerHTML=`
+      <h2>🎉 测试完成！</h2>
+      <div class="big-emoji">${rating.emoji}</div>
+      <div class="rating-large">评级：${rating.emoji} ${rating.name}</div>
+      ${isNewBest?'<div style="color:var(--accent);font-weight:600;margin:8px 0">🏆 新纪录！</div>':''}
+      <div class="result-grid">
+        <div class="result-item"><div class="rv">${wpm}</div><div class="rl">字/分钟</div></div>
+        <div class="result-item"><div class="rv">${accuracy}%</div><div class="rl">准确率</div></div>
+        <div class="result-item"><div class="rv">${formatTime(state.elapsed)}</div><div class="rl">用时</div></div>
+        <div class="result-item"><div class="rv">${state.textChars.length}</div><div class="rl">总字数</div></div>
+      </div>
+      ${best?`<div class="best-record">历史最佳：<span>${best.wpm} 字/分钟</span> | ${best.accuracy}% 准确率</div>`:''}
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+        <button class="btn btn-primary" onclick="window._restart()">🔄 再来一局</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('resultModal').classList.add('hidden')">关闭</button>
+      </div>
+    `;
+    el.resultModal.classList.remove('hidden');
+    el.textDisplay.classList.remove('focus');
+  }
+
+  function startGame(){
+    resetState();
+    typedChars=[];
+    el.typingInput.value='';
+    el.typingInput.disabled=false;
+    el.typingInput.focus();
+    el.resultModal.classList.add('hidden');
+    el.textDisplay.classList.remove('focus');
+    renderTextFull();
+    updateStats();
+  }
+
+  function restartGame(){
+    state.text=pickText();
+    state.textChars=[...state.text];
+    startGameFromState();
+  }
+
+  function startGameFromState(){
+    state.currentPos=0;
+    state.totalTyped=0;
+    state.correctTyped=0;
+    state.startTime=null;
+    state.elapsed=0;
+    state.finished=false;
+    if(state.timerInterval){clearInterval(state.timerInterval);state.timerInterval=null}
+    typedChars=[];
+    el.typingInput.value='';
+    el.typingInput.disabled=false;
+    el.typingInput.focus();
+    el.resultModal.classList.add('hidden');
+    el.textDisplay.classList.remove('focus');
+    renderTextFull();
+    updateStats();
+  }
+
+  window._restart=function(){
+    restartGame();
+    el.resultModal.classList.add('hidden');
+  };
+
+  function showHistory(){
+    const cnBest=getBestRecord('chinese');
+    const enBest=getBestRecord('english');
+    el.historyContent.innerHTML=`
+      <h2>🏆 历史最佳记录</h2>
+      <div style="text-align:left;margin:16px 0">
+        ${cnBest?`
+          <div class="result-item" style="margin-bottom:10px">
+            <strong>中文</strong>
+            <div class="rv">${cnBest.wpm} 字/分钟</div>
+            <div class="rl">准确率 ${cnBest.accuracy}% | 用时 ${formatTime(cnBest.time)} | ${cnBest.date}</div>
+          </div>
+        `:'<div class="result-item" style="margin-bottom:10px;color:var(--text-secondary)">中文：暂无记录</div>'}
+        ${enBest?`
+          <div class="result-item">
+            <strong>English</strong>
+            <div class="rv">${enBest.wpm} WPM</div>
+            <div class="rl">准确率 ${enBest.accuracy}% | 用时 ${formatTime(enBest.time)} | ${enBest.date}</div>
+          </div>
+        `:'<div class="result-item;color:var(--text-secondary)">English：暂无记录</div>'}
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('historyModal').classList.add('hidden')">关闭</button>
+    `;
+    el.historyModal.classList.remove('hidden');
+  }
+
+  function setLang(lang){
+    state.lang=lang;
+    document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+    startGame();
+  }
+
+  function toggleTheme(){
+    const body=document.body;
+    const current=body.getAttribute('data-theme');
+    const next=current==='dark'?'light':'dark';
+    body.setAttribute('data-theme',next);
+    el.themeToggle.textContent=next==='dark'?'☀️':'🌙';
+    try{localStorage.setItem('typing_theme',next)}catch(e){}
+  }
+
+  // Init theme
+  try{
+    const saved=localStorage.getItem('typing_theme');
+    if(saved==='dark'){
+      document.body.setAttribute('data-theme','dark');
+      el.themeToggle.textContent='☀️';
+    }
+    // Also check system preference
+    if(!saved&&window.matchMedia('(prefers-color-scheme:dark)').matches){
+      document.body.setAttribute('data-theme','dark');
+      el.themeToggle.textContent='☀️';
+    }
+  }catch(e){}
+
+  // Event listeners
+  el.typingInput.addEventListener('input',handleInput);
+  el.typingInput.addEventListener('keydown',function(e){
+    if(state.finished){e.preventDefault();return}
+  });
+
+  el.retryBtn.addEventListener('click',restartGame);
+  el.restartBtn.addEventListener('click',startGameFromState);
+  el.historyBtn.addEventListener('click',showHistory);
+  el.themeToggle.addEventListener('click',toggleTheme);
+
+  document.querySelectorAll('.lang-btn').forEach(btn=>{
+    btn.addEventListener('click',function(){setLang(this.dataset.lang)});
+  });
+
+  // Close modals on overlay click
+  el.resultModal.addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden')});
+  el.historyModal.addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden')});
+
+  // Keyboard shortcut: Escape to close modals
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      el.resultModal.classList.add('hidden');
+      el.historyModal.classList.add('hidden');
+    }
+  });
+
+  // Start
+  startGame();
+})();
+</script>
+</body>
+</html>

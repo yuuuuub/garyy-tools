@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI大模型参数对比</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-card: #1c2333;
+    --bg-card-hover: #21283a;
+    --border: #30363d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --accent: #58a6ff;
+    --accent-glow: rgba(88, 166, 255, 0.15);
+    --green: #3fb950;
+    --orange: #d2991d;
+    --red: #f85149;
+    --purple: #a371f7;
+    --cyan: #39d2c0;
+    --pink: #ea4aaa;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --transition: 0.2s ease;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 1440px; margin: 0 auto; padding: 0 24px; }
+
+  /* Header */
+  header {
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg-primary);
+    backdrop-filter: blur(12px);
+  }
+  header .container {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  h1 {
+    font-size: 28px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .view-toggle {
+    display: flex; background: var(--bg-secondary); border-radius: var(--radius-sm);
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .view-toggle button {
+    padding: 8px 16px; border: none; cursor: pointer;
+    font-size: 13px; color: var(--text-secondary);
+    background: transparent; transition: var(--transition);
+  }
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+  .view-toggle button:not(.active):hover { color: var(--text-primary); background: var(--bg-card); }
+
+  /* Search */
+  .search-wrap { margin: 24px 0; }
+  .search-input {
+    width: 100%; max-width: 480px; padding: 12px 16px 12px 44px;
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-primary);
+    font-size: 14px; outline: none; transition: var(--transition);
+  }
+  .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-wrap { position: relative; }
+  .search-wrap::before {
+    content: '🔍'; position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%); font-size: 16px; pointer-events: none;
+  }
+
+  /* Filters */
+  .filters {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .filter-label { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+  .filter-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-btn {
+    padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px;
+    background: var(--bg-secondary); color: var(--text-secondary);
+    font-size: 12px; cursor: pointer; transition: var(--transition);
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+  .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Sort */
+  .sort-section {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .sort-section .filter-label { margin-right: 4px; }
+  .sort-btn {
+    padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px;
+    background: transparent; color: var(--text-secondary);
+    font-size: 12px; cursor: pointer; transition: var(--transition);
+  }
+  .sort-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+  .sort-btn.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+
+  /* Grid */
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px; margin-bottom: 40px;
+  }
+  .grid.table-view {
+    grid-template-columns: 1fr; max-width: 100%;
+  }
+
+  /* Card */
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; cursor: pointer;
+    transition: all var(--transition); position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border-color: var(--accent); box-shadow: 0 4px 24px var(--accent-glow);
+    transform: translateY(-2px);
+  }
+  .card-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 16px; gap: 12px;
+  }
+  .card-model-name {
+    font-size: 20px; font-weight: 700; color: var(--text-primary);
+  }
+  .card-badge {
+    padding: 3px 10px; border-radius: 12px; font-size: 11px;
+    font-weight: 600; white-space: nowrap;
+  }
+  .badge-free { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .badge-paid { background: rgba(210, 153, 29, 0.15); color: var(--orange); }
+  .badge-domestic { background: rgba(163, 113, 247, 0.15); color: var(--purple); }
+  .badge-intl { background: rgba(57, 210, 192, 0.15); color: var(--cyan); }
+  .badge-multimodal { background: rgba(234, 74, 170, 0.15); color: var(--pink); }
+  .badge-text { background: rgba(139, 148, 158, 0.15); color: var(--text-secondary); }
+
+  .card-developer { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
+  .card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-item { }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 14px; color: var(--text-primary); font-weight: 600; margin-top: 2px; }
+  .card-features {margin-top: 12px; }
+  .card-features .stat-label { display: block; margin-bottom: 6px; }
+  .feature-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .feature-tag {
+    padding: 3px 10px; border-radius: 12px; font-size: 11px;
+    background: rgba(88, 166, 255, 0.08); color: var(--accent);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+  }
+  .card-expand-icon {
+    position: absolute; bottom: 16px; right: 20px;
+    font-size: 16px; color: var(--text-muted);
+    transition: transform var(--transition);
+  }
+  .card.expanded .card-expand-icon { transform: rotate(180deg); }
+
+  /* Expanded details */
+  .card-details {
+    display: none; margin-top: 20px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  .card.expanded .card-details { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .detail-row {
+    display: flex; justify-content: space-between; padding: 8px 0;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.5); font-size: 13px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--text-secondary); }
+  .detail-value { color: var(--text-primary); font-weight: 500; text-align: right; }
+  .detail-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-top: 12px; padding: 12px;
+    background: var(--bg-secondary); border-radius: var(--radius-sm); }
+
+  /* Table view inner */
+  .grid.table-view .card { display: flex; align-items: center; gap: 24px; padding: 16px 24px; }
+  .grid.table-view .card-header { margin-bottom: 0; min-width: 180px; flex-shrink: 0; }
+  .grid.table-view .card-model-name { font-size: 16px; }
+  .grid.table-view .card-developer { display: none; }
+  .grid.table-view .card-stats { display: flex; gap: 24px; margin-bottom: 0; flex: 1; }
+  .grid.table-view .card-features { display: none; }
+  .grid.table-view .card-badge { position: static; }
+  .grid.table-view .card-expand-icon { position: static; }
+  .grid.table-view .card-details { width: 100%; }
+
+  /* Best recommendation section */
+  .section-title {
+    font-size: 22px; font-weight: 700; margin-bottom: 20px; margin-top: 40px;
+    color: var(--text-primary);
+  }
+  .recommend-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 40px;
+  }
+  .recommend-card {
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 24px;
+    transition: all var(--transition);
+  }
+  .recommend-card:hover {
+    border-color: var(--accent); box-shadow: 0 4px 24px var(--accent-glow);
+  }
+  .recommend-icon { font-size: 32px; margin-bottom: 12px; }
+  .recommend-category { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .recommend-model { font-size: 18px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+  .recommend-reason { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* Timeline */
+  .timeline {
+    margin-bottom: 40px; padding: 24px;
+    background: var(--bg-secondary); border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .timeline-inner { display: flex; gap: 0; overflow-x: auto; padding: 10px 0; }
+  .timeline-item {
+    flex: 0 0 auto; min-width: 120px; text-align: center;
+    padding: 0 16px; position: relative;
+  }
+  .timeline-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent); margin: 0 auto 8px;
+    position: relative; z-index: 1;
+  }
+  .timeline-date { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .timeline-model { font-size: 12px; color: var(--text-primary); font-weight: 600; }
+  .timeline-item::after {
+    content: ''; position: absolute; top: 5px; left: 50%; width: 100%;
+    height: 2px; background: var(--border); z-index: 0;
+  }
+  .timeline-item:last-child::after { display: none; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px;
+    padding: 16px 24px; background: var(--bg-secondary);
+    border-radius: var(--radius); border: 1px solid var(--border);
+  }
+  .stats-bar-item { }
+  .stats-bar-num { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stats-bar-label { font-size: 12px; color: var(--text-muted); }
+
+  /* Disclaimer */
+  .disclaimer {
+    padding: 24px; margin-bottom: 40px; background: rgba(248, 81, 73, 0.05);
+    border: 1px solid rgba(248, 81, 73, 0.2); border-radius: var(--radius);
+    font-size: 13px; color: var(--text-secondary); line-height: 1.7;
+  }
+  .disclaimer strong { color: var(--orange); }
+
+  /* Footer */
+  footer {
+    padding: 32px 0; border-top: 1px solid var(--border);
+    text-align: center; color: var(--text-muted); font-size: 13px;
+  }
+
+  /* No results */
+  .no-results {
+    text-align: center; padding: 60px 20px; color: var(--text-muted);
+  }
+  .no-results .icon { font-size: 48px; margin-bottom: 16px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    header .container { flex-direction: column; align-items: flex-start; }
+    h1 { font-size: 22px; }
+    .grid { grid-template-columns: 1fr; }
+    .grid.table-view .card { flex-direction: column; align-items: flex-start; }
+    .grid.table-view .card-stats { flex-direction: column; gap: 8px; }
+    .stats-bar { gap: 8px; }
+    .stats-bar-num { font-size: 18px; }
+    .filters { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>AI 大模型参数对比</h1>
+    <div class="header-actions">
+      <div class="view-toggle">
+        <button id="btn-grid" class="active" onclick="setView('grid')">卡片视图</button>
+        <button id="btn-table" onclick="setView('table')">表格视图</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Search -->
+  <div class="search-wrap">
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索模型名称..." oninput="render()">
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stats-bar-item">
+      <div class="stats-bar-num" id="statCount">10</div>
+      <div class="stats-bar-label">收录模型</div>
+    </div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-num" id="statFree">--</div>
+      <div class="stats-bar-label">免费模型</div>
+    </div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-num" id="statDomestic">--</div>
+      <div class="stats-bar-label">国内模型</div>
+    </div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-num" id="statAvgContext">--</div>
+      <div class="stats-bar-label">平均上下文窗口</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <span class="filter-label">筛选：</span>
+    <div class="filter-group">
+      <button class="filter-btn active" onclick="setFilter('pricing', 'all', this)">全部</button>
+      <button class="filter-btn" onclick="setFilter('pricing', 'free', this)">免费</button>
+      <button class="filter-btn" onclick="setFilter('pricing', 'paid', this)">付费</button>
+    </div>
+    <span style="color:var(--border);margin:0 4px;">|</span>
+    <div class="filter-group">
+      <button class="filter-btn active" onclick="setFilter('region', 'all', this)">全部</button>
+      <button class="filter-btn" onclick="setFilter('region', 'domestic', this)">国内</button>
+      <button class="filter-btn" onclick="setFilter('region', 'intl', this)">国外</button>
+    </div>
+    <span style="color:var(--border);margin:0 4px;">|</span>
+    <div class="filter-group">
+      <button class="filter-btn active" onclick="setFilter('modality', 'all', this)">全部</button>
+      <button class="filter-btn" onclick="setFilter('modality', 'multimodal', this)">多模态</button>
+      <button class="filter-btn" onclick="setFilter('modality', 'text', this)">纯文本</button>
+    </div>
+  </div>
+
+  <!-- Sort -->
+  <div class="sort-section">
+    <span class="filter-label">排序：</span>
+    <button class="sort-btn" onclick="setSort('default', this)">默认</button>
+    <button class="sort-btn" onclick="setSort('params', this)">参数量</button>
+    <button class="sort-btn" onclick="setSort('context', this)">上下文长度</button>
+    <button class="sort-btn" onclick="setSort('price', this)">价格(由低到高)</button>
+  </div>
+
+  <!-- Grid -->
+  <div class="grid" id="modelGrid"></div>
+
+  <!-- No results -->
+  <div class="no-results" id="noResults" style="display:none;">
+    <div class="icon">🔍</div>
+    <div>未找到匹配的模型，请尝试其他搜索条件</div>
+  </div>
+
+  <!-- Best recommendation -->
+  <h2 class="section-title">最佳推荐 - 按使用场景</h2>
+  <div class="recommend-grid" id="recommendGrid"></div>
+
+  <!-- Timeline -->
+  <h2 class="section-title">模型发布时间线</h2>
+  <div class="timeline">
+    <div class="timeline-inner" id="timelineInner"></div>
+  </div>
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    <strong>⚠️ 数据准确性声明</strong><br><br>
+    本页面中的参数量、价格等数据为基于公开信息的估算值，可能与实际数值存在差异。
+    部分未来模型的参数为预测值，实际情况以各厂商官方发布为准。
+    价格信息可能随时调整，请以各平台最新定价页面为准。
+    知识截止日期为估算值，实际训练数据截止时间可能有差异。
+    本页面仅供参数对比参考，不构成任何商业建议。
+  </div>
+</div>
+
+<footer>
+  <p>AI 大模型参数对比 &copy; 2026 - 数据仅供参考，不构成商业建议</p>
+  <p style="margin-top:8px;">收录模型来源于各科技公司官方发布信息</p>
+</footer>
+
+<script>
+// ========== DATA ==========
+const models = [
+  {
+    id: 'gpt-5.5',
+    name: 'GPT-5.5',
+    developer: 'OpenAI',
+    region: 'intl',
+    params: '~2.5万亿',
+    paramsNum: 2500,
+    context: '200万 tokens',
+    contextNum: 2000000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '$3.00/百万tokens',
+    outputPrice: '$15.00/百万tokens',
+    pricePerM: 3,
+    pricing: 'paid',
+    free: false,
+    cutoff: '2026年Q1',
+    releaseDate: '2026-05',
+    features: ['代码生成', '推理增强', '多模态理解', '长上下文', '函数调用', '链式思考'],
+    description: 'GPT系列最新旗舰模型，推理能力大幅提升，支持长达200万tokens的上下文窗口，多模态能力全面升级。在数学、编程、逻辑推理等领域均达到新高。内置链式思考推理机制，可处理复杂的多步骤任务。'
+  },
+  {
+    id: 'gpt-5',
+    name: 'GPT-5',
+    developer: 'OpenAI',
+    region: 'intl',
+    params: '~1.8万亿',
+    paramsNum: 1800,
+    context: '100万 tokens',
+    contextNum: 1000000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '$2.00/百万tokens',
+    outputPrice: '$10.00/百万tokens',
+    pricePerM: 2,
+    pricing: 'paid',
+    free: false,
+    cutoff: '2025年Q4',
+    releaseDate: '2025-07',
+    features: ['多模态理解', '代码生成', '长上下文', '函数调用', 'GPTs生态'],
+    description: 'GPT-5在GPT-4基础上全面升级，首次原生支持多模态输入输出，推理速度和准确度均有显著提升。GPT Store生态丰富，可创建自定义GPT。免费版用户有使用额度限制。'
+  },
+  {
+    id: 'claude-4.5',
+    name: 'Claude 4.5',
+    developer: 'Anthropic',
+    region: 'intl',
+    params: '~2万亿',
+    paramsNum: 2000,
+    context: '100万 tokens',
+    contextNum: 1000000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '$5.00/百万tokens',
+    outputPrice: '$20.00/百万tokens',
+    pricePerM: 5,
+    pricing: 'paid',
+    free: false,
+    cutoff: '2026年Q1',
+    releaseDate: '2026-04',
+    features: ['安全对齐', '长文本分析', '多模态', '代码协作', '深度推理', 'Computer Use'],
+    description: 'Claude 4.5是Anthropic最新旗舰模型，在安全性和指令遵循方面处于行业领先。支持Computer Use功能，可与计算机交互操作。擅长长文本深度分析、学术写作及复杂推理。对中文支持持续改善。'
+  },
+  {
+    id: 'claude-4',
+    name: 'Claude 4',
+    developer: 'Anthropic',
+    region: 'intl',
+    params: '~1.2万亿',
+    paramsNum: 1200,
+    context: '50万 tokens',
+    contextNum: 500000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '$3.00/百万tokens',
+    outputPrice: '$15.00/百万tokens',
+    pricePerM: 3,
+    pricing: 'paid',
+    free: false,
+    cutoff: '2025年Q3',
+    releaseDate: '2025-05',
+    features: ['安全对齐', '长文本分析', '多模态', '代码协作', '深度推理'],
+    description: 'Claude 4以极强的安全对齐和深度推理能力著称。在学术论文分析、代码审查、复杂推理等场景表现优异。宪法AI训练方法使其在价值观对齐方面表现突出。'
+  },
+  {
+    id: 'gemini-3.5',
+    name: 'Gemini 3.5',
+    developer: 'Google DeepMind',
+    region: 'intl',
+    params: '~1.5万亿',
+    paramsNum: 1500,
+    context: '200万 tokens',
+    contextNum: 2000000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '$1.25/百万tokens',
+    outputPrice: '$5.00/百万tokens',
+    pricePerM: 1.25,
+    pricing: 'paid',
+    free: true,
+    cutoff: '2026年Q1',
+    releaseDate: '2026-03',
+    features: ['原生多模态', '超长上下文', 'Google搜索集成', '代码解释器', '多语言'],
+    description: 'Gemini 3.5原生多模态设计，从训练阶段就融合文本、图像、音频、视频、代码等多种模态。200万tokens超长上下文窗口为业界最长之一。与Google生态深度整合，GPT-4同等推理水平但价格更亲民，且提供免费使用额度。'
+  },
+  {
+    id: 'qwen3.7',
+    name: 'Qwen3.7（通义千问）',
+    developer: '阿里巴巴',
+    region: 'domestic',
+    params: '~1.05万亿',
+    paramsNum: 1050,
+    context: '100万 tokens',
+    contextNum: 1000000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '¥2.00/百万tokens',
+    outputPrice: '¥10.00/百万tokens',
+    pricePerM: 0.28,
+    pricing: 'paid',
+    free: true,
+    cutoff: '2025年Q4',
+    releaseDate: '2025-09',
+    features: ['中文优化', '多模态', '长上下文', '开源版本', '工具调用'],
+    description: '阿里推出的千问系列最新旗舰，中文理解和生成能力处于国内领先水平。提供开源版本和商业API，生态丰富。在电商、客服等阿里优势场景中表现尤为出色。性价比极高。'
+  },
+  {
+    id: 'deepseek-v4',
+    name: 'DeepSeek-V4',
+    developer: 'DeepSeek（深度求索）',
+    region: 'domestic',
+    params: '~8000亿',
+    paramsNum: 800,
+    context: '100万 tokens',
+    contextNum: 1000000,
+    multimodal: false,
+    modality: 'text',
+    inputPrice: '¥1.00/百万tokens',
+    outputPrice: '¥4.00/百万tokens',
+    pricePerM: 0.14,
+    pricing: 'paid',
+    free: true,
+    cutoff: '2025年Q3',
+    releaseDate: '2025-11',
+    features: ['极低价格', '开源', '代码生成', '深度推理', '中文优化'],
+    description: 'DeepSeek以极低的价格和开源策略引爆全球AI市场。推理能力出众，在代码生成和数学推理方面表现卓越。中文能力和英文能力均衡，性价比最高的模型之一。开源版本可私有化部署。'
+  },
+  {
+    id: 'ernie-5.1',
+    name: 'ERNIE 5.1（文心一言）',
+    developer: '百度',
+    region: 'domestic',
+    params: '~1.2万亿',
+    paramsNum: 1200,
+    context: '50万 tokens',
+    contextNum: 500000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '¥4.00/百万tokens',
+    outputPrice: '¥12.00/百万tokens',
+    pricePerM: 0.55,
+    pricing: 'paid',
+    free: true,
+    cutoff: '2025年Q4',
+    releaseDate: '2025-06',
+    features: ['中文知识增强', '搜索整合', '多模态', '百度生态', '行业知识'],
+    description: '百度文心一言系列最新版本，深度融合百度搜索和知识图谱，在中文领域知识问答中表现出色。与百度智能云、搜索等生态深度整合。在医疗、法律等垂直行业中有知识增强优势。'
+  },
+  {
+    id: 'glm-5.1',
+    name: 'GLM-5.1（智谱清言）',
+    developer: '智谱AI',
+    region: 'domestic',
+    params: '~9000亿',
+    paramsNum: 900,
+    context: '100万 tokens',
+    contextNum: 1000000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '¥3.00/百万tokens',
+    outputPrice: '¥10.00/百万tokens',
+    pricePerM: 0.41,
+    pricing: 'paid',
+    free: true,
+    cutoff: '2025年Q4',
+    releaseDate: '2025-08',
+    features: ['开源贡献', '中文优化', '多模态', '学术应用', '工具调用'],
+    description: '智谱AI源自清华，最新GLM-5.1在学术和科研领域应用广泛。开源社区活跃，中文理解和生成质量高，在多模态理解和科学推理方面不断进步。对学术写作和数据分析支持出色。'
+  },
+  {
+    id: 'doubao-seed-2.0',
+    name: 'Doubao-Seed-2.0（豆包）',
+    developer: '字节跳动',
+    region: 'domestic',
+    params: '~7000亿',
+    paramsNum: 700,
+    context: '25.6万 tokens',
+    contextNum: 256000,
+    multimodal: true,
+    modality: 'multimodal',
+    inputPrice: '¥0.80/百万tokens',
+    outputPrice: '¥2.40/百万tokens',
+    pricePerM: 0.11,
+    pricing: 'paid',
+    free: true,
+    cutoff: '2025年Q3',
+    releaseDate: '2025-12',
+    features: ['中国最低价', '视频理解', '多模态', '抖音生态', '实时交互'],
+    description: '字节跳动豆包系列最新版本，价格为中国AI模型最低之一。在视频理解和创意内容生成方面有独特优势。与抖音、飞书等字节系产品深度整合。实时交互体验流畅，适合大众用户和轻量应用场景。'
+  }
+];
+
+// ========== STATE ==========
+let currentView = 'grid';
+let currentFilters = { pricing: 'all', region: 'all', modality: 'all' };
+let currentSort = 'default';
+let expandedCards = new Set();
+
+// ========== INIT ==========
+document.getElementById('btn-grid').classList.add('active');
+
+// Set initial default sort button as active
+document.querySelectorAll('.sort-btn')[0].classList.add('active');
+document.querySelectorAll('.filter-btn[onclick*="all"]').forEach(b => b.classList.add('active'));
+
+function getFilteredModels() {
+  let result = [...models];
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  if (search) {
+    result = result.filter(m =>
+      m.name.toLowerCase().includes(search) ||
+      m.developer.toLowerCase().includes(search) ||
+      m.features.some(f => f.toLowerCase().includes(search))
+    );
+  }
+  if (currentFilters.pricing !== 'all') {
+    result = result.filter(m => m.pricing === currentFilters.pricing);
+  }
+  if (currentFilters.region !== 'all') {
+    result = result.filter(m => m.region === currentFilters.region);
+  }
+  if (currentFilters.modality !== 'all') {
+    result = result.filter(m => m.modality === currentFilters.modality);
+  }
+  if (currentSort === 'params') {
+    result.sort((a, b) => b.paramsNum - a.paramsNum);
+  } else if (currentSort === 'context') {
+    result.sort((a, b) => b.contextNum - a.contextNum);
+  } else if (currentSort === 'price') {
+    result.sort((a, b) => a.pricePerM - b.pricePerM);
+  }
+  return result;
+}
+
+function setFilter(type, value, btn) {
+  currentFilters[type] = value;
+  const group = btn.parentElement;
+  group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  expandedCards.clear();
+  render();
+}
+
+function setSort(value, btn) {
+  currentSort = value;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function setView(view) {
+  currentView = view;
+  document.getElementById('btn-grid').classList.toggle('active', view === 'grid');
+  document.getElementById('btn-table').classList.toggle('active', view === 'table');
+  const grid = document.getElementById('modelGrid');
+  grid.classList.toggle('table-view', view === 'table');
+  render();
+}
+
+function toggleExpand(id) {
+  if (expandedCards.has(id)) {
+    expandedCards.delete(id);
+  } else {
+    expandedCards.add(id);
+  }
+  render();
+}
+
+function getBadgeClass(type) {
+  const map = { free: 'badge-free', paid: 'badge-paid', domestic: 'badge-domestic', intl: 'badge-intl', multimodal: 'badge-multimodal', text: 'badge-text' };
+  return map[type] || '';
+}
+
+function render() {
+  const filtered = getFilteredModels();
+  const grid = document.getElementById('modelGrid');
+  const noResults = document.getElementById('noResults');
+
+  // Update stats
+  document.getElementById('statCount').textContent = models.length;
+  document.getElementById('statFree').textContent = models.filter(m => m.free).length;
+  document.getElementById('statDomestic').textContent = models.filter(m => m.region === 'domestic').length;
+  const avgCtx = Math.round(models.reduce((s, m) => s + m.contextNum, 0) / models.length / 1000);
+  document.getElementById('statAvgContext').textContent = avgCtx.toLocaleString() + 'K';
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    noResults.style.display = 'block';
+  } else {
+    noResults.style.display = 'none';
+  }
+
+  grid.innerHTML = filtered.map(m => {
+    const isExpanded = expandedCards.has(m.id);
+    const pricingBadge = m.pricing === 'free' || m.free
+      ? '<span class="card-badge badge-free">免费可用</span>'
+      : '<span class="card-badge badge-paid">付费</span>';
+    const regionBadge = m.region === 'domestic'
+      ? '<span class="card-badge badge-domestic">国内</span>'
+      : '<span class="card-badge badge-intl">国外</span>';
+    const modBadge = m.multimodal
+      ? '<span class="card-badge badge-multimodal">多模态</span>'
+      : '<span class="card-badge badge-text">纯文本</span>';
+
+    return `
+      <div class="card ${isExpanded ? 'expanded' : ''}" onclick="toggleExpand('${m.id}')">
+        <div class="card-header">
+          <div>
+            <div class="card-model-name">${m.name}</div>
+            <div class="card-developer">${m.developer}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;">
+            ${pricingBadge}${regionBadge}${modBadge}
+          </div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">
+            <div class="stat-label">参数量(估算)</div>
+            <div class="stat-value">${m.params}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">上下文窗口</div>
+            <div class="stat-value">${m.context}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">输入价格</div>
+            <div class="stat-value">${m.inputPrice}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">输出价格</div>
+            <div class="stat-value">${m.outputPrice}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">知识截止</div>
+            <div class="stat-value">${m.cutoff}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">开发商</div>
+            <div class="stat-value">${m.developer}</div>
+          </div>
+        </div>
+        <div class="card-features">
+          <div class="stat-label">主要特点</div>
+          <div class="feature-tags">
+            ${m.features.map(f => `<span class="feature-tag">${f}</span>`).join('')}
+          </div>
+        </div>
+        <div class="card-expand-icon">▼</div>
+        <div class="card-details">
+          <div class="detail-row">
+            <span class="detail-label">开发商</span>
+            <span class="detail-value">${m.developer}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">参数量(估算)</span>
+            <span class="detail-value">${m.params}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">多模态支持</span>
+            <span class="detail-value">${m.multimodal ? '是' : '否'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">上下文窗口</span>
+            <span class="detail-value">${m.context}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">输入价格</span>
+            <span class="detail-value">${m.inputPrice}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">输出价格</span>
+            <span class="detail-value">${m.outputPrice}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">知识截止日期</span>
+            <span class="detail-value">${m.cutoff}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">发布时间</span>
+            <span class="detail-value">${m.releaseDate}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">付费类型</span>
+            <span class="detail-value">${m.pricing === 'paid' ? (m.free ? '提供免费额度' : '纯付费') : '免费'}</span>
+          </div>
+          <div class="detail-desc">${m.description}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (filtered.length === 0) {
+    noResults.style.display = 'block';
+  }
+
+  renderRecommendations();
+  renderTimeline();
+}
+
+function renderRecommendations() {
+  const recs = [
+    { icon: '💻', category: '编程开发', model: 'GPT-5.5', reason: '推理能力和代码生成能力业界领先，支持超长上下文，可一次性分析和重构大型代码库。函数调用和工具使用能力让自动化开发变得简单。' },
+    { icon: '✍️', category: '写作创作', model: 'Claude 4.5', reason: '写作风格细腻自然，指令遵循度极高，在创意写作、文案撰写、长篇内容生成方面表现突出。中文写作质量持续提升。' },
+    { icon: '🌐', category: '翻译润色', model: 'DeepSeek-V4', reason: '中英文能力均衡，翻译准确度高，且极低的价格适合大批量翻译任务。开源版本支持私有化部署，数据安全有保障。' },
+    { icon: '🎨', category: '创意设计', model: 'Gemini 3.5', reason: '原生多模态理解能力强大，可同时处理图像、视频、音频等多种输入。200万tokens超长上下文适合复杂的创意项目。免费额度充足。' },
+    { icon: '📚', category: '长文本分析', model: 'Gemini 3.5', reason: '凭借200万tokens的超长上下文，可一次性处理整本书或大量文档。在多文档对比、信息提取和综合分析方面表现卓越。' }
+  ];
+
+  document.getElementById('recommendGrid').innerHTML = recs.map(r => `
+    <div class="recommend-card">
+      <div class="recommend-icon">${r.icon}</div>
+      <div class="recommend-category">${r.category}</div>
+      <div class="recommend-model">${r.model}</div>
+      <div class="recommend-reason">${r.reason}</div>
+    </div>
+  `).join('');
+}
+
+function renderTimeline() {
+  const sorted = [...models].sort((a, b) => a.releaseDate.localeCompare(b.releaseDate));
+  document.getElementById('timelineInner').innerHTML = sorted.map(m => `
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-date">${m.releaseDate}</div>
+      <div class="timeline-model">${m.name.split('（')[0]}</div>
+    </div>
+  `).join('');
+}
+
+// Initial render
+render();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hash 生成器 - 在线哈希计算工具</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117;
+    --bg-card: #161b22;
+    --bg-input: #0d1117;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-secondary: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --danger: #f85149;
+    --success: #3fb950;
+    --warning: #d2991d;
+    --radius: 8px;
+    --transition: 0.2s ease;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+    line-height: 1.6;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 32px; padding-top: 20px; }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p { color: var(--text-secondary); margin-top: 6px; font-size: 0.95rem; }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .icon { font-size: 1.2rem; }
+
+  label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  textarea, input[type="text"], input[type="password"], select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    transition: border-color var(--transition);
+  }
+  textarea:focus, input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+  .alg-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .alg-row > div { flex: 1; min-width: 160px; }
+  .alg-row .btn-group { flex: 0 0 auto; }
+
+  .output-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .output-field input {
+    flex: 1;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    cursor: text;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    color: var(--text);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent-hover); }
+  .btn-primary {
+    background: #238636;
+    border-color: rgba(240,246,252,0.1);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #2ea043; border-color: rgba(240,246,252,0.1); color: #fff; }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+  .meta-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    color: var(--text-secondary);
+    transition: all var(--transition);
+    cursor: pointer;
+    margin-top: 12px;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(88,166,255,0.05);
+    color: var(--accent);
+  }
+  .drop-zone .file-info { margin-top: 12px; font-size: 0.85rem; }
+  .drop-zone .file-name { color: var(--accent-hover); font-weight: 600; }
+
+  progress {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 10px;
+    appearance: none;
+  }
+  progress::-webkit-progress-bar { background: var(--border); border-radius: 3px; }
+  progress::-webkit-progress-value { background: var(--accent); border-radius: 3px; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  .toggle-row input[type="checkbox"] { display: none; }
+  .toggle-switch {
+    width: 40px;
+    height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    position: relative;
+    transition: background var(--transition);
+  }
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform var(--transition);
+  }
+  .toggle-row input:checked + .toggle-switch { background: var(--accent); }
+  .toggle-row input:checked + .toggle-switch::after { transform: translateX(18px); }
+
+  .compare-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+  }
+  .compare-indicator.match { background: rgba(63,185,80,0.15); color: var(--success); }
+  .compare-indicator.mismatch { background: rgba(248,81,73,0.15); color: var(--danger); }
+
+  .history-list {
+    list-style: none;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    transition: background var(--transition);
+    gap: 8px;
+  }
+  .history-item:hover { background: rgba(88,166,255,0.06); }
+  .history-item .meta { color: var(--text-secondary); font-size: 0.7rem; white-space: nowrap; }
+  .history-item .hash { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-item .algo-tag {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--border);
+    white-space: nowrap;
+  }
+
+  .security-note {
+    font-size: 0.8rem;
+    color: var(--warning);
+    padding: 12px 16px;
+    background: rgba(210,153,29,0.08);
+    border: 1px solid rgba(210,153,29,0.25);
+    border-radius: var(--radius);
+    margin-top: 8px;
+  }
+
+  .flex-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .flex-1 { flex: 1; }
+
+  .mb-3 { margin-bottom: 12px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mt-3 { margin-top: 12px; }
+  .mt-4 { margin-top: 16px; }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  .hidden { display: none !important; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Hash 生成器</h1>
+    <p>在线哈希计算工具 - 支持文本、文件、HMAC 及对比模式</p>
+  </header>
+
+  <!-- 输入区域 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">&#9998;</span> 输入内容</div>
+    <textarea id="inputText" placeholder="在此输入要计算哈希的文本内容..." oninput="handleInputChange()"></textarea>
+    <div class="meta-bar">
+      <span>字符数: <span id="charCount">0</span> | 字节数: <span id="byteCount">0</span></span>
+    </div>
+  </div>
+
+  <!-- 文件哈希 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128196;</span> 文件哈希</div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div>&#128229; 将文件拖放到此处，或点击选择文件</div>
+      <div class="file-info hidden" id="fileInfo">
+        <span class="file-name" id="fileName"></span>
+        <span style="color:var(--text-secondary)"> - <span id="fileSize"></span></span>
+      </div>
+      <progress id="fileProgress" class="hidden" value="0" max="100"></progress>
+      <div id="fileHashResult" class="hidden mt-3">
+        <div style="font-weight:600;margin-bottom:4px;">文件哈希结果:</div>
+        <code id="fileHashValue" style="word-break:break-all;color:var(--success);"></code>
+      </div>
+    </div>
+    <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(event)">
+  </div>
+
+  <!-- 算法选择 & 大小写 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">&#9881;</span> 算法设置</div>
+    <div class="flex-row mb-3">
+      <div class="flex-1">
+        <label>哈希算法</label>
+        <select id="algorithm" onchange="handleInputChange()">
+          <option value="MD5">MD5</option>
+          <option value="SHA-1">SHA-1</option>
+          <option value="SHA-256" selected>SHA-256</option>
+          <option value="SHA-384">SHA-384</option>
+          <option value="SHA-512">SHA-512</option>
+        </select>
+      </div>
+      <div style="min-width:140px;">
+        <label>输出格式</label>
+        <select id="caseToggle" onchange="updateOutputCase()">
+          <option value="lower">小写 (a-f)</option>
+          <option value="upper">大写 (A-F)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- HMAC 模式 -->
+    <div class="mb-3">
+      <label class="toggle-row">
+        <input type="checkbox" id="hmacToggle" onchange="toggleHMAC()">
+        <span class="toggle-switch"></span>
+        <span>HMAC 模式</span>
+      </label>
+    </div>
+    <div id="hmacSection" class="hidden">
+      <label>密钥 (Secret Key)</label>
+      <input type="password" id="hmacKey" placeholder="输入 HMAC 密钥..." oninput="handleInputChange()">
+    </div>
+  </div>
+
+  <!-- 输出区域 -->
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128273;</span> 哈希结果</div>
+    <div class="output-field mb-3">
+      <input type="text" id="hashOutput" readonly placeholder="哈希值将显示在此处..." onclick="this.select()">
+      <button class="btn btn-primary" onclick="copyHash()" title="复制哈希值">&#128203; 复制</button>
+    </div>
+
+    <!-- 对比模式 -->
+    <div>
+      <label class="toggle-row">
+        <input type="checkbox" id="compareToggle" onchange="toggleCompare()">
+        <span class="toggle-switch"></span>
+        <span>对比模式</span>
+      </label>
+    </div>
+    <div id="compareSection" class="hidden mt-3">
+      <label>要对比的哈希值</label>
+      <div class="output-field mb-3">
+        <input type="text" id="compareInput" placeholder="输入要对比的哈希值..." oninput="runCompare()">
+      </div>
+      <div id="compareResult"></div>
+    </div>
+  </div>
+
+  <!-- 历史记录 -->
+  <div class="card">
+    <div class="card-title">
+      <span class="icon">&#128337;</span> 历史记录
+      <span style="font-size:0.7rem;color:var(--text-secondary);font-weight:400;">(本地存储)</span>
+      <div style="flex:1;"></div>
+      <button class="btn btn-sm btn-danger" onclick="clearHistory()">清空</button>
+    </div>
+    <ul class="history-list" id="historyList">
+      <li style="text-align:center;color:var(--text-secondary);padding:20px;">暂无历史记录</li>
+    </ul>
+  </div>
+
+  <!-- 安全提示 -->
+  <div class="security-note">
+    &#9888; <strong>安全提示：</strong>MD5 和 SHA-1 已被证实存在碰撞漏洞，不应用于密码存储或安全敏感场景。
+    请使用 SHA-256 或更高级别的算法保护敏感数据。所有哈希计算均在浏览器本地完成，不会上传任何数据。
+  </div>
+
+  <footer>
+    <p>Hash 生成器 - 纯前端工具，数据不上传服务器 | 基于 Web Crypto API 构建</p>
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// Pure JavaScript MD5 Implementation
+// (RFC 1321 compliant)
+// ============================================================
+const MD5 = (() => {
+  function rotateLeft(x, n) { return (x << n) | (x >>> (32 - n)); }
+
+  function addUnsigned(lX, lY) {
+    const lX8 = (lX & 0x80000000);
+    const lY8 = (lY & 0x80000000);
+    const lX4 = (lX & 0x40000000);
+    const lY4 = (lY & 0x40000000);
+    const lResult = (lX & 0x3FFFFFFF) + (lY & 0x3FFFFFFF);
+    if (lX4 & lY4) return lResult ^ 0x80000000 ^ lX8 ^ lY8;
+    if (lX4 | lY4) {
+      if (lResult & 0x40000000) return lResult ^ 0xC0000000 ^ lX8 ^ lY8;
+      else return lResult ^ 0x40000000 ^ lX8 ^ lY8;
+    } else return lResult ^ lX8 ^ lY8;
+  }
+
+  function F(x, y, z) { return (x & y) | ((~x) & z); }
+  function G(x, y, z) { return (x & z) | (y & (~z)); }
+  function H(x, y, z) { return x ^ y ^ z; }
+  function I(x, y, z) { return y ^ (x | (~z)); }
+
+  function FF(a, b, c, d, x, s, ac) {
+    a = addUnsigned(a, addUnsigned(addUnsigned(F(b, c, d), x), ac));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function GG(a, b, c, d, x, s, ac) {
+    a = addUnsigned(a, addUnsigned(addUnsigned(G(b, c, d), x), ac));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function HH(a, b, c, d, x, s, ac) {
+    a = addUnsigned(a, addUnsigned(addUnsigned(H(b, c, d), x), ac));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function II(a, b, c, d, x, s, ac) {
+    a = addUnsigned(a, addUnsigned(addUnsigned(I(b, c, d), x), ac));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+
+  function convertToWordArray(str) {
+    const msgLen = str.length;
+    const wordCount = (((msgLen + 8) >>> 6) + 1) << 4;
+    const wordArray = new Array(wordCount);
+    for (let i = 0; i < msgLen; i++) {
+      wordArray[i >>> 2] |= (str.charCodeAt(i) & 0xff) << ((i % 4) << 3);
+    }
+    wordArray[msgLen >>> 2] |= 0x80 << ((msgLen % 4) << 3);
+    wordArray[wordCount - 2] = msgLen << 3;
+    wordArray[wordCount - 1] = msgLen >>> 29;
+    return wordArray;
+  }
+
+  function wordToHex(val) {
+    let hex = '';
+    for (let i = 0; i <= 3; i++) {
+      const byte = (val >>> (i * 8)) & 0xFF;
+      hex += ('0' + byte.toString(16)).slice(-2);
+    }
+    return hex;
+  }
+
+  function md5(str) {
+    const x = convertToWordArray(str);
+    let a = 0x67452301, b = 0xEFCDAB89, c = 0x98BADCFE, d = 0x10325476;
+
+    for (let k = 0; k < x.length; k += 16) {
+      const AA = a, BB = b, CC = c, DD = d;
+      a = FF(a, b, c, d, x[k],     7,  0xD76AA478);
+      d = FF(d, a, b, c, x[k+1],  12,  0xE8C7B756);
+      c = FF(c, d, a, b, x[k+2],  17,  0x242070DB);
+      b = FF(b, c, d, a, x[k+3],  22,  0xC1BDCEEE);
+      a = FF(a, b, c, d, x[k+4],   7,  0xF57C0FAF);
+      d = FF(d, a, b, c, x[k+5],  12,  0x4787C62A);
+      c = FF(c, d, a, b, x[k+6],  17,  0xA8304613);
+      b = FF(b, c, d, a, x[k+7],  22,  0xFD469501);
+      a = FF(a, b, c, d, x[k+8],   7,  0x698098D8);
+      d = FF(d, a, b, c, x[k+9],  12,  0x8B44F7AF);
+      c = FF(c, d, a, b, x[k+10], 17,  0xFFFF5BB1);
+      b = FF(b, c, d, a, x[k+11], 22,  0x895CD7BE);
+      a = FF(a, b, c, d, x[k+12],  7,  0x6B901122);
+      d = FF(d, a, b, c, x[k+13], 12,  0xFD987193);
+      c = FF(c, d, a, b, x[k+14], 17,  0xA679438E);
+      b = FF(b, c, d, a, x[k+15], 22,  0x49B40821);
+
+      a = GG(a, b, c, d, x[k+1],   5,  0xF61E2562);
+      d = GG(d, a, b, c, x[k+6],   9,  0xC040B340);
+      c = GG(c, d, a, b, x[k+11], 14,  0x265E5A51);
+      b = GG(b, c, d, a, x[k],    20,  0xE9B6C7AA);
+      a = GG(a, b, c, d, x[k+5],   5,  0xD62F105D);
+      d = GG(d, a, b, c, x[k+10],  9,  0x02441453);
+      c = GG(c, d, a, b, x[k+15], 14,  0xD8A1E681);
+      b = GG(b, c, d, a, x[k+4],  20,  0xE7D3FBC8);
+      a = GG(a, b, c, d, x[k+9],   5,  0x21E1CDE6);
+      d = GG(d, a, b, c, x[k+14],  9,  0xC33707D6);
+      c = GG(c, d, a, b, x[k+3],  14,  0xF4D50D87);
+      b = GG(b, c, d, a, x[k+8],  20,  0x455A14ED);
+      a = GG(a, b, c, d, x[k+13],  5,  0xA9E3E905);
+      d = GG(d, a, b, c, x[k+2],   9,  0xFCEFA3F8);
+      c = GG(c, d, a, b, x[k+7],  14,  0x676F02D9);
+      b = GG(b, c, d, a, x[k+12], 20,  0x8D2A4C8A);
+
+      a = HH(a, b, c, d, x[k+5],   4,  0xFFFA3942);
+      d = HH(d, a, b, c, x[k+8],  11,  0x8771F681);
+      c = HH(c, d, a, b, x[k+11], 16,  0x6D9D6122);
+      b = HH(b, c, d, a, x[k+14], 23,  0xFDE5380C);
+      a = HH(a, b, c, d, x[k+1],   4,  0xA4BEEA44);
+      d = HH(d, a, b, c, x[k+4],  11,  0x4BDECFA9);
+      c = HH(c, d, a, b, x[k+7],  16,  0xF6BB4B60);
+      b = HH(b, c, d, a, x[k+10], 23,  0xBEBFBC70);
+      a = HH(a, b, c, d, x[k+13],  4,  0x289B7EC6);
+      d = HH(d, a, b, c, x[k],    11,  0xEAA127FA);
+      c = HH(c, d, a, b, x[k+3],  16,  0xD4EF3085);
+      b = HH(b, c, d, a, x[k+6],  23,  0x04881D05);
+      a = HH(a, b, c, d, x[k+9],   4,  0xD9D4D039);
+      d = HH(d, a, b, c, x[k+12], 11,  0xE6DB99E5);
+      c = HH(c, d, a, b, x[k+15], 16,  0x1FA27CF8);
+      b = HH(b, c, d, a, x[k+2],  23,  0xC4AC5665);
+
+      a = II(a, b, c, d, x[k],     6,  0xF4292244);
+      d = II(d, a, b, c, x[k+7],  10,  0x432AFF97);
+      c = II(c, d, a, b, x[k+14], 15,  0xAB9423A7);
+      b = II(b, c, d, a, x[k+5],  21,  0xFC93A039);
+      a = II(a, b, c, d, x[k+12],  6,  0x655B59C3);
+      d = II(d, a, b, c, x[k+3],  10,  0x8F0CCC92);
+      c = II(c, d, a, b, x[k+10], 15,  0xFFEFF47D);
+      b = II(b, c, d, a, x[k+1],  21,  0x85845DD1);
+      a = II(a, b, c, d, x[k+8],   6,  0x6FA87E4F);
+      d = II(d, a, b, c, x[k+15], 10,  0xFE2CE6E0);
+      c = II(c, d, a, b, x[k+6],  15,  0xA3014314);
+      b = II(b, c, d, a, x[k+13], 21,  0x4E0811A1);
+      a = II(a, b, c, d, x[k+4],   6,  0xF7537E82);
+      d = II(d, a, b, c, x[k+11], 10,  0xBD3AF235);
+      c = II(c, d, a, b, x[k+2],  15,  0x2AD7D2BB);
+      b = II(b, c, d, a, x[k+9],  21,  0xEB86D391);
+
+      a = addUnsigned(a, AA);
+      b = addUnsigned(b, BB);
+      c = addUnsigned(c, CC);
+      d = addUnsigned(d, DD);
+    }
+    return (wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d)).toLowerCase();
+  }
+
+  return { md5: md5 };
+})();
+
+// ============================================================
+// DOM Elements
+// ============================================================
+const inputText = document.getElementById('inputText');
+const hashOutput = document.getElementById('hashOutput');
+const algorithm = document.getElementById('algorithm');
+const caseToggle = document.getElementById('caseToggle');
+const charCount = document.getElementById('charCount');
+const byteCount = document.getElementById('byteCount');
+const hmacToggle = document.getElementById('hmacToggle');
+const hmacSection = document.getElementById('hmacSection');
+const hmacKey = document.getElementById('hmacKey');
+const compareToggle = document.getElementById('compareToggle');
+const compareSection = document.getElementById('compareSection');
+const compareInput = document.getElementById('compareInput');
+const compareResult = document.getElementById('compareResult');
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const fileProgress = document.getElementById('fileProgress');
+const fileHashResult = document.getElementById('fileHashResult');
+const fileHashValue = document.getElementById('fileHashValue');
+const historyList = document.getElementById('historyList');
+
+// ============================================================
+// Utility Functions
+// ============================================================
+function bufferToHex(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex.toLowerCase();
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getEncoder() { return new TextEncoder(); }
+
+// ============================================================
+// Hash Computation
+// ============================================================
+async function computeHash(data, algo, hmacMode, key) {
+  if (algo === 'MD5') {
+    // For HMAC-MD5, also use pure JS implementation
+    if (hmacMode && key) {
+      return hmacMD5(data, key);
+    }
+    return MD5.md5(data);
+  }
+
+  // SHA family via Web Crypto API
+  const algoMap = { 'SHA-1': 'SHA-1', 'SHA-256': 'SHA-256', 'SHA-384': 'SHA-384', 'SHA-512': 'SHA-512' };
+  const cryptoAlgo = algoMap[algo];
+  if (!cryptoAlgo) return '';
+
+  try {
+    const encoder = getEncoder();
+    const dataBuffer = typeof data === 'string' ? encoder.encode(data) : data;
+
+    if (hmacMode && key) {
+      const keyData = encoder.encode(key);
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw', keyData, { name: 'HMAC', hash: cryptoAlgo }, false, ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataBuffer);
+      return bufferToHex(signature);
+    } else {
+      const hashBuffer = await crypto.subtle.digest(cryptoAlgo, dataBuffer);
+      return bufferToHex(hashBuffer);
+    }
+  } catch (e) {
+    console.error('Hash computation error:', e);
+    return '计算错误: ' + e.message;
+  }
+}
+
+function hmacMD5(data, key) {
+  const encoder = getEncoder();
+  let keyBytes = encoder.encode(key);
+  const blockSize = 64;
+  if (keyBytes.length > blockSize) {
+    keyBytes = encoder.encode(MD5.md5(key));
+  }
+  const ipad = new Uint8Array(blockSize);
+  const opad = new Uint8Array(blockSize);
+  for (let i = 0; i < blockSize; i++) {
+    ipad[i] = 0x36;
+    opad[i] = 0x5c;
+  }
+  for (let i = 0; i < keyBytes.length; i++) {
+    ipad[i] ^= keyBytes[i];
+    opad[i] ^= keyBytes[i];
+  }
+  const inner = new TextDecoder().decode(ipad) + data;
+  const innerHash = MD5.md5(inner);
+  const outer = new TextDecoder().decode(opad) + innerHash;
+  return MD5.md5(outer);
+}
+
+async function handleInputChange() {
+  const data = inputText.value;
+  const algo = algorithm.value;
+  const hmacMode = hmacToggle.checked;
+  const key = hmacKey.value;
+
+  // Update counts
+  charCount.textContent = [...data].length;
+  byteCount.textContent = getEncoder().encode(data).length;
+
+  if (!data && !hmacMode) {
+    hashOutput.value = '';
+    addToHistoryIfValid('');
+    return;
+  }
+  if (!data) {
+    hashOutput.value = '';
+    addToHistoryIfValid('');
+    return;
+  }
+
+  const hash = await computeHash(data, algo, hmacMode, key);
+  const formatted = caseToggle.value === 'upper' ? hash.toUpperCase() : hash.toLowerCase();
+  hashOutput.value = formatted;
+
+  addToHistoryIfValid(hash);
+  updateOutputCase();
+  runCompare();
+}
+
+function updateOutputCase() {
+  const current = hashOutput.value;
+  if (!current) return;
+  hashOutput.value = caseToggle.value === 'upper' ? current.toUpperCase() : current.toLowerCase();
+  runCompare();
+}
+
+// ============================================================
+// Copy
+// ============================================================
+async function copyHash() {
+  const hash = hashOutput.value;
+  if (!hash) {
+    alert('请先生成哈希值');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(hash);
+    // Brief visual feedback
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '&#10003; 已复制';
+    btn.style.background = '#2ea043';
+    setTimeout(() => {
+      btn.innerHTML = originalHTML;
+      btn.style.background = '';
+    }, 1500);
+  } catch (e) {
+    // Fallback
+    hashOutput.select();
+    document.execCommand('copy');
+    alert('已复制到剪贴板');
+  }
+}
+
+// ============================================================
+// HMAC
+// ============================================================
+function toggleHMAC() {
+  const show = hmacToggle.checked;
+  hmacSection.classList.toggle('hidden', !show);
+  handleInputChange();
+}
+
+// ============================================================
+// Compare
+// ============================================================
+function toggleCompare() {
+  const show = compareToggle.checked;
+  compareSection.classList.toggle('hidden', !show);
+  if (!show) compareResult.innerHTML = '';
+  runCompare();
+}
+
+function runCompare() {
+  if (!compareToggle.checked) return;
+  const hash1 = hashOutput.value.toLowerCase();
+  const hash2 = compareInput.value.trim().toLowerCase();
+  if (!hash1 || !hash2) {
+    compareResult.innerHTML = '';
+    return;
+  }
+  const match = hash1 === hash2;
+  compareResult.innerHTML = match
+    ? '<span class="compare-indicator match">&#10003; 匹配一致</span>'
+    : '<span class="compare-indicator mismatch">&#10007; 不匹配</span>';
+}
+
+// ============================================================
+// File Hashing
+// ============================================================
+// Drag and drop
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove('drag-over');
+});
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) processFile(files[0]);
+});
+
+function handleFileSelect(event) {
+  const files = event.target.files;
+  if (files.length > 0) processFile(files[0]);
+}
+
+async function processFile(file) {
+  fileName.textContent = file.name;
+  fileSize.textContent = formatFileSize(file.size);
+  fileInfo.classList.remove('hidden');
+  fileProgress.classList.remove('hidden');
+  fileHashResult.classList.add('hidden');
+  fileProgress.value = 0;
+
+  const algo = algorithm.value;
+  const reader = new FileReader();
+
+  // For large files, read in chunks
+  const CHUNK_SIZE = 256 * 1024; // 256KB chunks
+  let processed = 0;
+
+  try {
+    if (algo !== 'MD5' && file.size > CHUNK_SIZE) {
+      // Use streaming for Web Crypto (SHA family only, no MD5)
+      const fullBuffer = await file.arrayBuffer();
+      fileProgress.value = 50;
+      const hash = await computeHashBuffer(fullBuffer, algo);
+      fileProgress.value = 100;
+      displayFileHash(algo, hash);
+    } else if (algo === 'MD5') {
+      // MD5: read as text/binary string
+      reader.onprogress = (e) => {
+        if (e.lengthComputable) {
+          fileProgress.value = Math.round((e.loaded / e.total) * 100);
+        }
+      };
+      reader.onload = async (e) => {
+        fileProgress.value = 100;
+        const hash = await computeHash(e.target.result, 'MD5', false, '');
+        displayFileHash('MD5', hash);
+      };
+      reader.onerror = () => {
+        alert('文件读取失败');
+        fileProgress.classList.add('hidden');
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      // SHA for small files
+      reader.onprogress = (e) => {
+        if (e.lengthComputable) {
+          fileProgress.value = Math.round((e.loaded / e.total) * 100);
+        }
+      };
+      reader.onload = async (e) => {
+        fileProgress.value = 100;
+        const buffer = e.target.result;
+        const hash = await computeHash(new Uint8Array(buffer), algo, false, '');
+        displayFileHash(algo, hash);
+      };
+      reader.onerror = () => {
+        alert('文件读取失败');
+        fileProgress.classList.add('hidden');
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  } catch (e) {
+    alert('文件处理出错: ' + e.message);
+    fileProgress.classList.add('hidden');
+  }
+}
+
+async function computeHashBuffer(buffer, algo) {
+  const hashBuffer = await crypto.subtle.digest(algo, buffer);
+  return bufferToHex(hashBuffer);
+}
+
+function displayFileHash(algo, hash) {
+  fileHashValue.textContent = caseToggle.value === 'upper' ? hash.toUpperCase() : hash.toLowerCase();
+  fileHashResult.classList.remove('hidden');
+  // Also update the main hash output
+  hashOutput.value = fileHashValue.textContent;
+  addToHistoryIfValid(hash);
+}
+
+// ============================================================
+// History
+// ============================================================
+const HISTORY_KEY = 'hash_generator_history';
+const MAX_HISTORY = 20;
+
+function getHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveHistory(history) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {
+    // localStorage full or unavailable
+  }
+}
+
+function addToHistoryIfValid(hash) {
+  if (!hash || hash.length < 4) return;
+  const algo = algorithm.value;
+  const now = new Date();
+  const timeStr = now.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const entry = {
+    algo: algo,
+    hash: hash.toLowerCase(),
+    time: timeStr,
+    truncated: hash.length > 32 ? hash.substring(0, 32) + '...' : hash
+  };
+
+  let history = getHistory();
+  // Remove duplicate (same hash + same algo)
+  history = history.filter(h => !(h.hash === entry.hash && h.algo === entry.algo));
+  history.unshift(entry);
+  if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+  saveHistory(history);
+  renderHistory();
+}
+
+function renderHistory() {
+  const history = getHistory();
+  historyList.innerHTML = '';
+  if (history.length === 0) {
+    historyList.innerHTML = '<li style="text-align:center;color:var(--text-secondary);padding:20px;">暂无历史记录</li>';
+    return;
+  }
+  history.forEach((entry, index) => {
+    const li = document.createElement('li');
+    li.className = 'history-item';
+    li.innerHTML = `
+      <span class="algo-tag">${entry.algo}</span>
+      <span class="hash" title="${entry.hash}">${entry.truncated}</span>
+      <span class="meta">${entry.time}</span>
+    `;
+    li.style.cursor = 'pointer';
+    li.onclick = () => {
+      hashOutput.value = entry.hash;
+      document.getElementById('caseToggle').value = 'lower';
+      updateOutputCase();
+      runCompare();
+    };
+    historyList.appendChild(li);
+  });
+}
+
+function clearHistory() {
+  if (confirm('确定要清空所有历史记录吗？')) {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  }
+}
+
+// ============================================================
+// Init
+// ============================================================
+function init() {
+  renderHistory();
+  // Restore last algo selection
+  const savedAlgo = localStorage.getItem('hash_gen_algo');
+  if (savedAlgo) algorithm.value = savedAlgo;
+  algorithm.addEventListener('change', () => {
+    localStorage.setItem('hash_gen_algo', algorithm.value);
+    handleInputChange();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

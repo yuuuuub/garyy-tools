@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>请假理由生成器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f14;
+      --bg-card: #1a1a24;
+      --bg-card-hover: #22222e;
+      --text: #e8e8ed;
+      --text-secondary: #9898a8;
+      --accent: #7c5cfc;
+      --accent-glow: rgba(124, 92, 252, 0.25);
+      --success: #34d399;
+      --warning: #fbbf24;
+      --border: #2a2a38;
+      --tab-active: #7c5cfc;
+      --tab-bg: #1a1a24;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(124, 92, 252, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(52, 211, 153, 0.04) 0%, transparent 60%);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-top: 24px;
+      padding-bottom: 40px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 8px 0;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #c4b5fd, #7c5cfc, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      font-weight: 400;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      padding: 4px;
+      gap: 4px;
+      border: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 11px 8px;
+      text-align: center;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-family: inherit;
+      position: relative;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--tab-active);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .tab-badge {
+      display: inline-block;
+      font-size: 11px;
+      background: rgba(255,255,255,0.15);
+      padding: 1px 7px;
+      border-radius: 20px;
+      margin-left: 4px;
+      font-weight: 500;
+    }
+    .tab.active .tab-badge {
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* Card */
+    .card-wrapper {
+      perspective: 1000px;
+      min-height: 280px;
+    }
+    .card {
+      position: relative;
+      width: 100%;
+      min-height: 280px;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: var(--radius);
+    }
+    .card.flip {
+      transform: rotateY(180deg);
+    }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      backface-visibility: hidden;
+      border-radius: var(--radius);
+      padding: 28px 24px;
+    }
+    .card-front {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      min-height: 280px;
+    }
+    .card-back {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      transform: rotateY(180deg);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-height: 280px;
+    }
+
+    /* Placeholder */
+    .placeholder-icon {
+      font-size: 64px;
+      opacity: 0.5;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .placeholder-text {
+      color: var(--text-secondary);
+      font-size: 14px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* Excuse content */
+    .excuse-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .excuse-category-tag {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(124, 92, 252, 0.15);
+      color: #a78bfa;
+    }
+    .excuse-score {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .excuse-score .star {
+      font-size: 16px;
+      color: #fbbf24;
+      transition: all 0.3s ease;
+    }
+    .excuse-score .star.empty {
+      color: #3a3a48;
+    }
+    .excuse-score-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-left: 4px;
+    }
+    .excuse-title {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--text);
+    }
+    .excuse-detail {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.03);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      border-left: 3px solid var(--accent);
+    }
+
+    /* Action Buttons */
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      flex: 1;
+      min-width: 120px;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: #8b6ffc;
+      box-shadow: 0 6px 28px var(--accent-glow);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: #4a4a5a;
+    }
+
+    .btn-success {
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .btn-success:hover {
+      background: rgba(52, 211, 153, 0.2);
+    }
+    .btn-success.copied {
+      background: rgba(52, 211, 153, 0.25);
+      animation: pulse 0.5s ease;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    /* Regenerate btn */
+    .regenerate-hint {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: -8px;
+      opacity: 0.6;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 999;
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      opacity: 0.4;
+      padding-top: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 400px) {
+      .header h1 { font-size: 24px; }
+      .tab { font-size: 13px; padding: 10px 6px; }
+      .card-front, .card-back { padding: 22px 18px; }
+      .excuse-title { font-size: 18px; }
+      .btn { padding: 12px 16px; font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>📝 请假理由生成器</h1>
+      <p class="subtitle">找不到请假理由？让 AI 帮你（虽然没联网）</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-category="serious">
+        正经理由 <span class="tab-badge">13</span>
+      </button>
+      <button class="tab" data-category="absurd">
+        离谱理由 <span class="tab-badge">12</span>
+      </button>
+      <button class="tab" data-category="touching">
+        感人理由 <span class="tab-badge">13</span>
+      </button>
+    </div>
+
+    <!-- Card -->
+    <div class="card-wrapper">
+      <div class="card" id="card">
+        <div class="card-front" id="cardFront">
+          <div class="placeholder-icon">🎯</div>
+          <p class="placeholder-text">
+            选个分类，<br>然后点击下方按钮<br>生成一条完美请假理由
+          </p>
+        </div>
+        <div class="card-back" id="cardBack">
+          <div class="excuse-meta">
+            <span class="excuse-category-tag" id="excuseTag">正经</span>
+            <span class="excuse-score" id="excuseScore"></span>
+            <span class="excuse-score-label" id="excuseScoreLabel"></span>
+          </div>
+          <div class="excuse-title" id="excuseTitle"></div>
+          <div class="excuse-detail" id="excuseDetail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate button -->
+    <button class="btn btn-primary" id="btnGenerate" onclick="generate()">
+      ✨ 生成请假理由
+    </button>
+
+    <!-- Action buttons (hidden initially) -->
+    <div class="actions" id="actions" style="display: none;">
+      <button class="btn btn-success" id="btnCopy" onclick="copyExcuse()">
+        📋 复制理由
+      </button>
+      <button class="btn btn-primary" id="btnRegenerate" onclick="generate()">
+        🔄 换一条
+      </button>
+    </div>
+    <p class="regenerate-hint" id="shareHint" style="display: none;">
+      复制后直接粘贴发给领导就好
+    </p>
+
+    <!-- Footer -->
+    <div class="footer">
+      仅供娱乐，请勿当真使用 😉
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ──────────────────────────────────────
+    // DATA: 请假理由库
+    // ──────────────────────────────────────
+    const excuses = {
+      serious: [
+        {
+          title: "身体不适，需要去医院做个检查",
+          detail: "昨晚一直低烧不退，吃了退烧药早上还是38度，想去医院抽血检查一下，怕是什么病毒性感冒。大概需要半天时间，下午看情况如果能坚持就回来上班。",
+          score: 5
+        },
+        {
+          title: "家里水管爆了需要紧急处理",
+          detail: "刚接到物业电话说我家水管爆了，水已经漏到楼下邻居家了。需要马上回去开门让维修人员处理，不然泡坏地板和邻居的装修，损失就大了。上午请假回来处理，处理完最快也要下午才能来公司。",
+          score: 5
+        },
+        {
+          title: "驾驶证到期需要去车管所换证",
+          detail: "驾驶证下周一就到期了，之前一直没时间去换，网上预约了今天上午的车管所。交管所周末不上班，只能工作日去办理，不然过期了还得重考科目一，太麻烦了。",
+          score: 4
+        },
+        {
+          title: "牙疼得厉害需要去看牙医",
+          detail: "右边大牙已经疼了两天了，昨晚疼得一整夜没睡好，吃了布洛芬也没太大作用。今天早上预约了牙科诊所，说是可能是牙髓炎，需要做根管治疗，不敢再拖了。",
+          score: 5
+        },
+        {
+          title: "小区临时停水停电需要在家等维修",
+          detail: "早上起床发现小区突然断水断电了，物业说是地下管道施工问题。家里鱼缸有热带鱼需要氧气泵，还有冰箱里的东西怕坏，得在家等物业抢修完毕，预计下午恢复。",
+          score: 3
+        },
+        {
+          title: "身份证丢了需要去补办",
+          detail: "周末出去玩回来发现身份证不见了，翻遍了所有地方都没找到。下周出差要坐飞机，没有身份证根本不行。今天上午请半天假去派出所补办加急的，顺便开个临时身份证明。",
+          score: 4
+        },
+        {
+          title: "昨天加班太晚今天身体吃不消",
+          detail: "昨天加班到凌晨两点才回家，今天早上起来头疼欲裂，整个人昏昏沉沉的，感觉状态非常差。这种状态去上班效率也不高，请半天假休息一下，下午恢复好了再去。",
+          score: 4
+        },
+        {
+          title: "空调坏了维修师傅只有今天上午有空",
+          detail: "家里的中央空调上周就坏了，维修师傅排期一直很满，好不容易约到今天上午来修。这个师傅在我们片区口碑很好，错过这次又得等两周。三伏天没空调实在受不了。",
+          score: 3
+        },
+        {
+          title: "要去银行办理一笔重要的业务",
+          detail: "有一笔理财到期了需要去银行柜台办理转存，涉及到金额比较大，线上没法操作必须本人到场。预约了今天上午9点半的号，错过这个时间段后面几天都满了。",
+          score: 4
+        },
+        {
+          title: "宠物狗生病了需要带去宠物医院",
+          detail: "我家养的柯基从昨晚开始一直呕吐，早上起来精神很差，不吃不喝的。预约了上午10点半的宠物医院，怕是什么肠胃炎或者吞了异物，得尽早去检查。",
+          score: 4
+        },
+        {
+          title: "眼睛发炎需要去眼科看一下",
+          detail: "右眼从昨天开始又红又肿，还有点畏光，感觉像是结膜炎。今天早上起来更严重了，眼屎特别多眼睛都睁不太开。预约了眼科门诊，医生说这种急性炎症最好早点处理。",
+          score: 5
+        },
+        {
+          title: "要去社区办理居住证续期",
+          detail: "居住证还有两天就过期了，户口不在本地，居住证过期会影响购车资格和小孩上学的事情。社区服务中心只有工作日办公，今天上午请半天假去办理续期。",
+          score: 4
+        },
+        {
+          title: "肠胃不舒服可能吃坏东西了",
+          detail: "昨晚跟朋友聚餐吃了个街边摊，半夜开始肚子绞痛，跑了好几趟厕所。早上起来还是觉得胃里翻江倒海，浑身没劲。早上请假在家休息，顺便吃点药，下午看情况如果能撑住再来。",
+          score: 5
+        }
+      ],
+      absurd: [
+        {
+          title: "我的猫今天心情不好，需要在家陪伴",
+          detail: "我家猫主子今早用一种非常幽怨的眼神看着我，昨天晚上没给它开罐头，它记仇了。刚才当着我的面把我充电线咬断了，我担心如果今天不去哄它，晚上回家我的机械键盘可能就没了。真的，你不懂养猫人的痛。",
+          score: 1
+        },
+        {
+          title: "昨晚梦见老板给我放假了",
+          detail: "昨晚做梦梦到老板特别慈祥地拍着我的肩膀说'明天休息一天吧'，我今天早上醒来的那一刻感觉整个人都被治愈了。我觉得这梦太真实了，一定是天意。遵循天命安排，在家等老板发通知。",
+          score: 1
+        },
+        {
+          title: "新买的游戏今天发售，不去玩会死",
+          detail: "苦等了三年，《艾尔登法环2》今天终于发售了。全球同步解锁时间就是今天早上8点，这是游戏史上值得纪念的一天。作为核心玩家的我，如果错过首发体验，这辈子都会有遗憾。请假一天体验人生。",
+          score: 1
+        },
+        {
+          title: "今天出门左脚先踏出门不吉利",
+          detail: "我每天早上出门之前都会做一个简单的出门仪式，确保每次都右脚先迈出。今天早上脑子一糊涂左脚先出去了，这在玄学上是太阴犯煞的征兆，今天出门办事会事事不顺。为了不给团队带来晦气，我在家避避。",
+          score: 1
+        },
+        {
+          title: "我的绿植今天要开花了",
+          detail: "我养了三年的兰花今天终于要开花了，花苞已经裂开了一个小口，根据小红书教程，预计今天中午到下午是最佳观赏期。这株兰花一年就开这么一次花，错过要再等一年，我必须全程记录开花过程。",
+          score: 2
+        },
+        {
+          title: "今天天气预报说我的幸运色是宅色",
+          detail: "我今天早上看了星座运势，上面说双子座今天幸运色是'宅色'，宜居家不宜外出，出门容易遇到水逆。我这个人很信这个的，上个月不信邪结果地铁坐错方向两次。今天先在家办公避一避。",
+          score: 1
+        },
+        {
+          title: "我正在追的剧更新了，停不下来",
+          detail: "《庆余年3》昨晚突然全季上线了，我本来只想看一集就睡觉，结果一口气看了八集到凌晨四点。现在剧情正到高潮部分，范闲马上要揭穿二皇子的阴谋了，如果现在停下来去上班，我的心会碎的。",
+          score: 1
+        },
+        {
+          title: "外卖红包还有10分钟过期",
+          detail: "某团会员红包今天到期，满30减15的大额优惠券还剩一张。我算了一下，如果不去上班省下来的通勤费，加上这个红包，相当于今天白吃一顿大餐。作为一个精打细算的打工人，这种经济上的诱惑我无法拒绝。",
+          score: 1
+        },
+        {
+          title: "占星师说我今天不宜见到人类",
+          detail: "我关注的三位占星师今天早上发了同样的推送——今天的星象显示水星逆行叠加火星冲日，本周三恰好是能量最低谷。塔罗牌翻出了'隐者'正位，建议独处充电。为了尊重宇宙的能量，我今天不出门了。",
+          score: 1
+        },
+        {
+          title: "今天是我在蚂蚁森林种树成功的日子",
+          detail: "我在蚂蚁森林攒了三年能量，今天终于种成了一棵真树！系统提醒我说今天会有荣誉证书推送，而且还能看到树的真实照片。我等这一天等了三年，今天的心情比过年还激动，没法专心上班。",
+          score: 2
+        },
+        {
+          title: "外卖小哥给我送了错的早餐",
+          detail: "今早点了个煎饼果子，结果外卖小哥送来了隔壁老王的豪华牛排套餐。我觉得这是命运的暗示，告诉我今天应该停下来好好享受生活。而且牛排要趁热吃啊，凉了就不好了，我先替老王享用一下。",
+          score: 1
+        },
+        {
+          title: "马桶堵了冲不下去心里堵得慌",
+          detail: "早上马桶堵了，各种方法都试了——热水、小苏打、白醋、马桶吸——全都失败。现在马桶里的水还在缓慢上涨，我有预感如果现在去上班，晚上回家就会看到水漫金山。安全起见，守在马桶旁边比较稳妥。",
+          score: 2
+        }
+      ],
+      touching: [
+        {
+          title: "奶奶从老家来看我，好几年没见了",
+          detail: "奶奶今年83了，身体一直不太好，这次是专门坐火车从老家来看我。上次见面还是2020年过年，疫情之后就一直没能回去。老人家专门跑一趟不容易，我想今天请一天假好好陪陪她，带她去吃好吃的。",
+          score: 5
+        },
+        {
+          title: "今天是我和伴侣的纪念日",
+          detail: "今天是我和女/男朋友在一起五年的纪念日，之前因为各种原因错过了好几次庆祝。这次提前订了一家特别难订的餐厅和礼物，想给对方一个惊喜。五年了，我想认真对待这个日子。",
+          score: 5
+        },
+        {
+          title: "孩子今天学校有亲子活动",
+          detail: "儿子学校今天办亲子运动会，老师特别提醒说最好是爸爸或妈妈亲自到场。之前好几次家长会和工作冲突都没去成，孩子嘴上不说，但眼神里全是失落。这次不想再让他失望了。",
+          score: 5
+        },
+        {
+          title: "妈妈今天做手术需要陪同",
+          detail: "妈妈今天上午做一个小手术，虽然医生说风险不大，但她年纪大了我还是不放心。手术前后需要家属签字和陪同，我爸一个人在也不太会跟医生交流。我今天必须过去。",
+          score: 5
+        },
+        {
+          title: "最好的朋友今天结婚当伴郎/伴娘",
+          detail: "发小今天结婚，我是伴郎。从小一起长大的兄弟，他的大事我不能缺席。婚礼从上午就开始准备，迎亲、仪式、闹洞房，一整天都排满了。老板理解一下吧，一辈子就这一次。",
+          score: 5
+        },
+        {
+          title: "孩子发烧了幼儿园不让送",
+          detail: "早上起来给女儿量体温38.5度，幼儿园老师明确说了发烧不能送去。家里老人刚好今天也有事回乡下了，实在没人帮忙看孩子。孩子还小，总不能把她一个人放在家里。",
+          score: 5
+        },
+        {
+          title: "今天要去祭拜已经过世的爷爷",
+          detail: "今天是爷爷去世十周年的忌日，家里人约好了今天一起回老家上坟。小时候是爷爷把我带大的，每年这个时候不管多忙我都会去。工作的机会还很多，但有些仪式只有这一天。",
+          score: 5
+        },
+        {
+          title: "老婆产检今天做大排畸",
+          detail: "老婆怀孕22周了，今天是做大排畸的重要日子。医生说这次检查非常关键，可以全面筛查胎儿的发育情况。老婆一个人去我不放心，万一有什么情况需要当场商量，我必须陪在身边。",
+          score: 5
+        },
+        {
+          title: "收养了一只流浪狗今天去打疫苗",
+          detail: "上周在小区楼下发现一只被遗弃的小狗，带回家养了几天，今天约了宠物医院打疫苗和体检。如果再拖的话，小狗可能会感染细小病毒。虽然是小动物，也是一条生命，我放不下。",
+          score: 4
+        },
+        {
+          title: "老父亲最近身体不好想回家看看",
+          detail: "前天晚上我妈打电话说我爸最近总是咳嗽，去医院看了说肺上有个小结节。虽然医生说大概率是良性的但建议定期复查。我心里一直不踏实，想请两天假回老家陪他做个全面检查。",
+          score: 5
+        },
+        {
+          title: "好哥们失恋了需要人陪着",
+          detail: "我最好的哥们昨天被女朋友甩了，谈了六年。昨晚给我打了个电话哭了一个多小时，我听着都心酸。他今天请了假，一个人估计想不开，我得去陪陪他。兄弟有难的时候，人在比什么都重要。",
+          score: 4
+        },
+        {
+          title: "今天是孩子第一次登台表演",
+          detail: "女儿学了一年芭蕾舞，今天是她的第一次登台演出。小家伙从一个月前就开始每天倒数，天天问我'爸爸你会来看吗'。我说了一定会去的，不能食言。错过这次，可能以后她再也不相信我了。",
+          score: 5
+        },
+        {
+          title: "姐姐今天生孩子要去医院陪护",
+          detail: "姐姐预产期就是今天，早上见红了已经去医院待产。我是她在这个城市唯一的家人，姐夫出差在外地赶不回来。生孩子这么大的事不能让她一个人面对，于情于理我都该去。",
+          score: 5
+        }
+      ]
+    };
+
+    // ──────────────────────────────────────
+    // STATE
+    // ──────────────────────────────────────
+    let currentCategory = 'serious';
+    let currentExcuse = null;
+    let usedExcuses = { serious: [], absurd: [], touching: [] };
+
+    // ──────────────────────────────────────
+    // DOM ELEMENTS
+    // ──────────────────────────────────────
+    const card = document.getElementById('card');
+    const cardFront = document.getElementById('cardFront');
+    const cardBack = document.getElementById('cardBack');
+    const excuseTag = document.getElementById('excuseTag');
+    const excuseScore = document.getElementById('excuseScore');
+    const excuseScoreLabel = document.getElementById('excuseScoreLabel');
+    const excuseTitle = document.getElementById('excuseTitle');
+    const excuseDetail = document.getElementById('excuseDetail');
+    const btnGenerate = document.getElementById('btnGenerate');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnRegenerate = document.getElementById('btnRegenerate');
+    const actions = document.getElementById('actions');
+    const shareHint = document.getElementById('shareHint');
+    const toast = document.getElementById('toast');
+
+    // ──────────────────────────────────────
+    // TAB SWITCHING
+    // ──────────────────────────────────────
+    document.getElementById('tabs').addEventListener('click', function(e) {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentCategory = tab.dataset.category;
+      // Reset card
+      card.classList.remove('flip');
+      currentExcuse = null;
+      actions.style.display = 'none';
+      shareHint.style.display = 'none';
+      btnGenerate.style.display = '';
+      btnCopy.classList.remove('copied');
+      btnCopy.textContent = '📋 复制理由';
+    });
+
+    // ──────────────────────────────────────
+    // GENERATE EXCUSE
+    // ──────────────────────────────────────
+    function generate() {
+      const pool = excuses[currentCategory];
+      const used = usedExcuses[currentCategory];
+
+      // If all used, reset
+      if (used.length >= pool.length) {
+        usedExcuses[currentCategory] = [];
+      }
+
+      // Pick a random unused excuse
+      const available = pool.filter((_, i) => !usedExcuses[currentCategory].includes(i));
+      const randomIndex = Math.floor(Math.random() * available.length);
+      const excuse = available[randomIndex];
+      const originalIndex = pool.indexOf(excuse);
+
+      usedExcuses[currentCategory].push(originalIndex);
+      currentExcuse = excuse;
+
+      // Populate card back
+      const categoryLabels = { serious: '正经', absurd: '离谱', touching: '感人' };
+      excuseTag.textContent = categoryLabels[currentCategory] || '正经';
+
+      // Stars
+      let starsHtml = '';
+      for (let i = 1; i <= 5; i++) {
+        starsHtml += i <= excuse.score
+          ? '<span class="star">⭐</span>'
+          : '<span class="star empty">☆</span>';
+      }
+      excuseScore.innerHTML = starsHtml;
+      excuseScoreLabel.textContent = `靠谱指数 ${excuse.score}/5`;
+
+      excuseTitle.textContent = excuse.title;
+      excuseDetail.textContent = excuse.detail;
+
+      // Flip card
+      card.classList.add('flip');
+      actions.style.display = 'flex';
+      shareHint.style.display = 'block';
+      btnGenerate.style.display = 'none';
+      btnCopy.classList.remove('copied');
+      btnCopy.textContent = '📋 复制理由';
+    }
+
+    // ──────────────────────────────────────
+    // COPY EXCUSE
+    // ──────────────────────────────────────
+    async function copyExcuse() {
+      if (!currentExcuse) return;
+      const text = `${currentExcuse.title}\n\n${currentExcuse.detail}`;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        btnCopy.classList.add('copied');
+        btnCopy.textContent = '✅ 已复制，快发给老板吧 😏';
+        showToast('✅ 已复制，快发给老板吧 😏');
+
+        setTimeout(() => {
+          btnCopy.classList.remove('copied');
+          btnCopy.textContent = '📋 复制理由';
+        }, 3000);
+      } catch (err) {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          btnCopy.classList.add('copied');
+          btnCopy.textContent = '✅ 已复制，快发给老板吧 😏';
+          showToast('✅ 已复制，快发给老板吧 😏');
+          setTimeout(() => {
+            btnCopy.classList.remove('copied');
+            btnCopy.textContent = '📋 复制理由';
+          }, 3000);
+        } catch (e) {
+          showToast('复制失败，请手动选中文本复制');
+        }
+        document.body.removeChild(textarea);
+      }
+    }
+
+    // ──────────────────────────────────────
+    // TOAST
+    // ──────────────────────────────────────
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // ──────────────────────────────────────
+    // KEYBOARD SHORTCUT
+    // ──────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !card.classList.contains('flip')) {
+        generate();
+      }
+      if (e.key === ' ' && card.classList.contains('flip')) {
+        e.preventDefault();
+        generate();
+      }
+      if ((e.key === 'c' || e.key === 'C') && card.classList.contains('flip') && !e.ctrlKey && !e.metaKey) {
+        copyExcuse();
+      }
+    });
+  </script>
+</body>
+</html>
