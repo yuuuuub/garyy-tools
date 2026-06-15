@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖼️ 字符画生成器</title>
+<style>
+:root {
+  --bg: #f5f5f5;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --text-secondary: #555;
+  --border: #e0e0e0;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --radius: 12px;
+  --input-bg: #fafafa;
+  --tag-bg: #eef2ff;
+  --tag-text: #4f46e5;
+  --tag-active-bg: #4f46e5;
+  --tag-active-text: #fff;
+  --pre-bg: #1e1e2e;
+  --pre-text: #cdd6f4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11111b;
+    --card: #1e1e2e;
+    --text: #cdd6f4;
+    --text-secondary: #a6adc8;
+    --border: #313244;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    --input-bg: #181825;
+    --tag-bg: #313244;
+    --tag-text: #89b4fa;
+    --tag-active-bg: #89b4fa;
+    --tag-active-text: #1e1e2e;
+    --pre-bg: #11111b;
+    --pre-text: #a6e3a1;
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.container {
+  width: 100%;
+  max-width: 800px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.6rem;
+  margin-bottom: 20px;
+  letter-spacing: 0.02em;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+#textInput {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#textInput:focus {
+  border-color: var(--primary);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tag:hover {
+  opacity: 0.85;
+}
+
+.tag.active {
+  background: var(--tag-active-bg);
+  color: var(--tag-active-text);
+  border-color: var(--primary);
+}
+
+.output-wrapper {
+  position: relative;
+  margin-top: 16px;
+}
+
+#output {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: pre;
+  overflow-x: auto;
+  padding: 20px;
+  background: var(--pre-bg);
+  color: var(--pre-text);
+  border-radius: var(--radius);
+  min-height: 120px;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+}
+
+#output.placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+.btn-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  opacity: 0.85;
+}
+
+.copied-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #22c55e;
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 100;
+}
+
+.copied-toast.show {
+  opacity: 1;
+}
+
+@media (min-width: 640px) {
+  body { padding: 32px; }
+  h1 { font-size: 2rem; }
+  #output { font-size: 15px; }
+}
+
+@media (min-width: 768px) {
+  #output { font-size: 17px; }
+  .card { padding: 28px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🖼️ 字符画生成器</h1>
+
+  <div class="card">
+    <div class="input-group">
+      <label for="textInput">输入文字</label>
+      <input type="text" id="textInput" placeholder="输入文字（字母或数字）..." maxlength="60" autofocus>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tags" id="styleTags">
+      <button class="tag active" data-style="0">✨ 标准</button>
+      <button class="tag" data-style="1">🪶 极简</button>
+      <button class="tag" data-style="2">🧱 方块</button>
+      <button class="tag" data-style="3">🫧 圆润</button>
+      <button class="tag" data-style="4">💫 斜体</button>
+      <button class="tag" data-style="5">🫧 泡泡字</button>
+    </div>
+    <div class="output-wrapper">
+      <pre id="output" class="placeholder">输入文字即可预览字符画</pre>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="copyBtn">📋 一键复制</button>
+      <button class="btn btn-secondary" id="clearBtn">🔄 清空</button>
+    </div>
+  </div>
+</div>
+
+<div class="copied-toast" id="toast">✅ 已复制到剪贴板</div>
+
+<script>
+(function() {
+  // ── 5×5 字模定义 (bitmask: 每行5bit) ──
+  // 1 = 填充, 0 = 空白
+  const glyphs = {
+    'A': [0x0E,0x11,0x1F,0x11,0x11],
+    'B': [0x1E,0x11,0x1E,0x11,0x1E],
+    'C': [0x0E,0x11,0x10,0x11,0x0E],
+    'D': [0x1E,0x11,0x11,0x11,0x1E],
+    'E': [0x1F,0x10,0x1E,0x10,0x1F],
+    'F': [0x1F,0x10,0x1E,0x10,0x10],
+    'G': [0x0E,0x11,0x13,0x11,0x0E],
+    'H': [0x11,0x11,0x1F,0x11,0x11],
+    'I': [0x0E,0x04,0x04,0x04,0x0E],
+    'J': [0x07,0x01,0x01,0x11,0x0E],
+    'K': [0x11,0x12,0x1C,0x12,0x11],
+    'L': [0x10,0x10,0x10,0x10,0x1F],
+    'M': [0x11,0x1B,0x15,0x11,0x11],
+    'N': [0x11,0x19,0x15,0x13,0x11],
+    'O': [0x0E,0x11,0x11,0x11,0x0E],
+    'P': [0x1E,0x11,0x1E,0x10,0x10],
+    'Q': [0x0E,0x11,0x11,0x13,0x0F],
+    'R': [0x1E,0x11,0x1E,0x12,0x11],
+    'S': [0x0E,0x11,0x0C,0x11,0x0E],
+    'T': [0x1F,0x04,0x04,0x04,0x04],
+    'U': [0x11,0x11,0x11,0x11,0x0E],
+    'V': [0x11,0x11,0x11,0x0A,0x04],
+    'W': [0x11,0x11,0x15,0x1B,0x11],
+    'X': [0x11,0x0A,0x04,0x0A,0x11],
+    'Y': [0x11,0x0A,0x04,0x04,0x04],
+    'Z': [0x1F,0x02,0x04,0x08,0x1F],
+    '0': [0x0E,0x13,0x15,0x19,0x0E],
+    '1': [0x04,0x0C,0x04,0x04,0x0E],
+    '2': [0x0E,0x11,0x02,0x04,0x1F],
+    '3': [0x1E,0x01,0x0E,0x01,0x1E],
+    '4': [0x12,0x12,0x1F,0x02,0x02],
+    '5': [0x1F,0x10,0x1E,0x01,0x1E],
+    '6': [0x0E,0x10,0x1E,0x11,0x0E],
+    '7': [0x1F,0x02,0x04,0x08,0x08],
+    '8': [0x0E,0x11,0x0E,0x11,0x0E],
+    '9': [0x0E,0x11,0x0F,0x01,0x0E],
+    ' ': [0x00,0x00,0x00,0x00,0x00]
+  };
+
+  const ROWS = 5;
+  const COLS = 5;
+
+  // ── 风格渲染器 ──
+  const styles = {
+    // 0: 标准 - # 字符
+    0: {
+      name: '标准',
+      fill: '#',
+      empty: ' ',
+      renderChar: function(glyph) {
+        const lines = [];
+        for (let r = 0; r < ROWS; r++) {
+          let line = '';
+          for (let c = 0; c < COLS; c++) {
+            line += (glyph[r] >> (COLS-1-c)) & 1 ? this.fill : this.empty;
+          }
+          lines.push(line);
+        }
+        return lines;
+      }
+    },
+    // 1: 极简 - · 原点
+    1: {
+      name: '极简',
+      fill: '\u00B7', // middle dot
+      empty: ' ',
+      renderChar: function(glyph) {
+        const lines = [];
+        for (let r = 0; r < ROWS; r++) {
+          let line = '';
+          for (let c = 0; c < COLS; c++) {
+            line += (glyph[r] >> (COLS-1-c)) & 1 ? this.fill : this.empty;
+          }
+          lines.push(line);
+        }
+        return lines;
+      }
+    },
+    // 2: 方块 - █ 全角块
+    2: {
+      name: '方块',
+      fill: '\u2588', // full block
+      empty: '\u2591', // light shade
+      renderChar: function(glyph) {
+        const lines = [];
+        for (let r = 0; r < ROWS; r++) {
+          let line = '';
+          for (let c = 0; c < COLS; c++) {
+            line += (glyph[r] >> (COLS-1-c)) & 1 ? this.fill : this.empty;
+          }
+          lines.push(line);
+        }
+        return lines;
+      }
+    },
+    // 3: 圆润 - O 和 o
+    3: {
+      name: '圆润',
+      fill: 'O',
+      empty: ' ',
+      renderChar: function(glyph) {
+        const lines = [];
+        for (let r = 0; r < ROWS; r++) {
+          let line = '';
+          for (let c = 0; c < COLS; c++) {
+            const isFilled = (glyph[r] >> (COLS-1-c)) & 1;
+            // interior vs edge makes it more rounded
+            if (!isFilled) {
+              line += this.empty;
+            } else {
+              const isInterior = r > 0 && r < ROWS-1 && c > 0 && c < COLS-1;
+              const hasNeighborUp = r > 0 && ((glyph[r-1] >> (COLS-1-c)) & 1);
+              const hasNeighborDown = r < ROWS-1 && ((glyph[r+1] >> (COLS-1-c)) & 1);
+              const hasNeighborLeft = c > 0 && ((glyph[r] >> (COLS-c)) & 1);
+              const hasNeighborRight = c < COLS-1 && ((glyph[r] >> (COLS-2-c)) & 1);
+              const surrounded = hasNeighborUp && hasNeighborDown && hasNeighborLeft && hasNeighborRight;
+              line += (isInterior && surrounded) ? 'o' : 'O';
+            }
+          }
+          lines.push(line);
+        }
+        return lines;
+      }
+    },
+    // 4: 斜体 - # 右倾
+    4: {
+      name: '斜体',
+      fill: '#',
+      empty: ' ',
+      renderChar: function(glyph) {
+        const lines = [];
+        const totalCols = COLS + ROWS - 1; // 5 + 4 = 9
+        for (let r = 0; r < ROWS; r++) {
+          let line = '';
+          for (let c = 0; c < totalCols; c++) {
+            const srcCol = c - r;
+            if (srcCol >= 0 && srcCol < COLS) {
+              line += (glyph[r] >> (COLS-1-srcCol)) & 1 ? this.fill : this.empty;
+            } else {
+              line += this.empty;
+            }
+          }
+          lines.push(line);
+        }
+        return lines;
+      }
+    },
+    // 5: 泡泡字 - ● 实心圆
+    5: {
+      name: '泡泡字',
+      fill: '\u25CF', // black circle
+      empty: ' ',
+      renderChar: function(glyph) {
+        const lines = [];
+        for (let r = 0; r < ROWS; r++) {
+          let line = '';
+          for (let c = 0; c < COLS; c++) {
+            if ((glyph[r] >> (COLS-1-c)) & 1) {
+              line += this.fill;
+            } else {
+              // add subtle empty circle on edges
+              const hasFilledNeighbor =
+                (r > 0 && ((glyph[r-1] >> (COLS-1-c)) & 1)) ||
+                (r < ROWS-1 && ((glyph[r+1] >> (COLS-1-c)) & 1)) ||
+                (c > 0 && ((glyph[r] >> (COLS-c)) & 1)) ||
+                (c < COLS-1 && ((glyph[r] >> (COLS-2-c)) & 1));
+              line += hasFilledNeighbor ? '\u25CB' : ' '; // white circle
+            }
+          }
+          lines.push(line);
+        }
+        return lines;
+      }
+    }
+  };
+
+  let currentStyle = 0;
+
+  // ── 预渲染字符缓存 ──
+  const renderCache = {};
+  function getRenderedChar(ch, styleIdx) {
+    const key = ch + '_' + styleIdx;
+    if (renderCache[key]) return renderCache[key];
+    const glyph = glyphs[ch];
+    if (!glyph) {
+      // 未知字符：显示空白
+      const empty = Array(ROWS).fill('     ');
+      renderCache[key] = empty;
+      return empty;
+    }
+    const style = styles[styleIdx];
+    const rendered = style.renderChar(glyph);
+    renderCache[key] = rendered;
+    return rendered;
+  }
+
+  // ── 渲染整段文字 ──
+  function renderText(text, styleIdx) {
+    if (!text) return '';
+    const chars = text.toUpperCase().split('');
+    const colSpace = 1; // 字符间距
+    const resultLines = Array(ROWS).fill('');
+
+    for (const ch of chars) {
+      const charLines = getRenderedChar(ch, styleIdx);
+      const charWidth = charLines[0].length;
+      for (let r = 0; r < ROWS; r++) {
+        resultLines[r] += charLines[r];
+        if (ch !== chars[chars.length-1]) {
+          for (let s = 0; s < colSpace; s++) {
+            resultLines[r] += ' ';
+          }
+        }
+      }
+    }
+
+    return resultLines.join('\n');
+  }
+
+  // ── DOM 元素 ──
+  const textInput = document.getElementById('textInput');
+  const output = document.getElementById('output');
+  const styleTags = document.getElementById('styleTags');
+  const copyBtn = document.getElementById('copyBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const toast = document.getElementById('toast');
+
+  // ── 显示 toast ──
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(function() { toast.classList.remove('show'); }, 2000);
+  }
+
+  // ── 更新预览 ──
+  function updatePreview() {
+    const text = textInput.value.trim();
+    if (!text) {
+      output.textContent = '输入文字即可预览字符画';
+      output.classList.add('placeholder');
+    } else {
+      const result = renderText(text, currentStyle);
+      output.textContent = result;
+      output.classList.remove('placeholder');
+    }
+  }
+
+  // ── 事件监听 ──
+  textInput.addEventListener('input', updatePreview);
+
+  styleTags.addEventListener('click', function(e) {
+    const tag = e.target.closest('.tag');
+    if (!tag) return;
+    currentStyle = parseInt(tag.dataset.style, 10);
+    styleTags.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('active'); });
+    tag.classList.add('active');
+    updatePreview();
+  });
+
+  copyBtn.addEventListener('click', function() {
+    const text = output.textContent;
+    if (!text || output.classList.contains('placeholder')) {
+      showToast('⚠️ 请先输入文字');
+      return;
+    }
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('✅ 已复制到剪贴板');
+    }).catch(function() {
+      // 回退方案
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('✅ 已复制到剪贴板');
+    });
+  });
+
+  clearBtn.addEventListener('click', function() {
+    textInput.value = '';
+    updatePreview();
+    textInput.focus();
+  });
+
+  // ── 键盘快捷键 Ctrl+K 清空 ──
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      textInput.value = '';
+      updatePreview();
+    }
+  });
+
+  // ── 清除样式缓存 (风格切换时，缓存基于 key=char_styleIdx 不会冲突) ──
+  // 缓存按 char+styleIdx 键值，切换风格自动用新缓存键
+
+  updatePreview();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌈 渐变背景生成器</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface-2: #0f3460;
+    --text: #eaeaea;
+    --text-secondary: #a0a0b8;
+    --accent: #e94560;
+    --border: #2a2a4a;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --radius: 12px;
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [data-theme="light"] {
+    --bg: #f5f5fa;
+    --surface: #ffffff;
+    --surface-2: #e8e8f0;
+    --text: #1a1a2e;
+    --text-secondary: #6a6a7a;
+    --accent: #e94560;
+    --border: #d8d8e8;
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background var(--transition), color var(--transition);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  /* 渐变预览层 */
+  #gradient-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    transition: background var(--transition);
+  }
+
+  .container {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 32px;
+  }
+
+  /* 头部 */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  .header h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .theme-toggle {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text);
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .theme-toggle:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* 面板 */
+  .panel {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  /* 颜色选择器行 */
+  .color-stops {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .color-input-group {
+    flex: 1;
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .color-input-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .color-input-group input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    background: none;
+    padding: 2px;
+    transition: border-color var(--transition);
+  }
+  .color-input-group input[type="color"]:hover { border-color: var(--accent); }
+  .color-input-group input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-input-group input[type="color"]::-webkit-color-swatch { border-radius: 6px; border: none; }
+
+  .stop-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+  .stop-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* 控件行 */
+  .control-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .control-group {
+    flex: 1;
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .control-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .control-group select {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color var(--transition);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23a0a0b8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .control-group select:focus { outline: none; border-color: var(--accent); }
+
+  /* 角度滑块 */
+  .angle-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .angle-display input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface-2);
+    outline: none;
+  }
+  .angle-display input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(233,68,96,0.4);
+  }
+
+  .angle-val {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 38px;
+    text-align: center;
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 4px 8px;
+  }
+
+  /* 按钮 */
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    letter-spacing: -0.01em;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+    padding: 14px;
+    font-size: 1rem;
+  }
+  .btn-accent:hover { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(233,68,96,0.4); }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { background: var(--surface-2); border-color: var(--accent); }
+
+  .btn-sm {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
+
+  /* CSS 输出 */
+  .css-output {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: var(--text);
+    word-break: break-all;
+    line-height: 1.6;
+    position: relative;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .copy-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .copy-btn {
+    flex: 1;
+  }
+
+  .copied-hint {
+    font-size: 0.75rem;
+    color: #4ade80;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .copied-hint.show { opacity: 1; }
+
+  /* 预设 */
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+  }
+
+  .preset-item {
+    border-radius: 8px;
+    height: 64px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .preset-item:hover { transform: scale(1.04); border-color: var(--accent); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+
+  .preset-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 8px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.5));
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+
+  /* 响应式 */
+  @media (max-width: 480px) {
+    body { padding: 10px; }
+    .container { gap: 12px; }
+    .panel { padding: 16px; }
+    .header h1 { font-size: 1.1rem; }
+    .color-stops { gap: 6px; }
+    .preset-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div id="gradient-bg"></div>
+
+<div class="container">
+  <!-- 头部 -->
+  <div class="header">
+    <h1>🌈 渐变背景生成器</h1>
+    <button class="theme-toggle" id="themeToggle" title="切换暗色/亮色模式">
+      <span id="themeIcon">🌙</span>
+      <span id="themeLabel">暗色</span>
+    </button>
+  </div>
+
+  <!-- 渐变类型 + 角度 -->
+  <div class="panel">
+    <div class="panel-title">渐变设置</div>
+    <div class="control-row">
+      <div class="control-group">
+        <label>渐变类型</label>
+        <select id="gradientType">
+          <option value="linear-gradient">线性渐变 (Linear)</option>
+          <option value="radial-gradient">径向渐变 (Radial)</option>
+          <option value="conic-gradient">锥形渐变 (Conic)</option>
+        </select>
+      </div>
+      <div class="control-group" id="angleGroup">
+        <label>角度</label>
+        <div class="angle-display">
+          <input type="range" id="angleSlider" min="0" max="360" value="135">
+          <span class="angle-val" id="angleVal">135°</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 颜色设置 -->
+  <div class="panel">
+    <div class="panel-title">渐变色标</div>
+    <div class="color-stops" id="colorStops">
+      <div class="color-input-group">
+        <label>颜色 1</label>
+        <input type="color" value="#f857a6" data-color-stop="0">
+      </div>
+      <div class="color-input-group">
+        <label>颜色 2</label>
+        <input type="color" value="#ff5858" data-color-stop="1">
+      </div>
+      <div class="color-input-group" id="stop3Group" style="display:none;">
+        <label>颜色 3</label>
+        <input type="color" value="#f9d423" data-color-stop="2">
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button class="btn btn-outline btn-sm" id="addStopBtn">+ 添加色标</button>
+      <button class="btn btn-outline btn-sm" id="removeStopBtn" style="display:none;">- 移除色标</button>
+    </div>
+  </div>
+
+  <!-- 随机生成 -->
+  <button class="btn btn-accent" id="randomBtn">🎲 随机生成</button>
+
+  <!-- 预设 -->
+  <div class="panel">
+    <div class="panel-title">预设渐变</div>
+    <div class="preset-grid" id="presetGrid"></div>
+  </div>
+
+  <!-- CSS代码 -->
+  <div class="panel">
+    <div class="panel-title">CSS 代码</div>
+    <div class="css-output" id="cssOutput"></div>
+    <div class="copy-row">
+      <button class="btn btn-accent btn-sm copy-btn" id="copyBtn">📋 复制 CSS</button>
+      <span class="copied-hint" id="copiedHint">已复制!</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ===== 状态 =====
+  let colorStops = ['#f857a6', '#ff5858'];
+  let gradientType = 'linear-gradient';
+  let angle = 135;
+  let theme = 'dark';
+
+  // ===== 预设渐变 =====
+  const presets = [
+    { name: '日落', stops: ['#ff6b6b', '#ffa502', '#f368e0'], type: 'linear-gradient', angle: 180 },
+    { name: '海洋', stops: ['#0abde3', '#48dbfb', '#01a3a4'], type: 'linear-gradient', angle: 135 },
+    { name: '森林', stops: ['#11998e', '#38ef7d', '#11998e'], type: 'linear-gradient', angle: 90 },
+    { name: '极光', stops: ['#7f00ff', '#e100ff', '#00b4db'], type: 'linear-gradient', angle: 160 },
+    { name: '樱花', stops: ['#ff9a9e', '#fad0c4', '#ffecd2'], type: 'linear-gradient', angle: 120 },
+    { name: '午夜', stops: ['#0c0c3e', '#1a1a5e', '#2a1a5e'], type: 'linear-gradient', angle: 225 },
+    { name: '糖果', stops: ['#f5576c', '#f093fb', '#4facfe'], type: 'linear-gradient', angle: 135 },
+    { name: '薄荷', stops: ['#a8e6cf', '#3dccc7', '#2b8a8b'], type: 'linear-gradient', angle: 150 },
+  ];
+
+  // ===== 随机调色板 =====
+  const randomPalettes = [
+    ['#ff758c', '#ff7eb3', '#ffb199'],
+    ['#667eea', '#764ba2', '#f093fb'],
+    ['#fc5c7d', '#6a82fb', '#5b86e5'],
+    ['#f7971e', '#ffd200', '#f5af19'],
+    ['#00b4db', '#0083b0', '#00c6ff'],
+    ['#ee0979', '#ff6a00', '#f8cdda'],
+    ['#56ab2f', '#a8e063', '#11998e'],
+    ['#4cb8c4', '#3cd3ad', '#00bfa5'],
+    ['#ff4b1f', '#ff9068', '#fe8c00'],
+    ['#2b5876', '#4e4376', '#7f53ac'],
+    ['#c0392b', '#e74c3c', '#f39c12'],
+    ['#16a085', '#27ae60', '#2ecc71'],
+    ['#8e44ad', '#3498db', '#2ecc71'],
+    ['#e67e22', '#f1c40f', '#e74c3c'],
+    ['#1abc9c', '#3498db', '#9b59b6'],
+  ];
+
+  // ===== DOM 引用 =====
+  const $ = id => document.getElementById(id);
+  const bgLayer = $('gradient-bg');
+  const cssOutput = $('cssOutput');
+  const angleSlider = $('angleSlider');
+  const angleVal = $('angleVal');
+  const gradientTypeSelect = $('gradientType');
+  const angleGroup = $('angleGroup');
+  const stop3Group = $('stop3Group');
+  const addStopBtn = $('addStopBtn');
+  const removeStopBtn = $('removeStopBtn');
+  const colorStopsContainer = $('colorStops');
+
+  // ===== 构建 CSS =====
+  function buildCSS() {
+    const stops = colorStops.map((c, i) => `${c} ${Math.round(i * 100 / (colorStops.length - 1))}%`).join(', ');
+    switch (gradientType) {
+      case 'radial-gradient': return `radial-gradient(circle, ${stops})`;
+      case 'conic-gradient': return `conic-gradient(from ${angle}deg, ${stops})`;
+      default: return `linear-gradient(${angle}deg, ${stops})`;
+    }
+  }
+
+  // ===== 应用渐变 =====
+  function applyGradient() {
+    const css = buildCSS();
+    bgLayer.style.background = css;
+    cssOutput.textContent = `background: ${css};`;
+  }
+
+  // ===== 同步色标DOM =====
+  function syncColorInputs() {
+    const inputs = colorStopsContainer.querySelectorAll('input[type="color"]');
+    // 确保前N个可见
+    for (let i = 0; i < inputs.length; i++) {
+      const group = inputs[i].closest('.color-input-group');
+      if (group) {
+        group.style.display = i < colorStops.length ? '' : 'none';
+      }
+      if (i < colorStops.length) {
+        inputs[i].value = colorStops[i];
+      }
+    }
+    // 第三个色标组
+    if (stop3Group) {
+      stop3Group.style.display = colorStops.length >= 3 ? '' : 'none';
+    }
+    addStopBtn.style.display = colorStops.length < 3 ? '' : 'none';
+    removeStopBtn.style.display = colorStops.length > 2 ? '' : 'none';
+  }
+
+  // ===== 加载预设 =====
+  function loadPreset(preset) {
+    colorStops = [...preset.stops];
+    gradientType = preset.type;
+    angle = preset.angle;
+    gradientTypeSelect.value = gradientType;
+    angleSlider.value = angle;
+    angleVal.textContent = angle + '°';
+    angleGroup.style.display = gradientType === 'radial-gradient' ? 'none' : '';
+    syncColorInputs();
+    applyGradient();
+  }
+
+  // ===== 事件绑定 =====
+  gradientTypeSelect.addEventListener('change', () => {
+    gradientType = gradientTypeSelect.value;
+    angleGroup.style.display = gradientType === 'radial-gradient' ? 'none' : '';
+    applyGradient();
+  });
+
+  angleSlider.addEventListener('input', () => {
+    angle = parseInt(angleSlider.value);
+    angleVal.textContent = angle + '°';
+    applyGradient();
+  });
+
+  colorStopsContainer.addEventListener('input', (e) => {
+    if (e.target.dataset.colorStop !== undefined) {
+      const idx = parseInt(e.target.dataset.colorStop);
+      colorStops[idx] = e.target.value;
+      applyGradient();
+    }
+  });
+
+  addStopBtn.addEventListener('click', () => {
+    if (colorStops.length < 3) {
+      colorStops.push('#f9d423');
+      syncColorInputs();
+      applyGradient();
+    }
+  });
+
+  removeStopBtn.addEventListener('click', () => {
+    if (colorStops.length > 2) {
+      colorStops.pop();
+      syncColorInputs();
+      applyGradient();
+    }
+  });
+
+  $('randomBtn').addEventListener('click', () => {
+    const palette = randomPalettes[Math.floor(Math.random() * randomPalettes.length)];
+    colorStops = [...palette];
+    const types = ['linear-gradient', 'radial-gradient', 'conic-gradient'];
+    gradientType = types[Math.floor(Math.random() * types.length)];
+    angle = Math.floor(Math.random() * 361);
+    gradientTypeSelect.value = gradientType;
+    angleSlider.value = angle;
+    angleVal.textContent = angle + '°';
+    angleGroup.style.display = gradientType === 'radial-gradient' ? 'none' : '';
+    syncColorInputs();
+    applyGradient();
+  });
+
+  $('copyBtn').addEventListener('click', () => {
+    const css = `background: ${buildCSS()};`;
+    navigator.clipboard.writeText(css).then(() => {
+      const hint = $('copiedHint');
+      hint.classList.add('show');
+      setTimeout(() => hint.classList.remove('show'), 1500);
+    });
+  });
+
+  // 主题切换
+  $('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    theme = theme === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', theme);
+    $('themeIcon').textContent = theme === 'dark' ? '🌙' : '☀️';
+    $('themeLabel').textContent = theme === 'dark' ? '暗色' : '亮色';
+  });
+
+  // 渲染预设按钮
+  const presetGrid = $('presetGrid');
+  presets.forEach((preset, i) => {
+    const div = document.createElement('div');
+    div.className = 'preset-item';
+    const stops = preset.stops.map((c, j) => `${c} ${Math.round(j * 100 / (preset.stops.length - 1))}%`).join(', ');
+    div.style.background = `${preset.type}(${preset.angle}deg, ${stops})`;
+    div.innerHTML = `<span class="preset-label">${preset.name}</span>`;
+    div.addEventListener('click', () => loadPreset(preset));
+    presetGrid.appendChild(div);
+  });
+
+  // ===== 初始化 =====
+  syncColorInputs();
+  applyGradient();
+})();
+</script>
+</body>
+</html>

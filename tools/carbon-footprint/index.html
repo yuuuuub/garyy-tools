@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碳足迹计算器 | Carbon Footprint Calculator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --bg-card: #1a1d27; --bg-input: #242836;
+    --text: #e2e4e9; --text-secondary: #8b8fa3; --accent: #22c55e;
+    --accent-hover: #16a34a; --danger: #ef4444; --warning: #f59e0b;
+    --border: #2a2e3a; --radius: 12px; --radius-sm: 8px;
+  }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    min-height: 100vh; line-height: 1.6; padding: 20px;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 12px; }
+  header { text-align: center; padding: 40px 0 24px; }
+  header h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(135deg, #22c55e, #10b981, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; }
+  header .subtitle { color: var(--text-secondary); font-size: 0.95rem; }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; margin-bottom: 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #3a3f50; }
+  .card h2 {
+    font-size: 1.15rem; font-weight: 600; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .icon { font-size: 1.3rem; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 0.88rem; font-weight: 500; color: var(--text-secondary); }
+  .form-group label .unit { font-weight: 400; color: #5a5f75; font-size: 0.8rem; }
+  select, input[type="number"], input[type="range"] {
+    background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 11px 14px;
+    color: var(--text); font-size: 0.93rem; font-family: inherit;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+  }
+  select:focus, input[type="number"]:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+  }
+  select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%238b8fa3' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  .range-wrapper { display: flex; align-items: center; gap: 10px; }
+  .range-wrapper input[type="range"] {
+    flex: 1; -webkit-appearance: none; height: 6px; border-radius: 3px;
+    background: var(--bg-input); border: none; padding: 0; cursor: pointer;
+  }
+  .range-wrapper input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg-card); cursor: pointer;
+    box-shadow: 0 0 8px rgba(34,197,94,0.3);
+  }
+  .range-value {
+    min-width: 44px; text-align: center; font-weight: 600;
+    font-size: 0.93rem; color: var(--accent);
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 32px; border-radius: var(--radius-sm); font-size: 1rem;
+    font-weight: 600; border: none; cursor: pointer; font-family: inherit;
+    transition: all 0.2s; width: 100%;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(34,197,94,0.25); }
+  .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); margin-top: 10px; }
+  .btn-secondary:hover { background: #2d3244; }
+  .result-hidden { display: none; }
+  .result-visible { display: block; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .total-co2 { text-align: center; padding: 20px 0; }
+  .total-co2 .big-number {
+    font-size: 3.5rem; font-weight: 800;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; line-height: 1.1;
+  }
+  .total-co2 .unit-label { color: var(--text-secondary); font-size: 1rem; margin-top: 4px; }
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+  @media (max-width: 500px) { .comparison { grid-template-columns: 1fr; } }
+  .comp-bar { background: var(--bg-input); border-radius: var(--radius-sm); padding: 16px; }
+  .comp-bar .label { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .comp-bar .bar-track { height: 8px; background: #1e2230; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+  .comp-bar .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .comp-bar .bar-fill.national { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .comp-bar .bar-fill.global { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+  .comp-bar .bar-fill.you { background: linear-gradient(90deg, #22c55e, #4ade80); }
+  .comp-bar .note { font-size: 0.78rem; margin-top: 4px; }
+  .comp-bar .note.over { color: var(--danger); }
+  .comp-bar .note.under { color: var(--accent); }
+  .breakdown-section { margin-top: 20px; }
+  .breakdown-bars { display: flex; flex-direction: column; gap: 12px; }
+  .breakdown-item { display: flex; align-items: center; gap: 12px; }
+  .breakdown-item .cat-label { min-width: 72px; font-size: 0.88rem; }
+  .breakdown-item .bar-outer { flex: 1; height: 22px; background: #1e2230; border-radius: 6px; overflow: hidden; position: relative; }
+  .breakdown-item .bar-inner { height: 100%; border-radius: 6px; transition: width 0.6s ease; position: relative; }
+  .breakdown-item .bar-inner .bar-val { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 600; color: #fff; white-space: nowrap; }
+  .breakdown-item .cat-pct { min-width: 48px; text-align: right; font-size: 0.85rem; font-weight: 600; }
+  .cat-transport .bar-inner { background: linear-gradient(90deg, #6366f1, #818cf8); }
+  .cat-food .bar-inner { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .cat-energy .bar-inner { background: linear-gradient(90deg, #ef4444, #f87171); }
+  .cat-consumption .bar-inner { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+  .chart-container { display: flex; justify-content: center; margin: 24px 0 8px; }
+  .chart-container svg { max-width: 280px; width: 100%; }
+  .trees-offset { text-align: center; padding: 16px; background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); border-radius: var(--radius-sm); margin-top: 20px; }
+  .trees-offset .tree-count { font-size: 2.2rem; font-weight: 800; color: var(--accent); }
+  .trees-offset .tree-label { color: var(--text-secondary); font-size: 0.9rem; }
+  .tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  @media (max-width: 500px) { .tips-grid { grid-template-columns: 1fr; } }
+  .tip-card { background: var(--bg-input); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 0.88rem; border-left: 3px solid var(--accent); }
+  .tip-card .tip-cat { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .disclaimer { margin-top: 32px; padding: 20px; background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.12); border-radius: var(--radius); }
+  .disclaimer h3 { font-size: 0.95rem; color: var(--warning); margin-bottom: 8px; }
+  .disclaimer p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7; }
+  footer { text-align: center; padding: 24px 0; color: #4a4f62; font-size: 0.82rem; }
+  /* Compact range styling */
+  .range-group { background: var(--bg-input); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .range-group .range-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .range-group .range-header span:first-child { font-size: 0.85rem; color: var(--text-secondary); }
+  .range-group .range-header .val { font-weight: 700; color: var(--accent); font-size: 1.1rem; }
+  .range-group input[type="range"] { width: 100%; }
+  .input-with-icon { position: relative; }
+  .input-with-icon .suffix { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #5a5f75; font-size: 0.85rem; pointer-events: none; }
+  .input-with-icon input { padding-right: 52px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 500px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <h1>碳足迹计算器</h1>
+    <p class="subtitle">了解你的生活方式对环境的影响，迈出低碳生活的第一步</p>
+  </header>
+
+  <!-- Input Form Card -->
+  <div class="card" id="inputCard">
+    <h2><span class="icon">📋</span> 填写你的生活方式</h2>
+
+    <!-- Transport -->
+    <div class="form-group" style="margin-bottom:18px;">
+      <label>交通方式 <span class="unit">— 日常通勤</span></label>
+      <select id="transportMode">
+        <option value="car-petrol">🚗 燃油汽车</option>
+        <option value="car-hybrid">🚗 混合动力</option>
+        <option value="car-ev">🚗 纯电动车</option>
+        <option value="bus">🚌 公交车</option>
+        <option value="subway">🚇 地铁</option>
+        <option value="ebike">🛵 电动自行车</option>
+        <option value="bike">🚲 自行车/步行</option>
+      </select>
+    </div>
+
+    <div class="two-col" style="margin-bottom:18px;">
+      <div class="input-with-icon">
+        <label style="font-size:0.85rem;color:var(--text-secondary);display:block;margin-bottom:4px;">每日通勤距离 <span class="unit">(公里)</span></label>
+        <input type="number" id="commuteKm" value="10" min="0" max="200" step="0.5" style="padding-right:52px;">
+        <span class="suffix">公里</span>
+      </div>
+      <div class="input-with-icon">
+        <label style="font-size:0.85rem;color:var(--text-secondary);display:block;margin-bottom:4px;">每年飞行次数</label>
+        <input type="number" id="flightsPerYear" value="2" min="0" max="50" step="1" style="padding-right:52px;">
+        <span class="suffix">次</span>
+      </div>
+    </div>
+
+    <!-- Diet -->
+    <div class="form-group" style="margin-bottom:18px;">
+      <label>饮食类型</label>
+      <select id="dietType">
+        <option value="heavy-meat">🥩 大量肉类（每日都吃）</option>
+        <option value="medium-meat">🍗 适量肉类（每周数次）</option>
+        <option value="low-meat">🥬 少量肉类（偶尔吃）</option>
+        <option value="pescatarian">🐟 鱼素（不吃肉只吃鱼）</option>
+        <option value="vegetarian">🥗 蛋奶素</option>
+        <option value="vegan">🌱 纯素</option>
+      </select>
+    </div>
+
+    <!-- Energy -->
+    <div class="range-group" style="margin-bottom:18px;">
+      <div class="range-header">
+        <span>每月用电量</span>
+        <span class="val" id="electricityVal">300 千瓦时</span>
+      </div>
+      <input type="range" id="electricityKwh" min="50" max="2000" value="300" step="10">
+    </div>
+
+    <!-- Shopping -->
+    <div class="form-group" style="margin-bottom:20px;">
+      <label>购物与消费习惯</label>
+      <select id="shoppingHabits">
+        <option value="heavy">🛍️ 大量购物（频繁购买新衣物、电子产品等）</option>
+        <option value="medium">🛒 中等消费（需要时才购买）</option>
+        <option value="light">♻️ 轻度消费（尽量购买二手/维修为主）</option>
+        <option value="minimal">🌿 极简主义（几乎不购买非必需品）</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="calculate()">🔍 计算我的碳足迹</button>
+  </div>
+
+  <!-- Results -->
+  <div id="resultSection" class="result-hidden">
+
+    <!-- Total CO2 -->
+    <div class="card">
+      <div class="total-co2">
+        <div style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:4px;">你的年度碳足迹</div>
+        <div class="big-number" id="totalCo2">0</div>
+        <div class="unit-label">吨 CO₂ / 年</div>
+      </div>
+      <div id="comparisonNote" style="text-align:center;font-size:0.95rem;margin-top:8px;"></div>
+
+      <!-- Comparison bars -->
+      <div class="comparison">
+        <div class="comp-bar">
+          <div class="label"><span>🇨🇳 中国平均值</span><span id="chinaAvg">7.4 吨</span></div>
+          <div class="bar-track"><div class="bar-fill national" id="chinaBarFill" style="width:74%;"></div></div>
+          <div class="note" style="color:var(--text-secondary);">人均年排放约 7.4 吨</div>
+        </div>
+        <div class="comp-bar">
+          <div class="label"><span>🌍 全球平均值</span><span id="globalAvg">4.7 吨</span></div>
+          <div class="bar-track"><div class="bar-fill global" id="globalBarFill" style="width:47%;"></div></div>
+          <div class="note" style="color:var(--text-secondary);">人均年排放约 4.7 吨</div>
+        </div>
+      </div>
+
+      <!-- Your comparison bar -->
+      <div class="comp-bar" style="margin-top:12px;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);">
+        <div class="label"><span>🌱 你的碳足迹</span><span id="youAvgLabel" style="color:var(--accent);"></span></div>
+        <div class="bar-track"><div class="bar-fill you" id="youBarFill" style="width:0%;"></div></div>
+        <div class="note" id="youNote"></div>
+      </div>
+    </div>
+
+    <!-- Breakdown + Chart -->
+    <div class="card">
+      <h2><span class="icon">📊</span> 分类排放明细</h2>
+      <div class="breakdown-section">
+        <div class="breakdown-bars" id="breakdownBars"></div>
+      </div>
+      <!-- Radar Chart (SVG) -->
+      <div class="chart-container" id="radarChart"></div>
+    </div>
+
+    <!-- Tree Offset -->
+    <div class="card">
+      <h2><span class="icon">🌳</span> 树木碳汇抵消</h2>
+      <div class="trees-offset">
+        <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:4px;">要抵消你的年度碳排放，需要种植</div>
+        <div class="tree-count" id="treeCount">0</div>
+        <div class="tree-label">棵成年树木持续生长一年</div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-secondary);margin-top:12px;text-align:center;">
+        * 按每棵成年树木每年吸收约 <strong>22 千克</strong> CO₂ 估算
+      </p>
+    </div>
+
+    <!-- Tips -->
+    <div class="card">
+      <h2><span class="icon">💡</span> 减排建议</h2>
+      <div class="tips-grid" id="tipsGrid"></div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+      <h3>⚠️ 免责声明</h3>
+      <p>
+        本计算器基于碳足迹研究的平均数据估算，碳排放因子参考 IPCC、中国生态环境部及国际研究数据。
+        计算结果仅供参考和环保意识教育之用，不代表个人精确实时碳排放量。不同地区、不同生活习惯、
+        不同能源结构等因素均会导致实际排放差异。如需精确数据，请咨询专业碳审计机构。
+        数据来源：世界银行、全球碳计划（Global Carbon Project）、Our World in Data。
+      </p>
+    </div>
+
+    <button class="btn btn-secondary" onclick="resetForm()">🔄 重新计算</button>
+  </div>
+
+  <footer>
+    碳足迹计算器 · 用数据了解生活 · 为地球行动
+  </footer>
+</div>
+
+<script>
+// --- Emission Factors (kg CO2 per unit) ---
+const TRANSPORT_FACTORS = {
+  'car-petrol': 0.192,   // kg CO2 per km (average petrol car)
+  'car-hybrid': 0.105,   // hybrid
+  'car-ev': 0.053,       // EV with China grid mix
+  'bus': 0.089,          // per passenger km
+  'subway': 0.028,       // per passenger km
+  'ebike': 0.015,        // electric bike
+  'bike': 0,             // zero emission
+};
+
+const DIET_FACTORS = {
+  'heavy-meat': 3100,    // kg CO2/year
+  'medium-meat': 2050,
+  'low-meat': 1400,
+  'pescatarian': 1100,
+  'vegetarian': 900,
+  'vegan': 550,
+};
+
+const SHOPPING_FACTORS = {
+  'heavy': 3500,
+  'medium': 1800,
+  'light': 900,
+  'minimal': 400,
+};
+
+const FLIGHT_FACTOR = 250; // kg CO2 per flight (average short-medium haul round-trip equivalent)
+const ELECTRICITY_FACTOR = 0.581; // kg CO2 per kWh (China grid average)
+
+const CHINA_AVG = 7.4; // tons/year
+const GLOBAL_AVG = 4.7; // tons/year
+const TREE_ABSORPTION = 22; // kg CO2 per tree per year
+
+// --- Slider live update ---
+document.getElementById('electricityKwh').addEventListener('input', function() {
+  document.getElementById('electricityVal').textContent = this.value + ' 千瓦时';
+});
+
+// --- Tips database ---
+// 这些建议基于科学研究和实际可行的环保实践
+const TIPS_DB = [
+  { cat: '交通', text: '尽量选择公共交通、骑行或步行，短距离行程放弃开车。', trigger: 'transport' },
+  { cat: '交通', text: '考虑换用电动车或混合动力车，可降低 40-70% 排放。', trigger: 'transport' },
+  { cat: '交通', text: '合理规划出行路线，减少不必要的绕路和堵车时间。', trigger: 'transport' },
+  { cat: '交通', text: '定期保养车辆，保持轮胎气压正常可省油 3-5%。', trigger: 'transport' },
+  { cat: '饮食', text: '每周减少一天肉类摄入，多吃本地应季蔬果。', trigger: 'food' },
+  { cat: '饮食', text: '减少食物浪费，计划采购，厨余垃圾分类处理。', trigger: 'food' },
+  { cat: '饮食', text: '选择当地生产的食物，减少运输环节碳排放。', trigger: 'food' },
+  { cat: '能源', text: '使用节能电器，将空调温度调高 1°C 可省电约 6%。', trigger: 'energy' },
+  { cat: '能源', text: '人走关灯，拔掉不用的电器插头，减少待机能耗。', trigger: 'energy' },
+  { cat: '能源', text: '安装太阳能热水器或屋顶光伏，使用清洁能源。', trigger: 'energy' },
+  { cat: '消费', text: '延长物品使用寿命，优先维修而非更换，购买二手商品。', trigger: 'consumption' },
+  { cat: '消费', text: '减少一次性塑料使用，自带购物袋和水杯。', trigger: 'consumption' },
+  { cat: '消费', text: '选择环保包装产品，支持可持续品牌。', trigger: 'consumption' },
+  { cat: '飞行', text: '减少不必要的飞行，多用视频会议替代出差。', trigger: 'flight' },
+  { cat: '飞行', text: '如需飞行，选择直飞航班减少起降环节的高排放。', trigger: 'flight' },
+  { cat: '通用', text: '参与植树造林活动，支持可再生能源发展。', trigger: 'general' },
+];
+
+// --- Calculate ---
+function calculate() {
+  // Read inputs
+  const transportMode = document.getElementById('transportMode').value;
+  const commuteKm = parseFloat(document.getElementById('commuteKm').value) || 0;
+  const flights = parseInt(document.getElementById('flightsPerYear').value) || 0;
+  const dietType = document.getElementById('dietType').value;
+  const electricityKwh = parseInt(document.getElementById('electricityKwh').value) || 0;
+  const shoppingHabits = document.getElementById('shoppingHabits').value;
+
+  // Calculations (all in kg CO2)
+  const transportCO2 = TRANSPORT_FACTORS[transportMode] * commuteKm * 365;
+  const flightCO2 = flights * FLIGHT_FACTOR;
+  const dietCO2 = DIET_FACTORS[dietType];
+  const electricityCO2 = electricityKwh * 12 * ELECTRICITY_FACTOR;
+  const shoppingCO2 = SHOPPING_FACTORS[shoppingHabits];
+
+  const totalCO2_kg = transportCO2 + flightCO2 + dietCO2 + electricityCO2 + shoppingCO2;
+  const totalCO2_tons = totalCO2_kg / 1000;
+
+  // Group by category for display
+  const categories = [
+    { name: '交通', value: transportCO2 + flightCO2, color: 'cat-transport' },
+    { name: '饮食', value: dietCO2, color: 'cat-food' },
+    { name: '能源', value: electricityCO2, color: 'cat-energy' },
+    { name: '消费', value: shoppingCO2, color: 'cat-consumption' },
+  ];
+
+  const catData = categories.map(c => ({
+    ...c,
+    tons: c.value / 1000,
+    pct: totalCO2_kg > 0 ? (c.value / totalCO2_kg * 100) : 0
+  }));
+
+  // Update total
+  document.getElementById('totalCo2').textContent = totalCO2_tons.toFixed(1);
+
+  // Comparison
+  const chinaPct = Math.min(totalCO2_tons / CHINA_AVG * 100, 100);
+  const globalPct = Math.min(totalCO2_tons / GLOBAL_AVG * 100, 100);
+  const maxRef = Math.max(CHINA_AVG, GLOBAL_AVG, totalCO2_tons + 1);
+  const youPct = Math.min(totalCO2_tons / maxRef * 100, 100);
+
+  document.getElementById('chinaBarFill').style.width = (CHINA_AVG / maxRef * 100).toFixed(1) + '%';
+  document.getElementById('globalBarFill').style.width = (GLOBAL_AVG / maxRef * 100).toFixed(1) + '%';
+  document.getElementById('youBarFill').style.width = youPct.toFixed(1) + '%';
+  document.getElementById('youAvgLabel').textContent = totalCO2_tons.toFixed(1) + ' 吨';
+
+  let comparisonHTML = '';
+  const youNoteEl = document.getElementById('youNote');
+  if (totalCO2_tons > CHINA_AVG) {
+    comparisonHTML = '⚠️ 你的碳足迹<span style="color:#ef4444;font-weight:700;">高于</span>中国平均水平 ' + ((totalCO2_tons / CHINA_AVG - 1) * 100).toFixed(0) + '%';
+    youNoteEl.textContent = '高于全国平均水平';
+    youNoteEl.className = 'note over';
+  } else if (totalCO2_tons > GLOBAL_AVG) {
+    comparisonHTML = '你的碳足迹低于中国平均，但<span style="color:#f59e0b;font-weight:700;">高于</span>全球平均 ' + ((totalCO2_tons / GLOBAL_AVG - 1) * 100).toFixed(0) + '%';
+    youNoteEl.textContent = '低于全国平均，高于全球平均';
+    youNoteEl.className = 'note over';
+  } else {
+    comparisonHTML = '🌱 你的碳足迹<span style="color:#22c55e;font-weight:700;">低于</span>全球平均水平，继续保持！';
+    youNoteEl.textContent = '低于全球平均水平，表现优秀！';
+    youNoteEl.className = 'note under';
+  }
+  document.getElementById('comparisonNote').innerHTML = comparisonHTML;
+
+  // Breakdown bars
+  let breakdownHTML = '';
+  catData.forEach((cat, i) => {
+    const colors = ['#818cf8','#fbbf24','#f87171','#a78bfa'];
+    const catClasses = ['cat-transport','cat-food','cat-energy','cat-consumption'];
+    breakdownHTML += `
+      <div class="breakdown-item ${catClasses[i]}">
+        <span class="cat-label">${cat.name}</span>
+        <div class="bar-outer">
+          <div class="bar-inner" style="width:${cat.pct}%;">
+            <span class="bar-val">${cat.tons.toFixed(1)} 吨</span>
+          </div>
+        </div>
+        <span class="cat-pct">${cat.pct.toFixed(1)}%</span>
+      </div>
+    `;
+  });
+  document.getElementById('breakdownBars').innerHTML = breakdownHTML;
+
+  // Radar chart
+  renderRadarChart(catData);
+
+  // Trees
+  const treesNeeded = Math.ceil(totalCO2_kg / TREE_ABSORPTION);
+  document.getElementById('treeCount').textContent = treesNeeded.toLocaleString();
+
+  // Tips - pick most relevant based on highest categories
+  const sortedCats = [...catData].sort((a, b) => b.value - a.value);
+  const topTriggers = [];
+  sortedCats.forEach(c => {
+    if (catData.findIndex(x => x.name === c.name) === 0) topTriggers.push('transport');
+    else topTriggers.push(c.name === '交通' ? 'transport' : c.name === '饮食' ? 'food' : c.name === '能源' ? 'energy' : 'consumption');
+  });
+  if (flights > 0) topTriggers.push('flight');
+
+  const relevantTips = [];
+  topTriggers.forEach(trigger => {
+    const matches = TIPS_DB.filter(t => t.trigger === trigger);
+    matches.forEach(m => { if (!relevantTips.includes(m)) relevantTips.push(m); });
+  });
+  // Fill up to 8 tips
+  if (relevantTips.length < 8) {
+    TIPS_DB.forEach(t => {
+      if (!relevantTips.includes(t) && relevantTips.length < 8) relevantTips.push(t);
+    });
+  }
+  let tipsHTML = '';
+  relevantTips.slice(0, 8).forEach(t => {
+    tipsHTML += `<div class="tip-card"><div class="tip-cat">${t.cat}</div>${t.text}</div>`;
+  });
+  document.getElementById('tipsGrid').innerHTML = tipsHTML;
+
+  // Show results
+  document.getElementById('resultSection').className = 'result-visible';
+  document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// --- Radar Chart (Pure SVG) ---
+function renderRadarChart(catData) {
+  const size = 280;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 100;
+  const levels = 4;
+  const angles = [-90, 0, 90, 180].map(a => a * Math.PI / 180); // top, right, bottom, left
+
+  let svg = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += `<style>
+    .radar-bg { fill: none; stroke: #2a2e3a; stroke-width: 1; }
+    .radar-axis { stroke: #2a2e3a; stroke-width: 0.8; }
+    .radar-label { fill: #8b8fa3; font-size: 11px; text-anchor: middle; dominant-baseline: middle; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .radar-data { fill: rgba(34,197,94,0.15); stroke: #22c55e; stroke-width: 2; }
+    .radar-dot { fill: #22c55e; }
+    .radar-pct { fill: #e2e4e9; font-size: 10px; font-weight: 600; text-anchor: middle; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  </style>`;
+
+  // Background levels
+  for (let level = 1; level <= levels; level++) {
+    const r = radius * level / levels;
+    const pts = angles.map(a => `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`).join(' ');
+    svg += `<polygon points="${pts}" class="radar-bg" />`;
+  }
+
+  // Axis lines
+  angles.forEach(a => {
+    svg += `<line x1="${cx}" y1="${cy}" x2="${cx + radius * Math.cos(a)}" y2="${cy + radius * Math.sin(a)}" class="radar-axis" />`;
+  });
+
+  // Labels
+  const labelDist = radius + 24;
+  const labels = ['交通', '饮食', '能源', '消费'];
+  labels.forEach((label, i) => {
+    const lx = cx + labelDist * Math.cos(angles[i]);
+    const ly = cy + labelDist * Math.sin(angles[i]);
+    svg += `<text x="${lx}" y="${ly}" class="radar-label">${label}</text>`;
+  });
+
+  // Data polygon
+  const maxVal = Math.max(...catData.map(c => c.tons), 0.1);
+  const dataPts = catData.map((cat, i) => {
+    const ratio = Math.min(cat.tons / maxVal, 1);
+    const r = radius * ratio;
+    return `${cx + r * Math.cos(angles[i])},${cy + r * Math.sin(angles[i])}`;
+  }).join(' ');
+  svg += `<polygon points="${dataPts}" class="radar-data" />`;
+
+  // Dots and percentage labels
+  catData.forEach((cat, i) => {
+    const ratio = Math.min(cat.tons / maxVal, 1);
+    const r = radius * ratio;
+    const dx = cx + r * Math.cos(angles[i]);
+    const dy = cy + r * Math.sin(angles[i]);
+    svg += `<circle cx="${dx}" cy="${dy}" r="4" class="radar-dot" />`;
+    // Show tons value
+    const lx = cx + (r + 16) * Math.cos(angles[i]);
+    const ly = cy + (r + 16) * Math.sin(angles[i]);
+    svg += `<text x="${lx}" y="${ly}" class="radar-pct">${cat.tons.toFixed(1)}吨</text>`;
+  });
+
+  svg += '</svg>';
+  document.getElementById('radarChart').innerHTML = svg;
+}
+
+// --- Reset ---
+function resetForm() {
+  document.getElementById('resultSection').className = 'result-hidden';
+  document.getElementById('inputCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+
+</body>
+</html>

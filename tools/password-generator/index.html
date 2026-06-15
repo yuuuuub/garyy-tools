@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔑 随机密码生成器</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --primary: #6366f1;
+    --primary-hover: #818cf8;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --slider-bg: #334155;
+    --checkbox-bg: #1e293b;
+    --input-bg: #1e293b;
+    --copy-bg: #334155;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 2rem;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+  }
+  h1 { text-align:center; font-size:1.5rem; margin-bottom:1.5rem; color:var(--primary-hover); }
+
+  .section { margin-bottom: 1.25rem; }
+  .section-title { font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary); letter-spacing:0.05em; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; }
+
+  .length-row { display:flex; align-items:center; gap:0.75rem; }
+  .length-row input[type=range] { flex:1; accent-color:var(--primary); height:6px; }
+  .length-value {
+    background: var(--primary);
+    color: #fff;
+    min-width: 2.5rem;
+    text-align: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .checks { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+  .checks label {
+    display:flex; align-items:center; gap:0.5rem;
+    font-size:0.85rem; cursor:pointer; color:var(--text-secondary);
+    padding:0.4rem 0.6rem; border-radius:0.5rem; border:1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .checks label:has(input:checked) {
+    background: rgba(99,102,241,0.15); border-color:var(--primary); color:var(--text);
+  }
+  .checks input[type=checkbox] { accent-color:var(--primary); width:16px; height:16px; }
+
+  .extra-options { display:flex; flex-direction:column; gap:0.5rem; }
+  .extra-options label {
+    display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;
+    color:var(--text-secondary); cursor:pointer;
+  }
+  .extra-options input[type=checkbox] { accent-color:var(--primary); width:16px; height:16px; }
+
+  .memorable-section { display:flex; flex-direction:column; gap:0.5rem; }
+  .memorable-section input[type=text] {
+    background: var(--input-bg); border:1px solid var(--border); border-radius:0.5rem;
+    padding:0.6rem 0.75rem; color:var(--text); font-size:0.9rem; outline:none;
+    transition: border-color 0.15s;
+  }
+  .memorable-section input:focus { border-color:var(--primary); }
+  .memorable-section input:disabled { opacity:0.4; cursor:not-allowed; }
+
+  .password-display {
+    background: #0f172a;
+    border: 2px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 1.1rem;
+    word-break: break-all;
+    text-align: center;
+    position: relative;
+    min-height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    user-select: all;
+  }
+  .password-display:hover { border-color: var(--primary); }
+  .password-display .copy-hint {
+    position: absolute; top:0.4rem; right:0.7rem; font-size:0.65rem;
+    color:var(--text-secondary); opacity:0; transition:opacity 0.2s;
+  }
+  .password-display:hover .copy-hint { opacity:1; }
+  .copy-toast {
+    position: fixed; top:1rem; left:50%; transform:translateX(-50%);
+    background: var(--success); color:#000; padding:0.6rem 1.5rem;
+    border-radius:2rem; font-weight:600; font-size:0.85rem;
+    z-index:100; opacity:0; transition:opacity 0.3s;
+  }
+  .copy-toast.show { opacity:1; }
+
+  .strength-bar { height:6px; border-radius:3px; background:var(--border); margin-top:0.5rem; overflow:hidden; }
+  .strength-fill { height:100%; border-radius:3px; transition: all 0.3s; width:0; }
+  .strength-label { font-size:0.75rem; margin-top:0.25rem; color:var(--text-secondary); text-align:right; }
+
+  .batch-section { margin-top:1rem; }
+  .batch-passwords { display:flex; flex-direction:column; gap:0.4rem; margin-top:0.5rem; }
+  .batch-item {
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--input-bg); border:1px solid var(--border); border-radius:0.5rem;
+    padding:0.6rem 0.8rem; font-family:monospace; font-size:0.85rem;
+    cursor:pointer; transition:border-color 0.15s; user-select:all;
+  }
+  .batch-item:hover { border-color:var(--primary); }
+  .batch-item .copy-icon {
+    font-size:0.7rem; color:var(--text-secondary); flex-shrink:0; margin-left:0.5rem;
+    opacity:0; transition:opacity 0.15s;
+  }
+  .batch-item:hover .copy-icon { opacity:1; }
+
+  .btn {
+    background: var(--primary); color:#fff; border:none; padding:0.7rem 1.5rem;
+    border-radius:0.5rem; font-size:0.9rem; font-weight:600; cursor:pointer;
+    transition: background 0.15s; width:100%;
+  }
+  .btn:hover { background: var(--primary-hover); }
+  .btn-small {
+    padding:0.4rem 0.8rem; font-size:0.8rem; width:auto;
+  }
+
+  .history-section { margin-top:1rem; }
+  .history-list { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.5rem; }
+  .history-item {
+    background:var(--input-bg); border:1px solid var(--border); border-radius:0.4rem;
+    padding:0.3rem 0.6rem; font-family:monospace; font-size:0.75rem;
+    cursor:pointer; transition: all 0.15s; max-width:200px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }
+  .history-item:hover { border-color:var(--primary); background:rgba(99,102,241,0.1); }
+
+  @media (max-width: 400px) {
+    .container { padding:1.25rem; }
+    h1 { font-size:1.2rem; }
+    .checks { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🔑 随机密码生成器</h1>
+
+  <div id="toast" class="copy-toast">✅ 已复制到剪贴板</div>
+
+  <!-- 密码显示 -->
+  <div class="section">
+    <div class="password-display" id="passwordDisplay" title="点击复制密码">
+      <span id="passwordText">点击下方按钮生成密码</span>
+      <span class="copy-hint">点击复制</span>
+    </div>
+  </div>
+
+  <!-- 强度指示 -->
+  <div class="section" style="margin-top:-0.5rem;">
+    <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+    <div class="strength-label" id="strengthLabel">--</div>
+  </div>
+
+  <!-- 密码长度 -->
+  <div class="section">
+    <div class="section-title">📏 密码长度</div>
+    <div class="length-row">
+      <input type="range" id="length" min="6" max="64" value="16">
+      <span class="length-value" id="lengthValue">16</span>
+    </div>
+  </div>
+
+  <!-- 字符类型 -->
+  <div class="section">
+    <div class="section-title">🔤 包含字符</div>
+    <div class="checks">
+      <label><input type="checkbox" id="upper" checked> 大写字母 A-Z</label>
+      <label><input type="checkbox" id="lower" checked> 小写字母 a-z</label>
+      <label><input type="checkbox" id="numbers" checked> 数字 0-9</label>
+      <label><input type="checkbox" id="symbols" checked> 特殊符号 !@#</label>
+    </div>
+  </div>
+
+  <!-- 额外选项 -->
+  <div class="section">
+    <div class="section-title">⚙️ 高级选项</div>
+    <div class="extra-options">
+      <label><input type="checkbox" id="avoidAmbiguous"> 避免混淆字符 (排除 0 O I l 1)</label>
+      <label><input type="checkbox" id="memorableToggle"> 记忆词模式 (输入一个词生成变体密码)</label>
+    </div>
+  </div>
+
+  <!-- 记忆词 -->
+  <div class="section memorable-section" id="memorableSection" style="display:none;">
+    <div class="section-title">💡 记忆词</div>
+    <input type="text" id="memorableWord" placeholder="输入一个词，如 love → L0v3_xxxx" maxlength="20" disabled>
+  </div>
+
+  <!-- 批量生成 -->
+  <div class="section batch-section">
+    <div class="section-title">📋 批量生成 (5个)</div>
+    <div class="batch-passwords" id="batchPasswords"></div>
+  </div>
+
+  <!-- 历史记录 -->
+  <div class="section history-section">
+    <div class="section-title">🕐 历史记录</div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<script>
+// ===== 配置 =====
+const CHAR_SETS = {
+  upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  lower: 'abcdefghijklmnopqrstuvwxyz',
+  numbers: '0123456789',
+  symbols: '!@#$%^&*()_+-=[]{}|;:,.<>?'
+};
+const AMBIGUOUS = '0OIl1';
+const LEET_MAP = {
+  a: ['@','4'], b: ['8'], c: ['('], e: ['3'], g: ['9','6'],
+  h: ['#'], i: ['1','!'], l: ['1','|'], o: ['0'], q: ['9'],
+  s: ['$','5'], t: ['7','+'], x: ['*'], z: ['2']
+};
+
+// ===== 状态 =====
+let history = [];
+const MAX_HISTORY = 20;
+
+// ===== DOM 元素 =====
+const $ = id => document.getElementById(id);
+const passwordText = $('passwordText');
+const passwordDisplay = $('passwordDisplay');
+const strengthFill = $('strengthFill');
+const strengthLabel = $('strengthLabel');
+const lengthSlider = $('length');
+const lengthValue = $('lengthValue');
+const upperCheck = $('upper');
+const lowerCheck = $('lower');
+const numbersCheck = $('numbers');
+const symbolsCheck = $('symbols');
+const avoidCheck = $('avoidAmbiguous');
+const memorableToggle = $('memorableToggle');
+const memorableSection = $('memorableSection');
+const memorableWord = $('memorableWord');
+const batchPasswords = $('batchPasswords');
+const historyList = $('historyList');
+const toast = $('toast');
+
+// ===== 获取当前字符集 =====
+function getCharPool() {
+  let pool = '';
+  if (upperCheck.checked) pool += CHAR_SETS.upper;
+  if (lowerCheck.checked) pool += CHAR_SETS.lower;
+  if (numbersCheck.checked) pool += CHAR_SETS.numbers;
+  if (symbolsCheck.checked) pool += CHAR_SETS.symbols;
+  if (avoidCheck.checked) {
+    pool = [...pool].filter(c => !AMBIGUOUS.includes(c)).join('');
+  }
+  return pool;
+}
+
+// ===== 随机密码生成 =====
+function generatePassword(length) {
+  const pool = getCharPool();
+  if (!pool) return '请至少选择一种字符类型';
+
+  let password = '';
+  const cryptoArr = new Uint32Array(length);
+  crypto.getRandomValues(cryptoArr);
+  for (let i = 0; i < length; i++) {
+    password += pool[cryptoArr[i] % pool.length];
+  }
+
+  // 确保每种选中类型至少包含一个
+  return ensureVariety(password, pool);
+}
+
+function ensureVariety(password, pool) {
+  const length = password.length;
+  let result = password.split('');
+
+  const required = [];
+  if (upperCheck.checked && CHAR_SETS.upper.split('').some(c => pool.includes(c))) {
+    required.push(() => {
+      const chars = [...CHAR_SETS.upper].filter(c => pool.includes(c));
+      return chars[Math.floor(Math.random() * chars.length)];
+    });
+  }
+  if (lowerCheck.checked && CHAR_SETS.lower.split('').some(c => pool.includes(c))) {
+    required.push(() => {
+      const chars = [...CHAR_SETS.lower].filter(c => pool.includes(c));
+      return chars[Math.floor(Math.random() * chars.length)];
+    });
+  }
+  if (numbersCheck.checked && CHAR_SETS.numbers.split('').some(c => pool.includes(c))) {
+    required.push(() => {
+      const chars = [...CHAR_SETS.numbers].filter(c => pool.includes(c));
+      return chars[Math.floor(Math.random() * chars.length)];
+    });
+  }
+  if (symbolsCheck.checked && CHAR_SETS.symbols.split('').some(c => pool.includes(c))) {
+    required.push(() => {
+      const chars = [...CHAR_SETS.symbols].filter(c => pool.includes(c));
+      return chars[Math.floor(Math.random() * chars.length)];
+    });
+  }
+
+  if (required.length === 0) return password;
+
+  const positions = new Set();
+  while (positions.size < required.length) {
+    positions.add(Math.floor(Math.random() * length));
+  }
+  const posArr = [...positions];
+  for (let i = 0; i < required.length; i++) {
+    result[posArr[i]] = required[i]();
+  }
+
+  // Shuffle
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+
+  return result.join('');
+}
+
+// ===== 记忆词模式 =====
+function leetTransform(word) {
+  let chars = word.toLowerCase().split('');
+  for (let i = 0; i < chars.length; i++) {
+    if (LEET_MAP[chars[i]] && Math.random() < 0.5) {
+      const subs = LEET_MAP[chars[i]];
+      chars[i] = subs[Math.floor(Math.random() * subs.length)];
+    }
+  }
+  // Randomly uppercase some letters
+  for (let i = 0; i < chars.length; i++) {
+    if (/[a-z]/.test(chars[i]) && Math.random() < 0.3) {
+      chars[i] = chars[i].toUpperCase();
+    }
+  }
+  return chars.join('');
+}
+
+function generateMemorablePassword(word, length) {
+  const leetWord = leetTransform(word);
+  const remaining = length - leetWord.length;
+
+  if (remaining <= 0) {
+    // Word is longer than desired length, truncate and add random chars
+    let result = leetWord.slice(0, length - 2);
+    const pool = getCharPool();
+    if (pool) {
+      const arr = new Uint32Array(length - result.length);
+      crypto.getRandomValues(arr);
+      for (let i = 0; i < arr.length; i++) result += pool[arr[i] % pool.length];
+    }
+    return result;
+  }
+
+  // Add random padding before/after the word
+  const pool = getCharPool();
+  if (!pool) return leetWord;
+
+  const prefixLen = Math.floor(Math.random() * Math.min(remaining, 4)) + 1;
+  const suffixLen = remaining - prefixLen;
+
+  let prefix = '', suffix = '';
+  const arr1 = new Uint32Array(prefixLen);
+  crypto.getRandomValues(arr1);
+  for (let i = 0; i < prefixLen; i++) prefix += pool[arr1[i] % pool.length];
+
+  const arr2 = new Uint32Array(suffixLen);
+  crypto.getRandomValues(arr2);
+  for (let i = 0; i < suffixLen; i++) suffix += pool[arr2[i] % pool.length];
+
+  // Add a separator
+  const sep = randomSep();
+  return prefix + sep + leetWord + sep + suffix;
+}
+
+function randomSep() {
+  const seps = ['_', '-', '.', '!', '@', '#'];
+  return seps[Math.floor(Math.random() * seps.length)];
+}
+
+// ===== 密码强度评估 =====
+function evaluateStrength(password) {
+  if (!password || password.startsWith('请') || password.startsWith('点击')) return { score: 0, label: '--', color: 'var(--border)' };
+
+  let score = 0;
+  const length = password.length;
+
+  // Length bonus
+  if (length >= 12) score += 2;
+  else if (length >= 8) score += 1;
+
+  // Character variety
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 2;
+
+  // Length is a big factor
+  if (length >= 20) score += 2;
+  if (length >= 32) score += 2;
+
+  const levels = [
+    { max: 3, label: '弱', color: 'var(--danger)', width: 25 },
+    { max: 5, label: '中', color: 'var(--warning)', width: 50 },
+    { max: 8, label: '强', color: 'var(--success)', width: 75 },
+    { max: 99, label: '非常强', color: '#06b6d4', width: 100 }
+  ];
+
+  for (const level of levels) {
+    if (score <= level.max) return { score, label: level.label, color: level.color, width: level.width };
+  }
+  return { score, label: '非常强', color: '#06b6d4', width: 100 };
+}
+
+// ===== 渲染密码 =====
+function renderPassword(password) {
+  passwordText.textContent = password;
+  const strength = evaluateStrength(password);
+  strengthFill.style.width = strength.width + '%';
+  strengthFill.style.background = strength.color;
+  strengthLabel.textContent = '强度: ' + strength.label;
+}
+
+// ===== 批量生成 =====
+function renderBatch() {
+  const length = parseInt(lengthSlider.value);
+  batchPasswords.innerHTML = '';
+
+  for (let i = 0; i < 5; i++) {
+    let pwd;
+    if (memorableToggle.checked && memorableWord.value.trim()) {
+      pwd = generateMemorablePassword(memorableWord.value.trim(), length);
+    } else {
+      pwd = generatePassword(length);
+    }
+
+    const div = document.createElement('div');
+    div.className = 'batch-item';
+    div.innerHTML = `<span>${pwd}</span><span class="copy-icon">📋</span>`;
+    div.title = '点击复制';
+    div.addEventListener('click', () => copyPassword(pwd));
+    batchPasswords.appendChild(div);
+  }
+}
+
+// ===== 复制密码 =====
+async function copyPassword(password) {
+  if (!password || password.startsWith('请') || password.startsWith('点击')) return;
+  try {
+    await navigator.clipboard.writeText(password);
+    showToast();
+    addToHistory(password);
+  } catch {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = password;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast();
+    addToHistory(password);
+  }
+}
+
+function showToast() {
+  toast.classList.add('show');
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ===== 历史记录 =====
+function addToHistory(password) {
+  history = history.filter(p => p !== password);
+  history.unshift(password);
+  if (history.length > MAX_HISTORY) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  historyList.innerHTML = '';
+  history.forEach(pwd => {
+    const span = document.createElement('span');
+    span.className = 'history-item';
+    span.textContent = pwd;
+    span.title = '点击填入';
+    span.addEventListener('click', () => {
+      renderPassword(pwd);
+    });
+    historyList.appendChild(span);
+  });
+}
+
+// ===== 更新主密码 =====
+function updateMainPassword() {
+  const length = parseInt(lengthSlider.value);
+  let pwd;
+  if (memorableToggle.checked && memorableWord.value.trim()) {
+    pwd = generateMemorablePassword(memorableWord.value.trim(), length);
+  } else {
+    pwd = generatePassword(length);
+  }
+  renderPassword(pwd);
+  renderBatch();
+}
+
+// ===== 事件监听 =====
+lengthSlider.addEventListener('input', () => {
+  lengthValue.textContent = lengthSlider.value;
+  updateMainPassword();
+});
+
+[upperCheck, lowerCheck, numbersCheck, symbolsCheck, avoidCheck].forEach(el => {
+  el.addEventListener('change', updateMainPassword);
+});
+
+passwordDisplay.addEventListener('click', () => {
+  const pwd = passwordText.textContent;
+  if (pwd && !pwd.startsWith('请') && !pwd.startsWith('点击')) {
+    copyPassword(pwd);
+  }
+});
+
+memorableToggle.addEventListener('change', () => {
+  const enabled = memorableToggle.checked;
+  memorableSection.style.display = enabled ? 'flex' : 'none';
+  memorableWord.disabled = !enabled;
+  updateMainPassword();
+});
+
+memorableWord.addEventListener('input', updateMainPassword);
+
+// ===== 初始化 =====
+updateMainPassword();
+</script>
+</body>
+</html>

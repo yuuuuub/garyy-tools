@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色盲测试 - 色彩视觉检测</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:#0d1117;color:#c9d1d9;min-height:100vh;line-height:1.6;
+}
+.container{max-width:900px;margin:0 auto;padding:20px}
+header{
+  text-align:center;padding:40px 20px 30px;
+  border-bottom:1px solid #21262d;margin-bottom:30px;
+}
+header h1{font-size:2.2rem;color:#58a6ff;margin-bottom:8px}
+header p{font-size:1rem;color:#8b949e}
+section{margin-bottom:40px;padding:24px;background:#161b22;border-radius:12px;border:1px solid #21262d}
+section h2{font-size:1.4rem;color:#f0883e;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #21262d}
+section h3{font-size:1.1rem;color:#d2a8ff;margin:16px 0 10px}
+.btn{
+  display:inline-block;padding:10px 24px;border:none;border-radius:8px;
+  font-size:1rem;cursor:pointer;font-weight:600;transition:all .2s;
+}
+.btn-primary{background:#238636;color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-secondary{background:#21262d;color:#c9d1d9;border:1px solid #30363d}
+.btn-secondary:hover{background:#30363d}
+.btn-danger{background:#da3633;color:#fff}
+.btn-danger:hover{background:#f85149}
+#test-area{text-align:center}
+canvas{display:block;margin:0 auto 16px;border-radius:8px;max-width:100%}
+.plate-info{color:#8b949e;font-size:.9rem;margin-bottom:12px}
+.plate-counter{color:#58a6ff;font-weight:600}
+.input-group{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.input-group input{
+  background:#0d1117;border:2px solid #30363d;color:#c9d1d9;
+  padding:10px 16px;border-radius:8px;font-size:1.2rem;width:120px;
+  text-align:center;outline:none;transition:border-color .2s;
+}
+.input-group input:focus{border-color:#58a6ff}
+.result-card{
+  background:#0d1117;border-radius:12px;padding:24px;margin:16px 0;
+  border:2px solid #30363d;text-align:center;
+}
+.result-card.normal{border-color:#238636}
+.result-card.warning{border-color:#d29922}
+.result-card.danger{border-color:#da3633}
+.result-title{font-size:1.3rem;font-weight:700;margin-bottom:8px}
+.result-desc{color:#8b949e;font-size:.95rem}
+.score-bar{
+  height:8px;background:#21262d;border-radius:4px;margin:12px 0;overflow:hidden;
+}
+.score-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.score-fill.red{background:#da3633}
+.score-fill.green{background:#238636}
+.score-fill.blue{background:#1f6feb}
+.score-label{display:flex;justify-content:space-between;font-size:.85rem;color:#8b949e;margin-bottom:4px}
+.color-sim-area{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:16px}
+.color-sim-card{
+  background:#0d1117;border-radius:10px;padding:16px;text-align:center;
+  border:1px solid #21262d;flex:1;min-width:140px;max-width:200px;
+}
+.color-sim-card .swatch{
+  width:100%;height:80px;border-radius:8px;margin-bottom:8px;border:1px solid #30363d;
+}
+.color-sim-card .label{font-size:.85rem;color:#8b949e}
+.picker-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.picker-row input[type="color"]{
+  width:50px;height:40px;border:none;border-radius:8px;cursor:pointer;background:none;
+}
+.picker-row input[type="text"]{
+  background:#0d1117;border:2px solid #30363d;color:#c9d1d9;
+  padding:8px 12px;border-radius:8px;font-size:.9rem;width:100px;text-align:center;
+}
+.arrange-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0}
+.arrange-swatch{
+  width:60px;height:60px;border-radius:8px;cursor:pointer;border:2px solid transparent;
+  transition:transform .15s,border-color .15s;
+}
+.arrange-swatch:hover{transform:scale(1.1)}
+.arrange-swatch.selected{border-color:#58a6ff;transform:scale(1.1)}
+.match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin:16px 0}
+.match-card{
+  aspect-ratio:1;border-radius:8px;cursor:pointer;border:2px solid transparent;
+  transition:border-color .2s;
+}
+.match-card:hover{border-color:#8b949e}
+.match-card.selected{border-color:#58a6ff}
+.match-card.matched{border-color:#238636;opacity:.6;cursor:default}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:16px}
+.info-card{
+  background:#0d1117;border-radius:10px;padding:20px;border:1px solid #21262d;
+}
+.info-card h4{color:#f0883e;margin-bottom:8px;font-size:1rem}
+.info-card p{color:#8b949e;font-size:.9rem;line-height:1.5}
+.disclaimer{
+  background:#0d1117;border:1px solid #d29922;border-radius:12px;
+  padding:20px;margin-top:20px;color:#8b949e;font-size:.9rem;
+}
+.disclaimer strong{color:#d29922}
+.tab-nav{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{
+  padding:8px 18px;border:1px solid #30363d;background:transparent;
+  color:#8b949e;border-radius:8px 8px 0 0;cursor:pointer;font-size:.9rem;transition:all .2s;
+}
+.tab-btn.active{background:#161b22;color:#58a6ff;border-bottom-color:#161b22}
+.tab-btn:hover{color:#c9d1d9}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+footer{text-align:center;padding:20px;color:#484f58;font-size:.8rem;border-top:1px solid #21262d;margin-top:40px}
+@media(max-width:600px){
+  header h1{font-size:1.6rem}
+  section{padding:16px}
+  .color-sim-card{min-width:100px;max-width:none}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>色盲测试</h1>
+    <p>基于石原色觉检测图的色彩视觉评估工具 | 仅供自我参考，非医学诊断</p>
+  </header>
+
+  <!-- 测试类型选项卡 -->
+  <div class="tab-nav" id="main-tabs">
+    <button class="tab-btn active" data-tab="ishihara">数字识别测试</button>
+    <button class="tab-btn" data-tab="arrange">颜色排列测试</button>
+    <button class="tab-btn" data-tab="match">颜色匹配测试</button>
+    <button class="tab-btn" data-tab="simulate">色盲模拟器</button>
+    <button class="tab-btn" data-tab="info">色盲知识</button>
+  </div>
+
+  <!-- Ishihara 数字识别 -->
+  <div class="tab-panel active" id="tab-ishihara">
+    <section>
+      <h2>石原色觉检测 - 数字识别</h2>
+      <p style="color:#8b949e;margin-bottom:16px">
+        观察图片中的彩色圆点，找出隐藏的数字。这是临床最常用的色觉检测方法。
+      </p>
+      <div id="test-area">
+        <div class="plate-info">
+          测试进度：<span class="plate-counter" id="plate-num">1</span> / <span id="plate-total">12</span>
+        </div>
+        <canvas id="plate-canvas" width="420" height="420"></canvas>
+        <div class="input-group">
+          <input type="text" id="number-input" placeholder="看到的数字" maxlength="3" autocomplete="off">
+          <button class="btn btn-primary" id="submit-btn">确认</button>
+          <button class="btn btn-secondary" id="skip-btn">看不清 / 跳过</button>
+        </div>
+        <div id="ishihara-result" style="margin-top:16px"></div>
+      </div>
+      <div id="restart-area" style="text-align:center;margin-top:16px;display:none;">
+        <button class="btn btn-primary" id="restart-btn">重新测试</button>
+      </div>
+      <p style="color:#8b949e;font-size:.8rem;margin-top:12px">
+        提示：如果您看不清数字，请点击"看不清/跳过"按钮。
+      </p>
+    </section>
+  </div>
+
+  <!-- 颜色排列 -->
+  <div class="tab-panel" id="tab-arrange">
+    <section>
+      <h2>颜色排列测试</h2>
+      <p style="color:#8b949e;margin-bottom:16px">
+        按色相顺序点击颜色块。如果能正确排列所有颜色，说明您的色觉辨别能力正常。
+      </p>
+      <div id="arrange-area">
+        <p style="color:#d2a8ff;margin-bottom:8px">请按 <strong>红 → 橙 → 黄 → 绿 → 青 → 蓝 → 紫</strong> 的顺序点击颜色块：</p>
+        <div class="arrange-row" id="arrange-row"></div>
+        <p style="color:#8b949e;margin-top:8px" id="arrange-feedback">已选择：<span id="arrange-selected">无</span></p>
+        <div style="margin-top:12px">
+          <button class="btn btn-secondary" id="arrange-reset">重置</button>
+          <button class="btn btn-primary" id="arrange-check">检查答案</button>
+        </div>
+        <div id="arrange-result" style="margin-top:16px"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 颜色匹配 -->
+  <div class="tab-panel" id="tab-match">
+    <section>
+      <h2>颜色匹配测试</h2>
+      <p style="color:#8b949e;margin-bottom:16px">
+        在下方颜色块中找到与目标颜色<b>完全相同</b>的那个。共5轮，考验您的色彩辨别力。
+      </p>
+      <div id="match-area">
+        <div style="text-align:center;margin-bottom:16px">
+          <p style="color:#d2a8ff;margin-bottom:8px">目标颜色：</p>
+          <div id="match-target" style="width:80px;height:80px;border-radius:12px;margin:0 auto;border:2px solid #30363d"></div>
+        </div>
+        <div class="match-grid" id="match-grid"></div>
+        <p style="color:#8b949e;margin-top:8px">
+          第 <span id="match-round">1</span> / 5 轮 | 正确：<span id="match-score">0</span>
+        </p>
+        <div id="match-result" style="margin-top:16px"></div>
+        <button class="btn btn-primary" id="match-restart" style="display:none;margin-top:12px">重新匹配</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 色盲模拟器 -->
+  <div class="tab-panel" id="tab-simulate">
+    <section>
+      <h2>色盲模拟器</h2>
+      <p style="color:#8b949e;margin-bottom:16px">
+        选择一个颜色，查看正常视觉与不同类型色盲患者眼中的世界有何不同。
+      </p>
+      <div class="picker-row">
+        <label style="color:#c9d1d9">选择颜色：</label>
+        <input type="color" id="sim-color-picker" value="#ff4444">
+        <input type="text" id="sim-hex" value="#FF4444" maxlength="7">
+        <button class="btn btn-secondary btn-sm" id="sim-apply">应用</button>
+      </div>
+      <div class="color-sim-area">
+        <div class="color-sim-card">
+          <div class="swatch" id="sim-normal"></div>
+          <div class="label">正常视觉</div>
+        </div>
+        <div class="color-sim-card">
+          <div class="swatch" id="sim-protanopia"></div>
+          <div class="label">红色盲 (Protanopia)</div>
+        </div>
+        <div class="color-sim-card">
+          <div class="swatch" id="sim-deuteranopia"></div>
+          <div class="label">绿色盲 (Deuteranopia)</div>
+        </div>
+        <div class="color-sim-card">
+          <div class="swatch" id="sim-tritanopia"></div>
+          <div class="label">蓝黄色盲 (Tritanopia)</div>
+        </div>
+      </div>
+      <div style="margin-top:20px">
+        <h3>上传图片模拟</h3>
+        <p style="color:#8b949e;margin-bottom:12px">
+          上传一张图片，查看色盲人士眼中的效果。
+        </p>
+        <input type="file" id="sim-image-upload" accept="image/*" style="display:none">
+        <button class="btn btn-secondary" id="sim-upload-btn">选择图片</button>
+        <div class="color-sim-area" id="sim-image-area" style="margin-top:16px">
+          <div class="color-sim-card" style="max-width:220px">
+            <canvas id="sim-img-normal" width="180" height="180" style="width:100%;height:auto;border-radius:8px"></canvas>
+            <div class="label">正常视觉</div>
+          </div>
+          <div class="color-sim-card" style="max-width:220px">
+            <canvas id="sim-img-protanopia" width="180" height="180" style="width:100%;height:auto;border-radius:8px"></canvas>
+            <div class="label">红色盲</div>
+          </div>
+          <div class="color-sim-card" style="max-width:220px">
+            <canvas id="sim-img-deuteranopia" width="180" height="180" style="width:100%;height:auto;border-radius:8px"></canvas>
+            <div class="label">绿色盲</div>
+          </div>
+          <div class="color-sim-card" style="max-width:220px">
+            <canvas id="sim-img-tritanopia" width="180" height="180" style="width:100%;height:auto;border-radius:8px"></canvas>
+            <div class="label">蓝黄色盲</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 色盲知识 -->
+  <div class="tab-panel" id="tab-info">
+    <section>
+      <h2>关于色盲</h2>
+      <div class="info-grid">
+        <div class="info-card">
+          <h4>什么是色盲？</h4>
+          <p>色盲（Color Vision Deficiency）是指视网膜中感光细胞（视锥细胞）对某些波长的光线不敏感，导致无法准确区分特定颜色。绝大多数色盲是先天遗传的，男性发病率远高于女性（约8% vs 0.5%）。</p>
+        </div>
+        <div class="info-card">
+          <h4>红色盲 (Protanopia)</h4>
+          <p>对红色光不敏感，红色看起来较暗。难以区分红色与绿色、红色与黑色。患者中红色视锥细胞缺失或功能异常。约占色盲人群的25%。</p>
+        </div>
+        <div class="info-card">
+          <h4>绿色盲 (Deuteranopia)</h4>
+          <p>对绿色光不敏感，是最常见的色盲类型。难以区分红色与绿色、绿色与棕色。患者中绿色视锥细胞缺失或功能异常。约占色盲人群的50-60%。</p>
+        </div>
+        <div class="info-card">
+          <h4>蓝黄色盲 (Tritanopia)</h4>
+          <p>对蓝色光不敏感，极为罕见。难以区分蓝色与绿色、黄色与粉色。蓝色视锥细胞缺失或功能异常。约占色盲人群的不到1%。</p>
+        </div>
+        <div class="info-card">
+          <h4>全色盲 (Achromatopsia)</h4>
+          <p>完全无法辨别颜色，只能看到黑白灰。极其罕见，发病率约1/30000。通常伴有畏光、视力低下等症状。</p>
+        </div>
+        <div class="info-card">
+          <h4>色弱 (Anomalous Trichromacy)</h4>
+          <p>三种视锥细胞都存在，但其中一种对光的敏感度偏移，导致颜色辨别能力下降但未完全缺失。这是最常见的色觉异常形式。</p>
+        </div>
+        <div class="info-card">
+          <h4>遗传方式</h4>
+          <p>红绿色盲为X染色体隐性遗传。男性只有一条X染色体，一旦携带致病基因即会表现；女性有两条X染色体，需两条都携带才会表现，因此女性多为携带者。</p>
+        </div>
+        <div class="info-card">
+          <h4>日常生活影响</h4>
+          <p>色盲可能影响职业选择（如飞行员、电工、设计师等），但大多数色盲人士可以通过经验学习颜色的上下文线索，正常生活和工作。</p>
+        </div>
+      </div>
+      <div class="disclaimer">
+        <strong>免责声明：</strong>本工具仅供自我参考和科普教育用途，<b>不可作为医学诊断依据</b>。测试结果可能受屏幕显示质量、环境光线等因素影响。如果您对自己的色觉有疑虑，请前往正规医院眼科进行专业色觉检查（如Farnsworth-Munsell 100 Hue Test、 anomaloscope 等）。
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    色盲测试工具 &copy; 2026 | 仅供自我参考 | 非医学诊断 | 数据不会上传到任何服务器
+  </footer>
+</div>
+
+<script>
+// ============ 标签切换 ============
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='arrange')initArrangeTest();
+    if(btn.dataset.tab==='match')initMatchTest();
+  });
+});
+
+// ============ Ishihara 测试数据 ============
+const ishiharaPlates = [
+  {num:12, bgHue:[10,35], bgSat:[50,90], bgLight:[45,65],
+        fgHue:[80,140], fgSat:[40,80], fgLight:[45,70], type:'red-green', desc:'正常应看到 12'},
+  {num:8,  bgHue:[15,40], bgSat:[45,85], bgLight:[42,62],
+        fgHue:[90,150], fgSat:[35,75], fgLight:[40,68], type:'red-green', desc:'正常应看到 8'},
+  {num:6,  bgHue:[80,140], bgSat:[40,80], bgLight:[45,65],
+        fgHue:[10,35], fgSat:[50,90], fgLight:[40,65], type:'red-green', desc:'正常应看到 6'},
+  {num:29, bgHue:[85,145], bgSat:[35,75], bgLight:[42,64],
+        fgHue:[5,30],  fgSat:[55,95], fgLight:[38,62], type:'red-green', desc:'正常应看到 29'},
+  {num:5,  bgHue:[10,38], bgSat:[50,90], bgLight:[40,62],
+        fgHue:[95,155], fgSat:[38,78], fgLight:[42,66], type:'red-green', desc:'正常应看到 5'},
+  {num:3,  bgHue:[90,150], bgSat:[38,78], bgLight:[42,64],
+        fgHue:[8,32],  fgSat:[52,92], fgLight:[38,62], type:'red-green', desc:'正常应看到 3'},
+  {num:15, bgHue:[12,36], bgSat:[48,88], bgLight:[44,64],
+        fgHue:[85,145], fgSat:[36,76], fgLight:[44,68], type:'red-green', desc:'正常应看到 15'},
+  {num:74, bgHue:[88,148], bgSat:[35,75], bgLight:[42,64],
+        fgHue:[5,32],  fgSat:[54,94], fgLight:[38,62], type:'red-green', desc:'正常应看到 74'},
+  {num:42, bgHue:[30,55], bgSat:[30,60], bgLight:[55,75],
+        fgHue:[200,240],fgSat:[40,70], fgLight:[45,65], type:'blue-yellow', desc:'正常应看到 42'},
+  {num:16, bgHue:[205,245],fgSat:[38,68], bgLight:[48,68],
+        fgHue:[30,55], bgSat:[28,58], fgLight:[52,72], type:'blue-yellow', desc:'正常应看到 16'},
+  {num:7,  bgHue:[5,35], bgSat:[55,95], bgLight:[38,58],
+        fgHue:[100,160],fgSat:[35,75], fgLight:[40,65], type:'red-green', desc:'正常应看到 7，红绿色盲难以辨认'},
+  {num:26, bgHue:[95,155],fgSat:[30,70], bgLight:[42,66],
+        fgHue:[5,30],  bgSat:[56,96], fgLight:[36,60], type:'red-green', desc:'正常应看到 26，色盲可能看到 2 或 6'}
+];
+
+let currentPlate=0, userAnswers=[], ishiharaDone=false;
+const canvas=document.getElementById('plate-canvas'), ctx=canvas.getContext('2d');
+const W=420, H=420;
+
+function hslToRgb(h,s,l){
+  s/=100;l/=100;const k=n=>(n+h/30)%12;
+  const a=s*Math.min(l,1-l);
+  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+  return[Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
+}
+
+// Pre-render number paths
+const digitPaths={};
+function buildDigitPaths(){
+  const sz=80;
+  for(let d of '0123456789'){
+    const c=document.createElement('canvas');c.width=sz;c.height=sz;
+    const cx=c.getContext('2d');
+    cx.fillStyle='#fff';cx.font='bold 70px Arial';cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillText(d,sz/2,sz/2+4);
+    const data=cx.getImageData(0,0,sz,sz).data;
+    const pts=[];
+    for(let y=0;y<sz;y++)for(let x=0;x<sz;x++){
+      if(data[(y*sz+x)*4+3]>128)pts.push({x:x-sz/2,y:y-sz/2});
+    }
+    digitPaths[d]=pts;
+  }
+}
+buildDigitPaths();
+
+function rand(min,max){return min+Math.random()*(max-min)}
+function randInt(min,max){return Math.floor(rand(min,max+1))}
+
+function drawPlate(plateData){
+  ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2;
+  // Draw number as dots first (foreground)
+  const numStr=String(plateData.num);
+  const digitW=80, totalW=digitW*numStr.length;
+  const startX=cx-totalW/2;
+  const allNumPts=[];
+  for(let di=0;di<numStr.length;di++){
+    const d=numStr[di];
+    const pts=digitPaths[d];
+    if(!pts)continue;
+    const offsetX=startX+di*digitW+digitW/2;
+    for(let p of pts){
+      allNumPts.push({x:offsetX+p.x, y:cy+p.y});
+    }
+  }
+  // Expand with jitter
+  const numPts=[];
+  for(let p of allNumPts){
+    for(let i=0;i<2;i++){
+      numPts.push({x:p.x+rand(-6,6), y:p.y+rand(-6,6)});
+    }
+  }
+  // Check if point is in number region
+  function inNum(x,y){
+    for(let p of allNumPts){
+      if(Math.hypot(x-p.x, y-p.y)<14)return true;
+    }
+    return false;
+  }
+
+  const dotR=rand(4.5,7.5);
+  const dots=[];
+  // Generate background dots
+  for(let i=0;i<1200;i++){
+    dots.push({x:rand(10,W-10), y:rand(10,H-10), isNum:false});
+  }
+  // Generate number dots
+  for(let p of numPts){
+    if(p.x>8&&p.x<W-8&&p.y>8&&p.y<H-8){
+      dots.push({x:p.x+rand(-2,2), y:p.y+rand(-2,2), isNum:true});
+    }
+  }
+  // Shuffle
+  for(let i=dots.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [dots[i],dots[j]]=[dots[j],dots[i]];
+  }
+
+  for(let d of dots){
+    const inN=d.isNum||inNum(d.x,d.y);
+    let h,s,l;
+    if(inN){
+      h=rand(plateData.fgHue[0],plateData.fgHue[1]);
+      s=rand(plateData.fgSat[0],plateData.fgSat[1]);
+      l=rand(plateData.fgLight[0],plateData.fgLight[1]);
+    }else{
+      h=rand(plateData.bgHue[0],plateData.bgHue[1]);
+      s=rand(plateData.bgSat[0],plateData.bgSat[1]);
+      l=rand(plateData.bgLight[0],plateData.bgLight[1]);
+    }
+    const[r,g,b]=hslToRgb(h,s,l);
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    ctx.beginPath();
+    ctx.arc(d.x,d.y,rand(3.5,7),0,Math.PI*2);
+    ctx.fill();
+  }
+  // Add noise dots
+  for(let i=0;i<180;i++){
+    const h=rand(0,360),s=rand(20,60),l=rand(35,65);
+    const[r,g,b]=hslToRgb(h,s,l);
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    ctx.beginPath();
+    ctx.arc(rand(8,W-8),rand(8,H-8),rand(2.5,5.5),0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function showPlate(idx){
+  if(idx>=ishiharaPlates.length){
+    showIshiharaResult();
+    return;
+  }
+  document.getElementById('plate-num').textContent=idx+1;
+  document.getElementById('plate-total').textContent=ishiharaPlates.length;
+  drawPlate(ishiharaPlates[idx]);
+  document.getElementById('number-input').value='';
+  document.getElementById('number-input').disabled=false;
+  document.getElementById('submit-btn').disabled=false;
+  document.getElementById('skip-btn').disabled=false;
+  document.getElementById('number-input').focus();
+}
+
+function showIshiharaResult(){
+  ishiharaDone=true;
+  document.getElementById('plate-canvas').style.display='none';
+  document.getElementById('number-input').style.display='none';
+  document.getElementById('submit-btn').style.display='none';
+  document.getElementById('skip-btn').style.display='none';
+  document.getElementById('restart-area').style.display='block';
+
+  let rgErrors=0, byErrors=0;
+  for(let i=0;i<ishiharaPlates.length;i++){
+    const ans=userAnswers[i];
+    if(ans===null){
+      // skipped - means couldn't see
+      if(ishiharaPlates[i].type==='red-green')rgErrors++;
+      else byErrors++;
+    }else if(ans!==ishiharaPlates[i].num){
+      if(ishiharaPlates[i].type==='red-green')rgErrors++;
+      else byErrors++;
+    }
+  }
+
+  const total=ishiharaPlates.length;
+  const rgPerf=((total-ishiharaPlates.filter(p=>p.type==='red-green').length)/total*100);
+  const rgRate=ishiharaPlates.filter(p=>p.type==='red-green').length>0
+    ?(1-rgErrors/ishiharaPlates.filter(p=>p.type==='red-green').length)*100:100;
+  const byRate=ishiharaPlates.filter(p=>p.type==='blue-yellow').length>0
+    ?(1-byErrors/ishiharaPlates.filter(p=>p.type==='blue-yellow').length)*100:100;
+
+  let resultClass='normal',resultTitle='',resultDesc='';
+  if(rgRate>=90&&byRate>=90){
+    resultClass='normal';resultTitle='恭喜！您的色觉表现正常';
+    resultDesc='您正确识别了大多数测试图，红绿色觉和蓝黄色觉均表现正常。';
+  }else if(rgRate<60){
+    resultClass='danger';resultTitle='您可能存在红绿色觉异常';
+    resultDesc='您对红绿色测试图的正确率较低，可能存在红色盲或绿色盲。建议咨询眼科医生进行专业检查。';
+  }else if(byRate<60){
+    resultClass='danger';resultTitle='您可能存在蓝黄色觉异常';
+    resultDesc='您对蓝黄色测试图的正确率较低。蓝黄色盲较为罕见，建议咨询医生。';
+  }else if(rgRate<85||byRate<85){
+    resultClass='warning';resultTitle='您的色觉表现处于临界范围';
+    resultDesc='您的正确率略低于正常水平，可能存在轻度色弱。建议在更好的光线条件下重新测试或咨询医生。';
+  }
+
+  document.getElementById('ishihara-result').innerHTML=`
+    <div class="result-card ${resultClass}">
+      <div class="result-title">${resultTitle}</div>
+      <div class="result-desc">${resultDesc}</div>
+      <div style="margin:20px 0">
+        <div class="score-label"><span>红绿色觉正确率</span><span>${Math.round(rgRate)}%</span></div>
+        <div class="score-bar"><div class="score-fill ${rgRate>=80?'green':'red'}" style="width:${rgRate}%"></div></div>
+        <div class="score-label"><span>蓝黄色觉正确率</span><span>${Math.round(byRate)}%</span></div>
+        <div class="score-bar"><div class="score-fill ${byRate>=80?'green':'red'}" style="width:${byRate}%"></div></div>
+      </div>
+      <p style="color:#8b949e;font-size:.85rem">
+        红色盲概率：<b style="color:#f85149">${Math.round(Math.max(0,100-rgRate))}%</b> |
+        绿色盲概率：<b style="color:#f0883e">${Math.round(Math.max(0,100-rgRate))}%</b> |
+        蓝黄色盲概率：<b style="color:#1f6feb">${Math.round(Math.max(0,100-byRate))}%</b>
+      </p>
+      <details style="margin-top:16px;text-align:left;color:#8b949e">
+        <summary style="cursor:pointer;color:#58a6ff">查看详细答题记录</summary>
+        <div style="margin-top:8px">
+          ${userAnswers.map((a,i)=>`<div style="padding:4px 0;border-bottom:1px solid #21262d">
+            第${i+1}图：您答"${a===null?'跳过':a}" | 正确答案"${ishiharaPlates[i].num}" | 
+            <span style="color:${a===ishiharaPlates[i].num?'#238636':'#f85149'}">${a===ishiharaPlates[i].num?'正确':'错误'}</span>
+          </div>`).join('')}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+document.getElementById('submit-btn').addEventListener('click',()=>{
+  const val=parseInt(document.getElementById('number-input').value);
+  if(isNaN(val)){alert('请输入您看到的数字');return;}
+  userAnswers[currentPlate]=val;
+  currentPlate++;
+  showPlate(currentPlate);
+});
+
+document.getElementById('skip-btn').addEventListener('click',()=>{
+  userAnswers[currentPlate]=null;
+  currentPlate++;
+  showPlate(currentPlate);
+});
+
+document.getElementById('restart-btn').addEventListener('click',()=>{
+  currentPlate=0;userAnswers=[];ishiharaDone=false;
+  document.getElementById('plate-canvas').style.display='block';
+  document.getElementById('number-input').style.display='inline-block';
+  document.getElementById('submit-btn').style.display='inline-block';
+  document.getElementById('skip-btn').style.display='inline-block';
+  document.getElementById('restart-area').style.display='none';
+  document.getElementById('ishihara-result').innerHTML='';
+  showPlate(0);
+});
+
+document.getElementById('number-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter')document.getElementById('submit-btn').click();
+});
+
+// ============ 颜色排列测试 ============
+const arrangeColors=[
+  {name:'红',h:0,s:80,l:55},{name:'橙',h:25,s:85,l:55},
+  {name:'黄',h:50,s:90,l:55},{name:'黄绿',h:80,s:75,l:50},
+  {name:'绿',h:130,s:70,l:45},{name:'青',h:180,s:70,l:50},
+  {name:'蓝',h:210,s:75,l:50},{name:'紫',h:270,s:65,l:50}
+];
+let shuffledColors=[], selectedOrder=[];
+function initArrangeTest(){
+  shuffledColors=[...arrangeColors].sort(()=>Math.random()-.5);
+  selectedOrder=[];
+  document.getElementById('arrange-result').innerHTML='';
+  document.getElementById('arrange-feedback').innerHTML='已选择：<span id="arrange-selected">无</span>';
+  renderArrangeSwatches();
+}
+function renderArrangeSwatches(){
+  const row=document.getElementById('arrange-row');
+  row.innerHTML='';
+  shuffledColors.forEach((c,idx)=>{
+    const div=document.createElement('div');
+    div.className='arrange-swatch';
+    const[r,g,b]=hslToRgb(c.h,c.s,c.l);
+    div.style.backgroundColor=`rgb(${r},${g},${b})`;
+    if(selectedOrder.includes(idx))div.classList.add('selected');
+    div.addEventListener('click',()=>{
+      if(selectedOrder.includes(idx)){
+        selectedOrder=selectedOrder.filter(i=>i!==idx);
+      }else{
+        selectedOrder.push(idx);
+      }
+      renderArrangeSwatches();
+      const names=selectedOrder.map(i=>shuffledColors[i].name).join(' → ');
+      document.getElementById('arrange-feedback').innerHTML='已选择：<span id="arrange-selected">'+(names||'无')+'</span>';
+    });
+    row.appendChild(div);
+  });
+}
+document.getElementById('arrange-reset').addEventListener('click',()=>{initArrangeTest();});
+document.getElementById('arrange-check').addEventListener('click',()=>{
+  if(selectedOrder.length!==arrangeColors.length){
+    document.getElementById('arrange-result').innerHTML='<p style="color:#f85149">请选择全部 8 个颜色块！</p>';
+    return;
+  }
+  const correct=arrangeColors.map(c=>c.h);
+  const user=selectedOrder.map(i=>shuffledColors[i].h);
+  let inversions=0;
+  for(let i=0;i<user.length;i++)
+    for(let j=i+1;j<user.length;j++)
+      if(user[i]>user[j])inversions++;
+  const maxInv=user.length*(user.length-1)/2;
+  const score=Math.round((1-inversions/maxInv)*100);
+  let msg='',cls='';
+  if(score===100){msg='完美！您的色觉排列能力非常出色。';cls='normal';}
+  else if(score>=85){msg='很好！您的颜色排列能力正常，有轻微偏差。';cls='normal';}
+  else if(score>=60){msg='您的颜色排列存在一定困难，可能存在色觉异常。';cls='warning';}
+  else{msg='您对颜色的排列存在明显困难，强烈建议咨询眼科医生。';cls='danger';}
+  document.getElementById('arrange-result').innerHTML=`
+    <div class="result-card ${cls}">
+      <div class="result-title">排列得分：${score}/100</div>
+      <div class="result-desc">${msg}</div>
+      <p style="color:#8b949e;font-size:.85rem;margin-top:8px">您的排列顺序：${selectedOrder.map(i=>shuffledColors[i].name).join(' → ')}</p>
+      <p style="color:#8b949e;font-size:.85rem">正确排列顺序：红 → 橙 → 黄 → 黄绿 → 绿 → 青 → 蓝 → 紫</p>
+    </div>
+  `;
+});
+
+// ============ 颜色匹配测试 ============
+let matchRound=0,matchScore=0,matchTargetColor=null,matchOptions=[],matchDone=false,matchSelected=null;
+function initMatchTest(){
+  matchRound=0;matchScore=0;matchDone=false;matchSelected=null;
+  document.getElementById('match-restart').style.display='none';
+  document.getElementById('match-result').innerHTML='';
+  nextMatchRound();
+}
+function nextMatchRound(){
+  if(matchRound>=5){showMatchResult();return;}
+  matchRound++;matchSelected=null;
+  document.getElementById('match-round').textContent=matchRound;
+  document.getElementById('match-score').textContent=matchScore;
+  const h=rand(0,360),s=rand(40,80),l=rand(40,60);
+  matchTargetColor={h,s,l};
+  const[r,g,b]=hslToRgb(h,s,l);
+  document.getElementById('match-target').style.backgroundColor=`rgb(${r},${g},${b})`;
+  matchOptions=[{h,s,l,correct:true}];
+  const offsets=[[5,0,0],[-5,0,0],[0,5,0],[0,-5,0],[0,0,5],[0,0,-5],[8,8,0],[-8,-8,0],[0,8,8],[8,0,8],[-8,0,-8]];
+  const used=new Set();
+  for(let i=0;i<8;i++){
+    const off=offsets[i%offsets.length];
+    const nh=((h+off[0]+(i*3))%360+360)%360;
+    const ns=Math.min(100,Math.max(10,s+off[1]));
+    const nl=Math.min(90,Math.max(10,l+off[2]));
+    matchOptions.push({h:nh,s:ns,l:nl,correct:false});
+  }
+  matchOptions.sort(()=>Math.random()-.5);
+  renderMatchGrid();
+}
+function renderMatchGrid(){
+  const grid=document.getElementById('match-grid');
+  grid.innerHTML='';
+  matchOptions.forEach((opt,idx)=>{
+    const div=document.createElement('div');
+    div.className='match-card';
+    const[r,g,b]=hslToRgb(opt.h,opt.s,opt.l);
+    div.style.backgroundColor=`rgb(${r},${g},${b})`;
+    if(matchSelected===idx)div.classList.add('selected');
+    div.addEventListener('click',()=>{
+      if(matchDone)return;
+      matchSelected=idx;
+      renderMatchGrid();
+      if(opt.correct){
+        matchScore++;
+        document.getElementById('match-score').textContent=matchScore;
+        setTimeout(nextMatchRound,600);
+      }else{
+        setTimeout(nextMatchRound,600);
+      }
+    });
+    grid.appendChild(div);
+  });
+}
+function showMatchResult(){
+  matchDone=true;
+  document.getElementById('match-grid').innerHTML='';
+  document.getElementById('match-restart').style.display='inline-block';
+  let cls='',msg='';
+  if(matchScore===5){cls='normal';msg='全部正确！您的颜色辨别能力非常出色。';}
+  else if(matchScore>=3){cls='normal';msg='表现不错，您的颜色辨别能力基本正常。';}
+  else if(matchScore>=1){cls='warning';msg='您的颜色辨别能力可能存在一定困难。';}
+  else{cls='danger';msg='您完全无法区分这些颜色，强烈建议进行专业检查。';}
+  document.getElementById('match-result').innerHTML=`
+    <div class="result-card ${cls}">
+      <div class="result-title">匹配得分：${matchScore}/5</div>
+      <div class="result-desc">${msg}</div>
+    </div>
+  `;
+}
+document.getElementById('match-restart').addEventListener('click',initMatchTest);
+matchOptions.sort(()=>Math.random()-.5); // dummy init
+
+// ============ 色盲模拟器 ============
+// Color blindness simulation matrices (Brettel-Vienot-Mollon method simplified)
+function simulateColorblind(r,g,b,type){
+  // Linear RGB
+  const lr=Math.pow(r/255,2.2),lg=Math.pow(g/255,2.2),lb=Math.pow(b/255,2.2);
+  let r2,g2,b2;
+  if(type==='protanopia'){
+    r2=0.56667*lg+0.43333*lb;
+    g2=0.55833*lg+0.44167*lb;
+    b2=0*lg+1.0*lb;
+  }else if(type==='deuteranopia'){
+    r2=0.625*lr+0.375*lb;
+    g2=0.7*lr+0.3*lb;
+    b2=0*lr+1.0*lb;
+  }else if(type==='tritanopia'){
+    r2=0.95*lr+0.05*lg;
+    g2=0.43333*lr+0.56667*lg;
+    b2=0.475*lr+0.525*lg;
+  }else{
+    r2=lr;g2=lg;b2=lb;
+  }
+  const sr=Math.round(Math.pow(Math.max(0,Math.min(1,r2)),1/2.2)*255);
+  const sg=Math.round(Math.pow(Math.max(0,Math.min(1,g2)),1/2.2)*255);
+  const sb=Math.round(Math.pow(Math.max(0,Math.min(1,b2)),1/2.2)*255);
+  return[sr,sg,sb];
+}
+
+function updateSimSwatches(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  if(isNaN(r))return;
+  document.getElementById('sim-normal').style.backgroundColor=hex;
+  const prot=simulateColorblind(r,g,b,'protanopia');
+  document.getElementById('sim-protanopia').style.backgroundColor=`rgb(${prot[0]},${prot[1]},${prot[2]})`;
+  const deut=simulateColorblind(r,g,b,'deuteranopia');
+  document.getElementById('sim-deuteranopia').style.backgroundColor=`rgb(${deut[0]},${deut[1]},${deut[2]})`;
+  const trit=simulateColorblind(r,g,b,'tritanopia');
+  document.getElementById('sim-tritanopia').style.backgroundColor=`rgb(${trit[0]},${trit[1]},${trit[2]})`;
+}
+
+document.getElementById('sim-color-picker').addEventListener('input',e=>{
+  document.getElementById('sim-hex').value=e.target.value.toUpperCase();
+  updateSimSwatches(e.target.value);
+});
+document.getElementById('sim-hex').addEventListener('input',e=>{
+  let v=e.target.value;if(!v.startsWith('#'))v='#'+v;
+  if(/^#[0-9a-fA-F]{6}$/.test(v)){
+    document.getElementById('sim-color-picker').value=v;
+    updateSimSwatches(v);
+  }
+});
+document.getElementById('sim-apply').addEventListener('click',()=>{
+  updateSimSwatches(document.getElementById('sim-color-picker').value);
+});
+
+// Image upload simulation
+document.getElementById('sim-upload-btn').addEventListener('click',()=>{
+  document.getElementById('sim-image-upload').click();
+});
+document.getElementById('sim-image-upload').addEventListener('change',e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvases=['sim-img-normal','sim-img-protanopia','sim-img-deuteranopia','sim-img-tritanopia'];
+      const types=['normal','protanopia','deuteranopia','tritanopia'];
+      canvases.forEach((cid,i)=>{
+        const c=document.getElementById(cid);
+        const sz=180;
+        c.width=sz;c.height=sz;
+        const cx=c.getContext('2d');
+        cx.drawImage(img,0,0,sz,sz);
+        if(i>0){
+          const imgData=cx.getImageData(0,0,sz,sz);
+          const data=imgData.data;
+          for(let j=0;j<data.length;j+=4){
+            const[sr,sg,sb]=simulateColorblind(data[j],data[j+1],data[j+2],types[i]);
+            data[j]=sr;data[j+1]=sg;data[j+2]=sb;
+          }
+          cx.putImageData(imgData,0,0);
+        }
+      });
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// 初始加载
+updateSimSwatches('#ff4444');
+showPlate(0);
+</script>
+</body>
+</html>

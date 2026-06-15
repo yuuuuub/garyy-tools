@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>元素周期表 - 交互式化学元素周期表</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#c9d1d9;font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#161b22}
+::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+
+/* Header */
+.header{background:#161b22;border-bottom:1px solid #30363d;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+.header h1{font-size:1.5rem;background:linear-gradient(135deg,#58a6ff,#bc8cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.search-box{position:relative;flex:1;min-width:200px;max-width:360px}
+.search-box input{width:100%;padding:8px 36px 8px 14px;border:1px solid #30363d;border-radius:20px;background:#0d1117;color:#c9d1d9;font-size:0.9rem;outline:none;transition:border-color .2s}
+.search-box input:focus{border-color:#58a6ff}
+.search-box .clear-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#8b949e;cursor:pointer;font-size:1.1rem;display:none}
+.search-box .clear-btn.visible{display:block}
+.header-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.header-controls button{padding:7px 14px;border:1px solid #30363d;border-radius:18px;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:0.85rem;transition:all .2s;white-space:nowrap}
+.header-controls button:hover{background:#30363d;border-color:#58a6ff}
+.header-controls button.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+
+/* Main layout */
+.container{max-width:1400px;margin:0 auto;padding:16px}
+.main-layout{display:flex;gap:16px}
+.table-area{flex:1;min-width:0}
+.detail-panel{width:340px;flex-shrink:0;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;display:none}
+.detail-panel.show{display:block}
+.detail-panel .close-panel{position:absolute;top:10px;right:12px;background:none;border:none;color:#8b949e;cursor:pointer;font-size:1.3rem}
+.detail-panel h3{font-size:1.4rem;margin-bottom:4px}
+.detail-panel .en-name{color:#8b949e;font-size:0.9rem;margin-bottom:12px}
+.detail-panel .prop-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:0.85rem}
+.detail-panel .prop-grid .prop-label{color:#8b949e}
+.detail-panel .prop-grid .prop-value{color:#c9d1d9;font-weight:500}
+.detail-panel .uses-section{margin-top:14px}
+.detail-panel .uses-section h4{font-size:0.95rem;color:#58a6ff;margin-bottom:6px}
+.detail-panel .uses-section p{font-size:0.85rem;line-height:1.6;color:#8b949e}
+
+/* Temperature slider */
+.temp-control{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:16px;flex-wrap:wrap}
+.temp-control label{font-size:0.9rem;white-space:nowrap}
+.temp-control input[type=range]{flex:1;min-width:120px;accent-color:#58a6ff}
+.temp-control .temp-value{font-weight:600;min-width:60px;text-align:center;font-size:0.9rem}
+.temp-legend{display:flex;gap:12px;font-size:0.78rem}
+.temp-legend span{padding:2px 8px;border-radius:4px}
+.temp-legend .solid{background:rgba(255,200,100,.25);color:#ffc864}
+.temp-legend .liquid{background:rgba(100,180,255,.25);color:#64b4ff}
+.temp-legend .gas{background:rgba(180,140,255,.25);color:#b48cff}
+
+/* Grid table */
+.table-wrapper{overflow-x:auto}
+.periodic-grid{display:grid;grid-template-columns:repeat(18,1fr);gap:3px;min-width:900px;padding-bottom:8px}
+.periodic-grid .cell{background:#161b22;border:1px solid #21262d;border-radius:5px;padding:4px 3px;cursor:pointer;transition:all .15s;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative}
+.periodic-grid .cell:hover{transform:scale(1.08);z-index:10;border-color:#58a6ff;box-shadow:0 0 12px rgba(88,166,255,.3)}
+.periodic-grid .cell.highlight{border-color:#f0c040!important;box-shadow:0 0 14px rgba(240,192,64,.4)!important;z-index:5}
+.periodic-grid .cell.hidden{opacity:.15;pointer-events:none}
+.periodic-grid .cell .num{font-size:0.6rem;color:#8b949e;line-height:1}
+.periodic-grid .cell .sym{font-size:1rem;font-weight:700;line-height:1.2}
+.periodic-grid .cell .zh{font-size:0.6rem;line-height:1.2}
+.periodic-grid .cell .mass{font-size:0.55rem;color:#8b949e;line-height:1}
+.periodic-grid .cell .state-dot{position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;opacity:.7}
+.periodic-grid .empty-cell{background:transparent;border:none;pointer-events:none}
+.periodic-grid .group-label{display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#484f58;font-weight:600}
+.separator-row{height:8px}
+.series-label{padding:4px 8px;font-size:0.75rem;color:#8b949e}
+
+/* Category colors */
+.cat-alkali-metal{background:#2d1a1a!important;border-color:#ff444488!important}.cat-alkali-metal .sym{color:#ff6b6b}
+.cat-alkaline-earth{background:#2d2010!important;border-color:#ff880088!important}.cat-alkaline-earth .sym{color:#ffa64d}
+.cat-transition-metal{background:#1a1a2d!important;border-color:#4488ff88!important}.cat-transition-metal .sym{color:#6badff}
+.cat-post-transition{background:#1a2d1a!important;border-color:#44cc4488!important}.cat-post-transition .sym{color:#66dd66}
+.cat-metalloid{background:#1a2d2d!important;border-color:#44cccc88!important}.cat-metalloid .sym{color:#66cccc}
+.cat-nonmetal{background:#2d2d1a!important;border-color:#cccc4488!important}.cat-nonmetal .sym{color:#cccc44}
+.cat-halogen{background:#1a1d2d!important;border-color:#8844ff88!important}.cat-halogen .sym{color:#aa77ff}
+.cat-noble-gas{background:#2d1a2d!important;border-color:#cc44cc88!important}.cat-noble-gas .sym{color:#dd66dd}
+.cat-lanthanide{background:#2d1a28!important;border-color:#ff44aa88!important}.cat-lanthanide .sym{color:#ff77bb}
+.cat-actinide{background:#281a2d!important;border-color:#cc44aa88!important}.cat-actinide .sym{color:#dd77bb}
+
+/* Legend */
+.legend-section{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:0.75rem;cursor:pointer;padding:3px 8px;border-radius:4px;border:1px solid transparent;transition:all .2s}
+.legend-item:hover{border-color:#30363d}
+.legend-item.active{border-color:#58a6ff!important;background:#1f6feb22!important}
+.legend-swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+
+/* Quiz */
+.quiz-panel{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;margin-bottom:16px;display:none}
+.quiz-panel.show{display:block}
+.quiz-panel h3{font-size:1.2rem;margin-bottom:12px;color:#58a6ff}
+.quiz-question{font-size:1.1rem;margin-bottom:10px}
+.quiz-question .highlight-sym{font-size:2rem;font-weight:700;color:#ffa64d}
+.quiz-input{display:flex;gap:8px;margin-bottom:8px}
+.quiz-input input{padding:8px 12px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#c9d1d9;font-size:1rem;flex:1;outline:none}
+.quiz-input input:focus{border-color:#58a6ff}
+.quiz-input button{padding:8px 16px;border:1px solid #30363d;border-radius:8px;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:0.9rem}
+.quiz-input button:hover{background:#30363d}
+.quiz-result{font-size:0.9rem;margin-top:6px;min-height:20px}
+.quiz-result.correct{color:#3fb950}
+.quiz-result.wrong{color:#f85149}
+.quiz-score{font-size:0.85rem;color:#8b949e;margin-bottom:8px}
+
+/* Responsive */
+@media(max-width:1100px){
+  .main-layout{flex-direction:column}
+  .detail-panel{width:100%;position:static;max-height:none}
+}
+
+/* Tooltip for temp state */
+.temp-legend{display:flex;gap:16px;font-size:0.78rem;align-items:center}
+.temp-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚛ 元素周期表</h1>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="搜索元素名称、符号或原子序数...">
+    <button class="clear-btn" id="clearSearch">&times;</button>
+  </div>
+  <div class="header-controls">
+    <button id="quizToggle">🧪 元素测验</button>
+    <button id="resetTemp">🌡 重置温度</button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Quiz Panel -->
+  <div class="quiz-panel" id="quizPanel">
+    <h3>🧪 元素测验 - 猜猜这是什么元素？</h3>
+    <div class="quiz-score" id="quizScore">得分: 0 / 0</div>
+    <div class="quiz-question">
+      这个元素的符号是：<span class="highlight-sym" id="quizSymbol">--</span>
+      <br><span style="font-size:0.85rem;color:#8b949e">原子序数: <span id="quizNumber">--</span></span>
+      <br><span style="font-size:0.85rem;color:#8b949e">类别: <span id="quizCategory">--</span></span>
+    </div>
+    <div class="quiz-input">
+      <input type="text" id="quizAnswer" placeholder="输入元素的中文名称..." autocomplete="off">
+      <button id="quizSubmit">提交</button>
+      <button id="quizSkip">跳过</button>
+    </div>
+    <div class="quiz-result" id="quizResult"></div>
+  </div>
+
+  <!-- Temperature Control -->
+  <div class="temp-control">
+    <label for="tempSlider">🌡 温度</label>
+    <input type="range" id="tempSlider" min="0" max="1200" value="25" step="1">
+    <span class="temp-value" id="tempDisplay">25°C</span>
+    <span class="temp-legend">
+      <span class="solid"><span class="dot"></span>固态</span>
+      <span class="liquid"><span class="dot"></span>液态</span>
+      <span class="gas"><span class="dot"></span>气态</span>
+    </span>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend-section" id="legend">
+  </div>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+    <div class="table-area">
+      <div class="table-wrapper">
+        <div class="periodic-grid" id="periodicGrid"></div>
+      </div>
+    </div>
+    <div class="detail-panel" id="detailPanel">
+      <button class="close-panel" id="closePanel">&times;</button>
+      <h3 id="detailSymbol">--</h3>
+      <div class="en-name" id="detailName">--</div>
+      <div class="prop-grid" id="detailProps"></div>
+      <div class="uses-section">
+        <h4>主要用途</h4>
+        <p id="detailUses">--</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ======== ELEMENT DATA ========
+const elements = [
+  // Period 1
+  {n:1,s:"H",zh:"氢",en:"Hydrogen",mass:"1.008",cat:"nonmetal",g:1,p:1,density:"0.00008988",mp:14.01,bp:20.28,en:"2.20",ec:"1s¹",year:1766,disc:"亨利·卡文迪许",uses:"用于合成氨制造化肥、石油精炼、氢燃料电池、火箭燃料。"},
+  {n:2,s:"He",zh:"氦",en:"Helium",mass:"4.0026",cat:"noble-gas",g:18,p:1,density:"0.0001785",mp:0.95,bp:4.22,en:"—",ec:"1s²",year:1868,disc:"皮埃尔·让森",uses:"用于气球和飞艇充气、低温研究、焊接保护气体、核磁共振成像冷却。"},
+
+  // Period 2
+  {n:3,s:"Li",zh:"锂",en:"Lithium",mass:"6.94",cat:"alkali-metal",g:1,p:2,density:"0.534",mp:453.69,bp:1615,en:"0.98",ec:"[He]2s¹",year:1817,disc:"约翰·奥古斯特·阿夫维德森",uses:"锂电池、陶瓷和玻璃制造、润滑脂、精神类药物。"},
+  {n:4,s:"Be",zh:"铍",en:"Beryllium",mass:"9.0122",cat:"alkaline-earth",g:2,p:2,density:"1.85",mp:1560,bp:2742,en:"1.57",ec:"[He]2s²",year:1798,disc:"路易-尼古拉·沃克兰",uses:"航空航天合金、X射线窗口、核反应堆中子减速剂。"},
+  {n:5,s:"B",zh:"硼",en:"Boron",mass:"10.81",cat:"metalloid",g:13,p:2,density:"2.34",mp:2349,bp:4200,en:"2.04",ec:"[He]2s²2p¹",year:1808,disc:"约瑟夫·路易·盖-吕萨克",uses:"硼硅玻璃、半导体掺杂、硼砂清洁剂、中子吸收剂。"},
+  {n:6,s:"C",zh:"碳",en:"Carbon",mass:"12.011",cat:"nonmetal",g:14,p:2,density:"2.267(石墨)",mp:3915,bp:3915,en:"2.55",ec:"[He]2s²2p²",year:"古代",disc:"古代已知",uses:"生命基础元素、钢铁制造、钻石、石墨电极、有机化合物。"},
+  {n:7,s:"N",zh:"氮",en:"Nitrogen",mass:"14.007",cat:"nonmetal",g:15,p:2,density:"0.0012506",mp:63.15,bp:77.36,en:"3.04",ec:"[He]2s²2p³",year:1772,disc:"丹尼尔·卢瑟福",uses:"化肥生产、食品保鲜、电子工业保护气体、液氮冷冻。"},
+  {n:8,s:"O",zh:"氧",en:"Oxygen",mass:"15.999",cat:"nonmetal",g:16,p:2,density:"0.001429",mp:54.36,bp:90.20,en:"3.44",ec:"[He]2s²2p⁴",year:1774,disc:"约瑟夫·普里斯特利",uses:"呼吸必需气体、钢铁冶炼、火箭推进剂、医疗用氧。"},
+  {n:9,s:"F",zh:"氟",en:"Fluorine",mass:"18.998",cat:"halogen",g:17,p:2,density:"0.001696",mp:53.53,bp:85.03,en:"3.98",ec:"[He]2s²2p⁵",year:1886,disc:"亨利·莫瓦桑",uses:"牙膏氟化物、特氟龙涂层、铀浓缩、半导体蚀刻。"},
+  {n:10,s:"Ne",zh:"氖",en:"Neon",mass:"20.180",cat:"noble-gas",g:18,p:2,density:"0.0008999",mp:24.56,bp:27.07,en:"—",ec:"[He]2s²2p⁶",year:1898,disc:"威廉·拉姆齐",uses:"霓虹灯广告牌、高电压指示器、低温制冷剂、激光。"},
+
+  // Period 3
+  {n:11,s:"Na",zh:"钠",en:"Sodium",mass:"22.990",cat:"alkali-metal",g:1,p:3,density:"0.971",mp:370.87,bp:1156,en:"0.93",ec:"[Ne]3s¹",year:1807,disc:"汉弗里·戴维",uses:"食盐(氯化钠)、钠灯照明、有机合成还原剂、核反应堆冷却剂。"},
+  {n:12,s:"Mg",zh:"镁",en:"Magnesium",mass:"24.305",cat:"alkaline-earth",g:2,p:3,density:"1.738",mp:923,bp:1363,en:"1.31",ec:"[Ne]3s²",year:1755,disc:"约瑟夫·布莱克",uses:"轻质合金(航空)、烟花和信号弹、人体必需矿物质。"},
+  {n:13,s:"Al",zh:"铝",en:"Aluminum",mass:"26.982",cat:"post-transition",g:13,p:3,density:"2.698",mp:933.47,bp:2792,en:"1.61",ec:"[Ne]3s²3p¹",year:1825,disc:"汉斯·克里斯蒂安·奥斯特",uses:"建筑门窗、飞机机身、饮料罐、电线电缆。"},
+  {n:14,s:"Si",zh:"硅",en:"Silicon",mass:"28.085",cat:"metalloid",g:14,p:3,density:"2.3296",mp:1687,bp:3538,en:"1.90",ec:"[Ne]3s²3p²",year:1824,disc:"永斯·贝采利乌斯",uses:"半导体芯片、太阳能电池、玻璃和陶瓷、有机硅材料。"},
+  {n:15,s:"P",zh:"磷",en:"Phosphorus",mass:"30.974",cat:"nonmetal",g:15,p:3,density:"1.82(白磷)",mp:317.3,bp:553.6,en:"2.19",ec:"[Ne]3s²3p³",year:1669,disc:"亨尼格·布兰德",uses:"化肥、火柴、洗涤剂、阻燃剂。"},
+  {n:16,s:"S",zh:"硫",en:"Sulfur",mass:"32.06",cat:"nonmetal",g:16,p:3,density:"2.067",mp:388.36,bp:717.87,en:"2.58",ec:"[Ne]3s²3p⁴",year:"古代",disc:"古代已知",uses:"硫酸制造、橡胶硫化、火药、杀菌剂。"},
+  {n:17,s:"Cl",zh:"氯",en:"Chlorine",mass:"35.45",cat:"halogen",g:17,p:3,density:"0.003214",mp:171.6,bp:239.11,en:"3.16",ec:"[Ne]3s²3p⁵",year:1774,disc:"卡尔·威廉·舍勒",uses:"水消毒、PVC塑料、漂白剂、有机合成。"},
+  {n:18,s:"Ar",zh:"氩",en:"Argon",mass:"39.948",cat:"noble-gas",g:18,p:3,density:"0.0017837",mp:83.80,bp:87.30,en:"—",ec:"[Ne]3s²3p⁶",year:1894,disc:"瑞利勋爵",uses:"焊接保护气体、灯泡填充气体、金属冶炼保护。"},
+
+  // Period 4
+  {n:19,s:"K",zh:"钾",en:"Potassium",mass:"39.098",cat:"alkali-metal",g:1,p:4,density:"0.862",mp:336.53,bp:1032,en:"0.82",ec:"[Ar]4s¹",year:1807,disc:"汉弗里·戴维",uses:"化肥(钾肥)、人体必需电解质、肥皂制造。"},
+  {n:20,s:"Ca",zh:"钙",en:"Calcium",mass:"40.078",cat:"alkaline-earth",g:2,p:4,density:"1.54",mp:1115,bp:1757,en:"1.00",ec:"[Ar]4s²",year:1808,disc:"汉弗里·戴维",uses:"建筑(石灰石、水泥)、骨骼和牙齿成分、炼钢脱氧剂。"},
+  {n:21,s:"Sc",zh:"钪",en:"Scandium",mass:"44.956",cat:"transition-metal",g:3,p:4,density:"2.989",mp:1814,bp:3109,en:"1.36",ec:"[Ar]3d¹4s²",year:1879,disc:"拉尔斯·弗雷德里克·尼尔森",uses:"航空铝合金添加剂、体育器材(棒球棒)、高强度灯。"},
+  {n:22,s:"Ti",zh:"钛",en:"Titanium",mass:"47.867",cat:"transition-metal",g:4,p:4,density:"4.54",mp:1941,bp:3560,en:"1.54",ec:"[Ar]3d²4s²",year:1791,disc:"威廉·格雷戈尔",uses:"航空发动机、人体植入物、白色颜料、高尔夫球杆。"},
+  {n:23,s:"V",zh:"钒",en:"Vanadium",mass:"50.942",cat:"transition-metal",g:5,p:4,density:"6.11",mp:2183,bp:3680,en:"1.63",ec:"[Ar]3d³4s²",year:1801,disc:"安德烈斯·曼努埃尔·德尔里奥",uses:"高强度钢合金添加剂、催化剂、氧化还原液流电池。"},
+  {n:24,s:"Cr",zh:"铬",en:"Chromium",mass:"51.996",cat:"transition-metal",g:6,p:4,density:"7.15",mp:2180,bp:2944,en:"1.66",ec:"[Ar]3d⁵4s¹",year:1797,disc:"路易-尼古拉·沃克兰",uses:"不锈钢制造、镀铬装饰、皮革鞣制、颜料。"},
+  {n:25,s:"Mn",zh:"锰",en:"Manganese",mass:"54.938",cat:"transition-metal",g:7,p:4,density:"7.44",mp:1519,bp:2334,en:"1.55",ec:"[Ar]3d⁵4s²",year:1774,disc:"约翰·戈特利布·甘恩",uses:"炼钢脱氧脱硫、干电池、玻璃着色、铝合金。"},
+  {n:26,s:"Fe",zh:"铁",en:"Iron",mass:"55.845",cat:"transition-metal",g:8,p:4,density:"7.874",mp:1811,bp:3134,en:"1.83",ec:"[Ar]3d⁶4s²",year:"古代",disc:"古代已知",uses:"建筑钢材、机械制造、血液血红蛋白、磁铁。"},
+  {n:27,s:"Co",zh:"钴",en:"Cobalt",mass:"58.933",cat:"transition-metal",g:9,p:4,density:"8.86",mp:1768,bp:3200,en:"1.88",ec:"[Ar]3d⁷4s²",year:1735,disc:"格奥尔格·勃兰特",uses:"锂电池正极材料、高温合金、蓝色颜料、维生素B12。"},
+  {n:28,s:"Ni",zh:"镍",en:"Nickel",mass:"58.693",cat:"transition-metal",g:10,p:4,density:"8.912",mp:1728,bp:3186,en:"1.91",ec:"[Ar]3d⁸4s²",year:1751,disc:"阿克塞尔·弗雷德里克·克龙斯泰特",uses:"不锈钢、硬币、充电电池、催化剂。"},
+  {n:29,s:"Cu",zh:"铜",en:"Copper",mass:"63.546",cat:"transition-metal",g:11,p:4,density:"8.96",mp:1357.77,bp:2835,en:"1.90",ec:"[Ar]3d¹⁰4s¹",year:"古代",disc:"古代已知",uses:"电线电缆、管道、电子元器件、青铜合金。"},
+  {n:30,s:"Zn",zh:"锌",en:"Zinc",mass:"65.38",cat:"transition-metal",g:12,p:4,density:"7.134",mp:692.68,bp:1180,en:"1.65",ec:"[Ar]3d¹⁰4s²",year:1746,disc:"安德烈亚斯·西吉斯蒙德·马格拉夫",uses:"镀锌防锈、黄铜合金、干电池、防晒霜。"},
+  {n:31,s:"Ga",zh:"镓",en:"Gallium",mass:"69.723",cat:"post-transition",g:13,p:4,density:"5.907",mp:302.91,bp:2477,en:"1.81",ec:"[Ar]3d¹⁰4s²4p¹",year:1875,disc:"保罗·埃米尔·勒科克·德布瓦博德兰",uses:"半导体材料、温度计、LED灯、太阳能电池。"},
+  {n:32,s:"Ge",zh:"锗",en:"Germanium",mass:"72.63",cat:"metalloid",g:14,p:4,density:"5.323",mp:1211.4,bp:3106,en:"2.01",ec:"[Ar]3d¹⁰4s²4p²",year:1886,disc:"克莱门斯·温克勒",uses:"光纤通讯、红外光学、半导体、聚合催化剂。"},
+  {n:33,s:"As",zh:"砷",en:"Arsenic",mass:"74.922",cat:"metalloid",g:15,p:4,density:"5.776",mp:1090,bp:887,en:"2.18",ec:"[Ar]3d¹⁰4s²4p³",year:"古代",disc:"古代已知",uses:"半导体掺杂、木材防腐剂、杀虫剂(已限制使用)。"},
+  {n:34,s:"Se",zh:"硒",en:"Selenium",mass:"78.96",cat:"nonmetal",g:16,p:4,density:"4.809",mp:494,bp:958,en:"2.55",ec:"[Ar]3d¹⁰4s²4p⁴",year:1817,disc:"永斯·贝采利乌斯",uses:"复印机感光鼓、玻璃着色、营养补充剂、太阳能电池。"},
+  {n:35,s:"Br",zh:"溴",en:"Bromine",mass:"79.904",cat:"halogen",g:17,p:4,density:"3.122",mp:265.8,bp:332.0,en:"2.96",ec:"[Ar]3d¹⁰4s²4p⁵",year:1826,disc:"安托万·热罗姆·巴拉尔",uses:"阻燃剂、照相化学品、水处理消毒、医药中间体。"},
+  {n:36,s:"Kr",zh:"氪",en:"Krypton",mass:"83.798",cat:"noble-gas",g:18,p:4,density:"0.003733",mp:115.79,bp:119.93,en:"3.00",ec:"[Ar]3d¹⁰4s²4p⁶",year:1898,disc:"威廉·拉姆齐",uses:"高性能灯泡、闪光灯、激光、窗户隔热。"},
+
+  // Period 5
+  {n:37,s:"Rb",zh:"铷",en:"Rubidium",mass:"85.468",cat:"alkali-metal",g:1,p:5,density:"1.532",mp:312.46,bp:961,en:"0.82",ec:"[Kr]5s¹",year:1861,disc:"罗伯特·本生",uses:"原子钟、光电管、焰火紫色着色。"},
+  {n:38,s:"Sr",zh:"锶",en:"Strontium",mass:"87.62",cat:"alkaline-earth",g:2,p:5,density:"2.54",mp:1050,bp:1655,en:"0.95",ec:"[Kr]5s²",year:1790,disc:"阿代尔·克劳福德",uses:"烟花红色着色、显像管玻璃、牙膏、放射性同位素。"},
+  {n:39,s:"Y",zh:"钇",en:"Yttrium",mass:"88.906",cat:"transition-metal",g:3,p:5,density:"4.469",mp:1799,bp:3609,en:"1.22",ec:"[Kr]4d¹5s²",year:1794,disc:"约翰·加多林",uses:"LED荧光粉、激光晶体、超导体、陶瓷。"},
+  {n:40,s:"Zr",zh:"锆",en:"Zirconium",mass:"91.224",cat:"transition-metal",g:4,p:5,density:"6.506",mp:2128,bp:4682,en:"1.33",ec:"[Kr]4d²5s²",year:1789,disc:"马丁·海因里希·克拉普罗特",uses:"核反应堆包壳、假牙陶瓷、耐腐蚀设备。"},
+  {n:41,s:"Nb",zh:"铌",en:"Niobium",mass:"92.906",cat:"transition-metal",g:5,p:5,density:"8.57",mp:2750,bp:5017,en:"1.6",ec:"[Kr]4d⁴5s¹",year:1801,disc:"查尔斯·哈切特",uses:"超导磁体、火箭喷嘴、高温合金、珠宝。"},
+  {n:42,s:"Mo",zh:"钼",en:"Molybdenum",mass:"95.95",cat:"transition-metal",g:6,p:5,density:"10.22",mp:2896,bp:4912,en:"2.16",ec:"[Kr]4d⁵5s¹",year:1778,disc:"卡尔·威廉·舍勒",uses:"高强度钢合金、催化剂、润滑剂、电子元件。"},
+  {n:43,s:"Tc",zh:"锝",en:"Technetium",mass:"[98]",cat:"transition-metal",g:7,p:5,density:"11.5",mp:2430,bp:4538,en:"1.9",ec:"[Kr]4d⁵5s²",year:1937,disc:"埃米利奥·塞格雷",uses:"医学放射性成像、超导研究。"},
+  {n:44,s:"Ru",zh:"钌",en:"Ruthenium",mass:"101.07",cat:"transition-metal",g:8,p:5,density:"12.37",mp:2607,bp:4423,en:"2.2",ec:"[Kr]4d⁷5s¹",year:1844,disc:"卡尔·恩斯特·克劳斯",uses:"硬盘驱动器、催化剂、电触点、珠宝合金。"},
+  {n:45,s:"Rh",zh:"铑",en:"Rhodium",mass:"102.91",cat:"transition-metal",g:9,p:5,density:"12.41",mp:2237,bp:3968,en:"2.28",ec:"[Kr]4d⁸5s¹",year:1803,disc:"威廉·海德·沃拉斯顿",uses:"汽车尾气催化剂、珠宝镀层、反射镜。"},
+  {n:46,s:"Pd",zh:"钯",en:"Palladium",mass:"106.42",cat:"transition-metal",g:10,p:5,density:"12.02",mp:1828.05,bp:3236,en:"2.20",ec:"[Kr]4d¹⁰",year:1802,disc:"威廉·海德·沃拉斯顿",uses:"汽车催化转化器、氢净化、牙科合金、珠宝。"},
+  {n:47,s:"Ag",zh:"银",en:"Silver",mass:"107.87",cat:"transition-metal",g:11,p:5,density:"10.501",mp:1234.93,bp:2435,en:"1.93",ec:"[Kr]4d¹⁰5s¹",year:"古代",disc:"古代已知",uses:"珠宝首饰、摄影胶卷、抗菌材料、电子触点。"},
+  {n:48,s:"Cd",zh:"镉",en:"Cadmium",mass:"112.41",cat:"transition-metal",g:12,p:5,density:"8.69",mp:594.22,bp:1040,en:"1.69",ec:"[Kr]4d¹⁰5s²",year:1817,disc:"弗里德里希·施特罗迈尔",uses:"充电电池、颜料、电镀防腐、核反应堆控制棒。"},
+  {n:49,s:"In",zh:"铟",en:"Indium",mass:"114.82",cat:"post-transition",g:13,p:5,density:"7.31",mp:429.75,bp:2345,en:"1.78",ec:"[Kr]4d¹⁰5s²5p¹",year:1863,disc:"费迪南德·赖希",uses:"液晶显示器透明电极、低熔点合金、半导体。"},
+  {n:50,s:"Sn",zh:"锡",en:"Tin",mass:"118.71",cat:"post-transition",g:14,p:5,density:"7.287",mp:505.08,bp:2875,en:"1.96",ec:"[Kr]4d¹⁰5s²5p²",year:"古代",disc:"古代已知",uses:"锡焊接、马口铁罐头、青铜合金、浮法玻璃。"},
+  {n:51,s:"Sb",zh:"锑",en:"Antimony",mass:"121.76",cat:"metalloid",g:15,p:5,density:"6.685",mp:903.78,bp:1860,en:"2.05",ec:"[Kr]4d¹⁰5s²5p³",year:"古代",disc:"古代已知",uses:"阻燃剂、合金硬化剂、半导体材料、铅酸电池。"},
+  {n:52,s:"Te",zh:"碲",en:"Tellurium",mass:"127.60",cat:"metalloid",g:16,p:5,density:"6.232",mp:722.66,bp:1261,en:"2.1",ec:"[Kr]4d¹⁰5s²5p⁴",year:1782,disc:"弗朗茨-约瑟夫·米勒·冯·赖兴施泰因",uses:"太阳能电池、热电材料、合金添加剂、橡胶硫化。"},
+  {n:53,s:"I",zh:"碘",en:"Iodine",mass:"126.90",cat:"halogen",g:17,p:5,density:"4.93",mp:386.85,bp:457.4,en:"2.66",ec:"[Kr]4d¹⁰5s²5p⁵",year:1811,disc:"贝尔纳·库尔图瓦",uses:"消毒剂、甲状腺药物、照相化学品、食盐加碘。"},
+  {n:54,s:"Xe",zh:"氙",en:"Xenon",mass:"131.29",cat:"noble-gas",g:18,p:5,density:"0.005887",mp:161.4,bp:165.03,en:"2.60",ec:"[Kr]4d¹⁰5s²5p⁶",year:1898,disc:"威廉·拉姆齐",uses:"氙气灯、离子推进器、麻醉剂、闪光灯。"},
+
+  // Period 6
+  {n:55,s:"Cs",zh:"铯",en:"Cesium",mass:"132.91",cat:"alkali-metal",g:1,p:6,density:"1.873",mp:301.59,bp:944,en:"0.79",ec:"[Xe]6s¹",year:1860,disc:"罗伯特·本生",uses:"原子钟(最精确)、钻井液、光电管。"},
+  {n:56,s:"Ba",zh:"钡",en:"Barium",mass:"137.33",cat:"alkaline-earth",g:2,p:6,density:"3.594",mp:1000,bp:2170,en:"0.89",ec:"[Xe]6s²",year:1808,disc:"汉弗里·戴维",uses:"医疗造影(X射线)、烟花绿色、玻璃制造。"},
+  {n:57,s:"La",zh:"镧",en:"Lanthanum",mass:"138.91",cat:"lanthanide",g:3,p:6,density:"6.145",mp:1193,bp:3737,en:"1.10",ec:"[Xe]5d¹6s²",year:1839,disc:"卡尔·古斯塔夫·莫桑德",uses:"混合动力汽车电池、相机镜头、石油裂化催化剂。"},
+  {n:58,s:"Ce",zh:"铈",en:"Cerium",mass:"140.12",cat:"lanthanide",g:3,p:6,density:"6.689",mp:1068,bp:3716,en:"1.12",ec:"[Xe]4f¹5d¹6s²",year:1803,disc:"威廉·希辛格",uses:"打火石、催化剂、玻璃抛光、紫外吸收剂。"},
+  {n:59,s:"Pr",zh:"镨",en:"Praseodymium",mass:"140.91",cat:"lanthanide",g:3,p:6,density:"6.773",mp:1208,bp:3793,en:"1.13",ec:"[Xe]4f³6s²",year:1885,disc:"卡尔·奥尔·冯·韦尔斯巴赫",uses:"强磁铁、激光晶体、黄色玻璃着色、航空合金。"},
+  {n:60,s:"Nd",zh:"钕",en:"Neodymium",mass:"144.24",cat:"lanthanide",g:3,p:6,density:"7.007",mp:1297,bp:3347,en:"1.14",ec:"[Xe]4f⁴6s²",year:1885,disc:"卡尔·奥尔·冯·韦尔斯巴赫",uses:"强力永磁体(钕磁铁)、激光、紫色玻璃着色。"},
+  {n:61,s:"Pm",zh:"钷",en:"Promethium",mass:"[145]",cat:"lanthanide",g:3,p:6,density:"7.26",mp:1315,bp:3273,en:"1.13",ec:"[Xe]4f⁵6s²",year:1945,disc:"雅各布·A·马林斯基",uses:"核电池、发光涂料、厚度测量仪。"},
+  {n:62,s:"Sm",zh:"钐",en:"Samarium",mass:"150.36",cat:"lanthanide",g:3,p:6,density:"7.52",mp:1345,bp:2067,en:"1.17",ec:"[Xe]4f⁶6s²",year:1879,disc:"保罗·埃米尔·勒科克·德布瓦博德兰",uses:"钐钴磁铁、癌症放射治疗、陶瓷、激光。"},
+  {n:63,s:"Eu",zh:"铕",en:"Europium",mass:"151.96",cat:"lanthanide",g:3,p:6,density:"5.243",mp:1099,bp:1802,en:"1.2",ec:"[Xe]4f⁷6s²",year:1901,disc:"欧仁-阿纳托尔·德马尔赛",uses:"彩色电视和电脑屏幕红色荧光粉、防伪欧元纸币。"},
+  {n:64,s:"Gd",zh:"钆",en:"Gadolinium",mass:"157.25",cat:"lanthanide",g:3,p:6,density:"7.895",mp:1585,bp:3546,en:"1.20",ec:"[Xe]4f⁷5d¹6s²",year:1880,disc:"让·夏尔·加利萨尔·德·马里尼亚克",uses:"MRI造影剂、核反应堆中子吸收、磁制冷。"},
+  {n:65,s:"Tb",zh:"铽",en:"Terbium",mass:"158.93",cat:"lanthanide",g:3,p:6,density:"8.229",mp:1629,bp:3503,en:"1.2",ec:"[Xe]4f⁹6s²",year:1843,disc:"卡尔·古斯塔夫·莫桑德",uses:"荧光灯绿色荧光粉、磁光存储、声纳。"},
+  {n:66,s:"Dy",zh:"镝",en:"Dysprosium",mass:"162.50",cat:"lanthanide",g:3,p:6,density:"8.55",mp:1680,bp:2840,en:"1.22",ec:"[Xe]4f¹⁰6s²",year:1886,disc:"保罗·埃米尔·勒科克·德布瓦博德兰",uses:"钕磁铁添加剂、核反应堆控制棒、激光。"},
+  {n:67,s:"Ho",zh:"钬",en:"Holmium",mass:"164.93",cat:"lanthanide",g:3,p:6,density:"8.795",mp:1734,bp:2993,en:"1.23",ec:"[Xe]4f¹¹6s²",year:1878,disc:"马克·德拉丰丹",uses:"激光器、核反应堆控制、最强磁矩元素。"},
+  {n:68,s:"Er",zh:"铒",en:"Erbium",mass:"167.26",cat:"lanthanide",g:3,p:6,density:"9.066",mp:1802,bp:3141,en:"1.24",ec:"[Xe]4f¹²6s²",year:1843,disc:"卡尔·古斯塔夫·莫桑德",uses:"光纤通信放大器、激光医疗、粉色玻璃着色。"},
+  {n:69,s:"Tm",zh:"铥",en:"Thulium",mass:"168.93",cat:"lanthanide",g:3,p:6,density:"9.321",mp:1818,bp:2223,en:"1.25",ec:"[Xe]4f¹³6s²",year:1879,disc:"佩尔·特奥多尔·克莱韦",uses:"便携式X射线源、激光、高温超导体。"},
+  {n:70,s:"Yb",zh:"镱",en:"Ytterbium",mass:"173.04",cat:"lanthanide",g:3,p:6,density:"6.965",mp:1097,bp:1469,en:"1.1",ec:"[Xe]4f¹⁴6s²",year:1878,disc:"让·夏尔·加利萨尔·德·马里尼亚克",uses:"激光、原子钟、应力测量、不锈钢添加剂。"},
+  {n:71,s:"Lu",zh:"镥",en:"Lutetium",mass:"174.97",cat:"lanthanide",g:3,p:6,density:"9.84",mp:1925,bp:3675,en:"1.27",ec:"[Xe]4f¹⁴5d¹6s²",year:1907,disc:"乔治·于尔班",uses:"石油裂化催化剂、PET扫描探测器、高折射率玻璃。"},
+
+  // Period 6 continued (after Lanthanides)
+  {n:72,s:"Hf",zh:"铪",en:"Hafnium",mass:"178.49",cat:"transition-metal",g:4,p:6,density:"13.31",mp:2506,bp:4876,en:"1.3",ec:"[Xe]4f¹⁴5d²6s²",year:1923,disc:"德克·科斯特",uses:"核反应堆控制棒、高温合金、等离子切割电极。"},
+  {n:73,s:"Ta",zh:"钽",en:"Tantalum",mass:"180.95",cat:"transition-metal",g:5,p:6,density:"16.654",mp:3290,bp:5731,en:"1.5",ec:"[Xe]4f¹⁴5d³6s²",year:1802,disc:"安德斯·古斯塔夫·埃克贝里",uses:"电容器、人体植入物、耐腐蚀化工设备、手机。"},
+  {n:74,s:"W",zh:"钨",en:"Tungsten",mass:"183.84",cat:"transition-metal",g:6,p:6,density:"19.25",mp:3695,bp:6203,en:"2.36",ec:"[Xe]4f¹⁴5d⁴6s²",year:1781,disc:"卡尔·威廉·舍勒",uses:"灯丝、切削工具、穿甲弹、最高熔点金属。"},
+  {n:75,s:"Re",zh:"铼",en:"Rhenium",mass:"186.21",cat:"transition-metal",g:7,p:6,density:"21.02",mp:3459,bp:5869,en:"1.9",ec:"[Xe]4f¹⁴5d⁵6s²",year:1925,disc:"瓦尔特·诺达克",uses:"喷气发动机高温合金、催化剂、热电偶。"},
+  {n:76,s:"Os",zh:"锇",en:"Osmium",mass:"190.23",cat:"transition-metal",g:8,p:6,density:"22.57",mp:3306,bp:5285,en:"2.2",ec:"[Xe]4f¹⁴5d⁶6s²",year:1803,disc:"史密森·坦南特",uses:"钢笔笔尖、电触点、密度最高自然元素、显微镜染色。"},
+  {n:77,s:"Ir",zh:"铱",en:"Iridium",mass:"192.22",cat:"transition-metal",g:9,p:6,density:"22.42",mp:2719,bp:4701,en:"2.20",ec:"[Xe]4f¹⁴5d⁷6s²",year:1803,disc:"史密森·坦南特",uses:"火花塞、坩埚、抗癌药物、K-T界线标志元素。"},
+  {n:78,s:"Pt",zh:"铂",en:"Platinum",mass:"195.08",cat:"transition-metal",g:10,p:6,density:"21.46",mp:2041.4,bp:4098,en:"2.28",ec:"[Xe]4f¹⁴5d⁹6s¹",year:1735,disc:"安东尼奥·德·乌略亚",uses:"珠宝、汽车催化剂、化学实验器具、抗癌药物。"},
+  {n:79,s:"Au",zh:"金",en:"Gold",mass:"196.97",cat:"transition-metal",g:11,p:6,density:"19.282",mp:1337.33,bp:3129,en:"2.54",ec:"[Xe]4f¹⁴5d¹⁰6s¹",year:"古代",disc:"古代已知",uses:"珠宝首饰、投资储备、电子连接器、牙科。"},
+  {n:80,s:"Hg",zh:"汞",en:"Mercury",mass:"200.59",cat:"transition-metal",g:12,p:6,density:"13.5336",mp:234.43,bp:629.88,en:"2.00",ec:"[Xe]4f¹⁴5d¹⁰6s²",year:"古代",disc:"古代已知",uses:"温度计、荧光灯、氯碱工业、牙科汞合金。"},
+  {n:81,s:"Tl",zh:"铊",en:"Thallium",mass:"204.38",cat:"post-transition",g:13,p:6,density:"11.85",mp:577,bp:1746,en:"1.62",ec:"[Xe]4f¹⁴5d¹⁰6s²6p¹",year:1861,disc:"威廉·克鲁克斯",uses:"高折射率光学玻璃、杀虫剂(已禁用)、超导研究。"},
+  {n:82,s:"Pb",zh:"铅",en:"Lead",mass:"207.2",cat:"post-transition",g:14,p:6,density:"11.342",mp:600.61,bp:2022,en:"2.33",ec:"[Xe]4f¹⁴5d¹⁰6s²6p²",year:"古代",disc:"古代已知",uses:"蓄电池、辐射屏蔽、子弹、焊料(逐步淘汰)。"},
+  {n:83,s:"Bi",zh:"铋",en:"Bismuth",mass:"208.98",cat:"post-transition",g:15,p:6,density:"9.807",mp:544.7,bp:1837,en:"2.02",ec:"[Xe]4f¹⁴5d¹⁰6s²6p³",year:1753,disc:"克劳德·弗朗索瓦·若弗鲁瓦",uses:"胃药(次碳酸铋)、化妆品颜料、低熔点合金。"},
+  {n:84,s:"Po",zh:"钋",en:"Polonium",mass:"[209]",cat:"post-transition",g:16,p:6,density:"9.32",mp:527,bp:1235,en:"2.0",ec:"[Xe]4f¹⁴5d¹⁰6s²6p⁴",year:1898,disc:"玛丽·居里",uses:"抗静电装置、中子源、航天器热电源。"},
+  {n:85,s:"At",zh:"砹",en:"Astatine",mass:"[210]",cat:"halogen",g:17,p:6,density:"7",mp:575,bp:610,en:"2.2",ec:"[Xe]4f¹⁴5d¹⁰6s²6p⁵",year:1940,disc:"戴尔·R·科森",uses:"放射性靶向治疗研究(地球上最稀有的自然元素)。"},
+  {n:86,s:"Rn",zh:"氡",en:"Radon",mass:"[222]",cat:"noble-gas",g:18,p:6,density:"0.00973",mp:202,bp:211.3,en:"2.2",ec:"[Xe]4f¹⁴5d¹⁰6s²6p⁶",year:1899,disc:"欧内斯特·卢瑟福",uses:"癌症放射治疗(曾用)、地质勘探示踪。"},
+
+  // Period 7
+  {n:87,s:"Fr",zh:"钫",en:"Francium",mass:"[223]",cat:"alkali-metal",g:1,p:7,density:"1.87",mp:281,bp:890,en:"0.79",ec:"[Rn]7s¹",year:1939,disc:"玛格丽特·佩里",uses:"科学研究用(极不稳定，自然界最稀少元素之一)。"},
+  {n:88,s:"Ra",zh:"镭",en:"Radium",mass:"[226]",cat:"alkaline-earth",g:2,p:7,density:"5.5",mp:973,bp:1413,en:"0.9",ec:"[Rn]7s²",year:1898,disc:"玛丽·居里",uses:"历史上用于夜光涂料(已停用)、癌症放射治疗。"},
+  {n:89,s:"Ac",zh:"锕",en:"Actinium",mass:"[227]",cat:"actinide",g:3,p:7,density:"10.07",mp:1323,bp:3471,en:"1.1",ec:"[Rn]6d¹7s²",year:1899,disc:"安德烈-路易·德比埃尔内",uses:"中子源、放射治疗研究。"},
+  {n:90,s:"Th",zh:"钍",en:"Thorium",mass:"232.04",cat:"actinide",g:3,p:7,density:"11.72",mp:2115,bp:5061,en:"1.3",ec:"[Rn]6d²7s²",year:1828,disc:"永斯·贝采利乌斯",uses:"核能(钍反应堆)、煤气灯罩、高强度合金。"},
+  {n:91,s:"Pa",zh:"镤",en:"Protactinium",mass:"231.04",cat:"actinide",g:3,p:7,density:"15.37",mp:1841,bp:4300,en:"1.5",ec:"[Rn]5f²6d¹7s²",year:1913,disc:"卡西米尔·法扬斯",uses:"科学研究用(稀有放射性元素)。"},
+  {n:92,s:"U",zh:"铀",en:"Uranium",mass:"238.03",cat:"actinide",g:3,p:7,density:"18.95",mp:1405.3,bp:4404,en:"1.38",ec:"[Rn]5f³6d¹7s²",year:1789,disc:"马丁·海因里希·克拉普罗特",uses:"核电站燃料、核武器、贫铀穿甲弹、玻璃着色。"},
+  {n:93,s:"Np",zh:"镎",en:"Neptunium",mass:"[237]",cat:"actinide",g:3,p:7,density:"20.45",mp:917,bp:4175,en:"1.36",ec:"[Rn]5f⁴6d¹7s²",year:1940,disc:"埃德温·麦克米伦",uses:"中子探测仪器、核反应堆研究。"},
+  {n:94,s:"Pu",zh:"钚",en:"Plutonium",mass:"[244]",cat:"actinide",g:3,p:7,density:"19.84",mp:912.5,bp:3501,en:"1.28",ec:"[Rn]5f⁶7s²",year:1940,disc:"格伦·西奥多·西博格",uses:"核武器、太空探测器电源、核反应堆燃料。"},
+  {n:95,s:"Am",zh:"镅",en:"Americium",mass:"[243]",cat:"actinide",g:3,p:7,density:"13.69",mp:1449,bp:2880,en:"1.3",ec:"[Rn]5f⁷7s²",year:1944,disc:"格伦·西奥多·西博格",uses:"烟雾探测器、工业厚度测量仪、中子源。"},
+  {n:96,s:"Cm",zh:"锔",en:"Curium",mass:"[247]",cat:"actinide",g:3,p:7,density:"13.51",mp:1613,bp:3383,en:"1.3",ec:"[Rn]5f⁷6d¹7s²",year:1944,disc:"格伦·西奥多·西博格",uses:"太空探测器电力、科学研究。"},
+  {n:97,s:"Bk",zh:"锫",en:"Berkelium",mass:"[247]",cat:"actinide",g:3,p:7,density:"14.79",mp:1259,bp:2900,en:"1.3",ec:"[Rn]5f⁹7s²",year:1949,disc:"格伦·西奥多·西博格",uses:"科学研究用(合成超铀元素)。"},
+  {n:98,s:"Cf",zh:"锎",en:"Californium",mass:"[251]",cat:"actinide",g:3,p:7,density:"15.1",mp:1173,bp:1743,en:"1.3",ec:"[Rn]5f¹⁰7s²",year:1950,disc:"格伦·西奥多·西博格",uses:"中子源(启动核反应堆)、癌症治疗、矿石分析。"},
+  {n:99,s:"Es",zh:"锿",en:"Einsteinium",mass:"[252]",cat:"actinide",g:3,p:7,density:"8.84",mp:1133,bp:1269,en:"1.3",ec:"[Rn]5f¹¹7s²",year:1952,disc:"阿尔伯特·吉奥索",uses:"科学研究(合成超铀元素)。"},
+  {n:100,s:"Fm",zh:"镄",en:"Fermium",mass:"[257]",cat:"actinide",g:3,p:7,density:null,mp:1800,bp:null,en:"1.3",ec:"[Rn]5f¹²7s²",year:1952,disc:"阿尔伯特·吉奥索",uses:"科学研究(最重可通过中子捕获合成的元素)。"},
+  {n:101,s:"Md",zh:"钔",en:"Mendelevium",mass:"[258]",cat:"actinide",g:3,p:7,density:null,mp:1100,bp:null,en:"1.3",ec:"[Rn]5f¹³7s²",year:1955,disc:"格伦·西奥多·西博格",uses:"科学研究用(合成元素)。"},
+  {n:102,s:"No",zh:"锘",en:"Nobelium",mass:"[259]",cat:"actinide",g:3,p:7,density:null,mp:1100,bp:null,en:"1.3",ec:"[Rn]5f¹⁴7s²",year:1958,disc:"阿尔伯特·吉奥索",uses:"科学研究用(合成元素)。"},
+  {n:103,s:"Lr",zh:"铹",en:"Lawrencium",mass:"[266]",cat:"actinide",g:3,p:7,density:null,mp:1900,bp:null,en:"1.3",ec:"[Rn]5f¹⁴7s²7p¹",year:1961,disc:"阿尔伯特·吉奥索",uses:"科学研究用(最后的锕系元素)。"},
+
+  // Period 7 continued (after Actinides)
+  {n:104,s:"Rf",zh:"𬬻",en:"Rutherfordium",mass:"[267]",cat:"transition-metal",g:4,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d²7s²",year:1964,disc:"苏联杜布纳联合核子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:105,s:"Db",zh:"𬭊",en:"Dubnium",mass:"[268]",cat:"transition-metal",g:5,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d³7s²",year:1967,disc:"苏联杜布纳",uses:"科学研究用(合成超重元素)。"},
+  {n:106,s:"Sg",zh:"𬭳",en:"Seaborgium",mass:"[269]",cat:"transition-metal",g:6,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d⁴7s²",year:1974,disc:"阿尔伯特·吉奥索",uses:"科学研究用(合成超重元素)。"},
+  {n:107,s:"Bh",zh:"𬭛",en:"Bohrium",mass:"[270]",cat:"transition-metal",g:7,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d⁵7s²",year:1981,disc:"达姆施塔特重离子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:108,s:"Hs",zh:"𬭶",en:"Hassium",mass:"[269]",cat:"transition-metal",g:8,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d⁶7s²",year:1984,disc:"达姆施塔特重离子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:109,s:"Mt",zh:"鿏",en:"Meitnerium",mass:"[278]",cat:"transition-metal",g:9,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d⁷7s²",year:1982,disc:"达姆施塔特重离子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:110,s:"Ds",zh:"𫟼",en:"Darmstadtium",mass:"[281]",cat:"transition-metal",g:10,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d⁹7s¹",year:1994,disc:"达姆施塔特重离子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:111,s:"Rg",zh:"𬬭",en:"Roentgenium",mass:"[282]",cat:"transition-metal",g:11,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s¹",year:1994,disc:"达姆施塔特重离子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:112,s:"Cn",zh:"鿔",en:"Copernicium",mass:"[285]",cat:"transition-metal",g:12,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²",year:1996,disc:"达姆施塔特重离子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:113,s:"Nh",zh:"鉨",en:"Nihonium",mass:"[286]",cat:"post-transition",g:13,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²7p¹",year:2003,disc:"日本理化学研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:114,s:"Fl",zh:"𫓧",en:"Flerovium",mass:"[289]",cat:"post-transition",g:14,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²7p²",year:1998,disc:"杜布纳联合核子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:115,s:"Mc",zh:"镆",en:"Moscovium",mass:"[290]",cat:"post-transition",g:15,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²7p³",year:2003,disc:"杜布纳联合核子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:116,s:"Lv",zh:"鉝",en:"Livermorium",mass:"[293]",cat:"post-transition",g:16,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²7p⁴",year:2000,disc:"杜布纳联合核子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:117,s:"Ts",zh:"鿬",en:"Tennessine",mass:"[294]",cat:"halogen",g:17,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²7p⁵",year:2010,disc:"杜布纳联合核子研究所",uses:"科学研究用(合成超重元素)。"},
+  {n:118,s:"Og",zh:"鿫",en:"Oganesson",mass:"[294]",cat:"noble-gas",g:18,p:7,density:null,mp:null,bp:null,en:null,ec:"[Rn]5f¹⁴6d¹⁰7s²7p⁶",year:2002,disc:"杜布纳联合核子研究所",uses:"科学研究用(已知最重的元素)。"},
+];
+
+// Category definitions
+const categories = [
+  {key:"alkali-metal",zh:"碱金属",color:"#ff6b6b",bg:"rgba(255,107,107,.15)"},
+  {key:"alkaline-earth",zh:"碱土金属",color:"#ffa64d",bg:"rgba(255,166,77,.15)"},
+  {key:"transition-metal",zh:"过渡金属",color:"#6badff",bg:"rgba(107,173,255,.15)"},
+  {key:"post-transition",zh:"后过渡金属",color:"#66dd66",bg:"rgba(102,221,102,.15)"},
+  {key:"metalloid",zh:"类金属",color:"#66cccc",bg:"rgba(102,204,204,.15)"},
+  {key:"nonmetal",zh:"非金属",color:"#cccc44",bg:"rgba(204,204,68,.15)"},
+  {key:"halogen",zh:"卤素",color:"#aa77ff",bg:"rgba(170,119,255,.15)"},
+  {key:"noble-gas",zh:"稀有气体",color:"#dd66dd",bg:"rgba(221,102,221,.15)"},
+  {key:"lanthanide",zh:"镧系元素",color:"#ff77bb",bg:"rgba(255,119,187,.15)"},
+  {key:"actinide",zh:"锕系元素",color:"#dd77bb",bg:"rgba(221,119,187,.15)"},
+];
+
+// Grid position map: atomic number -> {row, col}
+function getElementPosition(n) {
+  if (n <= 2) return {row:1, col:n===1?1:18};
+  if (n <= 10) {
+    const c = n - 2;
+    return {row:2, col:c<=2?c:c+10};
+  }
+  if (n <= 18) {
+    const c = n - 10;
+    return {row:3, col:c<=2?c:c+10};
+  }
+  if (n <= 36) return {row:4, col:n-18};
+  if (n <= 54) return {row:5, col:n-36};
+  if (n <= 56) return {row:6, col:n-54};
+  // n 57-71: Lanthanides
+  if (n >= 57 && n <= 71) return {row:8, col:n-54}; // row 8 for lanthanides
+  if (n <= 86) return {row:6, col:n-68};
+  if (n <= 88) return {row:7, col:n-86};
+  // n 89-103: Actinides
+  if (n >= 89 && n <= 103) return {row:9, col:n-86}; // row 9 for actinides
+  if (n <= 118) return {row:7, col:n-100};
+  return {row:1, col:1};
+}
+
+// Get physical state at a given temperature in Celsius
+function getStateAtTemp(el, tempC) {
+  if (el.mp === null || el.bp === null) return "unknown";
+  if (tempC < el.mp - 273.15) return "solid";
+  if (tempC < el.bp - 273.15) return "liquid";
+  return "gas";
+}
+
+// Render everything
+let currentTemp = 25;
+let highlightedGroup = null;
+let selectedElement = null;
+let quizElement = null;
+let quizScore = 0;
+let quizTotal = 0;
+let activeCategoryFilter = null;
+
+function getElementByNumber(n) {
+  return elements.find(e => e.n === n);
+}
+
+function renderLegend() {
+  const legend = document.getElementById("legend");
+  legend.innerHTML = categories.map(c =>
+    `<div class="legend-item" data-cat="${c.key}" onclick="filterByCategory('${c.key}')" style="--cat-color:${c.color}">
+      <div class="legend-swatch" style="background:${c.color}"></div>
+      <span>${c.zh}</span>
+    </div>`
+  ).join('');
+}
+
+function renderTable() {
+  const grid = document.getElementById("periodicGrid");
+  let html = '';
+
+  // Group labels row
+  for (let col = 1; col <= 18; col++) {
+    html += `<div class="group-label">${col}</div>`;
+  }
+
+  // Create all cell positions
+  const maxRow = 9;
+  const placed = new Set();
+
+  for (let r = 1; r <= maxRow; r++) {
+    for (let c = 1; c <= 18; c++) {
+      // Find element at this position
+      const el = elements.find(e => {
+        const pos = getElementPosition(e.n);
+        return pos.row === r && pos.col === c;
+      });
+
+      if (el) {
+        placed.add(el.n);
+        const state = getStateAtTemp(el, currentTemp);
+        const stateColor = state === 'solid' ? '#ffc864' : state === 'liquid' ? '#64b4ff' : state === 'gas' ? '#b48cff' : '#8b949e';
+        const hiddenClass = (activeCategoryFilter && el.cat !== activeCategoryFilter) ? ' hidden' : '';
+        html += `<div class="cell cat-${el.cat}${hiddenClass}" data-n="${el.n}"
+          onmouseenter="highlightGroup(${el.g})" onmouseleave="unhighlightGroup()"
+          onclick="showDetail(${el.n})">
+          <div class="num">${el.n}</div>
+          <div class="sym">${el.s}</div>
+          <div class="zh">${el.zh}</div>
+          <div class="mass">${el.mass}</div>
+          <div class="state-dot" style="background:${stateColor}" title="${state==='solid'?'固态':state==='liquid'?'液态':state==='gas'?'气态':'未知'}"></div>
+        </div>`;
+      } else {
+        // Check if this is La/Ac placeholder in row 6 or 7
+        if ((r === 6 && c === 3) || (r === 7 && c === 3)) {
+          const label = r === 6 ? '57-71' : '89-103';
+          html += `<div class="cell group-label" style="font-size:0.65rem;color:#6badff">${label}</div>`;
+        } else {
+          html += `<div class="empty-cell"></div>`;
+        }
+      }
+    }
+  }
+
+  grid.innerHTML = html;
+}
+
+function highlightGroup(group) {
+  highlightedGroup = group;
+  document.querySelectorAll('.cell[data-n]').forEach(cell => {
+    const n = parseInt(cell.dataset.n);
+    const el = getElementByNumber(n);
+    if (el && el.g === group) {
+      cell.classList.add('highlight');
+    }
+  });
+}
+
+function unhighlightGroup() {
+  highlightedGroup = null;
+  document.querySelectorAll('.cell.highlight').forEach(cell => {
+    cell.classList.remove('highlight');
+  });
+}
+
+function showDetail(n) {
+  const el = getElementByNumber(n);
+  if (!el) return;
+
+  selectedElement = el;
+  const panel = document.getElementById("detailPanel");
+  panel.classList.add("show");
+
+  const cat = categories.find(c => c.key === el.cat);
+  const catZh = cat ? cat.zh : el.cat;
+
+  document.getElementById("detailSymbol").innerHTML = `<span style="color:${cat?cat.color:'#c9d1d9'}">${el.s}</span> - ${el.zh}`;
+  document.getElementById("detailName").textContent = `${el.en} (${el.n})`;
+
+  const state = getStateAtTemp(el, currentTemp);
+  const stateText = state === 'solid' ? '固态' : state === 'liquid' ? '液态' : state === 'gas' ? '气态' : '未知';
+  const densityStr = el.density !== null ? (typeof el.density === 'string' ? el.density : `${el.density} g/cm³`) : '未知';
+  const mpStr = el.mp !== null ? `${el.mp.toFixed(1)} K (${(el.mp-273.15).toFixed(0)}°C)` : '未知';
+  const bpStr = el.bp !== null ? `${el.bp.toFixed(1)} K (${(el.bp-273.15).toFixed(0)}°C)` : '未知';
+  const egStr = el.en !== null ? (typeof el.en === 'string' ? el.en : el.en.toFixed(2)) : '—';
+
+  document.getElementById("detailProps").innerHTML = `
+    <div class="prop-label">原子序数</div><div class="prop-value">${el.n}</div>
+    <div class="prop-label">原子量</div><div class="prop-value">${el.mass}</div>
+    <div class="prop-label">类别</div><div class="prop-value" style="color:${cat?cat.color:'#c9d1d9'}">${catZh}</div>
+    <div class="prop-label">族 / 周期</div><div class="prop-value">第${el.g}族 / 第${el.p}周期</div>
+    <div class="prop-label">密度</div><div class="prop-value">${densityStr}</div>
+    <div class="prop-label">熔点</div><div class="prop-value">${mpStr}</div>
+    <div class="prop-label">沸点</div><div class="prop-value">${bpStr}</div>
+    <div class="prop-label">电负性</div><div class="prop-value">${egStr}</div>
+    <div class="prop-label">电子排布</div><div class="prop-value">${el.ec}</div>
+    <div class="prop-label">当前温度下</div><div class="prop-value">${stateText} (${currentTemp}°C)</div>
+    <div class="prop-label">发现年份</div><div class="prop-value">${el.year}</div>
+    <div class="prop-label">发现者</div><div class="prop-value">${el.disc}</div>
+  `;
+  document.getElementById("detailUses").textContent = el.uses;
+
+  // Highlight selected cell
+  document.querySelectorAll('.cell[data-n]').forEach(c => c.style.boxShadow = '');
+  const selCell = document.querySelector(`.cell[data-n="${n}"]`);
+  if (selCell) {
+    selCell.style.boxShadow = '0 0 16px rgba(88,166,255,.6)';
+    selCell.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+
+function filterByCategory(cat) {
+  if (activeCategoryFilter === cat) {
+    activeCategoryFilter = null;
+  } else {
+    activeCategoryFilter = cat;
+  }
+
+  // Update legend
+  document.querySelectorAll('.legend-item').forEach(item => {
+    if (item.dataset.cat === activeCategoryFilter) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  // Toggle cell visibility
+  document.querySelectorAll('.cell[data-n]').forEach(cell => {
+    if (!activeCategoryFilter) {
+      cell.classList.remove('hidden');
+    } else {
+      const n = parseInt(cell.dataset.n);
+      const el = getElementByNumber(n);
+      if (el && el.cat === activeCategoryFilter) {
+        cell.classList.remove('hidden');
+      } else {
+        cell.classList.add('hidden');
+      }
+    }
+  });
+}
+
+// Temperature slider
+const tempSlider = document.getElementById("tempSlider");
+const tempDisplay = document.getElementById("tempDisplay");
+const resetTempBtn = document.getElementById("resetTemp");
+
+tempSlider.addEventListener("input", () => {
+  currentTemp = parseInt(tempSlider.value);
+  tempDisplay.textContent = `${currentTemp}°C`;
+  updateCellStates();
+  if (selectedElement) showDetail(selectedElement.n);
+});
+
+resetTempBtn.addEventListener("click", () => {
+  currentTemp = 25;
+  tempSlider.value = 25;
+  tempDisplay.textContent = "25°C";
+  updateCellStates();
+  if (selectedElement) showDetail(selectedElement.n);
+});
+
+function updateCellStates() {
+  document.querySelectorAll('.cell[data-n]').forEach(cell => {
+    const n = parseInt(cell.dataset.n);
+    const el = getElementByNumber(n);
+    if (!el) return;
+    const state = getStateAtTemp(el, currentTemp);
+    const stateColor = state === 'solid' ? '#ffc864' : state === 'liquid' ? '#64b4ff' : state === 'gas' ? '#b48cff' : '#8b949e';
+    const dot = cell.querySelector('.state-dot');
+    if (dot) {
+      dot.style.background = stateColor;
+      dot.title = state==='solid'?'固态':state==='liquid'?'液态':state==='gas'?'气态':'未知';
+    }
+  });
+}
+
+// Search
+const searchInput = document.getElementById("searchInput");
+const clearSearch = document.getElementById("clearSearch");
+
+searchInput.addEventListener("input", () => {
+  const query = searchInput.value.trim().toLowerCase();
+  if (query) {
+    clearSearch.classList.add("visible");
+  } else {
+    clearSearch.classList.remove("visible");
+  }
+
+  document.querySelectorAll('.cell[data-n]').forEach(cell => {
+    const n = parseInt(cell.dataset.n);
+    const el = getElementByNumber(n);
+    if (!el) return;
+    const match = !query ||
+      el.zh.toLowerCase().includes(query) ||
+      el.s.toLowerCase().includes(query) ||
+      el.en.toLowerCase().includes(query) ||
+      String(el.n).includes(query) ||
+      el.cat.toLowerCase().includes(query);
+    if (!match && !cell.classList.contains('hidden')) {
+      cell.classList.add('hidden');
+    } else if (match && cell.classList.contains('hidden') && (!activeCategoryFilter || el.cat === activeCategoryFilter)) {
+      cell.classList.remove('hidden');
+    } else if (match && !activeCategoryFilter) {
+      cell.classList.remove('hidden');
+    }
+  });
+});
+
+clearSearch.addEventListener("click", () => {
+  searchInput.value = "";
+  clearSearch.classList.remove("visible");
+  // Reset visibility based on category filter
+  document.querySelectorAll('.cell[data-n]').forEach(cell => {
+    const n = parseInt(cell.dataset.n);
+    const el = getElementByNumber(n);
+    if (!el) return;
+    if (!activeCategoryFilter || el.cat === activeCategoryFilter) {
+      cell.classList.remove('hidden');
+    }
+  });
+});
+
+// Close detail panel
+document.getElementById("closePanel").addEventListener("click", () => {
+  document.getElementById("detailPanel").classList.remove("show");
+  selectedElement = null;
+  document.querySelectorAll('.cell[data-n]').forEach(c => c.style.boxShadow = '');
+});
+
+// Quiz
+let quizMode = false;
+const quizToggle = document.getElementById("quizToggle");
+const quizPanel = document.getElementById("quizPanel");
+const quizSymbol = document.getElementById("quizSymbol");
+const quizNumber = document.getElementById("quizNumber");
+const quizCategory = document.getElementById("quizCategory");
+const quizAnswer = document.getElementById("quizAnswer");
+const quizSubmit = document.getElementById("quizSubmit");
+const quizSkip = document.getElementById("quizSkip");
+const quizResult = document.getElementById("quizResult");
+const quizScoreDisplay = document.getElementById("quizScore");
+
+function pickRandomElement() {
+  const idx = Math.floor(Math.random() * elements.length);
+  return elements[idx];
+}
+
+function newQuiz() {
+  quizElement = pickRandomElement();
+  quizSymbol.textContent = quizElement.s;
+  quizNumber.textContent = quizElement.n;
+  const cat = categories.find(c => c.key === quizElement.cat);
+  quizCategory.textContent = cat ? cat.zh : quizElement.cat;
+  quizAnswer.value = "";
+  quizResult.textContent = "";
+  quizResult.className = "quiz-result";
+  quizAnswer.focus();
+}
+
+function updateQuizScore() {
+  quizScoreDisplay.textContent = `得分: ${quizScore} / ${quizTotal}`;
+}
+
+quizToggle.addEventListener("click", () => {
+  quizMode = !quizMode;
+  if (quizMode) {
+    quizPanel.classList.add("show");
+    quizToggle.classList.add("active");
+    quizToggle.textContent = "🧪 关闭测验";
+    newQuiz();
+  } else {
+    quizPanel.classList.remove("show");
+    quizToggle.classList.remove("active");
+    quizToggle.textContent = "🧪 元素测验";
+    quizScore = 0;
+    quizTotal = 0;
+    updateQuizScore();
+  }
+});
+
+quizSubmit.addEventListener("click", () => {
+  if (!quizElement) return;
+  quizTotal++;
+  const userAnswer = quizAnswer.value.trim();
+  const correctAnswers = [quizElement.zh, quizElement.en.toLowerCase()];
+  if (correctAnswers.includes(userAnswer.toLowerCase()) || userAnswer.toLowerCase() === quizElement.s.toLowerCase()) {
+    quizScore++;
+    quizResult.textContent = `✅ 正确！${quizElement.zh} (${quizElement.s})`;
+    quizResult.className = "quiz-result correct";
+  } else {
+    quizResult.textContent = `❌ 错误！答案是：${quizElement.zh} (${quizElement.s})`;
+    quizResult.className = "quiz-result wrong";
+  }
+  updateQuizScore();
+  setTimeout(() => newQuiz(), 1500);
+});
+
+quizSkip.addEventListener("click", () => {
+  if (!quizElement) return;
+  quizTotal++;
+  quizResult.textContent = `已跳过。答案是：${quizElement.zh} (${quizElement.s})`;
+  quizResult.className = "quiz-result";
+  updateQuizScore();
+  setTimeout(() => newQuiz(), 1000);
+});
+
+quizAnswer.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") quizSubmit.click();
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    document.getElementById("detailPanel").classList.remove("show");
+    selectedElement = null;
+    document.querySelectorAll('.cell[data-n]').forEach(c => c.style.boxShadow = '');
+    // Clear search
+    searchInput.value = "";
+    clearSearch.classList.remove("visible");
+    activeCategoryFilter = null;
+    document.querySelectorAll('.legend-item').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('.cell[data-n]').forEach(cell => cell.classList.remove('hidden'));
+  }
+  if (e.key === "/" && document.activeElement !== searchInput && document.activeElement !== quizAnswer) {
+    e.preventDefault();
+    searchInput.focus();
+  }
+});
+
+// Initial render
+legend.innerHTML = ''; // Reset
+renderLegend();
+renderTable();
+
+// Load legend after render
+(function(){
+  const legendEl = document.getElementById("legend");
+  legendEl.innerHTML = categories.map(c =>
+    `<div class="legend-item" data-cat="${c.key}" onclick="filterByCategory('${c.key}')" style="--cat-color:${c.color}">
+      <div class="legend-swatch" style="background:${c.color}"></div>
+      <span>${c.zh}</span>
+    </div>`
+  ).join('');
+})();
+</script>
+</body>
+</html>

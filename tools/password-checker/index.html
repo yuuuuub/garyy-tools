@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>密码强度检测器</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 32px 24px 28px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, .5);
+      border: 1px solid #2a2a2a;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 28px;
+      letter-spacing: 1px;
+    }
+
+    /* ---- input area ---- */
+    .input-wrap {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .input-wrap input {
+      width: 100%;
+      padding: 14px 48px 14px 16px;
+      font-size: 1.05rem;
+      background: #252525;
+      border: 2px solid #333;
+      border-radius: 12px;
+      color: #f0f0f0;
+      outline: none;
+      transition: border-color .2s;
+      letter-spacing: 1px;
+    }
+
+    .input-wrap input:focus {
+      border-color: #5b9bd5;
+    }
+
+    .input-wrap input::placeholder {
+      color: #666;
+      letter-spacing: normal;
+    }
+
+    .toggle-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 8px;
+      line-height: 1;
+      transition: color .15s;
+    }
+
+    .toggle-btn:hover {
+      color: #ccc;
+    }
+
+    /* ---- score ring ---- */
+    .score-ring-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 16px 0;
+    }
+
+    .score-ring {
+      width: 140px;
+      height: 140px;
+    }
+
+    .score-ring .bg-circle {
+      fill: none;
+      stroke: #2a2a2a;
+      stroke-width: 10;
+    }
+
+    .score-ring .fg-circle {
+      fill: none;
+      stroke-width: 10;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset .4s ease, stroke .3s;
+    }
+
+    .ring-text {
+      font-size: 2rem;
+      font-weight: 700;
+      fill: #e0e0e0;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    /* ---- level badge ---- */
+    .level-badge {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      transition: color .3s;
+    }
+
+    /* ---- progress bar ---- */
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: #2a2a2a;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 5px;
+      transition: width .4s ease, background .3s;
+    }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: .72rem;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    /* ---- details list ---- */
+    .details {
+      list-style: none;
+      font-size: .88rem;
+      color: #aaa;
+    }
+
+    .details li {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+
+    .details .icon {
+      width: 18px;
+      text-align: center;
+    }
+
+    .details .pass {
+      color: #4ade80;
+    }
+
+    .details .fail {
+      color: #f87171;
+    }
+
+    .detail-desc {
+      flex: 1;
+    }
+
+    .detail-score {
+      font-weight: 600;
+      color: #888;
+    }
+
+    /* ---- crack time ---- */
+    .crack-time {
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: #1f1f1f;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      text-align: center;
+      font-size: .88rem;
+      color: #aaa;
+    }
+
+    .crack-time strong {
+      display: block;
+      font-size: 1.1rem;
+      color: #e0e0e0;
+      margin-top: 2px;
+    }
+
+    /* ---- warning box ---- */
+    .warn-box {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(255, 152, 0, .08);
+      border: 1px solid rgba(255, 152, 0, .25);
+      border-radius: 8px;
+      font-size: .82rem;
+      color: #ffa726;
+      display: none;
+    }
+
+    .warn-box.show {
+      display: block;
+    }
+
+    /* mobile adjustments */
+    @media (max-width: 400px) {
+      .container {
+        padding: 24px 16px 20px;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin-bottom: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>密码强度检测器</h1>
+
+    <!-- 密码输入 -->
+    <div class="input-wrap">
+      <input
+        type="password"
+        id="passwordInput"
+        placeholder="输入密码..."
+        autocomplete="off"
+        maxlength="128"
+      />
+      <button class="toggle-btn" id="toggleBtn" title="显示/隐藏">&#x1F441;</button>
+    </div>
+
+    <!-- 环形分数 -->
+    <div class="score-ring-area">
+      <svg class="score-ring" viewBox="0 0 120 120">
+        <circle class="bg-circle" cx="60" cy="60" r="52" />
+        <circle class="fg-circle" id="fgCircle" cx="60" cy="60" r="52"
+          stroke-dasharray="326.73" stroke-dashoffset="326.73" />
+        <text class="ring-text" id="ringScore" x="60" y="60">0</text>
+      </svg>
+    </div>
+
+    <!-- 强度等级 -->
+    <div class="level-badge" id="levelBadge">-</div>
+
+    <!-- 进度条 -->
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-labels">
+      <span>极弱</span><span>弱</span><span>一般</span><span>强</span><span>非常强</span>
+    </div>
+
+    <!-- 详细评分 -->
+    <ul class="details" id="detailsList"></ul>
+
+    <!-- 破解时间估算 -->
+    <div class="crack-time" id="crackTimeBox">
+      暴力破解估算
+      <strong id="crackTime">输入密码后显示</strong>
+    </div>
+
+    <!-- 弱密码警告 -->
+    <div class="warn-box" id="warnBox"></div>
+  </div>
+
+  <script>
+    (function () {
+      /* ---- DOM refs ---- */
+      const input = document.getElementById('passwordInput');
+      const toggleBtn = document.getElementById('toggleBtn');
+      const fgCircle = document.getElementById('fgCircle');
+      const ringScore = document.getElementById('ringScore');
+      const levelBadge = document.getElementById('levelBadge');
+      const progressFill = document.getElementById('progressFill');
+      const detailsList = document.getElementById('detailsList');
+      const crackTimeEl = document.getElementById('crackTime');
+      const warnBox = document.getElementById('warnBox');
+
+      /* ---- constants ---- */
+      const CIRCUMFERENCE = 2 * Math.PI * 52; // ≈ 326.73
+      const MAX_SCORE = 100;
+
+      /* weak password denylist (lowercased) */
+      const WEAK_PASSWORDS = new Set([
+        '123456', 'password', '123456789', '12345678', '12345',
+        '1234567890', '1234567', 'qwerty', 'abc123', 'monkey',
+        '123123', 'dragon', '111111', 'baseball', 'iloveyou',
+        'trustno1', 'sunshine', 'master', 'welcome', 'shadow',
+        'ashley', 'football', 'jesus', 'michael', 'ninja',
+        'mustang', 'password1', 'admin', 'letmein', 'passw0rd',
+        'qwerty123', '1q2w3e4r', '123qwe', 'qwe123', 'zaq12wsx',
+        '!@#$%^&*', '000000', '654321', 'p@ssw0rd', 'starwars',
+        'changeme', 'secret', 'login', 'hello', 'abc',
+        '123', '1234', '12345678901', 'pass', 'pass123',
+        'password123', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm',
+        '1qaz2wsx', 'qazwsx', 'qweasd', 'qweasdzxc',
+      ]);
+
+      /* keyboard patterns (by row) */
+      const KEYBOARD_ROWS = [
+        '`1234567890-=',
+        'qwertyuiop[]\\',
+        'asdfghjkl;\'',
+        'zxcvbnm,./',
+        '~!@#$%^&*()_+',
+        'QWERTYUIOP{}|',
+        'ASDFGHJKL:"',
+        'ZXCVBNM<>?',
+      ];
+
+      function rowContains(row, seq) {
+        return row.includes(seq) || row.includes(seq.split('').reverse().join(''));
+      }
+
+      function isKeyboardSequence(pwd) {
+        const lower = pwd.toLowerCase();
+        for (let i = 0; i <= lower.length - 3; i++) {
+          const seg = lower.slice(i, i + 3);
+          for (const row of KEYBOARD_ROWS) {
+            if (rowContains(row, seg)) return true;
+          }
+        }
+        return false;
+      }
+
+      function hasRepeatingChars(pwd) {
+        // three+ same char in a row
+        return /(.)\1{2,}/.test(pwd);
+      }
+
+      /* ---- scoring engine ---- */
+      function analyze(pwd) {
+        if (!pwd) {
+          return {
+            score: 0,
+            levelText: '-',
+            levelColor: '#666',
+            details: [],
+            warnings: [],
+            crackTimeText: '输入密码后显示',
+          };
+        }
+
+        let score = 0;
+        const details = [];
+        const warnings = [];
+        const len = pwd.length;
+
+        // ---- 长度评分 ----
+        if (len >= 16) {
+          score += 25;
+          details.push({ pass: true, text: '长度 >= 16', pts: 25 });
+        } else if (len >= 12) {
+          score += 20;
+          details.push({ pass: true, text: '长度 >= 12', pts: 20 });
+        } else if (len >= 8) {
+          score += 15;
+          details.push({ pass: true, text: '长度 >= 8', pts: 15 });
+        } else {
+          score += Math.max(0, len * 1);
+          details.push({ pass: false, text: `长度 ${len}（至少需要 8）`, pts: Math.max(0, len * 1) });
+        }
+
+        // ---- 字符类型 ----
+        const hasLower = /[a-z]/.test(pwd);
+        const hasUpper = /[A-Z]/.test(pwd);
+        const hasDigit = /\d/.test(pwd);
+        const hasSpecial = /[^a-zA-Z0-9]/.test(pwd);
+
+        if (hasLower) {
+          score += 10;
+          details.push({ pass: true, text: '包含小写字母', pts: 10 });
+        } else {
+          details.push({ pass: false, text: '缺少小写字母', pts: 0 });
+        }
+        if (hasUpper) {
+          score += 10;
+          details.push({ pass: true, text: '包含大写字母', pts: 10 });
+        } else {
+          details.push({ pass: false, text: '缺少大写字母', pts: 0 });
+        }
+        if (hasDigit) {
+          score += 10;
+          details.push({ pass: true, text: '包含数字', pts: 10 });
+        } else {
+          details.push({ pass: false, text: '缺少数字', pts: 0 });
+        }
+        if (hasSpecial) {
+          score += 10;
+          details.push({ pass: true, text: '包含特殊字符', pts: 10 });
+        } else {
+          details.push({ pass: false, text: '缺少特殊字符', pts: 0 });
+        }
+
+        // 类型多样性奖励
+        const typeCount = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+        if (typeCount >= 4) {
+          score += 10;
+          details.push({ pass: true, text: '使用了全部 4 种字符类型', pts: 10 });
+        } else if (typeCount === 3) {
+          score += 5;
+          details.push({ pass: true, text: '使用了 3 种字符类型', pts: 5 });
+        }
+
+        // ---- 常见弱密码 ----  (penalty)
+        const lowerPwd = pwd.toLowerCase().replace(/\s+/g, '');
+        let weakPenalty = 0;
+        if (WEAK_PASSWORDS.has(pwd) || WEAK_PASSWORDS.has(lowerPwd)) {
+          weakPenalty = 30;
+          warnings.push('此密码在常见弱密码列表中');
+          details.push({ pass: false, text: '常见弱密码', pts: -30 });
+        }
+
+        // ---- 键盘序列 ----
+        if (isKeyboardSequence(pwd)) {
+          weakPenalty += 20;
+          warnings.push('包含键盘横向序列（如 qwerty、asdf）');
+          details.push({ pass: false, text: '检测到键盘序列', pts: -20 });
+        }
+
+        // ---- 重复字符 ----
+        if (hasRepeatingChars(pwd)) {
+          weakPenalty += 15;
+          warnings.push('包含连续重复字符');
+          details.push({ pass: false, text: '检测到连续重复字符', pts: -15 });
+        }
+
+        score = Math.max(0, Math.min(MAX_SCORE, score - weakPenalty));
+
+        // ---- 等级 ----//
+        let levelText, levelColor;
+        if (score <= 20) { levelText = '极弱'; levelColor = '#ef4444'; }        // red
+        else if (score <= 40) { levelText = '弱'; levelColor = '#f97316'; }     // orange
+        else if (score <= 60) { levelText = '一般'; levelColor = '#eab308'; }   // yellow
+        else if (score <= 80) { levelText = '强'; levelColor = '#4ade80'; }     // green
+        else { levelText = '非常强'; levelColor = '#22d3ee'; }                   // cyan
+
+        // ---- 暴力破解估算 ----
+        const charsetSize = calcCharsetSize(hasLower, hasUpper, hasDigit, hasSpecial);
+        const combinations = Math.pow(charsetSize, len);
+        // Assume 1 billion (1e9) guesses per second online, 1e12 offline
+        const onlineSec = combinations / 1e9;
+        const offlineSec = combinations / 1e12;
+        const crackTimeText = formatDuration(Math.min(onlineSec, offlineSec));
+
+        return { score, levelText, levelColor, details, warnings, crackTimeText };
+      }
+
+      function calcCharsetSize(low, up, dig, spe) {
+        let size = 0;
+        if (low) size += 26;
+        if (up) size += 26;
+        if (dig) size += 10;
+        if (spe) size += 32; // approx common special chars
+        return size || 10;   // fallback
+      }
+
+      function formatDuration(seconds) {
+        if (seconds < 0.001) return '瞬间';
+        if (seconds < 1) return '不到 1 秒';
+        if (seconds < 60) return Math.round(seconds) + ' 秒';
+        const min = seconds / 60;
+        if (min < 60) return Math.round(min) + ' 分钟';
+        const hr = min / 60;
+        if (hr < 24) return Math.round(hr) + ' 小时';
+        const day = hr / 24;
+        if (day < 365) return Math.round(day) + ' 天';
+        const yr = day / 365;
+        if (yr < 1000) return Math.round(yr) + ' 年';
+        if (yr < 1e6) return (yr / 1e3).toFixed(1) + ' 千年';
+        if (yr < 1e9) return (yr / 1e6).toFixed(1) + ' 百万年';
+        if (yr < 1e12) return (yr / 1e9).toFixed(1) + ' 十亿年';
+        return '超出天文数字';
+      }
+
+      /* ---- render ---- */
+      function updateUI() {
+        const result = analyze(input.value);
+
+        // ring
+        const offset = CIRCUMFERENCE - (result.score / MAX_SCORE) * CIRCUMFERENCE;
+        fgCircle.setAttribute('stroke-dashoffset', offset);
+        fgCircle.setAttribute('stroke', result.levelColor);
+        ringScore.textContent = result.score;
+
+        // level badge
+        levelBadge.textContent = result.score > 0 ? result.levelText : '-';
+        levelBadge.style.color = result.levelColor;
+
+        // progress bar
+        progressFill.style.width = result.score + '%';
+        progressFill.style.background = result.levelColor;
+
+        // details list
+        detailsList.innerHTML = result.details
+          .map(function (d) {
+            const icon = d.pass ? '<span class="icon pass">&#x2714;</span>' : '<span class="icon fail">&#x2718;</span>';
+            const pts = d.pts > 0 ? '+' + d.pts : d.pts < 0 ? '' + d.pts : '';
+            return '<li>' + icon + '<span class="detail-desc">' + d.text + '</span><span class="detail-score">' + pts + '</span></li>';
+          })
+          .join('');
+
+        // crack time
+        crackTimeEl.textContent = result.crackTimeText;
+
+        // warnings
+        if (result.warnings.length) {
+          warnBox.innerHTML = result.warnings.map(function (w) { return '<div>&#x26A0; ' + w + '</div>'; }).join('');
+          warnBox.classList.add('show');
+        } else {
+          warnBox.classList.remove('show');
+        }
+      }
+
+      /* ---- toggle visibility ---- */
+      let visible = false;
+      toggleBtn.addEventListener('click', function () {
+        visible = !visible;
+        input.type = visible ? 'text' : 'password';
+        toggleBtn.innerHTML = visible ? '&#x1F576;' : '&#x1F441;';
+      });
+
+      /* ---- events ---- */
+      input.addEventListener('input', updateUI);
+
+      // initial render
+      updateUI();
+    })();
+  </script>
+</body>
+</html>

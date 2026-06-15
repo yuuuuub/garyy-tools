@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⏰ 下班倒计时</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --card-bg: #ffffff;
+    --text: #1a1a2e;
+    --text-secondary: #6b7280;
+    --accent: #6366f1;
+    --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+    --progress-bg: #e5e7eb;
+    --golden: #f59e0b;
+    --border: rgba(0,0,0,0.06);
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f1a;
+      --card-bg: #1a1a2e;
+      --text: #e5e7eb;
+      --text-secondary: #9ca3af;
+      --accent: #818cf8;
+      --accent-gradient: linear-gradient(135deg, #818cf8, #a78bfa, #c4b5fd);
+      --progress-bg: #2d2d44;
+      --border: rgba(255,255,255,0.06);
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    transition: background 0.3s, color 0.3s;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 28px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .header .date {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  /* countdown */
+  .countdown-section {
+    text-align: center;
+    padding: 10px 0;
+  }
+  .countdown-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .countdown-timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .time-block {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 72px;
+    text-align: center;
+  }
+  .time-unit {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding-top: 18px;
+  }
+  .time-sep {
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--text-secondary);
+    padding-bottom: 10px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  .overtime-badge {
+    display: none;
+    text-align: center;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #ec4899, #f43f5e);
+    color: #fff;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+
+  /* progress */
+  .progress-section { margin-top: 8px; }
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .progress-percent {
+    font-size: 1.3rem;
+    font-weight: 700;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .progress-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+  .progress-bar-outer {
+    height: 10px;
+    border-radius: 10px;
+    background: var(--progress-bg);
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-bar-inner {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--accent-gradient);
+    transition: width 0.5s ease;
+    position: relative;
+  }
+  .progress-bar-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* sneak-peek */
+  .sneak-peek {
+    display: none;
+    text-align: center;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    .sneak-peek {
+      background: linear-gradient(135deg, #422006, #78350f);
+      color: #fde68a;
+    }
+  }
+
+  /* quote */
+  .quote-card { text-align: center; }
+  .quote-icon { font-size: 1.5rem; margin-bottom: 6px; }
+  .quote-text {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    font-style: italic;
+    color: var(--text-secondary);
+    transition: opacity 0.5s;
+  }
+  .quote-footer {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  /* footer */
+  .footer {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- header -->
+  <div class="card header">
+    <h1>⏰ 下班倒计时</h1>
+    <div class="date" id="dateDisplay"></div>
+  </div>
+
+  <!-- countdown / overtime -->
+  <div class="card countdown-section" id="countdownCard">
+    <div class="overtime-badge" id="overtimeBadge">已经下班啦！🎉</div>
+    <div id="normalCountdown">
+      <div class="countdown-label">距离下班还有</div>
+      <div class="countdown-timer">
+        <span class="time-block" id="hourBlock">00</span><span class="time-unit">时</span>
+        <span class="time-sep">:</span>
+        <span class="time-block" id="minBlock">00</span><span class="time-unit">分</span>
+        <span class="time-sep">:</span>
+        <span class="time-block" id="secBlock">00</span><span class="time-unit">秒</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- sneak peek -->
+  <div class="sneak-peek" id="sneakPeek"></div>
+
+  <!-- progress -->
+  <div class="card progress-section">
+    <div class="progress-header">
+      <span class="progress-label">今日工作进度</span>
+      <span class="progress-percent" id="progressPercent">0%</span>
+    </div>
+    <div class="progress-bar-outer">
+      <div class="progress-bar-inner" id="progressBar" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <!-- quote -->
+  <div class="card quote-card">
+    <div class="quote-icon">💬</div>
+    <div class="quote-text" id="quoteText"></div>
+    <div class="quote-footer" id="quoteFooter"></div>
+  </div>
+
+  <div class="footer">@get-off-work-countdown</div>
+</div>
+
+<script>
+(function () {
+  const QUOTES = [
+    { text: '上班最大的动力，就是下班。', author: '—— 全体打工人' },
+    { text: '我不是在摸鱼，我是在给大脑做深度清洁。', author: '—— 摸鱼学博士' },
+    { text: '工作的事，能叫摸鱼吗？那叫战略性放松。', author: '—— 鲁迅没说过' },
+    { text: '世界上最远的距离，不是生与死，而是下午三点到六点。', author: '—— 职场相对论' },
+    { text: '今天的班就上到这里，我们明天继续摸。', author: '—— 准点下班协会' },
+    { text: '工资是老板发的，时间是自己的，摸鱼是赚的。', author: '—— 职场经济学' },
+    { text: '只要我跑得够快，加班就追不上我。', author: '—— 光速打工人' },
+    { text: '人生苦短，我用准点下班。', author: '—— 程序员箴言 v2' },
+  ];
+
+  const WORK_START_H = 9;
+  const WORK_END_H = 18;
+  const SNEAK_H = 17;
+  const SNEAK_M = 30;
+
+  let sneakVisible = false;
+
+  const $ = (id) => document.getElementById(id);
+
+  function formatTwo(n) {
+    return String(Math.floor(n)).padStart(2, '0');
+  }
+
+  function getNow() {
+    return new Date();
+  }
+
+  function getWorkEnd(now) {
+    const end = new Date(now);
+    end.setHours(WORK_END_H, 0, 0, 0);
+    return end;
+  }
+
+  function getSneak(now) {
+    const s = new Date(now);
+    s.setHours(SNEAK_H, SNEAK_M, 0, 0);
+    return s;
+  }
+
+  function getWorkStart(now) {
+    const s = new Date(now);
+    s.setHours(WORK_START_H, 0, 0, 0);
+    return s;
+  }
+
+  function updateDateDisplay(now) {
+    const days = ['日', '一', '二', '三', '四', '五', '六'];
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const d = now.getDate();
+    const w = days[now.getDay()];
+    $('dateDisplay').textContent = `${y}年${m}月${d}日 星期${w}`;
+  }
+
+  function updateQuote() {
+    const idx = Math.floor(Math.random() * QUOTES.length);
+    $('quoteText').textContent = QUOTES[idx].text;
+    $('quoteFooter').textContent = QUOTES[idx].author;
+  }
+
+  function update() {
+    const now = getNow();
+    updateDateDisplay(now);
+
+    const workEnd = getWorkEnd(now);
+    const diffMs = workEnd - now;
+    const overtimeMs = now - workEnd;
+
+    const normalEl = $('normalCountdown');
+    const overtimeEl = $('overtimeBadge');
+    const sneakEl = $('sneakPeek');
+
+    // Progress
+    const workStart = getWorkStart(now);
+    const totalWorkMs = workEnd - workStart;
+    const elapsedMs = now - workStart;
+    let progress = Math.max(0, Math.min(100, (elapsedMs / totalWorkMs) * 100));
+    const progressRounded = progress.toFixed(1);
+    $('progressPercent').textContent = progressRounded + '%';
+    $('progressBar').style.width = progressRounded + '%';
+
+    if (diffMs > 0) {
+      // Not yet off work
+      normalEl.style.display = 'block';
+      overtimeEl.style.display = 'none';
+
+      const totalSec = Math.floor(diffMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      $('hourBlock').textContent = formatTwo(h);
+      $('minBlock').textContent = formatTwo(m);
+      $('secBlock').textContent = formatTwo(s);
+
+      // sneak peek
+      const sneak = getSneak(now);
+      if (now < sneak) {
+        const sneakDiffMs = sneak - now;
+        const sneakMin = Math.floor(sneakDiffMs / 60000);
+        sneakEl.style.display = 'block';
+        if (sneakMin > 0) {
+          sneakEl.textContent = `🚀 还有 ${sneakMin} 分钟就可以溜了`;
+        } else {
+          sneakEl.textContent = '🚀 差不多可以溜了！';
+        }
+        sneakVisible = true;
+      } else if (now < workEnd) {
+        sneakEl.style.display = 'block';
+        sneakEl.textContent = '🚀 时间到了，快溜！';
+        sneakVisible = true;
+      } else {
+        sneakEl.style.display = 'none';
+        sneakVisible = false;
+      }
+    } else {
+      // Already off work
+      normalEl.style.display = 'none';
+      overtimeEl.style.display = 'block';
+      sneakEl.style.display = 'none';
+      sneakVisible = false;
+
+      const totalSec = Math.floor(overtimeMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      overtimeEl.innerHTML = '已经下班啦！🎉<br><small>你已经多工作了 ' + h + ' 小时 ' + m + ' 分 ' + s + ' 秒</small>';
+    }
+  }
+
+  // Initial update
+  update();
+  updateQuote();
+
+  // Rotate quote every 12 seconds
+  setInterval(updateQuote, 12000);
+
+  // Tick every second
+  setInterval(update, 1000);
+})();
+</script>
+</body>
+</html>

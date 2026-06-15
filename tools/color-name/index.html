@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>颜色名称查询 - Color Name Finder</title>
+<style>
+  :root {
+    --bg: #0f0f14;
+    --surface: #1a1a24;
+    --surface2: #22222e;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --text2: #9090a0;
+    --accent: #6c8cff;
+    --accent2: #a78bfa;
+    --danger: #f87171;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    line-height: 1.6;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+  header {
+    text-align: center; padding: 40px 0 30px;
+  }
+  header h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  header p { color: var(--text2); margin-top: 8px; font-size: 0.95rem; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 4px; background: var(--surface);
+    border-radius: var(--radius); padding: 4px; margin-bottom: 24px;
+  }
+  .tab-btn {
+    flex: 1; padding: 12px 16px; border: none; background: transparent;
+    color: var(--text2); border-radius: var(--radius-sm); cursor: pointer;
+    font-size: 0.95rem; font-weight: 500; transition: all 0.2s;
+    font-family: inherit;
+  }
+  .tab-btn:hover { color: var(--text); background: var(--surface2); }
+  .tab-btn.active { background: var(--accent); color: #fff; }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 1.15rem; margin-bottom: 16px; color: var(--text); }
+
+  /* Color Picker */
+  .picker-row {
+    display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;
+  }
+  .picker-left { flex: 1; min-width: 240px; }
+  .picker-right { flex-shrink: 0; }
+  .color-swatch {
+    width: 160px; height: 160px; border-radius: var(--radius);
+    border: 2px solid var(--border); transition: background 0.2s;
+  }
+  .input-group { margin-bottom: 14px; }
+  .input-group label { display: block; font-size: 0.85rem; color: var(--text2); margin-bottom: 4px; }
+  .input-group input {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--surface2); color: var(--text);
+    font-size: 0.95rem; font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .input-group input:focus { outline: none; border-color: var(--accent); }
+  .input-row { display: flex; gap: 8px; }
+  .input-row input { flex: 1; }
+
+  /* Color info */
+  .color-name-display {
+    font-size: 1.6rem; font-weight: 700; margin: 8px 0;
+  }
+  .color-values { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .val-item {
+    background: var(--surface2); padding: 10px 14px; border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+  }
+  .val-item .label { color: var(--text2); font-size: 0.78rem; }
+  .val-item .value { font-family: 'SF Mono', 'Fira Code', monospace; margin-top: 2px; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 0.88rem; font-weight: 500; transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+  .btn-outline {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btns { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .copied-toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--success); color: #000; padding: 10px 24px;
+    border-radius: 999px; font-weight: 600; font-size: 0.9rem;
+    z-index: 100; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .copied-toast.show { opacity: 1; }
+
+  /* Color grid */
+  .grid-header {
+    display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .grid-header input {
+    flex: 1; min-width: 200px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface2); color: var(--text); font-size: 0.95rem;
+    font-family: inherit;
+  }
+  .grid-header input:focus { outline: none; border-color: var(--accent); }
+  .grid-header .count { color: var(--text2); font-size: 0.85rem; white-space: nowrap; }
+  .color-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .color-grid-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .color-grid-item:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .color-grid-item .swatch-preview {
+    height: 70px; transition: background 0.2s;
+  }
+  .color-grid-item .info {
+    padding: 10px; text-align: center;
+  }
+  .color-grid-item .info .cn-name { font-size: 0.88rem; font-weight: 600; }
+  .color-grid-item .info .en-name { font-size: 0.72rem; color: var(--text2); margin-top: 2px; }
+  .color-grid-item .info .hex-code { font-size: 0.75rem; color: var(--text2); font-family: 'SF Mono', monospace; }
+
+  /* Detail modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 50; align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; max-width: 440px; width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+  .modal .modal-swatch {
+    width: 100%; height: 120px; border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+  }
+  .modal .modal-name { font-size: 1.5rem; font-weight: 700; }
+  .modal .modal-en { color: var(--text2); font-size: 0.9rem; }
+  .modal .modal-hex { font-family: 'SF Mono', monospace; font-size: 1.1rem; margin-top: 8px; }
+  .modal .modal-close {
+    margin-top: 16px; float: right;
+  }
+
+  /* Palette */
+  .palette-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px;
+  }
+  .palette-swatch {
+    flex: 1; min-width: 80px; text-align: center;
+  }
+  .palette-swatch .sw {
+    height: 80px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .palette-swatch .sw-hex {
+    font-family: 'SF Mono', monospace; font-size: 0.75rem; color: var(--text2);
+  }
+  .palette-swatch .sw-name { font-size: 0.78rem; margin-top: 2px; }
+
+  /* Culture cards */
+  .culture-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .culture-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .culture-card .cc-swatch {
+    width: 100%; height: 60px; border-radius: var(--radius-sm); margin-bottom: 12px;
+  }
+  .culture-card h3 { font-size: 1.05rem; margin-bottom: 6px; }
+  .culture-card p { font-size: 0.85rem; color: var(--text2); line-height: 1.7; }
+
+  @media (max-width: 600px) {
+    .container { padding: 12px; }
+    .picker-row { flex-direction: column; }
+    .color-swatch { width: 100%; height: 120px; }
+    .color-values { grid-template-columns: 1fr; }
+    .color-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .tabs { flex-wrap: wrap; }
+    .tab-btn { flex: 1 1 40%; font-size: 0.85rem; padding: 10px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="copied-toast" id="toast">已复制到剪贴板</div>
+
+<div class="container">
+  <header>
+    <h1>颜色名称查询</h1>
+    <p>输入颜色代码，查找最接近的命名颜色 | 浏览 200+ 种中英文颜色名称</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="query">查询颜色</button>
+    <button class="tab-btn" data-tab="browse">颜色浏览</button>
+    <button class="tab-btn" data-tab="palette">调色板</button>
+    <button class="tab-btn" data-tab="culture">文化含义</button>
+  </div>
+
+  <!-- Panel: Query -->
+  <div class="panel active" id="panel-query">
+    <div class="card">
+      <h2>输入颜色代码</h2>
+      <div class="picker-row">
+        <div class="picker-left">
+          <div class="input-group">
+            <label>十六进制颜色代码</label>
+            <div class="input-row">
+              <input type="text" id="hexInput" placeholder="#FF6633" value="#FF6633" maxlength="7">
+              <input type="color" id="colorPicker" value="#FF6633" style="width:50px;height:44px;padding:2px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;">
+            </div>
+          </div>
+          <div class="color-name-display" id="colorNameDisplay">杏黄 / Apricot</div>
+          <div class="color-values" id="colorValues">
+            <div class="val-item"><span class="label">RGB</span><div class="value" id="valRgb">rgb(255, 102, 51)</div></div>
+            <div class="val-item"><span class="label">HEX</span><div class="value" id="valHex">#FF6633</div></div>
+            <div class="val-item"><span class="label">HSL</span><div class="value" id="valHsl">hsl(15, 100%, 60%)</div></div>
+            <div class="val-item"><span class="label">CMYK</span><div class="value" id="valCmyk">cmyk(0%, 60%, 80%, 0%)</div></div>
+          </div>
+          <div class="copy-btns">
+            <button class="btn btn-sm btn-outline" data-copy="hex">复制 HEX</button>
+            <button class="btn btn-sm btn-outline" data-copy="rgb">复制 RGB</button>
+            <button class="btn btn-sm btn-outline" data-copy="hsl">复制 HSL</button>
+            <button class="btn btn-sm btn-outline" data-copy="name">复制颜色名</button>
+          </div>
+        </div>
+        <div class="picker-right">
+          <div class="color-swatch" id="mainSwatch" style="background:#FF6633;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="nearbyColorsCard">
+      <h2>相近命名颜色 TOP 5</h2>
+      <div class="color-grid" id="nearbyColorsGrid"></div>
+    </div>
+  </div>
+
+  <!-- Panel: Browse -->
+  <div class="panel" id="panel-browse">
+    <div class="card">
+      <div class="grid-header">
+        <input type="text" id="searchInput" placeholder="搜索颜色名称（中文或英文）...">
+        <span class="count" id="colorCount">共 <span id="countNum">0</span> 种颜色</span>
+      </div>
+      <div class="color-grid" id="colorGrid"></div>
+    </div>
+  </div>
+
+  <!-- Panel: Palette -->
+  <div class="panel" id="panel-palette">
+    <div class="card">
+      <h2>从基色生成调色板</h2>
+      <div class="picker-row">
+        <div class="picker-left">
+          <div class="input-group">
+            <label>基色代码</label>
+            <div class="input-row">
+              <input type="text" id="paletteHexInput" placeholder="#3B82F6" value="#3B82F6" maxlength="7">
+              <input type="color" id="paletteColorPicker" value="#3B82F6" style="width:50px;height:44px;padding:2px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;">
+            </div>
+          </div>
+        </div>
+        <div class="picker-right">
+          <div class="color-swatch" id="paletteBaseSwatch" style="background:#3B82F6;width:100px;height:100px;"></div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:20px;">互补色 (Complementary)</h3>
+      <div class="palette-row" id="paletteComplementary"></div>
+
+      <h3 style="margin-top:20px;">相邻色 (Analogous)</h3>
+      <div class="palette-row" id="paletteAnalogous"></div>
+
+      <h3 style="margin-top:20px;">三角色 (Triadic)</h3>
+      <div class="palette-row" id="paletteTriadic"></div>
+
+      <h3 style="margin-top:20px;">单色系 (Monochromatic)</h3>
+      <div class="palette-row" id="paletteMonochromatic"></div>
+    </div>
+  </div>
+
+  <!-- Panel: Culture -->
+  <div class="panel" id="panel-culture">
+    <div class="culture-grid" id="cultureGrid"></div>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-swatch" id="modalSwatch"></div>
+    <div class="modal-name" id="modalName"></div>
+    <div class="modal-en" id="modalEn"></div>
+    <div class="modal-hex" id="modalHex"></div>
+    <div class="color-values" id="modalValues" style="margin-top:12px;"></div>
+    <button class="btn btn-outline modal-close" onclick="closeModal()">关闭</button>
+  </div>
+</div>
+
+<script>
+// ============ COLOR DATA ============
+const cssColors = [
+  { name: "爱丽丝蓝", en: "AliceBlue", hex: "#F0F8FF" },
+  { name: "古董白", en: "AntiqueWhite", hex: "#FAEBD7" },
+  { name: "水绿", en: "Aqua", hex: "#00FFFF" },
+  { name: "碧绿", en: "Aquamarine", hex: "#7FFFD4" },
+  { name: "天蓝", en: "Azure", hex: "#F0FFFF" },
+  { name: "米色", en: "Beige", hex: "#F5F5DC" },
+  { name: "橘黄", en: "Bisque", hex: "#FFE4C4" },
+  { name: "黑色", en: "Black", hex: "#000000" },
+  { name: "杏仁白", en: "BlanchedAlmond", hex: "#FFEBCD" },
+  { name: "蓝色", en: "Blue", hex: "#0000FF" },
+  { name: "蓝紫", en: "BlueViolet", hex: "#8A2BE2" },
+  { name: "棕色", en: "Brown", hex: "#A52A2A" },
+  { name: "硬木色", en: "BurlyWood", hex: "#DEB887" },
+  { name: "军蓝", en: "CadetBlue", hex: "#5F9EA0" },
+  { name: "黄绿", en: "Chartreuse", hex: "#7FFF00" },
+  { name: "巧克力色", en: "Chocolate", hex: "#D2691E" },
+  { name: "珊瑚色", en: "Coral", hex: "#FF7F50" },
+  { name: "矢车菊蓝", en: "CornflowerBlue", hex: "#6495ED" },
+  { name: "玉米色", en: "Cornsilk", hex: "#FFF8DC" },
+  { name: "绯红", en: "Crimson", hex: "#DC143C" },
+  { name: "青色", en: "Cyan", hex: "#00FFFF" },
+  { name: "深蓝", en: "DarkBlue", hex: "#00008B" },
+  { name: "深青", en: "DarkCyan", hex: "#008B8B" },
+  { name: "暗金", en: "DarkGoldenRod", hex: "#B8860B" },
+  { name: "深灰", en: "DarkGray", hex: "#A9A9A9" },
+  { name: "深绿", en: "DarkGreen", hex: "#006400" },
+  { name: "暗卡其", en: "DarkKhaki", hex: "#BDB76B" },
+  { name: "深洋红", en: "DarkMagenta", hex: "#8B008B" },
+  { name: "深橄榄绿", en: "DarkOliveGreen", hex: "#556B2F" },
+  { name: "深橙", en: "DarkOrange", hex: "#FF8C00" },
+  { name: "暗兰花紫", en: "DarkOrchid", hex: "#9932CC" },
+  { name: "暗红", en: "DarkRed", hex: "#8B0000" },
+  { name: "暗鲑鱼色", en: "DarkSalmon", hex: "#E9967A" },
+  { name: "深海绿", en: "DarkSeaGreen", hex: "#8FBC8F" },
+  { name: "暗灰蓝", en: "DarkSlateBlue", hex: "#483D8B" },
+  { name: "暗岩灰", en: "DarkSlateGray", hex: "#2F4F4F" },
+  { name: "暗青色", en: "DarkTurquoise", hex: "#00CED1" },
+  { name: "暗紫", en: "DarkViolet", hex: "#9400D3" },
+  { name: "深粉", en: "DeepPink", hex: "#FF1493" },
+  { name: "深天蓝", en: "DeepSkyBlue", hex: "#00BFFF" },
+  { name: "暗灰", en: "DimGray", hex: "#696969" },
+  { name: "道奇蓝", en: "DodgerBlue", hex: "#1E90FF" },
+  { name: "砖红", en: "FireBrick", hex: "#B22222" },
+  { name: "花白", en: "FloralWhite", hex: "#FFFAF0" },
+  { name: "森林绿", en: "ForestGreen", hex: "#228B22" },
+  { name: "紫红", en: "Fuchsia", hex: "#FF00FF" },
+  { name: "庚斯博罗灰", en: "Gainsboro", hex: "#DCDCDC" },
+  { name: "幽灵白", en: "GhostWhite", hex: "#F8F8FF" },
+  { name: "金色", en: "Gold", hex: "#FFD700" },
+  { name: "金菊色", en: "GoldenRod", hex: "#DAA520" },
+  { name: "灰色", en: "Gray", hex: "#808080" },
+  { name: "绿色", en: "Green", hex: "#008000" },
+  { name: "草绿", en: "GreenYellow", hex: "#ADFF2F" },
+  { name: "蜜瓜色", en: "HoneyDew", hex: "#F0FFF0" },
+  { name: "亮粉", en: "HotPink", hex: "#FF69B4" },
+  { name: "印第安红", en: "IndianRed", hex: "#CD5C5C" },
+  { name: "靛色", en: "Indigo", hex: "#4B0082" },
+  { name: "象牙白", en: "Ivory", hex: "#FFFFF0" },
+  { name: "卡其色", en: "Khaki", hex: "#F0E68C" },
+  { name: "薰衣草紫", en: "Lavender", hex: "#E6E6FA" },
+  { name: "薰衣草红", en: "LavenderBlush", hex: "#FFF0F5" },
+  { name: "草坪绿", en: "LawnGreen", hex: "#7CFC00" },
+  { name: "柠檬绸", en: "LemonChiffon", hex: "#FFFACD" },
+  { name: "浅蓝", en: "LightBlue", hex: "#ADD8E6" },
+  { name: "浅珊瑚", en: "LightCoral", hex: "#F08080" },
+  { name: "浅青", en: "LightCyan", hex: "#E0FFFF" },
+  { name: "浅金菊", en: "LightGoldenRodYellow", hex: "#FAFAD2" },
+  { name: "浅灰", en: "LightGray", hex: "#D3D3D3" },
+  { name: "浅绿", en: "LightGreen", hex: "#90EE90" },
+  { name: "浅粉", en: "LightPink", hex: "#FFB6C1" },
+  { name: "浅鲑鱼", en: "LightSalmon", hex: "#FFA07A" },
+  { name: "浅海绿", en: "LightSeaGreen", hex: "#20B2AA" },
+  { name: "浅天蓝", en: "LightSkyBlue", hex: "#87CEFA" },
+  { name: "浅岩灰", en: "LightSlateGray", hex: "#778899" },
+  { name: "浅钢蓝", en: "LightSteelBlue", hex: "#B0C4DE" },
+  { name: "浅黄", en: "LightYellow", hex: "#FFFFE0" },
+  { name: "酸橙绿", en: "Lime", hex: "#00FF00" },
+  { name: "柠檬绿", en: "LimeGreen", hex: "#32CD32" },
+  { name: "亚麻色", en: "Linen", hex: "#FAF0E6" },
+  { name: "洋红", en: "Magenta", hex: "#FF00FF" },
+  { name: "栗色", en: "Maroon", hex: "#800000" },
+  { name: "中碧绿", en: "MediumAquaMarine", hex: "#66CDAA" },
+  { name: "中蓝", en: "MediumBlue", hex: "#0000CD" },
+  { name: "中兰花紫", en: "MediumOrchid", hex: "#BA55D3" },
+  { name: "中紫", en: "MediumPurple", hex: "#9370DB" },
+  { name: "中海绿", en: "MediumSeaGreen", hex: "#3CB371" },
+  { name: "中岩蓝", en: "MediumSlateBlue", hex: "#7B68EE" },
+  { name: "中春绿", en: "MediumSpringGreen", hex: "#00FA9A" },
+  { name: "中青色", en: "MediumTurquoise", hex: "#48D1CC" },
+  { name: "中紫红", en: "MediumVioletRed", hex: "#C71585" },
+  { name: "午夜蓝", en: "MidnightBlue", hex: "#191970" },
+  { name: "薄荷奶油", en: "MintCream", hex: "#F5FFFA" },
+  { name: "薄雾玫瑰", en: "MistyRose", hex: "#FFE4E1" },
+  { name: "鹿皮色", en: "Moccasin", hex: "#FFE4B5" },
+  { name: "纳瓦霍白", en: "NavajoWhite", hex: "#FFDEAD" },
+  { name: "海军蓝", en: "Navy", hex: "#000080" },
+  { name: "旧蕾丝", en: "OldLace", hex: "#FDF5E6" },
+  { name: "橄榄色", en: "Olive", hex: "#808000" },
+  { name: "橄榄褐", en: "OliveDrab", hex: "#6B8E23" },
+  { name: "橙色", en: "Orange", hex: "#FFA500" },
+  { name: "橙红", en: "OrangeRed", hex: "#FF4500" },
+  { name: "兰花紫", en: "Orchid", hex: "#DA70D6" },
+  { name: "淡金菊", en: "PaleGoldenRod", hex: "#EEE8AA" },
+  { name: "淡绿", en: "PaleGreen", hex: "#98FB98" },
+  { name: "淡青", en: "PaleTurquoise", hex: "#AFEEEE" },
+  { name: "淡紫红", en: "PaleVioletRed", hex: "#DB7093" },
+  { name: "木瓜色", en: "PapayaWhip", hex: "#FFEFD5" },
+  { name: "桃色", en: "PeachPuff", hex: "#FFDAB9" },
+  { name: "秘鲁色", en: "Peru", hex: "#CD853F" },
+  { name: "粉色", en: "Pink", hex: "#FFC0CB" },
+  { name: "李色", en: "Plum", hex: "#DDA0DD" },
+  { name: "粉蓝", en: "PowderBlue", hex: "#B0E0E6" },
+  { name: "紫色", en: "Purple", hex: "#800080" },
+  { name: "丽贝卡紫", en: "RebeccaPurple", hex: "#663399" },
+  { name: "红色", en: "Red", hex: "#FF0000" },
+  { name: "玫瑰棕", en: "RosyBrown", hex: "#BC8F8F" },
+  { name: "宝蓝", en: "RoyalBlue", hex: "#4169E1" },
+  { name: "鞍棕色", en: "SaddleBrown", hex: "#8B4513" },
+  { name: "鲑鱼色", en: "Salmon", hex: "#FA8072" },
+  { name: "沙棕色", en: "SandyBrown", hex: "#F4A460" },
+  { name: "海绿", en: "SeaGreen", hex: "#2E8B57" },
+  { name: "贝壳色", en: "SeaShell", hex: "#FFF5EE" },
+  { name: "赭色", en: "Sienna", hex: "#A0522D" },
+  { name: "银色", en: "Silver", hex: "#C0C0C0" },
+  { name: "天蓝", en: "SkyBlue", hex: "#87CEEB" },
+  { name: "岩蓝", en: "SlateBlue", hex: "#6A5ACD" },
+  { name: "岩灰", en: "SlateGray", hex: "#708090" },
+  { name: "雪白", en: "Snow", hex: "#FFFAFA" },
+  { name: "春绿", en: "SpringGreen", hex: "#00FF7F" },
+  { name: "钢蓝", en: "SteelBlue", hex: "#4682B4" },
+  { name: "棕褐", en: "Tan", hex: "#D2B48C" },
+  { name: "凫绿", en: "Teal", hex: "#008080" },
+  { name: "蓟色", en: "Thistle", hex: "#D8BFD8" },
+  { name: "番茄红", en: "Tomato", hex: "#FF6347" },
+  { name: "绿松色", en: "Turquoise", hex: "#40E0D0" },
+  { name: "紫罗兰", en: "Violet", hex: "#EE82EE" },
+  { name: "小麦色", en: "Wheat", hex: "#F5DEB3" },
+  { name: "白色", en: "White", hex: "#FFFFFF" },
+  { name: "烟白", en: "WhiteSmoke", hex: "#F5F5F5" },
+  { name: "黄色", en: "Yellow", hex: "#FFFF00" },
+  { name: "黄绿", en: "YellowGreen", hex: "#9ACD32" }
+];
+
+const chineseColors = [
+  { name: "胭脂红", en: "Rouge Red", hex: "#E60012" },
+  { name: "藏青", en: "Navy Blue", hex: "#2E4E7E" },
+  { name: "鹅黄", en: "Gosling Yellow", hex: "#FFF143" },
+  { name: "青碧", en: "Jade Green", hex: "#48C0A3" },
+  { name: "黛紫", en: "Violet Black", hex: "#574266" },
+  { name: "月白", en: "Moon White", hex: "#D6ECF0" },
+  { name: "藕荷", en: "Lotus Root", hex: "#E4C6D0" },
+  { name: "靛蓝", en: "Indigo Blue", hex: "#065279" },
+  { name: "杏黄", en: "Apricot Yellow", hex: "#FFA631" },
+  { name: "竹青", en: "Bamboo Green", hex: "#789262" },
+  { name: "秋香", en: "Autumn Fragrance", hex: "#869C4C" },
+  { name: "缃色", en: "Light Yellow", hex: "#F0C239" },
+  { name: "赤金", en: "Red Gold", hex: "#D4A017" },
+  { name: "鸦青", en: "Crow Black", hex: "#424C50" },
+  { name: "茶色", en: "Tea Color", hex: "#B35C44" },
+  { name: "黛绿", en: "Dark Green", hex: "#426666" },
+  { name: "妃色", en: "Concubine Pink", hex: "#ED5736" },
+  { name: "琥珀", en: "Amber", hex: "#CA6924" },
+  { name: "花青", en: "Flower Blue", hex: "#003472" },
+  { name: "绛紫", en: "Dark Purple", hex: "#8C4356" },
+  { name: "枯绿", en: "Withered Green", hex: "#B78D12" },
+  { name: "琉璃", en: "Lapis Lazuli", hex: "#C9780C" },
+  { name: "墨灰", en: "Ink Gray", hex: "#758A99" },
+  { name: "品红", en: "Magenta", hex: "#F00050" },
+  { name: "青莲", en: "Lotus Blue", hex: "#884898" },
+  { name: "群青", en: "Ultramarine", hex: "#4C8DAE" },
+  { name: "石青", en: "Mineral Blue", hex: "#7BC5D1" },
+  { name: "松花", en: "Pine Pollen", hex: "#BCE672" },
+  { name: "桃红", en: "Peach Pink", hex: "#F47983" },
+  { name: "藤黄", en: "Gamboge", hex: "#FFD111" },
+  { name: "天青", en: "Sky Blue", hex: "#2E94B9" },
+  { name: "乌金", en: "Dark Gold", hex: "#A78E44" },
+  { name: "雪青", en: "Snow Violet", hex: "#B0A4E3" },
+  { name: "银朱", en: "Silver Vermilion", hex: "#BF242A" },
+  { name: "玉色", en: "Jade Color", hex: "#2EDFA3" },
+  { name: "赭石", en: "Ocher", hex: "#9A4E2F" },
+  { name: "朱砂", en: "Cinnabar", hex: "#FF461F" },
+  { name: "紫檀", en: "Rosewood", hex: "#4A2040" },
+  { name: "苍绿", en: "Pale Green", hex: "#234830" },
+  { name: "湖蓝", en: "Lake Blue", hex: "#30DFF3" },
+  { name: "缬草", en: "Valerian Purple", hex: "#8B78B3" },
+  { name: "雀茶", en: "Sparrow Brown", hex: "#A1876B" },
+  { name: "蟹壳", en: "Crab Shell", hex: "#695E4C" },
+  { name: "鱼肚白", en: "Fish Belly White", hex: "#FCEFE8" },
+  { name: "牙色", en: "Ivory", hex: "#F0F0D8" },
+  { name: "霜色", en: "Frost White", hex: "#E9F1F6" },
+  { name: "黛蓝", en: "Dark Blue", hex: "#425066" },
+  { name: "榴花红", en: "Pomegranate Red", hex: "#F34718" },
+  { name: "孔雀蓝", en: "Peacock Blue", hex: "#0EB0C4" },
+  { name: "羽扇豆蓝", en: "Lupine Blue", hex: "#728CB0" },
+  { name: "沙褐", en: "Sand Brown", hex: "#B89A7A" },
+  { name: "栗色", en: "Chestnut", hex: "#60281E" },
+  { name: "墨绿", en: "Ink Green", hex: "#1A3C34" },
+  { name: "茜色", en: "Madder Red", hex: "#CB3A56" },
+  { name: "青磁", en: "Celadon", hex: "#7BCFA6" },
+  { name: "若草", en: "Young Grass", hex: "#C3D94E" },
+  { name: "水色", en: "Water Blue", hex: "#AFDFE4" },
+  { name: "柑子", en: "Tangerine", hex: "#F7A122" },
+  { name: "深绯", en: "Deep Scarlet", hex: "#C91F37" },
+  { name: "薄色", en: "Light Pink", hex: "#F0C8CF" },
+  { name: "辰砂", en: "Vermilion", hex: "#E15554" },
+  { name: "萱草", en: "Daylily", hex: "#F58220" },
+  { name: "若紫", en: "Young Purple", hex: "#C4A3BF" },
+  { name: "藤色", en: "Wisteria", hex: "#BBBCE0" },
+  { name: "黄栌", en: "Smoke Tree", hex: "#E29C45" },
+  { name: "白橡", en: "White Oak", hex: "#D3BBA2" },
+  { name: "金茶", en: "Golden Tea", hex: "#DDBB44" },
+  { name: "芥子色", en: "Mustard", hex: "#A09554" },
+  { name: "瓶覗", en: "Bottle Peek", hex: "#A5DEE4" },
+  { name: "猩猩绯", en: "Scarlet", hex: "#E60033" },
+  { name: "乳白", en: "Cream", hex: "#F9F4DC" },
+  { name: "鹦鹉绿", en: "Parrot Green", hex: "#5BA32A" },
+  { name: "青丹", en: "Blue Tan", hex: "#4D6B53" },
+  { name: "黄橡", en: "Yellow Oak", hex: "#BFA14B" },
+  { name: "黒橡", en: "Black Oak", hex: "#544A47" },
+  { name: "亜麻色", en: "Linen", hex: "#D4C5B2" },
+  { name: "薄青", en: "Light Blue-Green", hex: "#A3CEC2" },
+  { name: "苔色", en: "Moss", hex: "#69821B" },
+  { name: "錆色", en: "Rust", hex: "#577287" },
+  { name: "朽葉", en: "Decayed Leaf", hex: "#917347" },
+  { name: "黄土", en: "Loess", hex: "#C39143" },
+  { name: "藍白", en: "Blue White", hex: "#A5B5CC" },
+  { name: "空色", en: "Sky Color", hex: "#90D7EC" },
+  { name: "赤朽葉", en: "Red Decayed Leaf", hex: "#B35A3B" },
+  { name: "桃色", en: "Peach", hex: "#F09199" },
+  { name: "常磐色", en: "Evergreen", hex: "#007B43" },
+  { name: "石竹色", en: "Pink", hex: "#F0A0A0" },
+  { name: "女郎花", en: "Patrinia", hex: "#F2F288" },
+  { name: "瑠璃色", en: "Lapis Blue", hex: "#1E50A2" },
+  { name: "海松色", en: "Sea Pine", hex: "#726D40" },
+  { name: "牡丹色", en: "Peony", hex: "#C94093" },
+  { name: "瑠璃紺", en: "Lapis Navy", hex: "#19448E" },
+  { name: "紅緋", en: "Crimson", hex: "#E83929" },
+  { name: "珊瑚色", en: "Coral", hex: "#F29886" },
+  { name: "灰桜", en: "Ash Cherry", hex: "#C4B3B1" },
+  { name: "紅梅色", en: "Red Plum", hex: "#F2A0A8" },
+  { name: "薄柿", en: "Light Persimmon", hex: "#D4AC9E" },
+  { name: "鈍色", en: "Dull Gray", hex: "#727171" },
+  { name: "蒸栗色", en: "Steamed Chestnut", hex: "#EBE17F" }
+];
+
+const allColors = [...cssColors, ...chineseColors];
+
+// ============ COLOR UTILITIES ============
+function hexToRgb(hex) {
+  hex = hex.replace(/^#/, '');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  return {
+    r: parseInt(hex.substring(0,2), 16),
+    g: parseInt(hex.substring(2,4), 16),
+    b: parseInt(hex.substring(4,6), 16)
+  };
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => {
+    const h = Math.round(x).toString(16);
+    return h.length === 1 ? '0' + h : h;
+  }).join('').toUpperCase();
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  return {
+    r: Math.round(f(0) * 255),
+    g: Math.round(f(8) * 255),
+    b: Math.round(f(4) * 255)
+  };
+}
+
+function rgbToCmyk(r, g, b) {
+  const c = 1 - (r / 255);
+  const m = 1 - (g / 255);
+  const y = 1 - (b / 255);
+  const k = Math.min(c, m, y);
+  if (k === 1) return { c: 0, m: 0, y: 0, k: 100 };
+  return {
+    c: Math.round((c - k) / (1 - k) * 100),
+    m: Math.round((m - k) / (1 - k) * 100),
+    y: Math.round((y - k) / (1 - k) * 100),
+    k: Math.round(k * 100)
+  };
+}
+
+function colorDistance(c1, c2) {
+  const dr = c1.r - c2.r, dg = c1.g - c2.g, db = c1.b - c2.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function findClosestColors(hex, count = 5) {
+  const rgb = hexToRgb(hex);
+  const distances = allColors.map(c => ({
+    ...c,
+    distance: colorDistance(rgb, hexToRgb(c.hex))
+  }));
+  distances.sort((a, b) => a.distance - b.distance);
+  return distances.slice(0, count);
+}
+
+function findExactColor(hex) {
+  const upper = hex.toUpperCase();
+  return allColors.find(c => c.hex.toUpperCase() === upper);
+}
+
+// ============ QUERY PANEL ============
+function updateQueryPanel(hex) {
+  hex = hex.replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/i.test(hex)) return;
+  hex = '#' + hex;
+
+  const exact = findExactColor(hex);
+  const closest = findClosestColors(hex, 5);
+  const bestColor = exact || closest[0];
+  const rgb = hexToRgb(hex);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
+
+  // Update swatch
+  document.getElementById('mainSwatch').style.background = hex;
+  document.getElementById('hexInput').value = hex;
+  document.getElementById('colorPicker').value = hex;
+
+  // Update display
+  document.getElementById('colorNameDisplay').textContent = bestColor.name + ' / ' + bestColor.en;
+  document.getElementById('valRgb').textContent = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+  document.getElementById('valHex').textContent = hex;
+  document.getElementById('valHsl').textContent = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+  document.getElementById('valCmyk').textContent = `cmyk(${cmyk.c}%, ${cmyk.m}%, ${cmyk.y}%, ${cmyk.k}%)`;
+
+  // Update nearby colors
+  const nearbyGrid = document.getElementById('nearbyColorsGrid');
+  nearbyGrid.innerHTML = closest.map(c => {
+    const crgb = hexToRgb(c.hex);
+    return `<div class="color-grid-item" onclick="showColorDetail(${JSON.stringify(c.name.replace(/"/g,'&quot;'))}, ${JSON.stringify(c.en.replace(/"/g,'&quot;'))}, '${c.hex}')">
+      <div class="swatch-preview" style="background:${c.hex};"></div>
+      <div class="info">
+        <div class="cn-name">${c.name}</div>
+        <div class="en-name">${c.en}</div>
+        <div class="hex-code">${c.hex}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Store current values for copy
+  document.getElementById('panel-query').dataset.currentHex = hex;
+  document.getElementById('panel-query').dataset.currentRgb = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+  document.getElementById('panel-query').dataset.currentHsl = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+  document.getElementById('panel-query').dataset.currentName = bestColor.name;
+}
+
+// ============ BROWSE PANEL ============
+function renderColorGrid(filter = '') {
+  const grid = document.getElementById('colorGrid');
+  const searchTerm = filter.toLowerCase();
+  const filtered = allColors.filter(c =>
+    c.name.includes(searchTerm) || c.en.toLowerCase().includes(searchTerm) || c.hex.toLowerCase().includes(searchTerm)
+  );
+  document.getElementById('countNum').textContent = filtered.length;
+
+  grid.innerHTML = filtered.map(c => `
+    <div class="color-grid-item" onclick="showColorDetail(${JSON.stringify(c.name.replace(/"/g,'&quot;'))}, ${JSON.stringify(c.en.replace(/"/g,'&quot;'))}, '${c.hex}')">
+      <div class="swatch-preview" style="background:${c.hex};"></div>
+      <div class="info">
+        <div class="cn-name">${c.name}</div>
+        <div class="en-name">${c.en}</div>
+        <div class="hex-code">${c.hex}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============ MODAL ============
+function showColorDetail(name, en, hex) {
+  const rgb = hexToRgb(hex);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
+
+  document.getElementById('modalSwatch').style.background = hex;
+  document.getElementById('modalName').textContent = name;
+  document.getElementById('modalEn').textContent = en;
+  document.getElementById('modalHex').textContent = hex;
+  document.getElementById('modalValues').innerHTML = `
+    <div class="val-item"><span class="label">RGB</span><div class="value">rgb(${rgb.r}, ${rgb.g}, ${rgb.b})</div></div>
+    <div class="val-item"><span class="label">HEX</span><div class="value">${hex}</div></div>
+    <div class="val-item"><span class="label">HSL</span><div class="value">hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)</div></div>
+    <div class="val-item"><span class="label">CMYK</span><div class="value">cmyk(${cmyk.c}%, ${cmyk.m}%, ${cmyk.y}%, ${cmyk.k}%)</div></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ============ PALETTE PANEL ============
+function renderPaletteSwatch(hex) {
+  const exact = findExactColor(hex);
+  const closest = findClosestColors(hex, 1)[0];
+  const displayName = exact ? exact.name : closest.name;
+  return `
+    <div class="palette-swatch">
+      <div class="sw" style="background:${hex};" onclick="updateQueryPanel('${hex}');switchTab('query')" title="点击查看详情"></div>
+      <div class="sw-hex">${hex}</div>
+      <div class="sw-name">${displayName}</div>
+    </div>
+  `;
+}
+
+function updatePalette(hex) {
+  hex = hex.replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/i.test(hex)) return;
+  hex = '#' + hex;
+
+  const baseRgb = hexToRgb(hex);
+  const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+
+  document.getElementById('paletteBaseSwatch').style.background = hex;
+  document.getElementById('paletteHexInput').value = hex;
+  document.getElementById('paletteColorPicker').value = hex;
+
+  // Complementary
+  const complementary = hslToRgb((baseHsl.h + 180) % 360, baseHsl.s, baseHsl.l);
+  const compHex = rgbToHex(complementary.r, complementary.g, complementary.b);
+  document.getElementById('paletteComplementary').innerHTML =
+    renderPaletteSwatch(hex) + renderPaletteSwatch(compHex);
+
+  // Analogous
+  const anaColors = [
+    hslToRgb((baseHsl.h - 30 + 360) % 360, baseHsl.s, baseHsl.l),
+    baseRgb,
+    hslToRgb((baseHsl.h + 30) % 360, baseHsl.s, baseHsl.l)
+  ];
+  document.getElementById('paletteAnalogous').innerHTML = anaColors.map(c =>
+    renderPaletteSwatch(rgbToHex(c.r, c.g, c.b))
+  ).join('');
+
+  // Triadic
+  const triColors = [
+    baseRgb,
+    hslToRgb((baseHsl.h + 120) % 360, baseHsl.s, baseHsl.l),
+    hslToRgb((baseHsl.h + 240) % 360, baseHsl.s, baseHsl.l)
+  ];
+  document.getElementById('paletteTriadic').innerHTML = triColors.map(c =>
+    renderPaletteSwatch(rgbToHex(c.r, c.g, c.b))
+  ).join('');
+
+  // Monochromatic
+  const monoColors = [90, 70, 50, 30, 10].map(l =>
+    hslToRgb(baseHsl.h, baseHsl.s, l)
+  );
+  document.getElementById('paletteMonochromatic').innerHTML = monoColors.map(c =>
+    renderPaletteSwatch(rgbToHex(c.r, c.g, c.b))
+  ).join('');
+}
+
+// ============ CULTURE PANEL ============
+const cultureData = [
+  { color: "红色", hex: "#E60012", meaning: "红色在中国文化中象征喜庆、吉祥和繁荣。春节、婚礼等喜庆场合常用红色装饰。红色也代表革命精神，是中国国旗的颜色。传统上用红纸写对联、发红包。" },
+  { color: "黄色", hex: "#FFD700", meaning: "黄色在古代是帝王之色，象征皇权与尊贵。五行中属土，代表中央方位。明清时期明黄色为皇帝专用。现代黄色也象征温暖、收获和财富。" },
+  { color: "青色/蓝色", hex: "#065279", meaning: "青色和蓝色在五行中属木（青）和水（黑/蓝）。青花瓷的蓝色享誉世界。蓝色象征宁静、深远和智慧。传统服饰中蓝色常见于文人雅士。" },
+  { color: "绿色", hex: "#48C0A3", meaning: "绿色在五行中属木，代表春天、生命和生长。翡翠的绿色被视为富贵吉祥之色。现代绿色也象征环保、健康和自然。" },
+  { color: "黑色", hex: "#000000", meaning: "黑色在五行中属水。传统上黑色被视为庄重、严肃的颜色。古代官员朝服使用黑色。水墨画以黑为魂。现代黑色也代表简约和高级感。" },
+  { color: "白色", hex: "#FFFFFF", meaning: "白色在五行中属金，代表西方和秋季。传统上白色与丧事相关，但现在已逐渐接受西方影响，婚礼也开始穿白色婚纱。白色也象征纯洁和素雅。" },
+  { color: "紫色", hex: "#884898", meaning: "紫色在中国文化中象征高贵和神秘。"紫气东来"是祥瑞之兆。紫禁城以紫命名，代表天帝居所。道教中紫色是最高境界的颜色。" },
+  { color: "金色", hex: "#D4A017", meaning: "金色象征富贵、荣华和辉煌。古代金器是身份象征。佛教中金色代表佛光普照。"金榜题名"寓意科举高中。五行中属土。" }
+];
+
+function renderCulture() {
+  document.getElementById('cultureGrid').innerHTML = cultureData.map(c => `
+    <div class="culture-card">
+      <div class="cc-swatch" style="background:${c.hex};"></div>
+      <h3>${c.color}</h3>
+      <p>${c.meaning}</p>
+    </div>
+  `).join('');
+}
+
+// ============ TABS ============
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById(`panel-${tabName}`).classList.add('active');
+}
+
+// ============ COPY ============
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制: ' + text);
+  }).catch(() => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('已复制: ' + text);
+  });
+}
+
+// ============ EVENT LISTENERS ============
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// Query panel
+document.getElementById('hexInput').addEventListener('input', function(e) {
+  let val = e.target.value.replace(/^#/, '').toUpperCase().slice(0, 6);
+  if (/^[0-9A-F]*$/i.test(val)) {
+    if (val.length === 6) updateQueryPanel(val);
+  }
+});
+
+document.getElementById('hexInput').addEventListener('blur', function() {
+  const val = this.value.replace(/^#/, '');
+  if (val.length === 6 && /^[0-9A-F]{6}$/i.test(val)) {
+    this.value = '#' + val.toUpperCase();
+    updateQueryPanel(val);
+  }
+});
+
+document.getElementById('colorPicker').addEventListener('input', function() {
+  updateQueryPanel(this.value);
+});
+
+document.querySelectorAll('[data-copy]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const panel = document.getElementById('panel-query');
+    const type = this.dataset.copy;
+    const map = { hex: 'currentHex', rgb: 'currentRgb', hsl: 'currentHsl', name: 'currentName' };
+    copyText(panel.dataset[map[type]] || '');
+  });
+});
+
+// Browse panel
+document.getElementById('searchInput').addEventListener('input', function() {
+  renderColorGrid(this.value);
+});
+
+// Palette panel
+document.getElementById('paletteHexInput').addEventListener('input', function(e) {
+  let val = e.target.value.replace(/^#/, '').toUpperCase().slice(0, 6);
+  if (val.length === 6 && /^[0-9A-F]{6}$/i.test(val)) updatePalette(val);
+});
+
+document.getElementById('paletteHexInput').addEventListener('blur', function() {
+  const val = this.value.replace(/^#/, '');
+  if (val.length === 6 && /^[0-9A-F]{6}$/i.test(val)) {
+    this.value = '#' + val.toUpperCase();
+    updatePalette(val);
+  }
+});
+
+document.getElementById('paletteColorPicker').addEventListener('input', function() {
+  updatePalette(this.value);
+});
+
+// ============ INIT ============
+updateQueryPanel('FF6633');
+renderColorGrid();
+renderCulture();
+updatePalette('3B82F6');
+</script>
+
+</body>
+</html>
