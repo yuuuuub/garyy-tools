@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图案锁</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin-bottom:10px;color:var(--accent)}
+.msg{font-size:1.1rem;padding:10px;text-align:center;min-height:40px;color:var(--accent);margin-bottom:10px}
+.canvas-wrap{position:relative;margin-bottom:15px}
+canvas{border-radius:16px;background:var(--card);border:2px solid var(--border);cursor:pointer;touch-action:none}
+.status{font-size:0.9rem;padding:8px;text-align:center;margin-bottom:10px}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+button.sec{background:var(--card);border:1px solid var(--border);color:var(--text)}
+.pattern-display{display:flex;gap:8px;margin-bottom:10px;min-height:30px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+.dot.filled{background:var(--accent)}
+</style>
+</head>
+<body>
+<h1>🔒 图案锁</h1>
+<div class="msg" id="msg">绘制至少4个点的解锁图案</div>
+<div class="pattern-display" id="patternDots"></div>
+<div class="canvas-wrap">
+  <canvas id="canvas" width="300" height="300"></canvas>
+</div>
+<div class="buttons">
+  <button onclick="resetPattern()">🔄 重置</button>
+  <button onclick="savePattern()">💾 保存图案</button>
+  <button class="sec" onclick="clearSaved()">🗑 清除存储</button>
+</div>
+<script>
+const CELL=100,PAD=50;
+let dots=[],drawing=false,currentPattern=[],state='draw'; // draw|verify|set
+let savedPattern=localStorage.getItem('pl_pattern');
+
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+
+function getDotPositions(){
+  const pos=[];
+  for(let r=0;r<3;r++)for(let c=0;c<3;c++)pos.push({x:PAD+c*CELL+CELL/2,y:PAD+r*CELL+CELL/2,idx:r*3+c});
+  return pos;
+}
+
+const DOT_POS=getDotPositions();
+
+function render(){
+  ctx.clearRect(0,0,300,300);
+  // Draw lines
+  if(currentPattern.length>1){
+    ctx.strokeStyle='rgba(59,130,246,0.6)';
+    ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();
+    ctx.moveTo(DOT_POS[currentPattern[0]].x,DOT_POS[currentPattern[0]].y);
+    for(let i=1;i<currentPattern.length;i++){
+      ctx.lineTo(DOT_POS[currentPattern[i]].x,DOT_POS[currentPattern[i]].y);
+    }
+    ctx.stroke();
+  }
+  // Draw dots
+  DOT_POS.forEach((d,i)=>{
+    ctx.beginPath();ctx.arc(d.x,d.y,18,0,Math.PI*2);
+    if(currentPattern.includes(i)){
+      ctx.fillStyle='#3b82f6';ctx.fill();
+      ctx.strokeStyle='#60a5fa';
+    } else {
+      ctx.fillStyle='#30363d';ctx.fill();
+      ctx.strokeStyle='#4a5568';
+    }
+    ctx.lineWidth=2;ctx.stroke();
+  });
+}
+
+function getNearestDot(x,y){
+  for(let i=0;i<DOT_POS.length;i++){
+    const dx=x-DOT_POS[i].x,dy=y-DOT_POS[i].y;
+    if(Math.sqrt(dx*dx+dy*dy)<30)return i;
+  }
+  return -1;
+}
+
+function getPos(e){
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=300/rect.width,scaleY=300/rect.height;
+  if(e.touches){
+    return{x:(e.touches[0].clientX-rect.left)*scaleX,y:(e.touches[0].clientY-rect.top)*scaleY};
+  }
+  return{x:(e.clientX-rect.left)*scaleX,y:(e.clientY-rect.top)*scaleY};
+}
+
+canvas.addEventListener('mousedown',startDraw);
+canvas.addEventListener('mousemove',onMove);
+canvas.addEventListener('mouseup',endDraw);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();startDraw(e)});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();onMove(e)});
+canvas.addEventListener('touchend',e=>{e.preventDefault();endDraw(e)});
+
+function startDraw(e){drawing=true;currentPattern=[];onMove(e)}
+function onMove(e){
+  if(!drawing)return;
+  const pos=getPos(e);
+  const dot=getNearestDot(pos.x,pos.y);
+  if(dot!==-1&&!currentPattern.includes(dot)){
+    currentPattern.push(dot);
+    render();
+    // Draw line to mouse
+    ctx.strokeStyle='rgba(59,130,246,0.3)';ctx.lineWidth=3;
+    ctx.beginPath();
+    const last=DOT_POS[currentPattern[currentPattern.length-1]];
+    ctx.moveTo(last.x,last.y);ctx.lineTo(pos.x,pos.y);ctx.stroke();
+  }
+  render();
+}
+function endDraw(){
+  drawing=false;
+  if(currentPattern.length<4){
+    document.getElementById('msg').textContent='⚠️ 至少需要4个点！';
+    document.getElementById('msg').style.color='var(--error)';
+    setTimeout(()=>{currentPattern=[];render();updateDots()},500);
+    return;
+  }
+  updateDots();
+  if(state==='draw'){
+    if(!savedPattern){
+      document.getElementById('msg').textContent='图案已绘制，请点击"保存图案"';
+    } else {
+      checkPattern();
+    }
+  } else if(state==='verify'){
+    checkPattern();
+  }
+}
+
+function checkPattern(){
+  const patStr=currentPattern.join(',');
+  if(patStr===savedPattern){
+    document.getElementById('msg').textContent='✅ 图案正确！解锁成功！';
+    document.getElementById('msg').style.color='var(--success)';
+    state='draw';
+  } else {
+    document.getElementById('msg').textContent='❌ 图案错误，请重试';
+    document.getElementById('msg').style.color='var(--error)';
+    setTimeout(()=>{currentPattern=[];render();updateDots()},800);
+  }
+}
+
+function savePattern(){
+  if(currentPattern.length<4){document.getElementById('msg').textContent='⚠️ 先绘制至少4个点的图案';return}
+  savedPattern=currentPattern.join(',');
+  localStorage.setItem('pl_pattern',savedPattern);
+  document.getElementById('msg').textContent='✅ 图案已保存！';
+  document.getElementById('msg').style.color='var(--success)';
+}
+
+function clearSaved(){
+  localStorage.removeItem('pl_pattern');
+  savedPattern=null;currentPattern=[];
+  document.getElementById('msg').textContent='已清除，绘制新图案';
+  document.getElementById('msg').style.color='var(--text)';
+  render();updateDots();
+}
+
+function resetPattern(){
+  currentPattern=[];
+  if(savedPattern)state='verify';
+  else state='draw';
+  document.getElementById('msg').textContent=savedPattern?'绘制图案解锁':'绘制至少4个点的图案';
+  document.getElementById('msg').style.color='var(--accent)';
+  render();updateDots();
+}
+
+function updateDots(){
+  const el=document.getElementById('patternDots');
+  el.innerHTML='';
+  for(let i=0;i<9;i++){
+    const dot=document.createElement('div');
+    dot.className='dot'+(currentPattern.includes(i)?' filled':'');
+    el.appendChild(dot);
+  }
+}
+
+if(savedPattern)state='verify';
+render();updateDots();
+</script>
+</body>
+</html>

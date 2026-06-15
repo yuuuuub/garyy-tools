@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>地理问答</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:15px}
+h1{font-size:1.5rem;margin-bottom:15px;color:#3b82f6}
+.hud{display:flex;gap:15px;margin-bottom:15px;font-size:0.95rem;flex-wrap:wrap;justify-content:center}
+.hud span{background:#161b22;padding:6px 14px;border-radius:6px;border:1px solid #30363d}
+.tabs{display:flex;gap:8px;margin-bottom:15px}
+.tabs button{padding:6px 14px;border:1px solid #30363d;background:#161b22;color:#e6edf3;border-radius:6px;cursor:pointer;font-size:0.9rem}
+.tabs button.active{background:#3b82f6;border-color:#3b82f6}
+.question-card{background:#161b22;border:2px solid #30363d;border-radius:12px;padding:25px;max-width:550px;width:100%;text-align:center;margin-bottom:15px}
+.q-num{color:#8b949e;font-size:0.9rem;margin-bottom:8px}
+.q-text{font-size:1.2rem;line-height:1.6}
+.map-hint{font-size:3rem;margin:10px 0}
+.options{display:flex;flex-direction:column;gap:8px;max-width:550px;width:100%}
+.opt{padding:14px 18px;background:#161b22;border:2px solid #30363d;border-radius:8px;cursor:pointer;text-align:left;font-size:1rem;transition:all .2s}
+.opt:hover{border-color:#3b82f6}
+.opt.correct{background:#166534;border-color:#22c55e}
+.opt.wrong{background:#7f1d1d;border-color:#ef4444}
+.opt:disabled{cursor:default}
+.status{margin-top:12px;font-size:1.05rem;min-height:1.5em}
+button.start{padding:10px 28px;border:none;background:#3b82f6;color:#fff;border-radius:8px;cursor:pointer;font-size:1rem;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>🌍 地理问答</h1>
+<div class="tabs">
+<button class="active" onclick="setMode('china',this)">中国地理</button>
+<button onclick="setMode('world',this)">世界地理</button>
+<button onclick="setMode('all',this)">全部</button>
+</div>
+<div class="hud"><span>题目: <b id="qNum">0</b>/10</span><span>得分: <b id="score">0</b></span></div>
+<div id="area"></div>
+<div class="status" id="status">选择分类开始地理问答</div>
+<button class="start" onclick="start()">开始答题</button>
+<script>
+const questions=[
+  // 中国地理
+  {q:'中国的首都是哪个城市？',opts:['上海','北京','广州','深圳'],ans:1,mode:'china'},
+  {q:'长江注入哪个海？',opts:['渤海','黄海','东海','南海'],ans:2,mode:'china'},
+  {q:'中国面积最大的省级行政区是？',opts:['西藏','新疆','内蒙古','四川'],ans:1,mode:'china'},
+  {q:'黄河流经几个省区？',opts:['7个','8个','9个','10个'],ans:2,mode:'china'},
+  {q:'中国最高峰是？',opts:['昆仑山','珠穆朗玛峰','天山','泰山'],ans:1,mode:'china'},
+  {q:'中国最大的淡水湖是？',opts:['太湖','洞庭湖','鄱阳湖','青海湖'],ans:2,mode:'china'},
+  {q:'中国陆地面积约为多少万平方公里？',opts:['660','960','1060','1260'],ans:1,mode:'china'},
+  {q:'五岳中位于湖南省的是？',opts:['泰山','华山','衡山','恒山'],ans:2,mode:'china'},
+  {q:'中国最大的沙漠是？',opts:['塔克拉玛干沙漠','古尔班通古特沙漠','腾格里沙漠','巴丹吉林沙漠'],ans:0,mode:'china'},
+  {q:'中国海岸线最长的省份是？',opts:['广东','浙江','福建','山东'],ans:0,mode:'china'},
+  // 世界地理
+  {q:'世界上面积最大的国家是？',opts:['中国','美国','加拿大','俄罗斯'],ans:3,mode:'world'},
+  {q:'世界上最大的沙漠是？',opts:['戈壁沙漠','撒哈拉沙漠','阿拉伯沙漠','塔克拉玛干'],ans:1,mode:'world'},
+  {q:'世界上海拔最高的高原是？',opts:['巴西高原','青藏高原','东非高原','伊朗高原'],ans:1,mode:'world'},
+  {q:'亚马逊河流经哪个大洲？',opts:['非洲','北美洲','南美洲','亚洲'],ans:2,mode:'world'},
+  {q:'世界上最大的岛屿是？',opts:['马达加斯加岛','格陵兰岛','新几内亚岛','婆罗洲'],ans:1,mode:'world'},
+  {q:'日本的最高峰是？',opts:['富士山','阿尔卑斯山','乞力马扎罗山','白头山'],ans:0,mode:'world'},
+  {q:'世界上最长的河流是？',opts:['亚马逊河','长江','尼罗河','密西西比河'],ans:2,mode:'world'},
+  {q:'澳大利亚位于哪个大洋？',opts:['太平洋','大西洋','印度洋','北冰洋'],ans:2,mode:'world'},
+  {q:'世界上面积最大的热带雨林位于？',opts:['刚果盆地','东南亚','亚马逊平原','中美洲'],ans:2,mode:'world'},
+  {q:'法国的首都是？',opts:['伦敦','柏林','巴黎','罗马'],ans:2,mode:'world'},
+];
+let mode='china',currentQ=0,questionsList=[],score=0,answered=false;
+
+function setMode(m,btn){
+  mode=m;document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function start(){
+  let pool=mode==='all'?[...questions]:questions.filter(q=>q.mode===mode);
+  pool.sort(()=>Math.random()-0.5);
+  questionsList=pool.slice(0,Math.min(10,pool.length));
+  currentQ=0;score=0;answered=false;
+  document.getElementById('score').textContent=0;document.getElementById('status').textContent='';
+  showQuestion();
+}
+
+function showQuestion(){
+  if(currentQ>=questionsList.length){
+    document.getElementById('area').innerHTML='';
+    document.getElementById('qNum').textContent=questionsList.length;
+    document.getElementById('status').textContent=`🎉 答题结束！得分: ${score}/${questionsList.length}`;
+    return;
+  }
+  answered=false;
+  const q=questionsList[currentQ];
+  document.getElementById('qNum').textContent=`${currentQ+1}`;
+  const area=document.getElementById('area');
+  area.innerHTML=`
+    <div class="question-card">
+      <div class="q-num">第 ${currentQ+1}/${questionsList.length} 题 · ${q.mode==='china'?'🇨🇳 中国地理':'🌍 世界地理'}</div>
+      <div class="q-text">${q.q}</div>
+    </div>
+    <div class="options" id="opts"></div>`;
+  const opts=document.getElementById('opts');
+  q.opts.forEach((o,i)=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=`${String.fromCharCode(65+i)}. ${o}`;
+    btn.onclick=()=>selectAnswer(i,btn);opts.appendChild(btn);
+  });
+}
+
+function selectAnswer(i,btn){
+  if(answered)return;answered=true;
+  const q=questionsList[currentQ];
+  const btns=document.querySelectorAll('.opt');
+  btns.forEach(b=>b.disabled=true);
+  btns[q.ans].classList.add('correct');
+  if(i===q.ans){score++;document.getElementById('score').textContent=score}
+  else{btn.classList.add('wrong')}
+  setTimeout(()=>{currentQ++;showQuestion()},1200);
+}
+</script>
+</body>
+</html>

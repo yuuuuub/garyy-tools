@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蓝牙游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px}
+h1{font-size:1.5rem;margin-bottom:8px;color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.status-bar{width:100%;max-width:500px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.status-dot{width:10px;height:10px;border-radius:50%;background:var(--error);flex-shrink:0}
+.status-dot.connected{background:var(--success)}
+.status-text{font-size:0.85rem}
+.game-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;width:100%;max-width:500px;margin-bottom:10px;text-align:center}
+.game-card h2{color:var(--accent);font-size:1.2rem;margin-bottom:10px}
+.reaction-btn{width:200px;height:200px;border-radius:50%;border:3px solid var(--border);background:var(--card);font-size:1.5rem;font-weight:bold;cursor:pointer;transition:all 0.2s;margin:10px auto;display:flex;align-items:center;justify-content:center}
+.reaction-btn.wait{background:#0d2818;border-color:var(--success)}
+.reaction-btn.go{background:#2d1515;border-color:var(--error)}
+.reaction-btn:active{transform:scale(0.95)}
+.chat-area{width:100%;max-width:500px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.chat-messages{height:200px;overflow-y:auto;padding:10px;font-size:0.85rem}
+.chat-msg{margin-bottom:5px;padding:5px 8px;border-radius:8px;background:var(--bg)}
+.chat-msg.me{background:rgba(59,130,246,0.2);text-align:right}
+.chat-msg.them{background:rgba(34,197,94,0.2)}
+.chat-input{display:flex;border-top:1px solid var(--border)}
+.chat-input input{flex:1;background:var(--bg);border:none;color:var(--text);padding:10px;font-size:0.9rem;outline:none}
+.chat-input button{background:var(--accent);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-family:inherit}
+.emoji-grid{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+.emoji-btn{font-size:1.5rem;background:none;border:2px solid transparent;border-radius:8px;padding:4px 8px;cursor:pointer;transition:all 0.2s}
+.emoji-btn:hover{border-color:var(--accent);background:rgba(59,130,246,0.1)}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+.mode-tabs{display:flex;gap:6px;margin-bottom:10px}
+.mode-tab{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.85rem}
+.mode-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.score-display{font-size:2rem;color:var(--accent);font-weight:bold;margin:10px 0}
+.fallback-msg{font-size:0.8rem;color:var(--text);opacity:0.5;text-align:center;padding:8px}
+</style>
+</head>
+<body>
+<h1>📡 蓝牙游戏</h1>
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <div class="status-text" id="statusText">未连接</div>
+</div>
+<div class="mode-tabs">
+  <div class="mode-tab active" onclick="setMode('reaction')">⚡ 反应对战</div>
+  <div class="mode-tab" onclick="setMode('chat')">💬 聊天</div>
+  <div class="mode-tab" onclick="setMode('emoji')">😀 Emoji发送</div>
+</div>
+<div id="gameContent"></div>
+<div class="buttons">
+  <button onclick="connectBLE()">🔗 连接蓝牙</button>
+  <button onclick="startLocal()">🎮 本地单人模式</button>
+</div>
+<div class="fallback-msg">💡 Web Bluetooth API 仅支持Chrome，其他浏览器请使用本地模式</div>
+<script>
+let device=null,characteristic=null,mode='reaction',isServer=false,localMode=false;
+let reactionState='idle',reactionTime=0,myScore=0,oppScore=0,waitingTimeout=null;
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.mode-tab').forEach(t=>{if(t.textContent.includes(m==='reaction'?'反应':m==='chat'?'聊天':'Emoji'))t.classList.add('active')});
+  renderContent();
+}
+
+async function connectBLE(){
+  if(!navigator.bluetooth){alert('浏览器不支持Web Bluetooth');return}
+  try{
+    device=await navigator.bluetooth.requestDevice({filters:[{services:['generic_access']}],optionalServices:['generic_access']});
+    const server=await device.gatt.connect();
+    characteristic=await server.getPrimaryService('generic_access').then(s=>s.getCharacteristic('device_name'));
+    document.getElementById('statusDot').classList.add('connected');
+    document.getElementById('statusText').textContent='已连接: '+device.name;
+    characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged',onBleData);
+  }catch(e){
+    console.log('BLE error:',e);
+    document.getElementById('statusText').textContent='连接失败，使用本地模式';
+  }
+}
+
+function startLocal(){
+  localMode=true;
+  document.getElementById('statusDot').classList.add('connected');
+  document.getElementById('statusText').textContent='本地模式 (AI对手)';
+  renderContent();
+}
+
+function onBleData(e){
+  const data=new TextDecoder().decode(e.target.value);
+  handleMessage(JSON.parse(data));
+}
+
+function send(data){
+  if(characteristic){
+    characteristic.writeValue(new TextEncoder().encode(JSON.stringify(data)));
+  }
+}
+
+function handleMessage(msg){
+  if(mode==='reaction'){
+    if(msg.type==='reaction_start'){startReactionRound()}
+    else if(msg.type==='reaction_click'){
+      oppScore++;document.getElementById('oppScore')&&(document.getElementById('oppScore').textContent=oppScore);
+    }
+  } else if(mode==='chat'){
+    addChatMsg(msg.text,'them');
+  } else if(mode==='emoji'){
+    showEmoji(msg.emoji);
+  }
+}
+
+function renderContent(){
+  const el=document.getElementById('gameContent');
+  if(mode==='reaction')el.innerHTML=`
+    <div class="game-card">
+      <h2>⚡ 反应速度对战</h2>
+      <div class="score-display">我: <span id="myScore">0</span> vs AI: <span id="oppScore">0</span></div>
+      <div class="reaction-btn wait" id="reactionBtn" onclick="onReactionClick()">等待...</div>
+    </div>`;
+  else if(mode==='chat')el.innerHTML=`
+    <div class="chat-area">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="输入消息...">
+        <button onclick="sendChat()">发送</button>
+      </div>
+    </div>`;
+  else el.innerHTML=`
+    <div class="game-card">
+      <h2>😀 发送Emoji</h2>
+      <div class="emoji-grid" id="emojiGrid"></div>
+      <div id="emojiDisplay" style="font-size:4rem;min-height:80px"></div>
+    </div>`;
+  if(mode==='emoji')renderEmojiGrid();
+}
+
+function renderEmojiGrid(){
+  const emojis=['😀','😂','😍','🤔','👍','❤️','🔥','⭐','🎉','🚀','💪','✨','🎮','🎵','🌈','😱'];
+  const grid=document.getElementById('emojiGrid');
+  emojis.forEach(e=>{
+    const btn=document.createElement('button');
+    btn.className='emoji-btn';btn.textContent=e;
+    btn.onclick=()=>{sendEmoji(e);showEmoji(e)};
+    grid.appendChild(btn);
+  });
+}
+
+function sendEmoji(emoji){
+  send({type:'emoji',emoji});
+  if(localMode)setTimeout(()=>showEmoji(['😀','😂','👍','🔥'][Math.floor(Math.random()*4)]),800);
+}
+
+function showEmoji(emoji){
+  document.getElementById('emojiDisplay').textContent=emoji;
+}
+
+function addChatMsg(text,who){
+  const el=document.getElementById('chatMessages');
+  const div=document.createElement('div');
+  div.className='chat-msg '+(who||'me');
+  div.textContent=text;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+}
+
+function sendChat(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();if(!text)return;
+  addChatMsg(text,'me');
+  send({type:'chat',text});
+  input.value='';
+  if(localMode)setTimeout(()=>{
+    const replies=['哈哈','好的！','👍','有意思','继续！','厉害','明白了'];
+    addChatMsg(replies[Math.floor(Math.random()*replies.length)],'them');
+  },500+Math.random()*1000);
+}
+
+let reactionTimeout2;
+function startReactionRound(){
+  const btn=document.getElementById('reactionBtn');
+  if(!btn)return;
+  btn.className='reaction-btn wait';btn.textContent='等待...';
+  clearTimeout(reactionTimeout2);
+  reactionTimeout2=setTimeout(()=>{
+    btn.className='reaction-btn go';btn.textContent='点击！';
+    reactionTime=Date.now();
+  },1000+Math.random()*3000);
+}
+
+function onReactionClick(){
+  const btn=document.getElementById('reactionBtn');
+  if(btn.classList.contains('go')){
+    const elapsed=Date.now()-reactionTime;
+    myScore++;
+    document.getElementById('myScore').textContent=myScore;
+    btn.className='reaction-btn wait';btn.textContent=elapsed+'ms ✅';
+    send({type:'reaction_click'});
+    if(localMode)setTimeout(startReactionRound,1000);
+  } else if(btn.classList.contains('wait')&&reactionTime>0){
+    btn.textContent='太早了！';
+  } else {
+    startReactionRound();
+  }
+}
+
+renderContent();
+</script>
+</body>
+</html>

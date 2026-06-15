@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陀螺仪平衡游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px}
+h1{font-size:1.5rem;margin-bottom:8px;color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.game-area{position:relative;width:100%;max-width:400px;aspect-ratio:1;border-radius:16px;background:var(--card);border:2px solid var(--border);overflow:hidden;margin-bottom:10px;touch-action:none}
+canvas{width:100%;height:100%;display:block}
+.msg{font-size:0.9rem;padding:6px;text-align:center;min-height:30px;color:var(--accent)}
+.tilt-display{display:flex;gap:12px;justify-content:center;margin-bottom:10px}
+.tilt-val{font-family:monospace;font-size:0.85rem;color:var(--text);opacity:0.7}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+.hint{font-size:0.8rem;color:var(--text);opacity:0.5;text-align:center;margin-top:5px}
+</style>
+</head>
+<body>
+<h1>⚖️ 陀螺仪平衡</h1>
+<div class="info-bar">
+  <div class="info-item">🏆 分数: <span id="score">0</span></div>
+  <div class="info-item">⭐ 星星: <span id="stars">0</span>/10</div>
+  <div class="info-item">⏱ <span id="timer">60</span>秒</div>
+</div>
+<div class="game-area">
+  <canvas id="canvas"></canvas>
+</div>
+<div class="tilt-display">
+  <span class="tilt-val">X: <span id="tiltX">0</span>°</span>
+  <span class="tilt-val">Y: <span id="tiltY">0</span>°</span>
+</div>
+<div class="msg" id="msg">倾斜设备控制小球收集星星</div>
+<div class="buttons">
+  <button onclick="startGame()">▶ 开始</button>
+</div>
+<div class="hint">📱 移动设备使用陀螺仪 | 🖱️ 桌面使用鼠标控制</div>
+<script>
+const SIZE=400;
+let canvas,ctx,bx,by,vx,vy,collectibles=[],score=0,starCount=0,timer=60,timerInterval=null,running=false;
+let tiltX=0,tiltY=0,hasGyro=false;
+
+function init(){
+  canvas=document.getElementById('canvas');
+  canvas.width=SIZE;canvas.height=SIZE;
+  ctx=canvas.getContext('2d');
+  // Try gyroscope
+  if(window.DeviceOrientationEvent){
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      document.addEventListener('click',()=>{
+        DeviceOrientationEvent.requestPermission().then(r=>{
+          if(r==='granted'){window.addEventListener('deviceorientation',onOrientation);hasGyro=true}
+        }).catch(()=>{});
+      },{once:true});
+    } else {
+      window.addEventListener('deviceorientation',e=>{
+        if(e.gamma!==null){hasGyro=true;onOrientation(e)}
+      });
+    }
+  }
+  // Mouse fallback
+  canvas.addEventListener('mousemove',e=>{
+    if(hasGyro)return;
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)/rect.width*SIZE;
+    const my=(e.clientY-rect.top)/rect.height*SIZE;
+    tiltX=(mx-bx)/SIZE*40;tiltY=(my-by)/SIZE*40;
+  });
+}
+
+function onOrientation(e){
+  tiltX=Math.max(-30,Math.min(30,e.gamma||0));
+  tiltY=Math.max(-30,Math.min(30,(e.beta||0)-30));
+  document.getElementById('tiltX').textContent=Math.round(tiltX);
+  document.getElementById('tiltY').textContent=Math.round(tiltY);
+}
+
+function startGame(){
+  bx=SIZE/2;by=SIZE/2;vx=0;vy=0;score=0;starCount=0;timer=60;
+  collectibles=[];
+  for(let i=0;i<10;i++)collectibles.push({x:40+Math.random()*(SIZE-80),y:40+Math.random()*(SIZE-80),collected:false});
+  running=true;
+  document.getElementById('score').textContent=0;
+  document.getElementById('stars').textContent=0;
+  document.getElementById('timer').textContent=60;
+  document.getElementById('msg').textContent='收集所有星星！';
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    if(!running)return;
+    timer--;document.getElementById('timer').textContent=timer;
+    if(timer<=0){running=false;document.getElementById('msg').textContent='⏱ 时间到！得分: '+score;clearInterval(timerInterval)}
+  },1000);
+  requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(){
+  if(!running)return;
+  const accel=0.5,friction=0.95;
+  vx+=tiltX*accel/30;vy+=tiltY*accel/30;
+  vx*=friction;vy*=friction;
+  bx+=vx;by+=vy;
+  bx=Math.max(15,Math.min(SIZE-15,bx));
+  by=Math.max(15,Math.min(SIZE-15,by));
+  // Check collectibles
+  collectibles.forEach(c=>{
+    if(!c.collected){
+      const dx=bx-c.x,dy=by-c.y;
+      if(Math.sqrt(dx*dx+dy*dy)<25){
+        c.collected=true;starCount++;score+=100;
+        document.getElementById('stars').textContent=starCount;
+        document.getElementById('score').textContent=score;
+        if(starCount>=10){
+          running=false;document.getElementById('msg').textContent='🎉 全部收集！得分: '+score;
+          clearInterval(timerInterval);
+        }
+      }
+    }
+  });
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+function render(){
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,SIZE,SIZE);
+  // Grid
+  ctx.strokeStyle='rgba(59,130,246,0.1)';ctx.lineWidth=1;
+  for(let i=0;i<SIZE;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,SIZE);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(SIZE,i);ctx.stroke()}
+  // Stars
+  collectibles.forEach(c=>{
+    if(c.collected)return;
+    ctx.fillStyle='#f59e0b';ctx.font='24px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('⭐',c.x,c.y);
+  });
+  // Ball
+  ctx.beginPath();ctx.arc(bx,by,15,0,Math.PI*2);
+  const grad=ctx.createRadialGradient(bx-4,by-4,2,bx,by,15);
+  grad.addColorStop(0,'#60a5fa');grad.addColorStop(1,'#3b82f6');
+  ctx.fillStyle=grad;ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+}
+
+init();
+</script>
+</body>
+</html>

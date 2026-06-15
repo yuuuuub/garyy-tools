@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🏹 射箭</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;align-items:center;min-height:100vh;padding:16px;flex-direction:column}
+h1{font-size:1.5rem;margin-bottom:4px}
+.info{display:flex;gap:16px;font-size:.9rem;color:#8b949e;margin-bottom:8px}
+.info b{color:var(--text)}
+canvas{border-radius:8px;touch-action:none;max-width:100%}
+.controls{display:flex;gap:8px;margin-top:8px}
+button{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:.9rem}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.wind{font-size:.9rem;color:#8b949e;margin-bottom:4px}
+</style>
+</head>
+<body>
+<h1>🏹 射箭</h1>
+<div class="info">
+<span>环数 <b id="totalScore">0</b></span>
+<span>箭数 <b id="arrows">10</b></span>
+<span>轮 <b id="round">1</b>/3</span>
+</div>
+<div class="wind">风力: <span id="wind">→ 2</span></div>
+<canvas id="game" width="500" height="400"></canvas>
+<div class="controls">
+<button class="primary" onclick="newGame()">新游戏</button>
+</div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=500,H=400;
+let aimX=0,aimY=0,pulling=false,pullStart=0,power=0;
+let wind={dir:1,speed:2},arrows=[],totalScore=0,arrowCount=10,roundNum=1;
+let shots=[],flying=null;
+
+function newGame(){
+totalScore=0;arrowCount=10;roundNum=1;shots=[];flying=null;
+genWind();updateUI();draw();
+}
+
+function genWind(){
+wind.dir=Math.random()>.5?1:-1;
+wind.speed=Math.floor(Math.random()*5)+1;
+const arrow=wind.dir>0?'→':'←';
+document.getElementById('wind').textContent=arrow+' '+wind.speed;
+}
+
+function shoot(){
+if(flying||arrowCount<=0)return;
+arrowCount--;
+flying={x:50,y:H/2,vx:8,vy:(H/2-aimY)*0.02,windEffect:wind.dir*wind.speed*0.05,t:0};
+}
+
+function update(){
+if(!flying)return;
+flying.x+=flying.vx;
+flying.y+=flying.vy+wind.dir*wind.speed*0.03;
+flying.t++;
+// hit target
+if(flying.x>=380){
+const targetY=H/2;
+const dy=Math.abs(flying.y-targetY);
+let ring=0;
+if(dy<8)ring=10;
+else if(dy<18)ring=9;
+else if(dy<28)ring=8;
+else if(dy<38)ring=7;
+else if(dy<48)ring=6;
+else if(dy<58)ring=5;
+else if(dy<68)ring=4;
+else if(dy<78)ring=3;
+else if(dy<88)ring=2;
+else if(dy<98)ring=1;
+shots.push({x:420,y:flying.y,ring});
+totalScore+=ring;
+flying=null;
+document.getElementById('arrows').textContent=arrowCount;
+document.getElementById('totalScore').textContent=totalScore;
+if(arrowCount<=0){
+if(roundNum<3){roundNum++;arrowCount=10;genWind();document.getElementById('round').textContent=roundNum}
+else{setTimeout(()=>alert('比赛结束！总环数: '+totalScore),300)}
+}
+}
+}
+
+function draw(){
+ctx.fillStyle='#1a2a1a';ctx.fillRect(0,0,W,H);
+// target
+const tx=400,ty=H/2;
+const colors=['#fff','#fff','#ffd700','#ffd700','#f39c12','#f39c12','#e74c3c','#e74c3c','#333','#333'];
+for(let i=9;i>=0;i--){
+ctx.beginPath();ctx.arc(tx,ty,10*(10-i),0,Math.PI*2);
+ctx.fillStyle=colors[i];ctx.fill();
+ctx.strokeStyle='#666';ctx.lineWidth=0.5;ctx.stroke();
+}
+// wind indicator
+ctx.fillStyle='#8b949e';ctx.font='12px sans-serif';ctx.textAlign='center';
+ctx.fillText('风',W/2,20);
+ctx.strokeStyle='rgba(59,130,246,0.5)';ctx.lineWidth=2;
+const wLen=wind.speed*10;
+ctx.beginPath();ctx.moveTo(W/2,30);ctx.lineTo(W/2+wind.dir*wLen,30);ctx.stroke();
+// aim crosshair
+if(!flying){
+ctx.strokeStyle='rgba(59,130,246,0.5)';ctx.lineWidth=1;
+ctx.setLineDash([5,5]);
+ctx.beginPath();ctx.moveTo(50,aimY);ctx.lineTo(tx,aimY);ctx.stroke();
+ctx.setLineDash([]);
+ctx.beginPath();ctx.arc(50,aimY,8,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+// bow
+ctx.strokeStyle='#8B4513';ctx.lineWidth=3;
+ctx.beginPath();ctx.arc(40,aimY,25,-0.6,0.6);ctx.stroke();
+ctx.strokeStyle='#fff';ctx.lineWidth=1;
+ctx.beginPath();ctx.moveTo(40,aimY-25);ctx.lineTo(40,aimY+25);ctx.stroke();
+// arrow
+ctx.fillStyle='#8B4513';ctx.fillRect(45,aimY-1,30,2);
+ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(75,aimY);ctx.lineTo(70,aimY-4);ctx.lineTo(70,aimY+4);ctx.closePath();ctx.fill();
+}
+// flying arrow
+if(flying){
+ctx.save();ctx.translate(flying.x,flying.y);
+const angle=Math.atan2(flying.vy,flying.vx);
+ctx.rotate(angle);
+ctx.fillStyle='#8B4513';ctx.fillRect(-15,-1,30,2);
+ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(10,-4);ctx.lineTo(10,4);ctx.closePath();ctx.fill();
+ctx.restore();
+}
+// shot marks
+shots.forEach(s=>{
+ctx.beginPath();ctx.arc(s.x,s.y,3,0,Math.PI*2);
+ctx.fillStyle=s.ring>=7?'#ffd700':s.ring>=4?'#f39c12':'#e74c3c';ctx.fill();
+});
+if(pulling){
+const dy=aimY-pullStart;
+power=Math.min(Math.abs(dy)/100,1);
+ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='left';
+ctx.fillText('力度: '+Math.round(power*100)+'%',60,30);
+}
+}
+
+canvas.addEventListener('mousedown',e=>{
+if(flying||arrowCount<=0)return;
+const rect=canvas.getBoundingClientRect();
+const sy=H/rect.height;
+pulling=true;pullStart=(e.clientY-rect.top)*sy;aimY=pullStart;
+});
+canvas.addEventListener('mousemove',e=>{
+if(pulling){const rect=canvas.getBoundingClientRect();aimY=(e.clientY-rect.top)*(H/rect.height)}
+else{const rect=canvas.getBoundingClientRect();aimY=(e.clientY-rect.top)*(H/rect.height)}
+});
+canvas.addEventListener('mouseup',()=>{if(pulling){pulling=false;shoot()}});
+canvas.addEventListener('touchstart',e=>{e.preventDefault();if(flying||arrowCount<=0)return;const rect=canvas.getBoundingClientRect();pulling=true;pullStart=(e.touches[0].clientY-rect.top)*(H/rect.height);aimY=pullStart});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(pulling){const rect=canvas.getBoundingClientRect();aimY=(e.touches[0].clientY-rect.top)*(H/rect.height)}});
+canvas.addEventListener('touchend',()=>{if(pulling){pulling=false;shoot()}});
+
+function updateUI(){
+document.getElementById('totalScore').textContent=totalScore;
+document.getElementById('arrows').textContent=arrowCount;
+document.getElementById('round').textContent=roundNum;
+}
+
+function gameLoop(){update();draw();requestAnimationFrame(gameLoop)}
+newGame();gameLoop();
+</script>
+</body>
+</html>

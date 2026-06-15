@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>摄像头游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px}
+h1{font-size:1.5rem;margin-bottom:8px;color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.camera-wrap{position:relative;width:100%;max-width:400px;aspect-ratio:3/4;border-radius:12px;overflow:hidden;border:2px solid var(--border);margin-bottom:10px}
+video{width:100%;height:100%;object-fit:cover;display:block}
+canvas#overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.target-color{width:80px;height:80px;border-radius:16px;border:3px solid #fff;margin:10px auto;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.msg{font-size:1rem;padding:8px;text-align:center;min-height:35px;color:var(--accent)}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+.color-bar{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.color-swatch{width:30px;height:30px;border-radius:6px;border:2px solid transparent}
+.color-swatch.matched{border-color:var(--success);transform:scale(1.2)}
+.fallback{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;width:100%;max-width:400px}
+</style>
+</head>
+<body>
+<h1>📸 摄像头游戏</h1>
+<div class="info-bar">
+  <div class="info-item">🏆 分数: <span id="score">0</span></div>
+  <div class="info-item">🎯 <span id="round">1</span>/10</div>
+  <div class="info-item">⏱ <span id="timer">30</span>秒</div>
+</div>
+<div id="targetDisplay" style="text-align:center">
+  <div class="msg" id="msg">找到匹配这个颜色的物体</div>
+  <div class="target-color" id="targetColor"></div>
+</div>
+<div class="camera-wrap" id="cameraWrap">
+  <video id="video" autoplay playsinline></video>
+  <canvas id="overlay"></canvas>
+</div>
+<div class="color-bar" id="colorHistory"></div>
+<div class="buttons">
+  <button onclick="startGame()">▶ 开始</button>
+  <button onclick="stopCamera()">⏹ 停止</button>
+</div>
+<div id="fallbackMsg" class="fallback" style="display:none"></div>
+<script>
+const TARGET_COLORS=['#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+let stream=null,analyzing=false,score=0,roundNum=0,timer=30,timerInterval=null,targetColor='';
+let currentTarget=null;
+const video=document.getElementById('video');
+const overlay=document.getElementById('overlay');
+const octx=overlay.getContext('2d');
+
+async function startCamera(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}}});
+    video.srcObject=stream;
+    overlay.width=video.videoWidth||640;overlay.height=video.videoHeight||480;
+    return true;
+  }catch(e){
+    document.getElementById('fallbackMsg').style.display='block';
+    document.getElementById('fallbackMsg').innerHTML='⚠️ 无法访问摄像头<br>请允许摄像头权限或使用支持的浏览器<br><br>🎮 可以使用鼠标点击模拟颜色选择';
+    return false;
+  }
+}
+
+function stopCamera(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  analyzing=false;clearInterval(timerInterval);
+  video.srcObject=null;
+}
+
+function startGame(){
+  score=0;roundNum=0;timer=30;
+  document.getElementById('score').textContent=0;
+  document.getElementById('timer').textContent=30;
+  startCamera().then(ok=>{if(ok){nextRound();startAnalysis()}});
+}
+
+function nextRound(){
+  roundNum++;document.getElementById('round').textContent=roundNum;
+  if(roundNum>10){endGame();return}
+  targetColor=TARGET_COLORS[Math.floor(Math.random()*TARGET_COLORS.length)];
+  document.getElementById('targetColor').style.background=targetColor;
+  document.getElementById('msg').textContent='找到匹配这个颜色的物体！';
+  document.getElementById('colorHistory').innerHTML='';
+  timer=30;
+}
+
+function startAnalysis(){
+  analyzing=true;
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    timer--;document.getElementById('timer').textContent=timer;
+    if(timer<=0){endGame();return}
+    if(!analyzing)return;
+    analyzeFrame();
+  },500);
+}
+
+function analyzeFrame(){
+  if(!stream||!video.videoWidth)return;
+  overlay.width=video.videoWidth;overlay.height=video.videoHeight;
+  octx.drawImage(video,0,0);
+  const cx=Math.floor(overlay.width/2),cy=Math.floor(overlay.height/2);
+  const size=50;
+  const data=octx.getImageData(cx-size,cy-size,size*2,size*2).data;
+  let r=0,g=0,b=0,count=0;
+  for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];count++}
+  r=Math.round(r/count);g=Math.round(g/count);b=Math.round(b/count);
+  const detected=`rgb(${r},${g},${b})`;
+  octx.strokeStyle='rgba(59,130,246,0.8)';octx.lineWidth=3;
+  octx.strokeRect(cx-size,cy-size,size*2,size*2);
+  octx.fillStyle='rgba(59,130,246,0.8)';octx.font='14px sans-serif';
+  octx.fillText('采样区域',cx-30,cy-size-10);
+  // Check match
+  const tr=parseInt(targetColor.slice(1,3),16),tg=parseInt(targetColor.slice(3,5),16),tb=parseInt(targetColor.slice(5,7),16);
+  const diff=Math.sqrt((r-tr)**2+(g-tg)**2+(b-tb)**2);
+  if(diff<80){
+    score+=100;
+    document.getElementById('score').textContent=score;
+    document.getElementById('msg').textContent='✅ 颜色匹配！+100分';
+    document.getElementById('msg').style.color='var(--success)';
+    setTimeout(nextRound,1000);
+  }
+}
+
+function endGame(){
+  analyzing=false;clearInterval(timerInterval);
+  document.getElementById('msg').textContent=`游戏结束！得分: ${score}`;
+}
+
+// Fallback mode: click to score
+document.getElementById('targetColor').onclick=()=>{
+  if(!stream){
+    score+=50;document.getElementById('score').textContent=score;
+    document.getElementById('msg').textContent='✅ 模拟匹配！+50分';
+    roundNum++;document.getElementById('round').textContent=roundNum;
+    if(roundNum<=10)nextRound();else endGame();
+  }
+};
+</script>
+</body>
+</html>

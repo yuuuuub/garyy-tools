@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代码格式化</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#60a5fa;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.5rem;text-align:center;margin-bottom:20px}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:.85rem;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.btn-sm{padding:5px 10px;font-size:.75rem}
+.setting{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
+.setting select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.8rem}
+.editor-wrap{display:flex;gap:12px;min-height:400px}
+.editor-panel{flex:1;display:flex;flex-direction:column}
+.panel-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;font-size:.8rem;color:var(--muted)}
+.editor-area{position:relative;flex:1;border:1px solid var(--border);border-radius:0 0 8px 8px;overflow:hidden}
+textarea.code-input{width:100%;height:100%;min-height:350px;padding:12px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5;resize:vertical;outline:none;tab-size:2}
+.output-area{width:100%;height:100%;min-height:350px;padding:12px;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5;overflow:auto;white-space:pre;tab-size:2}
+.line-numbers{position:absolute;left:0;top:0;width:36px;height:100%;padding:12px 4px;background:rgba(255,255,255,.02);border-right:1px solid var(--border);font-family:monospace;font-size:.85rem;color:var(--muted);text-align:right;line-height:1.5;overflow:hidden;pointer-events:none}
+.has-lines .code-input{padding-left:44px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+@media(max-width:700px){.editor-wrap{flex-direction:column}.editor-area{min-height:200px}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔧 代码格式化</h1>
+<div class="tabs">
+<div class="tab active" onclick="switchLang('html',this)">HTML</div>
+<div class="tab" onclick="switchLang('css',this)">CSS</div>
+<div class="tab" onclick="switchLang('js',this)">JavaScript</div>
+</div>
+<div class="toolbar">
+<button class="btn btn-primary" onclick="beautify()">美化</button>
+<button class="btn btn-outline" onclick="minify()">压缩</button>
+<button class="btn btn-outline" onclick="copyOutput()">复制</button>
+<button class="btn btn-outline" onclick="clearAll()">清空</button>
+<div class="setting"><span>缩进:</span><select id="indentSize" onchange="beautify()"><option value="2">2 空格</option><option value="4">4 空格</option><option value="tab">Tab</option></select></div>
+</div>
+<div class="editor-wrap">
+<div class="editor-panel">
+<div class="panel-header"><span>输入</span><button class="btn btn-sm btn-outline" onclick="loadExample()">示例</button></div>
+<div class="editor-area has-lines">
+<div class="line-numbers" id="lineNumbers"></div>
+<textarea class="code-input" id="codeInput" placeholder="在此粘贴代码..." oninput="updateLines()" onscroll="syncScroll()"></textarea>
+</div>
+</div>
+<div class="editor-panel">
+<div class="panel-header"><span>输出</span><span id="outputInfo"></span></div>
+<div class="editor-area"><div class="output-area" id="codeOutput"></div></div>
+</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+let lang = 'html';
+function switchLang(l, el) {
+  lang = l;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('codeInput').value = '';
+  document.getElementById('codeOutput').textContent = '';
+  updateLines();
+}
+function updateLines() {
+  const ta = document.getElementById('codeInput');
+  const lines = ta.value.split('\n').length;
+  const ln = document.getElementById('lineNumbers');
+  ln.innerHTML = Array.from({length: lines}, (_, i) => i + 1).join('<br>');
+}
+function syncScroll() {
+  const ta = document.getElementById('codeInput');
+  document.getElementById('lineNumbers').scrollTop = ta.scrollTop;
+}
+function getIndent() {
+  const v = document.getElementById('indentSize').value;
+  return v === 'tab' ? '\t' : parseInt(v);
+}
+function beautify() {
+  const code = document.getElementById('codeInput').value;
+  if (!code.trim()) return;
+  let result;
+  if (lang === 'html') result = beautifyHTML(code, getIndent());
+  else if (lang === 'css') result = beautifyCSS(code, getIndent());
+  else result = beautifyJS(code, getIndent());
+  document.getElementById('codeOutput').textContent = result;
+  document.getElementById('outputInfo').textContent = `${result.split('\n').length} 行`;
+}
+function minify() {
+  const code = document.getElementById('codeInput').value;
+  if (!code.trim()) return;
+  let result;
+  if (lang === 'html') result = code.replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim();
+  else if (lang === 'css') result = code.replace(/\s+/g, ' ').replace(/\s*([{}:;,])\s*/g, '$1').trim();
+  else result = code.replace(/\s+/g, ' ').replace(/\s*([{}();,=+\-<>!&|])\s*/g, '$1').trim();
+  document.getElementById('codeOutput').textContent = result;
+  document.getElementById('outputInfo').textContent = `${result.length} 字符`;
+}
+function beautifyHTML(code, indent) {
+  const ind = typeof indent === 'number' ? ' '.repeat(indent) : indent;
+  let result = '', level = 0;
+  const tokens = code.replace(/>\s+</g, '><').split(/(<[^>]+>)/g).filter(t => t.trim());
+  tokens.forEach(token => {
+    if (token.match(/^<\/\w/)) level = Math.max(0, level - 1);
+    result += ind.repeat(level) + token.trim() + '\n';
+    if (token.match(/^<\w[^>]*[^\/]>$/) && !token.match(/^<(br|hr|img|input|meta|link)/i)) level++;
+  });
+  return result.trim();
+}
+function beautifyCSS(code, indent) {
+  const ind = typeof indent === 'number' ? ' '.repeat(indent) : indent;
+  let result = '', level = 0;
+  const chars = code.replace(/\s+/g, ' ').trim();
+  let buffer = '';
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (ch === '{') {
+      result += buffer.trim() + ' {\n';
+      buffer = '';
+      level++;
+    } else if (ch === '}') {
+      if (buffer.trim()) result += ind.repeat(level) + buffer.trim() + '\n';
+      buffer = '';
+      level = Math.max(0, level - 1);
+      result += ind.repeat(level) + '}\n\n';
+    } else if (ch === ';' && level > 0) {
+      result += ind.repeat(level) + buffer.trim() + ';\n';
+      buffer = '';
+    } else {
+      buffer += ch;
+    }
+  }
+  if (buffer.trim()) result += buffer.trim();
+  return result.trim();
+}
+function beautifyJS(code, indent) {
+  const ind = typeof indent === 'number' ? ' '.repeat(indent) : indent;
+  let result = '', level = 0;
+  const chars = code.replace(/\s+/g, ' ').trim();
+  let inStr = false, strCh = '';
+  let buffer = '';
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (inStr) { buffer += ch; if (ch === strCh && chars[i-1] !== '\\') inStr = false; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = true; strCh = ch; buffer += ch; continue; }
+    if (ch === '{') {
+      result += buffer.trim() + ' {\n';
+      buffer = ''; level++;
+    } else if (ch === '}') {
+      if (buffer.trim()) result += ind.repeat(level) + buffer.trim() + '\n';
+      buffer = ''; level = Math.max(0, level - 1);
+      result += ind.repeat(level) + '}\n';
+    } else if (ch === ';' && level > 0) {
+      result += ind.repeat(level) + buffer.trim() + ';\n';
+      buffer = '';
+    } else { buffer += ch; }
+  }
+  if (buffer.trim()) result += buffer.trim();
+  return result.trim();
+}
+function copyOutput() {
+  const text = document.getElementById('codeOutput').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => showToast('已复制'));
+}
+function clearAll() {
+  document.getElementById('codeInput').value = '';
+  document.getElementById('codeOutput').textContent = '';
+  updateLines();
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+function loadExample() {
+  const examples = {
+    html: '<div class="container"><header><h1>标题</h1><nav><a href="#">首页</a><a href="#">关于</a></nav></header><main><p>内容</p></main></div>',
+    css: 'body{margin:0;padding:0;background:#fff;color:#333}.container{max-width:1200px;margin:0 auto}h1{font-size:2rem;color:#000}.btn{padding:10px 20px;border:none;border-radius:4px;cursor:pointer}',
+    js: 'function greet(name){console.log("Hello, "+name)}const numbers=[1,2,3,4,5];const doubled=numbers.map(n=>n*2);if(doubled.length>0){greet("World")}'
+  };
+  document.getElementById('codeInput').value = examples[lang];
+  updateLines();
+  beautify();
+}
+updateLines();
+</script>
+</body>
+</html>

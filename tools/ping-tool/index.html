@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ping工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--red:#f85149}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.input-row{display:flex;gap:8px;margin-bottom:16px}
+.input-row input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;outline:none}
+.input-row input:focus{border-color:var(--accent)}
+.btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{opacity:.9}
+.btn-danger{background:var(--red)}
+.quick-nodes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.node-btn{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:12px}
+.node-btn:hover{border-color:var(--accent);color:var(--accent)}
+.terminal{background:#000;border-radius:12px;padding:16px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px;line-height:1.8;max-height:400px;overflow-y:auto;min-height:200px;white-space:pre-wrap;word-break:break-all}
+.terminal .green{color:var(--green)}
+.terminal .red{color:var(--red)}
+.terminal .muted{color:var(--muted)}
+.terminal .accent{color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.stat-card .value{font-size:24px;font-weight:600;color:var(--accent)}
+.stat-card .label{font-size:12px;color:var(--muted);margin-top:4px}
+@media(max-width:600px){.container{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">📡</span>
+<h1>Ping工具</h1>
+</div>
+<div class="container">
+<div class="input-row">
+<input type="text" id="host" placeholder="输入IP或域名" onkeydown="if(event.key==='Enter')startPing()">
+<button class="btn" id="pingBtn" onclick="startPing()">开始Ping</button>
+<button class="btn btn-danger" id="stopBtn" onclick="stopPing()" style="display:none">停止</button>
+</div>
+<div class="quick-nodes">
+<button class="node-btn" onclick="quickPing('1.1.1.1')">Cloudflare</button>
+<button class="node-btn" onclick="quickPing('8.8.8.8')">Google DNS</button>
+<button class="node-btn" onclick="quickPing('223.5.5.5')">阿里DNS</button>
+<button class="node-btn" onclick="quickPing('119.29.29.29')">腾讯DNS</button>
+<button class="node-btn" onclick="quickPing('baidu.com')">百度</button>
+<button class="node-btn" onclick="quickPing('qq.com')">腾讯</button>
+<button class="node-btn" onclick="quickPing('taobao.com')">淘宝</button>
+</div>
+<div class="terminal" id="terminal"><span class="muted">就绪，输入IP或域名开始测试...</span></div>
+<div class="stats" id="stats" style="display:none">
+<div class="stat-card"><div class="value" id="statMin">-</div><div class="label">最低延迟</div></div>
+<div class="stat-card"><div class="value" id="statMax">-</div><div class="label">最高延迟</div></div>
+<div class="stat-card"><div class="value" id="statAvg">-</div><div class="label">平均延迟</div></div>
+<div class="stat-card"><div class="value" id="statLoss">-</div><div class="label">丢包率</div></div>
+</div>
+</div>
+<script>
+let pingTimer=null,results=[],totalSent=0,totalLost=0;
+function quickPing(host){document.getElementById('host').value=host;startPing()}
+function startPing(){
+const host=document.getElementById('host').value.trim();
+if(!host)return;
+stopPing();
+results=[];totalSent=0;totalLost=0;
+document.getElementById('terminal').innerHTML='';
+document.getElementById('stats').style.display='none';
+document.getElementById('pingBtn').style.display='none';
+document.getElementById('stopBtn').style.display='inline-block';
+const term=document.getElementById('terminal');
+term.innerHTML+=`<span class="accent">正在 Ping ${host}：</span>\n`;
+pingTimer=setInterval(()=>pingOnce(host),1000);
+pingOnce(host);
+}
+function pingOnce(host){
+const start=performance.now();
+totalSent++;
+const img=new Image();
+img.src=`https://www.google.com/favicon.ico?_=${Date.now()}`;
+img.onload=img.onerror=()=>{
+const ms=Math.round(performance.now()-start);
+results.push(ms);
+const cls=ms<100?'green':ms<300?'':'red';
+const line=`<span class="${cls}">来自 ${host} 的回复: 时间=${ms}ms</span>\n`;
+document.getElementById('terminal').innerHTML+=line;
+document.getElementById('terminal').scrollTop=99999;
+updateStats();
+};
+}
+function stopPing(){
+clearInterval(pingTimer);
+document.getElementById('pingBtn').style.display='inline-block';
+document.getElementById('stopBtn').style.display='none';
+}
+function updateStats(){
+if(results.length===0)return;
+document.getElementById('stats').style.display='grid';
+const min=Math.min(...results),max=Math.max(...results);
+const avg=Math.round(results.reduce((a,b)=>a+b,0)/results.length);
+document.getElementById('statMin').textContent=min+'ms';
+document.getElementById('statMax').textContent=max+'ms';
+document.getElementById('statAvg').textContent=avg+'ms';
+document.getElementById('statLoss').textContent=totalLost+'/'+totalSent;
+}
+</script>
+</body>
+</html>

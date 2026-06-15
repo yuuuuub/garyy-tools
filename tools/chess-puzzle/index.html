@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>象棋残局</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444;--red:#ef4444;--black:#e6edf3}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px}
+h1{font-size:1.5rem;margin-bottom:8px;color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.board-wrap{position:relative;margin-bottom:10px}
+canvas{border-radius:8px;cursor:pointer;max-width:100%}
+.message{font-size:1rem;padding:8px;text-align:center;min-height:35px;color:var(--accent)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+button.secondary{background:var(--card);border:1px solid var(--border);color:var(--text)}
+.puzzle-info{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;width:100%;max-width:420px;font-size:0.9rem}
+</style>
+</head>
+<body>
+<h1>♟️ 象棋残局</h1>
+<div class="info-bar">
+  <div class="info-item">📖 <span id="puzzleNum">1</span>/5</div>
+  <div class="info-item">✅ 已解: <span id="solved">0</span></div>
+</div>
+<div class="puzzle-info" id="puzzleInfo"></div>
+<div class="board-wrap">
+  <canvas id="board"></canvas>
+</div>
+<div class="message" id="msg">点击棋子选择，再点击目标位置</div>
+<div class="btn-row">
+  <button onclick="prevPuzzle()">◀ 上一局</button>
+  <button onclick="nextPuzzle()">下一局 ▶</button>
+  <button class="secondary" onclick="showHint()">💡 提示</button>
+  <button class="secondary" onclick="showSolution()">📖 解法</button>
+  <button class="secondary" onclick="resetPuzzle()">🔄 重置</button>
+</div>
+<script>
+const PIECES={
+  '帅':{color:'red',moves:'king'},'将':{color:'black',moves:'king'},
+  '车':{color:'red',moves:'rook'},'車':{color:'black',moves:'rook'},
+  '马':{color:'red',moves:'horse'},'馬':{color:'black',moves:'horse'},
+  '炮':{color:'red',moves:'cannon'},'砲':{color:'black',moves:'cannon'},
+  '兵':{color:'red',moves:'pawn'},'卒':{color:'black',moves:'pawn'},
+  '相':{color:'red',moves:'elephant'},'象':{color:'black',moves:'elephant'},
+  '仕':{color:'red',moves:'advisor'},'士':{color:'black',moves:'advisor'}
+};
+// 5 puzzles: [board array, hint, solution array]
+// board: 10 rows x 9 cols, null=empty, {name, color}
+const PUZZLES=[
+  {
+    title:'白脸将（利用将帅对面规则获胜）',
+    hint:'用红车将军，迫使黑将移位后利用对面将规则取胜',
+    setup:[['車',null,null,null,'将',null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,'帅',null,null,null,null]],
+    solution:[[{r:0,c:0},{r:0,c:3}]]
+  },
+  {
+    title:'马后炮绝杀（经典杀法）',
+    hint:'先跳马挂角将军，再用炮在马后将军形成绝杀',
+    setup:[[null,null,null,null,'将',null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,'炮',null,null,null,null,null],[null,null,null,null,'马',null,null,null,null],[null,null,null,null,'帅',null,null,null,null]],
+    solution:[[{r:8,c:4},{r:7,c:2}]]
+  },
+  {
+    title:'双车错（双车连续将军）',
+    hint:'用双车交替将军，不给黑方喘息机会',
+    setup:[[null,null,null,null,'将',null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,'車',null,null],[null,null,null,null,null,null,null,null,['車',null,null,null,'帅',null,null,null,null]],
+    solution:[[{r:7,c:6},{r:0,c:6}]]
+  },
+  {
+    title:'大胆穿心（兵直插中心）',
+    hint:'用兵逐步推进到中心位置，配合其他棋子将军',
+    setup:[[null,null,null,null,'将',null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,'兵',null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,'帅',null,null,null,null]],
+    solution:[[{r:6,c:3},{r:0,c:3}]]
+  },
+  {
+    title:'铁门栓（炮镇中路配合车杀）',
+    hint:'炮在中路控制，车从侧翼将军',
+    setup:[[null,null,null,null,'将',null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,'炮',null,null,null,null,null],[null,null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,null,null,null,null],[null,null,null,null,'帅',null,null,null,null]],
+    solution:[[{r:5,c:3},{r:0,c:3}]]
+  }
+];
+let currentPuzzle=0,board=[],selectedPiece=null,solvedCount=0,hintUsed=false;
+
+const CELL=42;
+const BOARD_W=9*CELL+40;
+const BOARD_H=10*CELL+40;
+
+function initPuzzle(){
+  const p=PUZZLES[currentPuzzle];
+  board=p.setup.map(row=>row.map(cell=>{
+    if(!cell)return null;
+    if(typeof cell==='string')return PIECES[cell]?{name:cell,color:PIECES[cell].color}:null;
+    return null;
+  }));
+  // Fix the setup arrays to handle nested arrays
+  board=p.setup.map(row=>row.map(cell=>{
+    if(!cell)return null;
+    const name=Array.isArray(cell)?cell[0]:cell;
+    return PIECES[name]?{name,color:PIECES[name].color}:null;
+  }));
+  selectedPiece=null;hintUsed=false;
+  document.getElementById('puzzleNum').textContent=currentPuzzle+1;
+  document.getElementById('puzzleInfo').innerHTML=`<strong>${p.title}</strong>`;
+  document.getElementById('msg').textContent='点击棋子选择，再点击目标位置';
+  render();
+}
+
+function render(){
+  const canvas=document.getElementById('board');
+  canvas.width=BOARD_W;canvas.height=BOARD_H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#1a1500';
+  ctx.fillRect(0,0,BOARD_W,BOARD_H);
+  // Draw grid
+  ctx.strokeStyle='#8B7355';ctx.lineWidth=1;
+  for(let r=0;r<10;r++){ctx.beginPath();ctx.moveTo(20,20+r*CELL);ctx.lineTo(20+8*CELL,20+r*CELL);ctx.stroke()}
+  for(let c=0;c<9;c++){ctx.beginPath();ctx.moveTo(20+c*CELL,20);ctx.lineTo(20+c*CELL,20+9*CELL);ctx.stroke()}
+  // Palace diagonals
+  ctx.beginPath();ctx.moveTo(20+3*CELL,20);ctx.lineTo(20+5*CELL,20+2*CELL);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(20+5*CELL,20);ctx.lineTo(20+3*CELL,20+2*CELL);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(20+3*CELL,20+7*CELL);ctx.lineTo(20+5*CELL,20+9*CELL);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(20+5*CELL,20+7*CELL);ctx.lineTo(20+3*CELL,20+9*CELL);ctx.stroke();
+  // River
+  ctx.fillStyle='#1a1500';ctx.fillRect(20,20+4*CELL,8*CELL,CELL);
+  ctx.fillStyle='#8B7355';ctx.font='14px sans-serif';ctx.textAlign='center';
+  ctx.fillText('楚 河',20+2*CELL,20+4.6*CELL);
+  ctx.fillText('漢 界',20+6*CELL,20+4.6*CELL);
+  // Draw pieces
+  board.forEach((row,r)=>{
+    row.forEach((piece,c)=>{
+      const x=20+c*CELL,y=20+r*CELL;
+      if(piece){
+        const isRed=piece.color==='red';
+        const isSelected=selectedPiece&&selectedPiece.r===r&&selectedPiece.c===c;
+        ctx.beginPath();ctx.arc(x,y,CELL*0.42,0,Math.PI*2);
+        ctx.fillStyle=isSelected?'#3b82f6':isRed?'#8B0000':'#1a1a1a';ctx.fill();
+        ctx.strokeStyle=isSelected?'#60a5fa':isRed?'#cc3333':'#666';ctx.lineWidth=2;ctx.stroke();
+        ctx.fillStyle=isRed?'#ff6b6b':'#e6edf3';
+        ctx.font=`bold ${CELL*0.4}px 'KaiTi','SimKai',serif`;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(piece.name,x,y+1);
+      }
+    });
+  });
+}
+
+document.getElementById('board').addEventListener('click',e=>{
+  const rect=e.target.getBoundingClientRect();
+  const sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+  const scale=BOARD_W/rect.width;
+  const x=sx*scale,y=sy*scale;
+  const c=Math.round((x-20)/CELL),r=Math.round((y-20)/CELL);
+  if(r<0||r>8||c<0||c>8)return;
+  if(!selectedPiece){
+    const piece=board[r][c];
+    if(piece&&piece.color==='red'){selectedPiece={r,c,name:piece.name};document.getElementById('msg').textContent=`已选择${piece.name}，点击目标位置`;render()}
+  } else {
+    if(selectedPiece.r===r&&selectedPiece.c===c){selectedPiece=null;render();return}
+    if(board[r][c]&&board[r][c].color==='red'){selectedPiece={r,c,name:board[r][c].name};render();return}
+    // Simple move validation
+    if(isValidMove(selectedPiece,r,c)){
+      const captured=board[r][c];
+      board[r][c]=board[selectedPiece.r][selectedPiece.c];
+      board[selectedPiece.r][selectedPiece.c]=null;
+      selectedPiece=null;
+      if(captured&&captured.name==='将'){
+        document.getElementById('msg').textContent='🎉 将军！黑将被擒！';
+      } else {
+        document.getElementById('msg').textContent='已移动，继续下一步';
+      }
+      render();
+    } else {
+      document.getElementById('msg').textContent='无效移动，请重试';
+      selectedPiece=null;render();
+    }
+  }
+});
+
+function isValidMove(piece,tr,tc){
+  const pr=piece.r,pc=piece.c;
+  const dr=tr-pr,dc=tc-pc;
+  const adr=Math.abs(dr),adc=Math.abs(dc);
+  const name=piece.name;
+  if(name==='车'||name==='車'){
+    if(dr!==0&&dc!==0)return false;
+    return isPathClear(pr,pc,tr,tc);
+  }
+  if(name==='马'||name==='馬'){
+    if(!((adr===2&&adc===1)||(adr===1&&adc===2)))return false;
+    const blockR=adr===2?pr+dr/2:pr;
+    const blockC=adc===2?pc+dc/2:pc;
+    return !board[blockR][blockC];
+  }
+  if(name==='炮'||name==='砲'){
+    const clear=isPathClear(pr,pc,tr,tc);
+    if(clear)return!board[tr][tc];
+    let count=0;
+    if(dr===0){const min=Math.min(pc,tc)+1,max=Math.max(pc,tc);for(let c=min;c<max;c++)if(board[pr][c])count++;return count===1&&!!board[tr][tc]}
+    if(dc===0){const min=Math.min(pr,tr)+1,max=Math.max(pr,tr);for(let r=min;r<max;r++)if(board[r][pc])count++;return count===1&&!!board[tr][tc]}
+    return false;
+  }
+  if(name==='帅'||name==='将'){
+    if(adr+adc!==1)return false;
+    if(tr<0||tr>2||tc<3||tc>5)return false;
+    return true;
+  }
+  if(name==='仕'||name==='士'){
+    if(adr!==1||adc!==1)return false;
+    if(name==='仕'){if(tr<7||tc<3||tc>5)return false}
+    else{if(tr>2||tc<3||tc>5)return false}
+    return true;
+  }
+  if(name==='相'||name==='象'){
+    if(adr!==2||adc!==2)return false;
+    if(board[pr+dr/2][pc+dc/2])return false;
+    if(name==='相'){if(tr>4)return false}else{if(tr<5)return false}
+    return true;
+  }
+  if(name==='兵'){
+    if(dr>0||adr+adc!==1)return false;
+    if(dr===-1&&dc===0){if(pr>=5)return true;return false}
+    if(dr===0){if(pr>=5)return adc===1;return false}
+    return false;
+  }
+  if(name==='卒'){
+    if(dr<0||adr+adc!==1)return false;
+    if(dr===1&&dc===0){if(pr<=4)return true;return false}
+    if(dr===0){if(pr<=4)return adc===1;return false}
+    return false;
+  }
+  return false;
+}
+
+function isPathClear(r1,c1,r2,c2){
+  if(r1===r2){const min=Math.min(c1,c2)+1,max=Math.max(c1,c2);for(let c=min;c<max;c++)if(board[r1][c])return false;return true}
+  if(c1===c2){const min=Math.min(r1,r2)+1,max=Math.max(r1,r2);for(let r=min;r<max;r++)if(board[r][c1])return false;return true}
+  return false;
+}
+
+function showHint(){
+  const p=PUZZLES[currentPuzzle];
+  document.getElementById('msg').textContent='💡 提示: '+p.hint;
+  hintUsed=true;
+}
+
+function showSolution(){
+  const p=PUZZLES[currentPuzzle];
+  const move=p.solution[0];
+  document.getElementById('msg').textContent=`解法: 从(${move[0].r},${move[0].c})→(${move[1].r},${move[1].c})`;
+}
+
+function resetPuzzle(){initPuzzle()}
+function prevPuzzle(){currentPuzzle=(currentPuzzle-1+PUZZLES.length)%PUZZLES.length;initPuzzle()}
+function nextPuzzle(){currentPuzzle=(currentPuzzle+1)%PUZZLES.length;initPuzzle()}
+
+initPuzzle();
+</script>
+</body>
+</html>

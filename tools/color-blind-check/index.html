@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色盲检查</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#60a5fa;--success:#4ade80;--warning:#fbbf24;--danger:#f87171;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+.container{width:100%;max-width:500px}
+h1{font-size:1.5rem;text-align:center;margin-bottom:8px}
+.subtitle{text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.progress{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.progress-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.progress-text{font-size:.8rem;color:var(--muted);white-space:nowrap}
+.plate-container{display:flex;justify-content:center;margin:20px 0}
+.plate{position:relative;width:260px;height:260px;border-radius:50%;overflow:hidden}
+.dot{position:absolute;border-radius:50%}
+.input-area{display:flex;gap:10px;margin-top:16px}
+.num-btn{flex:1;padding:14px;border:2px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:1.2rem;cursor:pointer;transition:.2s}
+.num-btn:hover{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.num-btn.selected{border-color:var(--accent);background:var(--accent);color:#fff}
+.actions{display:flex;gap:10px;justify-content:center;margin-top:16px}
+.btn{padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.result-card{text-align:center}
+.score{font-size:3rem;font-weight:700;margin:16px 0}
+.score.normal{color:var(--success)}.score.warning{color:var(--warning)}.score.danger{color:var(--danger)}
+.result-detail{color:var(--muted);margin:8px 0;line-height:1.8}
+.btn-reset{margin-top:16px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>👁️ 色盲检查</h1>
+<p class="subtitle">Ishihara 色盲测试 - 请识别色盘中的数字</p>
+
+<div class="card" id="testCard">
+<div class="progress">
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+<div class="progress-text" id="progressText">1 / 8</div>
+</div>
+<div class="plate-container"><div class="plate" id="plate"></div></div>
+<p style="text-align:center;color:var(--muted);margin:12px 0" id="hintText">请输入您看到的数字（看不清按"看不清"）</p>
+<div class="input-area" id="numBtns"></div>
+<div class="actions">
+<button class="btn btn-outline" id="clearBtn" onclick="clearAnswer()">清除</button>
+<button class="btn btn-primary" id="submitBtn" onclick="submitAnswer()" disabled>确定</button>
+<button class="btn btn-outline" id="skipBtn" onclick="skipPlate()">看不清</button>
+</div>
+</div>
+
+<div class="card result-card hidden" id="resultCard">
+<div style="font-size:1rem;color:var(--muted)">检查结果</div>
+<div class="score" id="scoreText"></div>
+<div class="result-detail" id="resultDetail"></div>
+<button class="btn btn-primary btn-reset" onclick="resetTest()">重新测试</button>
+</div>
+</div>
+
+<script>
+const plates = [
+  { answer: '12', colors: { main: [40,160,60], bg: [200,80,80], dots: 200 }, desc: '红色-绿色对比' },
+  { answer: '8', colors: { main: [60,180,80], bg: [200,100,50], dots: 200 }, desc: '绿色-橙色对比' },
+  { answer: '6', colors: { main: [180,50,50], bg: [50,150,50], dots: 200 }, desc: '红色-绿色对比' },
+  { answer: '29', colors: { main: [50,180,60], bg: [200,80,70], dots: 250 }, desc: '红绿混合测试' },
+  { answer: '57', colors: { main: [200,80,50], bg: [60,170,70], dots: 200 }, desc: '橙色-绿色对比' },
+  { answer: '45', colors: { main: [50,160,50], bg: [200,70,70], dots: 220 }, desc: '红绿辨别测试' },
+  { answer: '16', colors: { main: [180,60,60], bg: [60,160,60], dots: 200 }, desc: '深度红绿测试' },
+  { answer: '73', colors: { main: [60,170,70], bg: [190,80,60], dots: 230 }, desc: '综合色觉测试' }
+];
+
+const plateAnswers = [null, null, null, null, null, null, null, null];
+let currentPlate = 0;
+let selectedAnswer = null;
+
+function generatePlate(index) {
+  const plate = plates[index];
+  const container = document.getElementById('plate');
+  container.innerHTML = '';
+  const size = 260;
+  const center = size / 2;
+  const radius = size / 2 - 5;
+
+  for (let i = 0; i < plate.colors.dots; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * radius;
+    const x = center + Math.cos(angle) * r;
+    const y = center + Math.sin(angle) * r;
+
+    const distFromCenter = Math.sqrt((x - center) ** 2 + (y - center) ** 2);
+    const maxR = radius * 0.35;
+    const isMain = distFromCenter < maxR && Math.random() > 0.15;
+
+    const rgb = isMain ? plate.colors.main : plate.colors.bg;
+    const variation = () => Math.floor(Math.random() * 30 - 15);
+    const cr = Math.min(255, Math.max(0, rgb[0] + variation()));
+    const cg = Math.min(255, Math.max(0, rgb[1] + variation()));
+    const cb = Math.min(255, Math.max(0, rgb[2] + variation()));
+
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    const dotSize = 4 + Math.random() * 5;
+    dot.style.cssText = `left:${x - dotSize / 2}px;top:${y - dotSize / 2}px;width:${dotSize}px;height:${dotSize}px;background:rgb(${cr},${cg},${cb})`;
+    container.appendChild(dot);
+  }
+
+  document.getElementById('progressFill').style.width = ((index + 1) / plates.length * 100) + '%';
+  document.getElementById('progressText').textContent = `${index + 1} / ${plates.length}`;
+  document.getElementById('hintText').textContent = `第${index + 1}题 - 请识别色盘中的数字（${plate.desc}）`;
+}
+
+function initNumBtns() {
+  const container = document.getElementById('numBtns');
+  container.innerHTML = '';
+  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+  for (const n of nums) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.textContent = n;
+    btn.onclick = () => {
+      document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedAnswer = selectedAnswer === null ? '' + n : selectedAnswer + n;
+      btn.textContent = selectedAnswer.slice(-1);
+      document.getElementById('submitBtn').disabled = false;
+      setTimeout(() => { btn.textContent = n; }, 300);
+    };
+    container.appendChild(btn);
+  }
+}
+
+function clearAnswer() {
+  selectedAnswer = null;
+  document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('submitBtn').disabled = true;
+}
+
+function submitAnswer() {
+  plateAnswers[currentPlate] = selectedAnswer;
+  clearAnswer();
+  currentPlate++;
+  if (currentPlate >= plates.length) {
+    showResult();
+  } else {
+    generatePlate(currentPlate);
+  }
+}
+
+function skipPlate() {
+  plateAnswers[currentPlate] = '__skip__';
+  clearAnswer();
+  currentPlate++;
+  if (currentPlate >= plates.length) {
+    showResult();
+  } else {
+    generatePlate(currentPlate);
+  }
+}
+
+function showResult() {
+  document.getElementById('testCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.remove('hidden');
+
+  let correct = 0, skipped = 0;
+  plates.forEach((p, i) => {
+    if (plateAnswers[i] === p.answer) correct++;
+    if (plateAnswers[i] === '__skip__') skipped++;
+  });
+
+  const score = Math.round(correct / plates.length * 100);
+  const scoreEl = document.getElementById('scoreText');
+  scoreEl.textContent = score + '分';
+
+  let type, desc;
+  if (score >= 88) {
+    type = 'normal'; desc = '色觉正常';
+    scoreEl.className = 'score normal';
+  } else if (score >= 60) {
+    type = 'warning'; desc = '可能存在轻度色觉异常';
+    scoreEl.className = 'score warning';
+  } else {
+    type = 'danger'; desc = '可能存在色觉障碍，建议咨询眼科医生';
+    scoreEl.className = 'score danger';
+  }
+
+  let detail = `正确 ${correct}/${plates.length} 题，跳过 ${skipped} 题<br><br>`;
+  detail += `结果判定：<strong>${desc}</strong><br><br>`;
+  detail += `各题详情：<br>`;
+  plates.forEach((p, i) => {
+    const answer = plateAnswers[i] === '__skip__' ? '未回答' : (plateAnswers[i] || '未回答');
+    const isCorrect = plateAnswers[i] === p.answer;
+    detail += `第${i + 1}题：${answer}（正确答案：${p.answer}）${isCorrect ? '✅' : '❌'}<br>`;
+  });
+
+  document.getElementById('resultDetail').innerHTML = detail;
+}
+
+function resetTest() {
+  currentPlate = 0;
+  plateAnswers.fill(null);
+  clearAnswer();
+  document.getElementById('testCard').classList.remove('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  generatePlate(0);
+}
+
+generatePlate(0);
+initNumBtns();
+</script>
+</body>
+</html>

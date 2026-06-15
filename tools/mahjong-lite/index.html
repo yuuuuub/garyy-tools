@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简化麻将</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin-bottom:10px;color:var(--accent)}
+.info-bar{display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.9rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.board{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-width:500px;width:100%;margin-bottom:15px}
+.tile{aspect-ratio:3/4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:bold;cursor:pointer;transition:all 0.3s;user-select:none;border:2px solid var(--border);background:var(--card)}
+.tile.flipped{transform:rotateY(0)}
+.tile.unflipped{background:linear-gradient(135deg,#1a2332,#0d1520);border-color:#2a3a4a}
+.tile.unflipped::after{content:'🀄';font-size:1.8rem;opacity:0.3}
+.tile.matched{opacity:0;transform:scale(0.5);pointer-events:none;transition:all 0.5s}
+.tile .face{display:none;width:100%;height:100%;align-items:center;justify-content:center;border-radius:8px}
+.tile.flipped .face{display:flex}
+.tile[data-suit="wan"]{border-color:#ff6b6b}
+.tile[data-suit="tiao"]{border-color:#51cf66}
+.tile[data-suit="tong"]{border-color:#339af0}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;cursor:pointer;font-family:inherit;transition:all 0.2s}
+button:hover{opacity:0.85;transform:scale(1.02)}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:100}
+.overlay .box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px;text-align:center;max-width:350px}
+.overlay h2{color:var(--accent);margin-bottom:15px;font-size:1.5rem}
+.overlay p{margin-bottom:10px;font-size:1rem}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<h1>🀄 简化麻将</h1>
+<div class="info-bar">
+  <div class="info-item">⏱ 时间: <span id="timer">0</span>秒</div>
+  <div class="info-item">🔄 步数: <span id="moves">0</span></div>
+  <div class="info-item">🏆 分数: <span id="score">0</span></div>
+  <div class="info-item">⭐ 最高: <span id="best">0</span></div>
+</div>
+<div class="board" id="board"></div>
+<div class="buttons">
+  <button onclick="startGame()">🔄 重新开始</button>
+</div>
+<div class="overlay hidden" id="winOverlay">
+  <div class="box">
+    <h2>🎉 恭喜通关！</h2>
+    <p>用时: <span id="finalTime">0</span>秒</p>
+    <p>步数: <span id="finalMoves">0</span></p>
+    <p>得分: <span id="finalScore">0</span></p>
+    <button onclick="startGame();document.getElementById('winOverlay').classList.add('hidden')">再来一局</button>
+  </div>
+</div>
+<script>
+const SUITS = [
+  {name:'万',key:'wan',chars:['一','二','三','四','五','六','七','八']},
+  {name:'条',key:'tiao',chars:['一','二','三','四','五','六','七','八']},
+  {name:'筒',key:'tong',chars:['一','二','三','四','五','六','七','八']}
+];
+let tiles=[], flipped=[], matched=0, moves=0, score=0, timer=0, timerInterval=null, best=parseInt(localStorage.getItem('mj_best')||'0');
+document.getElementById('best').textContent=best;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function createTiles(){
+  tiles=[];
+  SUITS.forEach(s=>{
+    s.chars.forEach((c,i)=>{
+      tiles.push({suit:s.key,char:c,label:c+s.name,id:tiles.length});
+      tiles.push({suit:s.key,char:c,label:c+s.name,id:tiles.length});
+    });
+  });
+  // 4x8=32 tiles = 16 pairs, take first 16 pairs
+  tiles=shuffle(tiles).slice(0,32);
+}
+
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  tiles.forEach((t,i)=>{
+    const div=document.createElement('div');
+    div.className='tile unflipped';
+    div.dataset.suit=t.suit;
+    div.dataset.idx=i;
+    div.innerHTML=`<div class="face" style="background:var(--card);font-size:1.3rem"><div style="text-align:center"><div style="font-size:1.6rem">${t.char}</div><div style="font-size:0.7rem;color:var(--text);opacity:0.7">${t.name}</div></div></div>`;
+    div.onclick=()=>flipTile(i);
+    board.appendChild(div);
+  });
+}
+
+function flipTile(i){
+  const el=document.querySelector(`.tile[data-idx="${i}"]`);
+  if(!el||el.classList.contains('flipped')||el.classList.contains('matched')||flipped.length>=2)return;
+  el.classList.remove('unflipped');
+  el.classList.add('flipped');
+  flipped.push(i);
+  if(flipped.length===2){
+    moves++;
+    document.getElementById('moves').textContent=moves;
+    const [a,b]=flipped;
+    if(tiles[a].suit===tiles[b].suit&&tiles[a].char===tiles[b].char&&a!==b){
+      score+=100;
+      document.getElementById('score').textContent=score;
+      setTimeout(()=>{
+        document.querySelector(`.tile[data-idx="${a}"]`).classList.add('matched');
+        document.querySelector(`.tile[data-idx="${b}"]`).classList.add('matched');
+        matched+=2;
+        flipped=[];
+        if(matched===tiles.length) win();
+      },400);
+    } else {
+      score=Math.max(0,score-10);
+      document.getElementById('score').textContent=score;
+      setTimeout(()=>{
+        document.querySelector(`.tile[data-idx="${a}"]`).classList.remove('flipped');
+        document.querySelector(`.tile[data-idx="${a}"]`).classList.add('unflipped');
+        document.querySelector(`.tile[data-idx="${b}"]`).classList.remove('flipped');
+        document.querySelector(`.tile[data-idx="${b}"]`).classList.add('unflipped');
+        flipped=[];
+      },700);
+    }
+  }
+}
+
+function win(){
+  clearInterval(timerInterval);
+  if(score>best){best=score;localStorage.setItem('mj_best',best);document.getElementById('best').textContent=best}
+  document.getElementById('finalTime').textContent=timer;
+  document.getElementById('finalMoves').textContent=moves;
+  document.getElementById('finalScore').textContent=score;
+  document.getElementById('winOverlay').classList.remove('hidden');
+}
+
+function startGame(){
+  document.getElementById('winOverlay').classList.add('hidden');
+  matched=0;flipped=[];moves=0;score=0;timer=0;
+  document.getElementById('moves').textContent=0;
+  document.getElementById('score').textContent=0;
+  document.getElementById('timer').textContent=0;
+  clearInterval(timerInterval);
+  createTiles();render();
+  timerInterval=setInterval(()=>{timer++;document.getElementById('timer').textContent=timer},1000);
+}
+startGame();
+</script>
+</body>
+</html>

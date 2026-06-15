@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日期计算</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#60a5fa;--success:#4ade80;--warning:#fbbf24;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:600px;margin:0 auto}
+h1{font-size:1.5rem;text-align:center;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:.8rem;white-space:nowrap;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.field input,.field select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.9rem;outline:none}
+.field input:focus{border-color:var(--accent)}
+.result-box{background:rgba(59,130,246,.05);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;margin:12px 0}
+.result-big{font-size:2rem;font-weight:700;color:var(--accent)}
+.result-detail{color:var(--muted);font-size:.85rem;margin-top:8px;line-height:1.6}
+.btn{padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;background:var(--accent);color:#fff;transition:.2s;width:100%}
+.btn:hover{background:var(--accent2)}
+.holiday-list{margin-top:12px}
+.holiday-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.holiday-item:last-child{border:none}
+.holiday-name{font-weight:600}
+.holiday-countdown{color:var(--accent);font-family:monospace}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📅 日期计算</h1>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab(0,this)">日期差值</div>
+<div class="tab" onclick="switchTab(1,this)">日期加减</div>
+<div class="tab" onclick="switchTab(2,this)">工作日</div>
+<div class="tab" onclick="switchTab(3,this)">年龄计算</div>
+<div class="tab" onclick="switchTab(4,this)">节日倒计时</div>
+</div>
+
+<div class="card" id="tab0">
+<div class="field"><label>开始日期</label><input type="date" id="date1" onchange="calcDiff()"></div>
+<div class="field"><label>结束日期</label><input type="date" id="date2" onchange="calcDiff()"></div>
+<div class="result-box" id="diffResult"><div class="result-big">--</div><div class="result-detail" id="diffDetail"></div></div>
+</div>
+
+<div class="card hidden" id="tab1">
+<div class="field"><label>基础日期</label><input type="date" id="baseDate" onchange="calcAdd()"></div>
+<div class="field"><label>操作</label>
+<select id="addOp" onchange="calcAdd()"><option value="add">加</option><option value="sub">减</option></select></div>
+<div class="field"><label>数值</label><input type="number" id="addNum" value="30" min="1" onchange="calcAdd()"></div>
+<div class="field"><label>单位</label>
+<select id="addUnit" onchange="calcAdd()"><option value="days">天</option><option value="months">月</option><option value="years">年</option></select></div>
+<div class="result-box"><div class="result-big" id="addResult">--</div></div>
+</div>
+
+<div class="card hidden" id="tab2">
+<div class="field"><label>开始日期</label><input type="date" id="workStart" onchange="calcWorkDays()"></div>
+<div class="field"><label>结束日期</label><input type="date" id="workEnd" onchange="calcWorkDays()"></div>
+<div class="result-box"><div class="result-big" id="workResult">--</div><div class="result-detail" id="workDetail"></div></div>
+</div>
+
+<div class="card hidden" id="tab3">
+<div class="field"><label>出生日期</label><input type="date" id="birthDate" onchange="calcAge()"></div>
+<div class="result-box"><div class="result-big" id="ageResult">--</div><div class="result-detail" id="ageDetail"></div></div>
+</div>
+
+<div class="card hidden" id="tab4">
+<div class="holiday-list" id="holidayList"></div>
+</div>
+</div>
+
+<script>
+const holidays = [
+  {name:'元旦',month:1,day:1},{name:'春节',month:1,day:29},{name:'清明节',month:4,day:4},
+  {name:'劳动节',month:5,day:1},{name:'端午节',month:5,day:31},{name:'中秋节',month:10,day:6},
+  {name:'国庆节',month:10,day:1}
+];
+
+const cnHolidays2024 = ['2024-01-01','2024-02-10','2024-02-11','2024-02-12','2024-02-13','2024-02-14','2024-02-15','2024-02-16','2024-02-17',
+'2024-04-04','2024-04-05','2024-04-06','2024-05-01','2024-05-02','2024-05-03','2024-05-04','2024-05-05',
+'2024-06-08','2024-06-09','2024-06-10','2024-09-15','2024-09-16','2024-09-17',
+'2024-10-01','2024-10-02','2024-10-03','2024-10-04','2024-10-05','2024-10-06','2024-10-07'];
+
+const cnHolidays2025 = ['2025-01-01','2025-01-28','2025-01-29','2025-01-30','2025-01-31','2025-02-01','2025-02-02','2025-02-03','2025-02-04',
+'2025-04-04','2025-04-05','2025-04-06','2025-05-01','2025-05-02','2025-05-03','2025-05-04','2025-05-05',
+'2025-05-31','2025-06-01','2025-06-02','2025-10-01','2025-10-02','2025-10-03','2025-10-04','2025-10-05','2025-10-06','2025-10-07'];
+
+function init() {
+  const today = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  document.getElementById('date1').value = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+  document.getElementById('date2').value = fmt(today);
+  document.getElementById('baseDate').value = fmt(today);
+  document.getElementById('workStart').value = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+  document.getElementById('workEnd').value = fmt(today);
+  calcDiff(); calcAdd(); calcWorkDays(); renderHolidays();
+}
+
+function switchTab(idx, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('tab' + i).classList.toggle('hidden', i !== idx);
+  }
+}
+
+function calcDiff() {
+  const d1 = new Date(document.getElementById('date1').value);
+  const d2 = new Date(document.getElementById('date2').value);
+  if (isNaN(d1) || isNaN(d2)) return;
+  const diffMs = Math.abs(d2 - d1);
+  const days = Math.floor(diffMs / 86400000);
+  const weeks = Math.floor(days / 7);
+  const months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+  const years = Math.floor(months / 12);
+  document.querySelector('#diffResult .result-big').textContent = `${days} 天`;
+  document.getElementById('diffDetail').innerHTML = `约 ${weeks} 周 | 约 ${Math.abs(months)} 个月 | 约 ${years} 年<br>共 ${days * 24} 小时 | 共 ${days * 24 * 60} 分钟`;
+}
+
+function calcAdd() {
+  const d = new Date(document.getElementById('baseDate').value);
+  if (isNaN(d)) return;
+  const op = document.getElementById('addOp').value;
+  const num = parseInt(document.getElementById('addNum').value) || 0;
+  const unit = document.getElementById('addUnit').value;
+  const result = new Date(d);
+  if (unit === 'days') result.setDate(d.getDate() + (op === 'add' ? num : -num));
+  else if (unit === 'months') result.setMonth(d.getMonth() + (op === 'add' ? num : -num));
+  else result.setFullYear(d.getFullYear() + (op === 'add' ? num : -num));
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('addResult').textContent = `${result.getFullYear()}-${pad(result.getMonth()+1)}-${pad(result.getDate())}`;
+}
+
+function calcWorkDays() {
+  const d1 = new Date(document.getElementById('workStart').value);
+  const d2 = new Date(document.getElementById('workEnd').value);
+  if (isNaN(d1) || isNaN(d2)) return;
+  const start = d1 < d2 ? d1 : d2;
+  const end = d1 < d2 ? d2 : d1;
+  const allHolidays = new Set([...cnHolidays2024, ...cnHolidays2025]);
+  let workDays = 0, totalDays = 0;
+  const d = new Date(start);
+  while (d <= end) {
+    totalDays++;
+    const fmt = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    if (!isWeekend && !allHolidays.has(fmt)) workDays++;
+    d.setDate(d.getDate() + 1);
+  }
+  document.getElementById('workResult').textContent = `${workDays} 个工作日`;
+  document.getElementById('workDetail').textContent = `共 ${totalDays} 天，其中 ${totalDays - workDays} 天休息`;
+}
+
+function calcAge() {
+  const bd = new Date(document.getElementById('birthDate').value);
+  if (isNaN(bd)) return;
+  const now = new Date();
+  let years = now.getFullYear() - bd.getFullYear();
+  let months = now.getMonth() - bd.getMonth();
+  let days = now.getDate() - bd.getDate();
+  if (days < 0) { months--; days += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); }
+  if (months < 0) { years--; months += 12; }
+  const totalDays = Math.floor((now - bd) / 86400000);
+  const totalWeeks = Math.floor(totalDays / 7);
+  document.getElementById('ageResult').textContent = `${years} 岁 ${months} 个月 ${days} 天`;
+  document.getElementById('ageDetail').innerHTML = `共 ${totalDays.toLocaleString()} 天 | 约 ${totalWeeks.toLocaleString()} 周<br>共 ${(totalDays * 24).toLocaleString()} 小时`;
+}
+
+function renderHolidays() {
+  const list = document.getElementById('holidayList');
+  const now = new Date();
+  const year = now.getFullYear();
+  holidays.forEach(h => {
+    let target = new Date(year, h.month - 1, h.day);
+    if (target < now) target = new Date(year + 1, h.month - 1, h.day);
+    const diff = Math.ceil((target - now) / 86400000);
+    list.innerHTML += `<div class="holiday-item"><span class="holiday-name">${h.name}</span><span class="holiday-countdown">${diff <= 0 ? '今天' : '还有 ' + diff + ' 天'}</span></div>`;
+  });
+}
+
+init();
+</script>
+</body>
+</html>

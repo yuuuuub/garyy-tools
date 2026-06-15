@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字体查看器</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:700px;margin:0 auto}
+h1{font-size:1.5rem;text-align:center;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);cursor:pointer;font-size:.8rem;transition:.2s}
+.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+input[type=text]{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.9rem;outline:none}
+input[type=text]:focus{border-color:var(--accent)}
+input[type=range]{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--border);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer}
+.slider-row{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.slider-row label{font-size:.8rem;color:var(--muted);white-space:nowrap;min-width:60px}
+.slider-row .val{font-size:.8rem;color:var(--accent);min-width:40px;text-align:right}
+select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.8rem}
+.font-grid{display:flex;flex-direction:column;gap:8px;max-height:500px;overflow-y:auto}
+.font-item{padding:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s}
+.font-item:hover{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.font-item.selected{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.font-name{font-size:.75rem;color:var(--muted);margin-bottom:4px}
+.font-preview{word-break:break-all;line-height:1.4}
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.compare-box{padding:16px;border:1px solid var(--border);border-radius:8px;min-height:80px;word-break:break-all;line-height:1.4}
+.compare-label{font-size:.75rem;color:var(--muted);margin-bottom:6px}
+.sample-tabs{display:flex;gap:6px;margin-bottom:12px}
+.sample-tab{padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:.75rem;cursor:pointer;color:var(--muted)}
+.sample-tab.active{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔤 字体查看器</h1>
+<div class="card">
+<div class="toolbar">
+<input type="text" id="searchInput" placeholder="搜索字体..." oninput="filterFonts()">
+<button class="btn" id="btnAll" onclick="filterCategory('all',this)">全部</button>
+<button class="btn" id="btnSerif" onclick="filterCategory('serif',this)">衬线</button>
+<button class="btn" id="btnSans" onclick="filterCategory('sans',this)">无衬线</button>
+<button class="btn" id="btnMono" onclick="filterCategory('mono',this)">等宽</button>
+<button class="btn" id="btnHandwriting" onclick="filterCategory('handwriting',this)">手写</button>
+</div>
+<div class="slider-row"><label>字号</label><input type="range" min="12" max="72" value="24" id="sizeSlider" oninput="updateSize()"><span class="val" id="sizeVal">24px</span></div>
+<div class="slider-row"><label>字重</label><input type="range" min="100" max="900" value="400" step="100" id="weightSlider" oninput="updateWeight()"><span class="val" id="weightVal">400</span></div>
+<div class="sample-tabs">
+<div class="sample-tab active" onclick="setSample(0,this)">默认</div>
+<div class="sample-tab" onclick="setSample(1,this)">英文字母</div>
+<div class="sample-tab" onclick="setSample(2,this)">中文</div>
+<div class="sample-tab" onclick="setSample(3,this)">数字</div>
+<div class="sample-tab" onclick="setSample(4,this)">标点符号</div>
+</div>
+</div>
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:12px">字体列表</h3>
+<div class="font-grid" id="fontGrid"></div>
+</div>
+<div class="card">
+<h3 style="font-size:.95rem;margin-bottom:8px">字体对比</h3>
+<div class="compare-wrap">
+<div class="compare-box" id="compareLeft"><div class="compare-label">点击上方字体选择</div></div>
+<div class="compare-box" id="compareRight"><div class="compare-label">点击上方字体选择</div></div>
+</div>
+</div>
+</div>
+<script>
+const fontList = [
+  {name:'Arial',family:'Arial',cat:'sans',fallback:'Helvetica, sans-serif'},
+  {name:'Helvetica',family:'Helvetica',cat:'sans',fallback:'Arial, sans-serif'},
+  {name:'Times New Roman',family:'"Times New Roman"',cat:'serif',fallback:'Times, serif'},
+  {name:'Georgia',family:'Georgia',cat:'serif',fallback:'Times New Roman, serif'},
+  {name:'Courier New',family:'"Courier New"',cat:'mono',fallback:'Courier, monospace'},
+  {name:'Consolas',family:'Consolas',cat:'mono',fallback:'monospace'},
+  {name:'Monaco',family:'Monaco',cat:'mono',fallback:'Menlo, monospace'},
+  {name:'Menlo',family:'Menlo',cat:'mono',fallback:'Consolas, monospace'},
+  {name:'Verdana',family:'Verdana',cat:'sans',fallback:'Geneva, sans-serif'},
+  {name:'Trebuchet MS',family:'"Trebuchet MS"',cat:'sans',fallback:'sans-serif'},
+  {name:'Impact',family:'Impact',cat:'sans',fallback:'sans-serif'},
+  {name:'Comic Sans MS',family:'"Comic Sans MS"',cat:'handwriting',fallback:'cursive'},
+  {name:'Palatino',family:'"Palatino Linotype"',cat:'serif',fallback:'Palatino, serif'},
+  {name:'Garamond',family:'Garamond',cat:'serif',fallback:'serif'},
+  {name:'Brush Script MT',family:'"Brush Script MT"',cat:'handwriting',fallback:'cursive'},
+  {name:'Lucida Console',family:'"Lucida Console"',cat:'mono',fallback:'monospace'},
+  {name:'Tahoma',family:'Tahoma',cat:'sans',fallback:'sans-serif'},
+  {name:'Microsoft YaHei',family:'"Microsoft YaHei"',cat:'sans',fallback:'微软雅黑, sans-serif'},
+  {name:'PingFang SC',family:'"PingFang SC"',cat:'sans',fallback:'苹方, sans-serif'},
+  {name:'Noto Sans SC',family:'"Noto Sans SC"',cat:'sans',fallback:'sans-serif'},
+  {name:'SimSun',family:'SimSun',cat:'serif',fallback:'宋体, serif'},
+  {name:'SimHei',family:'SimHei',cat:'sans',fallback:'黑体, sans-serif'},
+  {name:'Fira Code',family:'"Fira Code"',cat:'mono',fallback:'monospace'},
+  {name:'Source Code Pro',family:'"Source Code Pro"',cat:'mono',fallback:'monospace'},
+  {name:'Ubuntu Mono',family:'"Ubuntu Mono"',cat:'mono',fallback:'monospace'},
+  {name:'JetBrains Mono',family:'"JetBrains Mono"',cat:'mono',fallback:'monospace'}
+];
+
+const samples = [
+  'The quick brown fox jumps over the lazy dog 你好世界',
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz',
+  '春眠不觉晓处处闻啼鸟夜来风雨声花落知多少',
+  '0123456789 1234567890',
+  '!@#$%^&*()_+-=[]{}|;:\'",.<>?/~`'
+];
+
+let fontSize = 24, fontWeight = 400, sampleIdx = 0;
+let compareSelections = [null, null], compareSlot = 0;
+let currentCategory = 'all';
+
+function renderFonts(filter = '') {
+  const grid = document.getElementById('fontGrid');
+  grid.innerHTML = '';
+  fontList.filter(f => {
+    if (currentCategory !== 'all' && f.cat !== currentCategory) return false;
+    if (filter && !f.name.toLowerCase().includes(filter.toLowerCase())) return false;
+    return true;
+  }).forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'font-item';
+    item.innerHTML = `<div class="font-name">${f.name} (${f.cat})</div><div class="font-preview" style="font-family:${f.family},${f.fallback};font-size:${fontSize}px;font-weight:${fontWeight}">${samples[sampleIdx]}</div>`;
+    item.onclick = () => { addToCompare(f); };
+    grid.appendChild(item);
+  });
+}
+
+function filterFonts() { renderFonts(document.getElementById('searchInput').value); }
+function filterCategory(cat, el) {
+  currentCategory = cat;
+  document.querySelectorAll('.toolbar .btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  filterFonts();
+}
+function updateSize() { fontSize = parseInt(document.getElementById('sizeSlider').value); document.getElementById('sizeVal').textContent = fontSize + 'px'; filterFonts(); updateCompare(); }
+function updateWeight() { fontWeight = parseInt(document.getElementById('weightSlider').value); document.getElementById('weightVal').textContent = fontWeight; filterFonts(); updateCompare(); }
+function setSample(idx, el) {
+  sampleIdx = idx;
+  document.querySelectorAll('.sample-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  filterFonts();
+  updateCompare();
+}
+
+function addToCompare(f) {
+  compareSelections[compareSlot] = f;
+  compareSlot = (compareSlot + 1) % 2;
+  updateCompare();
+}
+
+function updateCompare() {
+  [0, 1].forEach(i => {
+    const el = document.getElementById(i === 0 ? 'compareLeft' : 'compareRight');
+    const f = compareSelections[i];
+    if (!f) { el.innerHTML = '<div class="compare-label">点击上方字体选择</div>'; return; }
+    el.innerHTML = `<div class="compare-label">${f.name}</div><div style="font-family:${f.family},${f.fallback};font-size:${fontSize}px;font-weight:${fontWeight}">${samples[sampleIdx]}</div>`;
+  });
+}
+
+renderFonts();
+</script>
+</body>
+</html>

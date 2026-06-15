@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>序列记忆</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin-bottom:10px;color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:15px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.9rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:350px;width:100%;margin-bottom:15px}
+.cell{aspect-ratio:1;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:bold;cursor:pointer;transition:all 0.3s;user-select:none;background:var(--card);border:2px solid var(--border);color:var(--text)}
+.cell:hover{border-color:var(--accent)}
+.cell.flash{background:var(--accent);border-color:var(--accent);color:#fff;transform:scale(1.05)}
+.cell.correct{background:var(--success);border-color:var(--success);color:#fff}
+.cell.wrong{background:var(--error);border-color:var(--error);color:#fff;animation:shake 0.3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.msg{font-size:1.1rem;padding:10px;text-align:center;min-height:40px;color:var(--accent)}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+</style>
+</head>
+<body>
+<h1>🧠 序列记忆</h1>
+<div class="info-bar">
+  <div class="info-item">📊 等级: <span id="level">1</span></div>
+  <div class="info-item">🔗 序列: <span id="seqLen">3</span>个</div>
+  <div class="info-item">🏆 最高等级: <span id="bestLevel">0</span></div>
+</div>
+<div class="grid" id="grid"></div>
+<div class="msg" id="msg">点击"开始"记忆序列</div>
+<div class="buttons">
+  <button onclick="startGame()">▶ 开始</button>
+  <button onclick="resetGame()">🔄 重置</button>
+</div>
+<script>
+let level=1,sequence=[],playerIdx=0,state='idle',bestLevel=parseInt(localStorage.getItem('ms_best')||'0');
+document.getElementById('bestLevel').textContent=bestLevel;
+const colors=['#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316','#84cc16','#e11d48','#14b8a6','#6366f1'];
+
+function renderGrid(){
+  const el=document.getElementById('grid');
+  el.innerHTML='';
+  for(let i=0;i<16;i++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    cell.dataset.idx=i;
+    cell.style.background=colors[i%colors.length]+'22';
+    cell.style.borderColor=colors[i%colors.length]+'66';
+    cell.textContent=i+1;
+    cell.onclick=()=>onCellClick(i);
+    el.appendChild(cell);
+  }
+}
+
+function flashCell(idx,duration=400){
+  return new Promise(resolve=>{
+    const cell=document.querySelector(`.cell[data-idx="${idx}"]`);
+    if(cell){cell.classList.add('flash');setTimeout(()=>{cell.classList.remove('flash');resolve()},duration)}
+    else resolve();
+  });
+}
+
+async function showSequence(){
+  state='showing';
+  document.getElementById('msg').textContent='👀 记住序列...';
+  await new Promise(r=>setTimeout(r,500));
+  for(let i=0;i<sequence.length;i++){
+    await flashCell(sequence[i],500);
+    await new Promise(r=>setTimeout(r,200));
+  }
+  state='input';
+  document.getElementById('msg').textContent=`你的回合！点击第 ${playerIdx+1} 个`;
+}
+
+function onCellClick(idx){
+  if(state!=='input')return;
+  if(idx===sequence[playerIdx]){
+    document.querySelector(`.cell[data-idx="${idx}"]`).classList.add('correct');
+    setTimeout(()=>document.querySelector(`.cell[data-idx="${idx}"]`)?.classList.remove('correct'),300);
+    playerIdx++;
+    if(playerIdx>=sequence.length){
+      level++;
+      document.getElementById('level').textContent=level;
+      document.getElementById('msg').textContent='✅ 正确！下一关';
+      setTimeout(()=>startRound(),1000);
+    } else {
+      document.getElementById('msg').textContent=`你的回合！点击第 ${playerIdx+1} 个`;
+    }
+  } else {
+    document.querySelector(`.cell[data-idx="${idx}"]`).classList.add('wrong');
+    setTimeout(()=>document.querySelector(`.cell[data-idx="${idx}"]`)?.classList.remove('wrong'),300);
+    gameOver();
+  }
+}
+
+function generateSequence(){
+  const len=level+2;
+  sequence=[];
+  for(let i=0;i<len;i++)sequence.push(Math.floor(Math.random()*16));
+  document.getElementById('seqLen').textContent=len;
+}
+
+function startRound(){
+  generateSequence();playerIdx=0;
+  showSequence();
+}
+
+function startGame(){
+  level=1;document.getElementById('level').textContent=1;
+  startRound();
+}
+
+function gameOver(){
+  state='idle';
+  if(level>bestLevel){bestLevel=level-1;localStorage.setItem('ms_best',bestLevel);document.getElementById('bestLevel').textContent=bestLevel}
+  document.getElementById('msg').textContent=`❌ 错误！你到达了等级 ${level-1}`;
+}
+
+function resetGame(){
+  state='idle';level=1;playerIdx=0;
+  document.getElementById('level').textContent=1;
+  document.getElementById('msg').textContent='点击"开始"记忆序列';
+  renderGrid();
+}
+
+renderGrid();
+</script>
+</body>
+</html>

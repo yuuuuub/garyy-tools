@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>端口扫描</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.input-row{display:flex;gap:8px;margin-bottom:12px}
+.input-row input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;outline:none}
+.input-row input:focus{border-color:var(--accent)}
+.btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{opacity:.9}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.preset-btn{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:12px}
+.preset-btn:hover{border-color:var(--accent)}
+.progress{height:4px;background:var(--border);border-radius:2px;margin:16px 0;display:none}
+.progress-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:16px}
+.port-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;font-size:12px;transition:all .3s}
+.port-card.open{border-color:var(--green);background:rgba(63,185,80,.1)}
+.port-card.closed{border-color:var(--border);opacity:.5}
+.port-num{font-size:16px;font-weight:600}
+.port-name{color:var(--muted);margin-top:2px;font-size:11px}
+.summary{margin-top:16px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);font-size:14px;display:none}
+@media(max-width:600px){.container{padding:16px}.results-grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">🔌</span>
+<h1>端口扫描</h1>
+</div>
+<div class="container">
+<div class="input-row">
+<input type="text" id="host" placeholder="输入IP或域名" onkeydown="if(event.key==='Enter')startScan()">
+<button class="btn" id="scanBtn" onclick="startScan()">扫描</button>
+</div>
+<div class="presets">
+<button class="preset-btn" onclick="scanPreset('common')">常用端口(20)</button>
+<button class="preset-btn" onclick="scanPreset('web')">Web端口</button>
+<button class="preset-btn" onclick="scanPreset('db')">数据库</button>
+<button class="preset-btn" onclick="scanPreset('mail')">邮件</button>
+<button class="preset-btn" onclick="scanPreset('all')">全端口</button>
+</div>
+<div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
+<div class="results-grid" id="results"></div>
+<div class="summary" id="summary"></div>
+</div>
+<script>
+const portNames={21:'FTP',22:'SSH',23:'Telnet',25:'SMTP',53:'DNS',80:'HTTP',110:'POP3',111:'RPC',135:'RPC',139:'NetBIOS',143:'IMAP',443:'HTTPS',445:'SMB',993:'IMAPS',995:'POP3S',1433:'MSSQL',1521:'Oracle',3306:'MySQL',3389:'RDP',5432:'PostgreSQL',5900:'VNC',6379:'Redis',8080:'HTTP-Alt',8443:'HTTPS-Alt',9200:'Elasticsearch',27017:'MongoDB'};
+const presets={
+common:[21,22,23,25,53,80,110,135,139,143,443,445,993,995,1433,3306,3389,5432,6379,8080],
+web:[80,443,8080,8443,3000,5000,8000,8888,9000],
+db:[1433,1521,3306,5432,6379,9200,27017,11211],
+mail:[25,110,143,465,587,993,995],
+all:[21,22,23,25,53,80,110,111,135,139,143,443,445,993,995,1433,1521,3306,3389,5432,5900,6379,8080,8443,9200,27017]
+};
+let scanning=false;
+function scanPreset(name){startScan(presets[name])}
+async function startScan(ports){
+const host=document.getElementById('host').value.trim();
+if(!host)return;
+if(scanning)return;
+scanning=true;
+ports=ports||presets.common;
+document.getElementById('results').innerHTML='';
+document.getElementById('summary').style.display='none';
+document.getElementById('progress').style.display='block';
+document.getElementById('progressBar').style.width='0%';
+let openPorts=[];
+for(let i=0;i<ports.length;i++){
+const p=ports[i];
+document.getElementById('progressBar').style.width=((i+1)/ports.length*100)+'%';
+try{
+await scanPort(host,p);
+openPorts.push(p);
+document.getElementById('results').innerHTML+=`<div class="port-card open"><div class="port-num">${p}</div><div class="port-name">${portNames[p]||''}</div></div>`;
+}catch(e){
+document.getElementById('results').innerHTML+=`<div class="port-card closed"><div class="port-num">${p}</div><div class="port-name">${portNames[p]||''}</div></div>`;
+}
+}
+document.getElementById('progress').style.display='none';
+const summary=document.getElementById('summary');
+summary.style.display='block';
+summary.innerHTML=`扫描完成: ${ports.length}个端口, <span style="color:var(--green)">${openPorts.length}个开放</span>, ${ports.length-openPorts.length}个关闭`;
+scanning=false;
+}
+function scanPort(host,port){
+return new Promise((resolve,reject)=>{
+const ws=new WebSocket(`wss://${host}:${port}`);
+const t=setTimeout(()=>{ws.close();reject()},2000);
+ws.onopen=()=>{clearTimeout(t);ws.close();resolve()};
+ws.onerror=()=>{clearTimeout(t);reject()};
+});
+}
+</script>
+</body>
+</html>

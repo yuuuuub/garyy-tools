@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>电池信息</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;width:100%;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:500px;width:100%;padding:24px}
+.battery-visual{width:200px;height:100px;margin:0 auto 24px;border:4px solid var(--text);border-radius:16px;position:relative;overflow:hidden}
+.battery-visual::after{content:'';position:absolute;right:-12px;top:50%;transform:translateY(-50%);width:8px;height:30px;background:var(--text);border-radius:0 4px 4px 0}
+.battery-fill{height:100%;transition:width .5s,background .5s;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff}
+.battery-percent{font-size:64px;font-weight:700;text-align:center;margin:16px 0}
+.battery-status{text-align:center;font-size:18px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;width:100%}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--muted)}
+.info-row .value{font-weight:500}
+.not-supported{text-align:center;padding:40px;color:var(--muted);font-size:16px}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">🔋</span>
+<h1>电池信息</h1>
+</div>
+<div class="container" id="app">
+<div class="not-supported" id="notSupported" style="display:none">浏览器不支持Battery API，请使用Chrome/Edge</div>
+<div id="batteryContent" style="display:none">
+<div class="battery-visual"><div class="battery-fill" id="batteryFill">--</div></div>
+<div class="battery-percent" id="batteryPercent">--%</div>
+<div class="battery-status" id="batteryStatus">--</div>
+<div class="card">
+<h3 style="color:var(--accent);margin-bottom:12px">📊 详细信息</h3>
+<div id="batteryDetails"></div>
+</div>
+</div>
+</div>
+<script>
+if(!navigator.getBattery){
+document.getElementById('notSupported').style.display='block';
+}else{
+document.getElementById('batteryContent').style.display='block';
+navigator.getBattery().then(b=>{
+updateBattery(b);
+b.addEventListener('levelchange',()=>updateBattery(b));
+b.addEventListener('chargingchange',()=>updateBattery(b));
+b.addEventListener('chargingtimechange',()=>updateBattery(b));
+b.addEventListener('dischargingtimechange',()=>updateBattery(b));
+});
+}
+function updateBattery(b){
+const level=Math.round(b.level*100);
+const color=level>60?'var(--green)':level>20?'var(--yellow)':'var(--red)';
+document.getElementById('batteryFill').style.width=level+'%';
+document.getElementById('batteryFill').style.background=color;
+document.getElementById('batteryFill').textContent=level+'%';
+document.getElementById('batteryPercent').textContent=level+'%';
+document.getElementById('batteryPercent').style.color=color;
+document.getElementById('batteryStatus').textContent=b.charging?'⚡ 充电中':'🔌 未充电';
+document.getElementById('batteryDetails').innerHTML=[
+infoRow('电量',level+'%'),
+infoRow('充电状态',b.charging?'是':'否'),
+infoRow('充满剩余时间',b.chargingTime===Infinity||b.chargingTime===0?'--':Math.round(b.chargingTime/60)+'分钟'),
+infoRow('放电剩余时间',b.dischargingTime===Infinity||b.dischargingTime===0?'--':Math.round(b.dischargingTime/60)+'分钟'),
+infoRow('电量等级',level>60?'高':level>20?'中':'低')
+].join('');
+}
+function infoRow(l,v){return `<div class="info-row"><span class="label">${l}</span><span class="value">${v}</span></div>`}
+</script>
+</body>
+</html>

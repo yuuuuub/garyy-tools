@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>井字棋</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+h1{font-size:1.5rem;margin-bottom:15px;color:#3b82f6}
+.controls{display:flex;gap:10px;margin-bottom:15px}
+.controls button{padding:8px 16px;border:1px solid #30363d;background:#161b22;color:#e6edf3;border-radius:6px;cursor:pointer;font-size:0.9rem}
+.controls button.active{background:#3b82f6;border-color:#3b82f6}
+.board{display:grid;grid-template-columns:repeat(3,100px);grid-template-rows:repeat(3,100px);gap:6px}
+.cell{background:#161b22;border:2px solid #30363d;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:bold;cursor:pointer;transition:all .2s}
+.cell:hover{border-color:#3b82f6}
+.cell.win{background:#1e3a5f;border-color:#3b82f6}
+.status{margin-top:15px;font-size:1.1rem}
+.scores{display:flex;gap:30px;margin-top:10px;font-size:0.95rem}
+</style>
+</head>
+<body>
+<h1>❌⭕ 井字棋</h1>
+<div class="controls">
+<button id="pvpBtn" class="active" onclick="setMode('pvp')">双人对战</button>
+<button id="aiBtn" onclick="setMode('ai')">AI对战</button>
+<button onclick="reset()">重新开始</button>
+</div>
+<div class="board" id="board"></div>
+<div class="status" id="status">X 的回合</div>
+<div class="scores"><span>X: <b id="sX">0</b></span><span>O: <b id="sO">0</b></span><span>平局: <b id="sD">0</b></span></div>
+<script>
+let board=Array(9).fill(''),turn='X',mode='pvp',scores={X:0,O:0,D:0},gameOver=false;
+const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function setMode(m){mode=m;document.getElementById('pvpBtn').className=m==='pvp'?'active':'';document.getElementById('aiBtn').className=m==='ai'?'active':'';reset()}
+
+function render(){
+  const el=document.getElementById('board');el.innerHTML='';
+  board.forEach((v,i)=>{
+    const c=document.createElement('div');c.className='cell';c.textContent=v;
+    c.onclick=()=>click(i);el.appendChild(c);
+  });
+}
+
+function checkWin(b,p){return wins.some(w=>w.every(i=>b[i]===p))}
+
+function click(i){
+  if(board[i]||gameOver)return;
+  board[i]=turn;render();
+  if(checkWin(board,turn)){end(turn);return}
+  if(board.every(v=>v)){end(null);return}
+  turn=turn==='X'?'O':'X';
+  document.getElementById('status').textContent=`${turn} 的回合`;
+  if(mode==='ai'&&turn==='O'&&!gameOver)setTimeout(aiMove,300);
+}
+
+function aiMove(){
+  // minimax
+  let best=-Infinity,bi=-1;
+  board.forEach((v,i)=>{if(!v){board[i]='O';let s=minimax(board,0,false);board[i]='';if(s>best){best=s;bi=i}}});
+  if(bi>=0)click(bi);
+}
+
+function minimax(b,depth,isMax){
+  if(checkWin(b,'O'))return 10-depth;
+  if(checkWin(b,'X'))return depth-10;
+  if(b.every(v=>v))return 0;
+  if(isMax){let best=-Infinity;b.forEach((v,i)=>{if(!v){b[i]='O';best=Math.max(best,minimax(b,depth+1,false));b[i]=''}});return best}
+  else{let best=Infinity;b.forEach((v,i)=>{if(!v){b[i]='X';best=Math.min(best,minimax(b,depth+1,true));b[i]=''}});return best}
+}
+
+function end(winner){
+  gameOver=true;
+  if(winner){scores[winner]++;document.getElementById('status').textContent=`${winner} 获胜！🎉`}
+  else{scores.D++;document.getElementById('status').textContent='平局！'}
+  document.getElementById('sX').textContent=scores.X;
+  document.getElementById('sO').textContent=scores.O;
+  document.getElementById('sD').textContent=scores.D;
+  // highlight winning cells
+  if(winner)wins.find(w=>w.every(i=>board[i]===winner))?.forEach(i=>{
+    document.getElementById('board').children[i].classList.add('win');
+  });
+}
+
+function reset(){board=Array(9).fill('');turn='X';gameOver=false;document.getElementById('status').textContent='X 的回合';render()}
+render();
+</script>
+</body>
+</html>

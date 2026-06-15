@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>变位词游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin-bottom:10px;color:var(--accent)}
+.info-bar{display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.9rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.diff-btns{display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap;justify-content:center}
+.diff-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:0.85rem;transition:all 0.2s}
+.diff-btn.active,.diff-btn:hover{background:var(--accent);border-color:var(--accent)}
+.clue-area{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:15px;width:100%;max-width:500px;text-align:center}
+.clue-letters{font-size:2.5rem;letter-spacing:12px;margin:10px 0;color:var(--accent);font-weight:bold}
+.clue-hint{font-size:0.9rem;color:var(--text);opacity:0.7}
+.input-area{margin-bottom:15px;width:100%;max-width:500px}
+.input-area input{width:100%;background:var(--card);border:2px solid var(--border);color:var(--text);border-radius:10px;padding:14px;font-size:1.3rem;text-align:center;letter-spacing:4px;font-family:inherit;outline:none;transition:border-color 0.2s}
+.input-area input:focus{border-color:var(--accent)}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;cursor:pointer;font-family:inherit;transition:all 0.2s}
+button:hover{opacity:0.85}
+.msg{font-size:1.1rem;padding:10px;text-align:center;min-height:40px}
+.history{width:100%;max-width:500px;margin-top:15px}
+.history h3{font-size:1rem;margin-bottom:8px;color:var(--accent)}
+.history-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:5px;font-size:0.85rem;display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+<h1>🔤 变位词游戏</h1>
+<div class="diff-btns" id="diffs"></div>
+<div class="info-bar">
+  <div class="info-item">🏆 得分: <span id="score">0</span></div>
+  <div class="info-item">📊 <span id="round">1</span>/10</div>
+  <div class="info-item">❌ 错误: <span id="errors">0</span></div>
+</div>
+<div class="clue-area">
+  <div class="clue-letters" id="scrambled">----</div>
+  <div class="clue-hint" id="hint"></div>
+</div>
+<div class="input-area">
+  <input type="text" id="answer" placeholder="输入变位词..." autocomplete="off" autocapitalize="off">
+</div>
+<div class="buttons">
+  <button onclick="submitAnswer()">✅ 确认</button>
+  <button onclick="giveHint()">💡 提示</button>
+  <button onclick="nextWord()">⏭ 跳过</button>
+</div>
+<div class="msg" id="msg"></div>
+<div class="history" id="historyArea"><h3>📝 已完成</h3><div id="history"></div></div>
+<script>
+const WORDS={
+  '简单(4字母)':[
+    {word:'listen',anagram:'silent',hint:'聆听'},
+    {word:'heart',anagram:'earth',hint:'心脏/大地'},
+    {word:'night',anagram:'thing',hint:'夜晚'},
+    {word:'flow',anagram:'wolf',hint:'流动'},
+    {word:'dusty',anagram:'study',hint:'灰尘/学习'},
+    {word:'mate',anagram:'team',hint:'伙伴'},
+    {word:'life',anagram:'file',hint:'生命'},
+    {word:'live',anagram:'veil',hint:'活着'},
+    {word:'evil',anagram:'vile',hint:'邪恶'},
+    {word:'now',anagram:'won',hint:'现在'}
+  ],
+  '中等(6字母)':[
+    {word:'danger',anagram:'garden',hint:'危险'},
+    {word:'master',anagram:'stream',hint:'大师'},
+    {word:'winter',anagram:'rewint',hint:'冬天'},
+    {word:'angel',anagram:'glean',hint:'天使'},
+    {word:'beast',anagram:'bates',hint:'野兽'},
+    {word:'planet',anagram:'platen',hint:'行星'},
+    {word:'silver',anagram:'livers',hint:'银色'},
+    {word:'frozen',anagram:'forzen',hint:'冰冻'}
+  ],
+  '困难(8字母)':[
+    {word:'dormitory',anagram:'dirtyroom',hint:'宿舍'},
+    {word:'election',anagram:'election',hint:'选举'},
+    {word:'fortyfive',anagram:'overfifty',hint:'四十五'},
+    {word:'nightmare',anagram:'rearmingh',hint:'噩梦'},
+    {word:'astronomer',anagram:'moonstarer',hint:'天文学家'},
+    {word:'escalator',anagram:'laescorta',hint:'电梯'}
+  ]
+};
+let currentDiff='简单(4字母)',words=[],currentIdx=0,score=0,errors=0,completed=[];
+let hintLevel=0,timerInterval=null,timer=0;
+
+function initDiffs(){
+  const el=document.getElementById('diffs');
+  el.innerHTML='';
+  Object.keys(WORDS).forEach(k=>{
+    const btn=document.createElement('button');
+    btn.className='diff-btn'+(k===currentDiff?' active':'');
+    btn.textContent=k;
+    btn.onclick=()=>{currentDiff=k;startGame()};
+    el.appendChild(btn);
+  });
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return[...a]}
+
+function scrambleWord(w){
+  let s=w.split('');
+  for(let i=s.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[s[i],s[j]]=[s[j],s[i]]}
+  if(s.join('')===w&&w.length>1){[s[0],s[1]]=[s[1],s[0]]}
+  return s.join('').toUpperCase();
+}
+
+function startGame(){
+  words=shuffle(WORDS[currentDiff]);currentIdx=0;score=0;errors=0;completed=[];
+  document.getElementById('score').textContent=0;
+  document.getElementById('errors').textContent=0;
+  document.getElementById('history').innerHTML='';
+  initDiffs();showWord();
+}
+
+function showWord(){
+  if(currentIdx>=words.length)currentIdx=0;
+  const w=words[currentIdx];
+  document.getElementById('scrambled').textContent=scrambleWord(w.word);
+  document.getElementById('hint').textContent='';
+  document.getElementById('answer').value='';
+  document.getElementById('msg').textContent='';
+  document.getElementById('round').textContent=currentIdx+1;
+  hintLevel=0;timer=0;
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{timer++},1000);
+  document.getElementById('answer').focus();
+}
+
+function submitAnswer(){
+  const ans=document.getElementById('answer').value.trim().toLowerCase();
+  if(!ans)return;
+  const w=words[currentIdx];
+  if(ans===w.anagram||ans===w.word){
+    const pts=Math.max(10,100-timer*5-hintLevel*20);
+    score+=pts;currentIdx++;
+    document.getElementById('score').textContent=score;
+    document.getElementById('msg').textContent='✅ 正确! +'+pts+'分';
+    document.getElementById('msg').style.color='var(--success)';
+    completed.push({word:w.word,anagram:w.anagram,pts});
+    renderHistory();
+    clearInterval(timerInterval);
+    setTimeout(showWord,1000);
+  } else {
+    errors++;
+    document.getElementById('errors').textContent=errors;
+    document.getElementById('msg').textContent='❌ 不对，再试试!';
+    document.getElementById('msg').style.color='var(--error)';
+  }
+}
+
+function giveHint(){
+  const w=words[currentIdx];
+  hintLevel++;
+  if(hintLevel===1)document.getElementById('hint').textContent='提示: '+w.hint;
+  else if(hintLevel===2)document.getElementById('hint').textContent='长度: '+w.anagram.length+' 字母, 首字母: '+w.anagram[0].toUpperCase();
+  else document.getElementById('hint').textContent='答案: '+w.anagram.toUpperCase();
+}
+
+function nextWord(){
+  currentIdx++;showWord();
+}
+
+function renderHistory(){
+  const el=document.getElementById('history');
+  el.innerHTML=completed.map(h=>`<div class="history-item"><span>${h.word} ↔ ${h.anagram}</span><span>+${h.pts}</span></div>`).join('');
+}
+
+document.getElementById('answer').addEventListener('keydown',e=>{if(e.key==='Enter')submitAnswer()});
+initDiffs();startGame();
+</script>
+</body>
+</html>

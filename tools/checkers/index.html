@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>♟️ 国际跳棋</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;align-items:center;min-height:100vh;padding:16px}
+.container{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:500px}
+h1{font-size:1.5rem}
+.info{display:flex;justify-content:space-between;width:100%;max-width:400px;font-size:.9rem;color:#8b949e}
+canvas{border-radius:8px;touch-action:none;max-width:100%}
+.controls{display:flex;gap:8px}
+.controls button{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:.9rem}
+.controls button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.counts{display:flex;gap:20px;font-size:1rem}
+.counts span{font-weight:700}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>♟️ 国际跳棋</h1>
+<div class="info">
+<div class="turn-indicator" id="turn">红方回合</div>
+<div class="counts">🔴 <span id="rCount">12</span> ⚫ <span id="bCount">12</span></div>
+</div>
+<canvas id="board"></canvas>
+<div class="controls">
+<button class="primary" onclick="newGame()">新游戏</button>
+</div>
+</div>
+<script>
+const C=document.getElementById('board'),ctx=C.getContext('2d');
+const SIZE=8,CELL=48,MARGIN=24;
+C.width=CELL*SIZE+MARGIN*2;C.height=CELL*SIZE+MARGIN*2;
+let board=[],turn='r',selected=null,validMoves=[],gameOver=false;
+
+function initBoard(){
+board=Array(SIZE).fill(null).map(()=>Array(SIZE).fill(null));
+for(let r=0;r<3;r++)for(let c=0;c<SIZE;c++)if((r+c)%2===1)board[r][c]={team:'b',king:false};
+for(let r=5;r<8;r++)for(let c=0;c<SIZE;c++)if((r+c)%2===1)board[r][c]={team:'r',king:false};
+}
+
+function toScreen(r,c){return{x:MARGIN+c*CELL+CELL/2,y:MARGIN+r*CELL+CELL/2}}
+function toBoard(x,y){const c=Math.floor((x-MARGIN)/CELL),r=Math.floor((y-MARGIN)/CELL);return(r>=0&&r<SIZE&&c>=0&&c<SIZE)?{r,c}:null}
+
+function draw(){
+ctx.fillStyle='#1a1a1a';ctx.fillRect(0,0,C.width,C.height);
+for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+const{x,y}=toScreen(r,c);const sx=MARGIN+c*CELL,sy=MARGIN+r*CELL;
+ctx.fillStyle=(r+c)%2===0?'#2d2d2d':'#1a1a1a';
+ctx.fillRect(sx,sy,CELL,CELL);
+}
+selected&&validMoves.forEach(m=>{
+const{x,y}=toScreen(m.r,m.c);
+ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);
+ctx.fillStyle=board[m.r][m.c]?'rgba(248,81,73,0.6)':'rgba(59,130,246,0.5)';ctx.fill();
+});
+for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+const p=board[r][c];if(!p)continue;
+const{x,y}=toScreen(r,c);
+ctx.beginPath();ctx.arc(x,y,18,0,Math.PI*2);
+ctx.fillStyle=p.team==='r'?'#c0392b':'#34495e';ctx.fill();
+ctx.strokeStyle=p.team==='r'?'#e74c3c':'#2c3e50';ctx.lineWidth=2;ctx.stroke();
+if(selected&&selected.r===r&&selected.c===c){ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke()}
+if(p.king){ctx.fillStyle='#ffd700';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('♛',x,y)}
+}
+}
+
+function getValidMoves(r,c){
+const p=board[r][c];if(!p)return[];
+const moves=[];const team=p.team;
+const inB=(r,c)=>r>=0&&r<SIZE&&c>=0&&c<SIZE;
+const isEmpty=(r,c)=>inB(r,c)&&!board[r][c];
+const isEnemy=(r,c)=>inB(r,c)&&board[r][c]&&board[r][c].team!==team;
+const dirs=p.king?[[-1,-1],[-1,1],[1,-1],[1,1]]:(team==='r'?[[-1,-1],[-1,1]]:[[-1,-1],[-1,1]]);
+dirs.forEach(([dr,dc])=>{
+let nr=r+dr,nc=c+dc;
+if(isEmpty(nr,nc))moves.push({r:nr,c:nc,jump:false});
+else if(isEnemy(nr,nc)){
+const jr=nr+dr,jc=nc+dc;
+if(isEmpty(jr,jc))moves.push({r:jr,c:jc,jump:true});
+}
+});
+return moves;
+}
+
+function hasJumpMoves(team){
+for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+const p=board[r][c];if(!p||p.team!==team)continue;
+if(getValidMoves(r,c).some(m=>m.jump))return true;
+}return false;
+}
+
+function checkGameOver(){
+const rMoves=hasJumpMoves('r')||getAnyMove('r');
+const bMoves=hasJumpMoves('b')||getAnyMove('b');
+if(!rMoves){gameOver=true;document.getElementById('turn').textContent='黑方胜利！';return}
+if(!bMoves){gameOver=true;document.getElementById('turn').textContent='红方胜利！';return}
+let rCount=0,bCount=0;
+for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){if(board[r][c]){if(board[r][c].team==='r')rCount++;else bCount++}}
+if(rCount===0){gameOver=true;document.getElementById('turn').textContent='黑方胜利！'}
+if(bCount===0){gameOver=true;document.getElementById('turn').textContent='红方胜利！'}
+document.getElementById('rCount').textContent=rCount;
+document.getElementById('bCount').textContent=bCount;
+}
+function getAnyMove(team){for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const p=board[r][c];if(p&&p.team===team&&getValidMoves(r,c).length>0)return true}return false}
+
+function aiMove(){
+const mustJump=hasJumpMoves('b');
+const moves=[];
+for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+const p=board[r][c];if(!p||p.team!=='b')continue;
+const vm=getValidMoves(r,c);
+for(const m of vm){
+if(mustJump&&!m.jump)continue;
+moves.push({fr:r,fc:c,...m,score:m.jump?100:Math.random()*10});
+}}
+if(!moves.length)return;
+moves.sort((a,b)=>b.score-a.score);
+const best=moves[0];
+const captured=board[best.r][best.c];
+if(best.jump){const er=(best.fr+best.r)/2,ec=(best.fc+best.c)/2;board[er][ec]=null}
+board[best.r][best.c]=board[best.fr][best.fc];board[best.fr][best.fc]=null;
+if(best.r===0)board[best.r][best.c].king=true;
+turn='r';selected=null;validMoves=[];draw();checkGameState();
+}
+
+C.addEventListener('click',e=>{
+if(gameOver||turn!=='r')return;
+const rect=C.getBoundingClientRect();
+const bx=(e.clientX-rect.left)*(C.width/rect.width),by=(e.clientY-rect.top)*(C.height/rect.height);
+const pos=toBoard(bx,by);if(!pos)return;
+if(selected){
+const vm=validMoves.find(m=>m.r===pos.r&&m.c===pos.c);
+if(vm){
+if(vm.jump){const er=(selected.r+pos.r)/2,ec=(selected.c+pos.c)/2;board[er][ec]=null}
+board[pos.r][pos.c]=board[selected.r][selected.c];board[selected.r][selected.c]=null;
+if(pos.r===0)board[pos.r][pos.c].king=true;
+selected=null;validMoves=[];turn='b';draw();checkGameState();
+if(!gameOver)setTimeout(aiMove,300);return;
+}
+}
+const p=board[pos.r][pos.c];
+if(p&&p.team==='r'){
+const mustJump=hasJumpMoves('r');
+const vm=getValidMoves(pos.r,pos.c).filter(m=>!mustJump||m.jump);
+selected=pos;validMoves=vm;draw();
+}else{selected=null;validMoves=[];draw()}
+});
+
+function checkGameState(){
+if(!gameOver){document.getElementById('turn').textContent=turn==='r'?'红方回合':'黑方回合'}
+}
+function newGame(){initBoard();turn='r';selected=null;validMoves=[];gameOver=false;document.getElementById('turn').textContent='红方回合';draw();checkGameOver()}
+initBoard();draw();checkGameOver();
+</script>
+</body>
+</html>

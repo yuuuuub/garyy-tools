@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二维码扫描</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#60a5fa;--success:#4ade80;--danger:#f87171;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+.container{width:100%;max-width:600px}
+h1{font-size:1.5rem;text-align:center;margin-bottom:20px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:.9rem;text-align:center;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+#cameraSection,#uploadSection{display:none}
+#cameraSection.active,#uploadSection.active{display:block}
+.video-wrap{position:relative;width:100%;aspect-ratio:1;background:#000;border-radius:8px;overflow:hidden;margin-bottom:12px}
+video{width:100%;height:100%;object-fit:cover}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.scan-frame{width:70%;height:70%;border:2px solid var(--accent);border-radius:12px;box-shadow:0 0 20px rgba(59,130,246,.3)}
+.scan-line{position:absolute;width:70%;height:2px;background:var(--accent);top:15%;animation:scanDown 2s linear infinite;box-shadow:0 0 10px var(--accent)}
+@keyframes scanDown{0%{top:15%}100%{top:85%}}
+.btn{padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.btn-group{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.upload-area{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:12px}
+.upload-area:hover,.upload-area.dragover{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.upload-area p{color:var(--muted);margin-top:8px;font-size:.9rem}
+.upload-area svg{width:48px;height:48px;fill:var(--muted)}
+.result-box{background:rgba(59,130,246,.05);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:12px;word-break:break-all}
+.result-box a{color:var(--accent2);text-decoration:underline}
+.result-box .label{font-size:.8rem;color:var(--muted);margin-bottom:6px}
+.hidden{display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--success);color:#000;padding:8px 16px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📱 二维码扫描</h1>
+<div class="tabs">
+<div class="tab active" onclick="switchTab('camera')">📷 摄像头扫描</div>
+<div class="tab" onclick="switchTab('upload')">📁 图片上传</div>
+</div>
+
+<div id="cameraSection" class="card active">
+<div class="video-wrap">
+<video id="video" autoplay playsinline></video>
+<div class="overlay"><div class="scan-frame"><div class="scan-line"></div></div></div>
+</div>
+<div class="btn-group">
+<button class="btn btn-primary" onclick="startCamera()">开始扫描</button>
+<button class="btn btn-outline" onclick="stopCamera()">停止</button>
+</div>
+</div>
+
+<div id="uploadSection" class="card">
+<div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+<p>点击或拖拽图片到此处</p>
+</div>
+<input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFile(event)">
+</div>
+
+<div class="card hidden" id="resultCard">
+<div class="result-box">
+<div class="label">扫描结果</div>
+<div id="resultText"></div>
+</div>
+<div class="btn-group" style="margin-top:12px">
+<button class="btn btn-primary" onclick="copyResult()">复制结果</button>
+<button class="btn btn-outline" onclick="clearResult()">清除</button>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<canvas id="scanCanvas" style="display:none"></canvas>
+<script>
+let stream = null;
+let scanInterval = null;
+let detector = null;
+
+if ('BarcodeDetector' in window) {
+  detector = new BarcodeDetector({ formats: ['qr_code', 'ean_13', 'ean_8', 'code_128', 'code_39'] });
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (tab === 'camera' && i === 0) || (tab === 'upload' && i === 1));
+  });
+  document.getElementById('cameraSection').classList.toggle('active', tab === 'camera');
+  document.getElementById('uploadSection').classList.toggle('active', tab === 'upload');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    scanInterval = setInterval(() => scanFrame(video), 500);
+    showToast('摄像头已启动');
+  } catch (e) {
+    showToast('无法访问摄像头: ' + e.message);
+  }
+}
+
+function stopCamera() {
+  if (scanInterval) clearInterval(scanInterval);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  showToast('已停止扫描');
+}
+
+async function scanFrame(video) {
+  if (!detector) return;
+  try {
+    const barcodes = await detector.detect(video);
+    if (barcodes.length > 0) {
+      showResult(barcodes[0].rawValue);
+      stopCamera();
+    }
+  } catch (e) {}
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById('scanCanvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    if (detector) {
+      detector.detect(canvas).then(barcodes => {
+        if (barcodes.length > 0) {
+          showResult(barcodes[0].rawValue);
+        } else {
+          showToast('未检测到二维码');
+        }
+      }).catch(() => showToast('识别失败'));
+    } else {
+      showToast('浏览器不支持 BarcodeDetector API');
+    }
+  };
+  img.src = URL.createObjectURL(file);
+  e.target.value = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const area = document.getElementById('uploadArea');
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+  area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    area.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const input = document.getElementById('fileInput');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handleFile({ target: input });
+    }
+  });
+});
+
+function showResult(text) {
+  document.getElementById('resultCard').classList.remove('hidden');
+  const el = document.getElementById('resultText');
+  if (/^https?:\/\//.test(text)) {
+    el.innerHTML = '<a href="' + text + '" target="_blank">' + text + '</a>';
+  } else {
+    el.textContent = text;
+  }
+}
+
+function copyResult() {
+  const text = document.getElementById('resultText').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('已复制'));
+}
+
+function clearResult() {
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('resultText').textContent = '';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>网络信息</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card h3 span{color:var(--accent)}
+.info-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--muted)}
+.info-row .value{font-weight:500;word-break:break-all;text-align:right;max-width:60%}
+.btn{padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:13px;margin-top:8px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.ping-result{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.loading-text{color:var(--muted);font-style:italic}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">🌐</span>
+<h1>网络信息</h1>
+</div>
+<div class="container">
+<div class="card">
+<h3><span>📡</span> IP地址信息</h3>
+<div id="ipInfo"><div class="loading-text">获取中...</div></div>
+<button class="btn" onclick="refreshIP()">🔄 刷新</button>
+</div>
+<div class="card">
+<h3><span>🔗</span> 连接信息</h3>
+<div id="connInfo"></div>
+</div>
+<div class="card">
+<h3><span>📏</span> 网络延迟测试</h3>
+<button class="btn" onclick="testPing()">测试延迟</button>
+<div id="pingResult" style="margin-top:8px"></div>
+</div>
+<div class="card">
+<h3><span>🌍</span> WebRTC本地IP</h3>
+<div id="webrtcInfo"><div class="loading-text">获取中...</div></div>
+</div>
+</div>
+<script>
+function refreshIP(){
+document.getElementById('ipInfo').innerHTML='<div class="loading-text">获取中...</div>';
+Promise.all([
+fetch('https://api.ipify.org?format=json').then(r=>r.json()),
+fetch('https://ipapi.co/json/').then(r=>r.json()).catch(()=>null)
+]).then(([pub,geo])=>{
+let html=`<div class="info-row"><span class="label">公网IP</span><span class="value">${pub.ip}</span></div>`;
+if(geo){
+html+=`<div class="info-row"><span class="label">国家</span><span class="value">${geo.country_name} ${geo.country_code}</span></div>`;
+html+=`<div class="info-row"><span class="label">地区</span><span class="value">${geo.region}, ${geo.city}</span></div>`;
+html+=`<div class="info-row"><span class="label">ISP</span><span class="value">${geo.org}</span></div>`;
+html+=`<div class="info-row"><span class="label">时区</span><span class="value">${geo.timezone}</span></div>`;
+html+=`<div class="info-row"><span class="label">经纬度</span><span class="value">${geo.latitude}, ${geo.longitude}</span></div>`;
+}
+document.getElementById('ipInfo').innerHTML=html;
+}).catch(()=>{document.getElementById('ipInfo').innerHTML='<div class="loading-text">获取失败</div>'});
+}
+function showConnInfo(){
+const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+if(!c){document.getElementById('connInfo').innerHTML='<div class="info-row"><span class="label">连接API</span><span class="value">浏览器不支持</span></div>';return}
+let html='';
+html+=`<div class="info-row"><span class="label">有效类型</span><span class="value">${c.effectiveType||'N/A'}</span></div>`;
+html+=`<div class="info-row"><span class="label">下行带宽</span><span class="value">${c.downlink?c.downlink+'Mbps':'N/A'}</span></div>`;
+html+=`<div class="info-row"><span class="label">RTT</span><span class="value">${c.rtt!=null?c.rtt+'ms':'N/A'}</span></div>`;
+html+=`<div class="info-row"><span class="label">省流量</span><span class="value">${c.saveData?'是':'否'}</span></div>`;
+html+=`<div class="info-row"><span class="label">在线状态</span><span class="value">${navigator.onLine?'在线':'离线'}</span></div>`;
+document.getElementById('connInfo').innerHTML=html;
+}
+function testPing(){
+const targets=[
+{name:'Cloudflare',url:'https://1.1.1.1/cdn-cgi/trace'},
+{name:'Google',url:'https://www.google.com/generate_204'},
+{name:'百度',url:'https://www.baidu.com/favicon.ico'}
+];
+document.getElementById('pingResult').innerHTML='测试中...';
+Promise.all(targets.map(t=>{
+const s=performance.now();
+return fetch(t.url,{cache:'no-store',mode:'no-cors'}).then(()=>({name:t.name,ms:Math.round(performance.now()-s)})).catch(()=>({name:t.name,ms:'超时'}));
+})).then(results=>{
+document.getElementById('pingResult').innerHTML=results.map(r=>{
+const color=typeof r.ms==='number'?r.ms<100?'var(--green)':r.ms<300?'var(--yellow)':'var(--red)':'var(--red)';
+return `<span class="ping-result" style="background:${color}20;color:${color}">${r.name}: ${r.ms}ms</span>`;
+}).join(' ');
+});
+}
+function getWebRTCIP(){
+try{
+const pc=new RTCPeerConnection({iceServers:[]});
+pc.createDataChannel('');
+pc.createOffer().then(o=>pc.setLocalDescription(o));
+pc.onicecandidate=e=>{
+if(!e||!e.candidate||!e.candidate.candidate)return;
+const ip=e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+if(ip){
+document.getElementById('webrtcInfo').innerHTML=`<div class="info-row"><span class="label">本地IP</span><span class="value">${ip[1]}</span></div>`;
+pc.close();
+}
+};
+setTimeout(()=>{if(!document.getElementById('webrtcInfo').querySelector('.value')){document.getElementById('webrtcInfo').innerHTML='<div class="info-row"><span class="label">本地IP</span><span class="value">无法获取(可能需要权限)</span></div>'}},3000);
+}catch(e){document.getElementById('webrtcInfo').innerHTML='<div class="info-row"><span class="label">错误</span><span class="value">'+e.message+'</span></div>'}
+}
+refreshIP();showConnInfo();getWebRTCIP();
+</script>
+</body>
+</html>

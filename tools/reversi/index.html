@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>⚫⚪ 黑白棋</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;align-items:center;min-height:100vh;padding:16px}
+.container{display:flex;flex-direction:column;align-items:center;gap:12px;max-width:480px;width:100%}
+h1{font-size:1.5rem}
+.scoreboard{display:flex;justify-content:space-between;width:100%;font-size:1rem}
+.scoreboard .p{display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:var(--card);border:1px solid var(--border)}
+.scoreboard .p.active{border-color:var(--accent)}
+.scoreboard .dot{width:20px;height:20px;border-radius:50%}
+.scoreboard .dot.black{background:#1a1a2a;border:2px solid #555}
+.scoreboard .dot.white{background:#eee;border:2px solid #bbb}
+canvas{border-radius:8px;touch-action:none;max-width:100%}
+.controls{display:flex;gap:8px}
+button{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:.9rem}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.status{font-size:.95rem;color:#8b949e;min-height:24px;text-align:center}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>⚫⚪ 黑白棋</h1>
+<div class="scoreboard">
+<div class="p active" id="pBlack"><div class="dot black"></div>黑棋 <b id="bCount">2</b></div>
+<div class="p" id="pWhite"><div class="dot white"></div>白棋(AI) <b id="wCount">2</b></div>
+</div>
+<canvas id="board"></canvas>
+<div class="status" id="status"></div>
+<div class="controls">
+<button class="primary" onclick="newGame()">新游戏</button>
+<button onclick="aiTurn()">AI落子</button>
+</div>
+</div>
+<script>
+const C=document.getElementById('board'),ctx=C.getContext('2d');
+const N=8,CELL=52,MARGIN=20;
+C.width=CELL*N+MARGIN*2;C.height=CELL*N+MARGIN*2;
+let board=[],turn='b',gameOver=false,animating=false;
+
+function init(){
+board=Array(N).fill(null).map(()=>Array(N).fill(null));
+board[3][3]='w';board[3][4]='b';board[4][3]='b';board[4][4]='w';
+turn='b';gameOver=false;
+}
+function toScreen(r,c){return{x:MARGIN+c*CELL+CELL/2,y:MARGIN+r*CELL+CELL/2}}
+function toBoard(x,y){const c=Math.floor((x-MARGIN)/CELL),r=Math.floor((y-MARGIN)/CELL);return(r>=0&&r<N&&c>=0&&c<N)?{r,c}:null}
+
+const DIRS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+function canFlip(r,c,team){
+if(board[r][c]!==null)return[];
+const opp=team==='b'?'w':'b';
+const flips=[];
+for(const[dr,dc]of DIRS){
+let nr=r+dr,nc=c+dc,line=[];
+while(nr>=0&&nr<N&&nc>=0&&nc<N&&board[nr][nc]===opp){line.push({r:nr,c:nc});nr+=dr;nc+=dc}
+if(line.length&&nr>=0&&nr<N&&nc>=0&&nc<N&&board[nr][nc]===team)flips.push(...line);
+}return flips;
+}
+
+function hasValidMoves(team){
+for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(canFlip(r,c,team).length>0)return true;return false;
+}
+
+function draw(){
+ctx.fillStyle='#1a3a1a';ctx.fillRect(0,0,C.width,C.height);
+ctx.strokeStyle='#2a5a2a';ctx.lineWidth=1;
+for(let i=0;i<=N;i++){
+ctx.beginPath();ctx.moveTo(MARGIN,MARGIN+i*CELL);ctx.lineTo(MARGIN+N*CELL,MARGIN+i*CELL);ctx.stroke();
+ctx.beginPath();ctx.moveTo(MARGIN+i*CELL,MARGIN);ctx.lineTo(MARGIN+i*CELL,MARGIN+N*CELL);ctx.stroke();
+}
+// valid moves
+if(!gameOver){
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+const flips=canFlip(r,c,turn);
+if(flips.length>0){
+const{x,y}=toScreen(r,c);
+ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);
+ctx.fillStyle='rgba(59,130,246,0.3)';ctx.fill();
+ctx.strokeStyle='rgba(59,130,246,0.6)';ctx.lineWidth=1;ctx.stroke();
+}}}
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+const p=board[r][c];if(!p)continue;
+const{x,y}=toScreen(r,c);
+ctx.beginPath();ctx.arc(x,y,CELL/2-4,0,Math.PI*2);
+if(p==='b'){const g=ctx.createRadialGradient(x-4,y-4,2,x,y,CELL/2-4);g.addColorStop(0,'#444');g.addColorStop(1,'#111');ctx.fillStyle=g}
+else{const g=ctx.createRadialGradient(x-4,y-4,2,x,y,CELL/2-4);g.addColorStop(0,'#fff');g.addColorStop(1,'#ccc');ctx.fillStyle=g}
+ctx.fill();
+ctx.strokeStyle=p==='b'?'#555':'#aaa';ctx.lineWidth=1;ctx.stroke();
+}
+}
+
+function place(r,c,team){
+const flips=canFlip(r,c,team);
+if(!flips.length)return false;
+board[r][c]=team;
+flips.forEach(f=>board[f.r][f.c]=team);
+return true;
+}
+
+function aiTurn(){
+if(gameOver||turn!=='w')return;
+let bestScore=-1,bestMoves=[];
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+const flips=canFlip(r,c,'w');
+if(flips.length>0){
+const corners=[[0,0],[0,7],[7,0],[7,7]];
+let score=flips.length;
+if(corners.some(([cr,cc])=>r===cr&&c===cc))score+=50;
+for(const[dr,dc]of DIRS){let nr=r+dr,nc=c+dc;while(nr>=0&&nr<N&&nc>=0&&nc<N&&board[nr][nc]==='w'){nr+=dr;nc+=dc}}
+if(r===0||r===7)score+=5;if(c===0||c===7)score+=5;
+if(score>bestScore){bestScore=score;bestMoves=[{r,c}]}
+else if(score===bestScore)bestMoves.push({r,c});
+}}
+if(bestMoves.length){
+const m=bestMoves[Math.floor(Math.random()*bestMoves.length)];
+place(m.r,m.c,'w');
+endTurn();
+}
+}
+
+function endTurn(){
+turn=turn==='b'?'w':'b';
+updateScore();
+if(!hasValidMoves('b')&&!hasValidMoves('w')){
+gameOver=true;
+const bc=count('b'),wc=count('w');
+document.getElementById('status').textContent=bc>wc?'黑棋胜利！':bc<wc?'白棋胜利！':'平局！';
+}else if(!hasValidMoves(turn)){
+document.getElementById('status').textContent=(turn==='b'?'黑':'白')+'棋无子可下，跳过';
+turn=turn==='b'?'w':'b';
+if(turn==='w')setTimeout(aiTurn,500);
+}else{
+document.getElementById('status').textContent='';
+if(turn==='w')setTimeout(aiTurn,500);
+}
+draw();
+}
+
+function count(team){let c=0;for(let r=0;r<N;r++)for(let col=0;col<N;col++)if(board[r][col]===team)c++;return c}
+
+function updateScore(){
+document.getElementById('bCount').textContent=count('b');
+document.getElementById('wCount').textContent=count('w');
+document.getElementById('pBlack').className='p'+(turn==='b'?' active':'');
+document.getElementById('pWhite').className='p'+(turn==='w'?' active':'');
+}
+
+C.addEventListener('click',e=>{
+if(gameOver||turn!=='b')return;
+const rect=C.getBoundingClientRect();
+const bx=(e.clientX-rect.left)*(C.width/rect.width),by=(e.clientY-rect.top)*(C.height/rect.height);
+const pos=toBoard(bx,by);if(!pos)return;
+if(place(pos.r,pos.c,'b')){endTurn()}
+});
+
+function newGame(){init();updateScore();document.getElementById('status').textContent='';draw()}
+init();draw();updateScore();
+</script>

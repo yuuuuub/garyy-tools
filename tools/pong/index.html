@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>乒乓球</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+h1{font-size:1.5rem;margin-bottom:10px;color:#3b82f6}
+canvas{background:#161b22;border:2px solid #30363d;border-radius:8px;touch-action:none}
+.controls{display:flex;gap:10px;margin-top:10px}
+.controls button{padding:8px 16px;border:1px solid #30363d;background:#161b22;color:#e6edf3;border-radius:6px;cursor:pointer}
+.controls button.active{background:#3b82f6;border-color:#3b82f6}
+</style>
+</head>
+<body>
+<h1>🏓 乒乓球</h1>
+<canvas id="game" width="600" height="400"></canvas>
+<div class="controls">
+<button id="pvpBtn" onclick="setMode('pvp')">双人对战</button>
+<button id="aiBtn" class="active" onclick="setMode('ai')">AI对战</button>
+<button onclick="reset()">重新开始</button>
+</div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+const pH=60,pW=10,bSpeed=5;
+let p1={x:10,y:H/2-pH/2,score:0},p2={x:W-20,y:H/2-pH/2,score:0};
+let ball={x:W/2,y:H/2,vx:bSpeed,vy:bSpeed*(Math.random()-0.5)*2,r:6};
+let mode='ai',keys={};
+
+function setMode(m){mode=m;document.getElementById('pvpBtn').className=m==='pvp'?'active':'';document.getElementById('aiBtn').className=m==='ai'?'active':'';reset()}
+function reset(){p1.score=0;p2.score=0;serve()}
+
+function serve(){ball={x:W/2,y:H/2,vx:bSpeed*(Math.random()>0.5?1:-1),vy:bSpeed*(Math.random()-0.5)*2,r:6}}
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+canvas.addEventListener('pointermove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  p1.y=((e.clientY-rect.top)/rect.height)*H-pH/2;
+  p1.y=Math.max(0,Math.min(H-pH,p1.y));
+});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0],rect=canvas.getBoundingClientRect();
+  p1.y=((t.clientY-rect.top)/rect.height)*H-pH/2;
+},{passive:false});
+
+function update(){
+  // player 1
+  if(keys.KeyW)p1.y-=5;if(keys.KeyS)p1.y+=5;
+  p1.y=Math.max(0,Math.min(H-pH,p1.y));
+  // player 2 / AI
+  if(mode==='ai'){const target=ball.y-pH/2;p2.y+=(target-p2.y)*0.06}
+  else{if(keys.ArrowUp)p2.y-=5;if(keys.ArrowDown)p2.y+=5}
+  p2.y=Math.max(0,Math.min(H-pH,p2.y));
+
+  ball.x+=ball.vx;ball.y+=ball.vy;
+  if(ball.y-ball.r<0||ball.y+ball.r>H)ball.vy*=-1;
+
+  // paddle collision
+  if(ball.vx<0&&ball.x-ball.r<=p1.x+pW&&ball.x+ball.r>=p1.x&&ball.y>=p1.y&&ball.y<=p1.y+pH){
+    ball.vx=Math.abs(ball.vx)*1.05;
+    ball.vy=(ball.y-(p1.y+pH/2))/(pH/2)*bSpeed;
+  }
+  if(ball.vx>0&&ball.x+ball.r>=p2.x&&ball.x-ball.r<=p2.x+pW&&ball.y>=p2.y&&ball.y<=p2.y+pH){
+    ball.vx=-Math.abs(ball.vx)*1.05;
+    ball.vy=(ball.y-(p2.y+pH/2))/(pH/2)*bSpeed;
+  }
+
+  if(ball.x<0){p2.score++;serve()}
+  if(ball.x>W){p1.score++;serve()}
+}
+
+function draw(){
+  ctx.fillStyle='#161b22';ctx.fillRect(0,0,W,H);
+  // center line
+  ctx.setLineDash([5,5]);ctx.strokeStyle='#30363d';ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+  // paddles
+  ctx.fillStyle='#e6edf3';
+  ctx.fillRect(p1.x,p1.y,pW,pH);ctx.fillRect(p2.x,p2.y,pW,pH);
+  // ball
+  ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();
+  // score
+  ctx.fillStyle='#e6edf3';ctx.font='bold 40px system-ui';ctx.textAlign='center';
+  ctx.fillText(p1.score,W/4,60);ctx.fillText(p2.score,W*3/4,60);
+}
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+reset();loop();
+</script>
+</body>
+</html>

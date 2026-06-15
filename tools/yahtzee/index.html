@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎲 骰子游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--correct:#2ea043;--wrong:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;min-height:100vh;padding:16px}
+.container{width:100%;max-width:500px;display:flex;flex-direction:column;gap:12px;align-items:center}
+h1{font-size:1.5rem}
+.dice-area{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;padding:20px 0}
+.dice{width:64px;height:64px;border-radius:12px;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;cursor:pointer;transition:.2s;user-select:none}
+.dice.held{border-color:var(--accent);background:rgba(59,130,246,.15)}
+.dice:hover{border-color:var(--accent)}
+.roll-btn{padding:14px 32px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:1.1rem;cursor:pointer;transition:.2s}
+.roll-btn:hover{opacity:.9}
+.roll-btn:disabled{opacity:.5;cursor:not-allowed}
+.info{font-size:.9rem;color:#8b949e;text-align:center}
+.scores-grid{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.score-row{display:flex;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:.85rem;cursor:pointer;transition:.2s}
+.score-row:hover{border-color:var(--accent)}
+.score-row.filled{opacity:.5;cursor:not-allowed}
+.score-row .label{color:#8b949e}
+.score-row .val{font-weight:700;color:var(--accent)}
+.total-area{display:flex;justify-content:space-between;width:100%;padding:12px 16px;border-radius:8px;background:var(--card);border:1px solid var(--border);font-size:1rem}
+.total-area b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🎲 骰子游戏 (Yahtzee)</h1>
+<div class="info">点击骰子锁定/解锁，掷骰子最多3次</div>
+<div class="dice-area" id="diceArea"></div>
+<button class="roll-btn" id="rollBtn" onclick="roll()">🎲 掷骰子</button>
+<div class="scores-grid" id="scores"></div>
+<div class="total-area"><span>总分</span><b id="total">0</b></div>
+<button class="roll-btn" onclick="newGame()" style="width:100%">🔄 新游戏</button>
+</div>
+<script>
+const CATS=[
+{id:'ones',name:'一点',calc:d=>d.filter(x=>x===1).reduce((a,b)=>a+b,0)},
+{id:'twos',name:'两点',calc:d=>d.filter(x=>x===2).reduce((a,b)=>a+b,0)},
+{id:'threes',name:'三点',calc:d=>d.filter(x=>x===3).reduce((a,b)=>a+b,0)},
+{id:'fours',name:'四点',calc:d=>d.filter(x=>x===4).reduce((a,b)=>a+b,0)},
+{id:'fives',name:'五点',calc:d=>d.filter(x=>x===5).reduce((a,b)=>a+b,0)},
+{id:'sixes',name:'六点',calc:d=>d.filter(x=>x===6).reduce((a,b)=>a+b,0)},
+{id:'three_kind',name:'三条',calc:d=>{const c=countDice(d);return Object.values(c).some(v=>v>=3)?d.reduce((a,b)=>a+b,0):0}},
+{id:'four_kind',name:'四条',calc:d=>{const c=countDice(d);return Object.values(c).some(v=>v>=4)?d.reduce((a,b)=>a+b,0):0}},
+{id:'full_house',name:'葫芦',calc:d=>{const c=countDice(d);const vals=Object.values(c);return vals.includes(3)&&vals.includes(2)?25:0}},
+{id:'sm_straight',name:'小顺',calc:d=>{const s=[...new Set(d)].sort();let has=false;for(let i=0;i<=s.length-4;i++)if(s[i+3]-s[i]===3)has=true;return has?30:0}},
+{id:'lg_straight',name:'大顺',calc:d=>{const s=[...new Set(d)].sort();return s.length===5&&s[4]-s[0]===4?40:0}},
+{id:'yahtzee',name:'约兹',calc:d=>new Set(d).size===1?50:0},
+{id:'chance',name:'机会',calc:d=>d.reduce((a,b)=>a+b,0)},
+];
+let dice=[0,0,0,0,0],held=[false,false,false,false,false],rollsLeft=3,scores={},currentScores=[];
+
+function countDice(d){const c={};d.forEach(v=>c[v]=(c[v]||0)+1);return c}
+
+function renderDice(){
+const area=document.getElementById('diceArea');area.innerHTML='';
+for(let i=0;i<5;i++){
+const d=document.createElement('div');d.className='dice'+(held[i]?' held':'');
+d.textContent=dice[i]||'⚀';
+d.onclick=()=>{if(rollsLeft<3&&rollsLeft>0){held[i]=!held[i];renderDice()}};
+area.appendChild(d);
+}
+}
+
+function renderScores(){
+const area=document.getElementById('scores');area.innerHTML='';
+CATS.forEach(cat=>{
+const row=document.createElement('div');
+row.className='score-row'+(scores[cat.id]!==undefined?' filled':'');
+const val=scores[cat.id]!==undefined?scores[cat.id]:(dice[0]?cat.calc(dice):'-');
+row.innerHTML=`<span class="label">${cat.name}</span><span class="val">${val}</span>`;
+if(scores[cat.id]===undefined&&dice[0]){
+row.onclick=()=>{scores[cat.id]=cat.calc(dice);rollsLeft=3;held=[false,false,false,false,false];dice=[0,0,0,0,0];renderAll()};
+}
+area.appendChild(row);
+});
+document.getElementById('total').textContent=Object.values(scores).reduce((a,b)=>a+b,0);
+}
+
+function renderAll(){renderDice();renderScores()}
+
+function roll(){
+if(rollsLeft<=0)return;
+rollsLeft--;
+for(let i=0;i<5;i++)if(!held[i])dice[i]=Math.floor(Math.random()*6)+1;
+document.getElementById('rollBtn').textContent='🎲 掷骰子 ('+rollsLeft+'次)';
+document.getElementById('rollBtn').disabled=rollsLeft<=0;
+renderAll();
+}
+
+function newGame(){
+dice=[0,0,0,0,0];held=[false,false,false,false,false];rollsLeft=3;scores={};
+document.getElementById('rollBtn').textContent='🎲 掷骰子';
+document.getElementById('rollBtn').disabled=false;
+renderAll();
+}
+newGame();
+</script>
+</body>
+</html>

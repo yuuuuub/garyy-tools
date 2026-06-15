@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数独Pro</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444;--cell-given:#8b949e;--cell-user:#e6edf3;--cell-selected:rgba(59,130,246,0.3);--cell-same:rgba(59,130,246,0.15)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin-bottom:10px;color:var(--accent)}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+.toolbar select,.toolbar button{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:0.85rem;cursor:pointer;font-family:inherit}
+.toolbar button:hover{border-color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.board{display:grid;grid-template-columns:repeat(9,1fr);gap:0;border:3px solid var(--text);border-radius:8px;overflow:hidden;width:100%;max-width:450px;aspect-ratio:1}
+.cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;border:1px solid var(--border);background:var(--card);transition:background 0.15s;position:relative}
+.cell:nth-child(3n+1){border-left:2px solid var(--text)}
+.cell:nth-child(9n+1){border-left:2px solid var(--text)}
+.cell:nth-child(n+19):nth-child(-n+27){border-top:2px solid var(--text)}
+.cell:nth-child(n+46):nth-child(-n+54){border-top:2px solid var(--text)}
+.cell.given{color:var(--cell-given);font-weight:bold}
+.cell.user{color:var(--cell-user)}
+.cell.selected{background:var(--cell-selected)}
+.cell.same{background:var(--cell-same)}
+.cell.error{color:var(--error);background:rgba(239,68,68,0.15)}
+.cell.hint-cell{color:var(--success)}
+.num-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px;max-width:300px;width:100%}
+.num-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-size:1.1rem;cursor:pointer;font-family:inherit;transition:all 0.2s}
+.num-btn:hover{border-color:var(--accent);background:var(--cell-selected)}
+.num-btn.erase{font-size:0.8rem}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+.btn-row button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;cursor:pointer;font-family:inherit}
+.btn-row button:hover{opacity:0.85}
+.win-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:100}
+.win-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px;text-align:center}
+.win-box h2{color:var(--success);margin-bottom:15px;font-size:1.5rem}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<h1>🔢 数独Pro</h1>
+<div class="toolbar">
+  <select id="difficulty" onchange="newGame()">
+    <option value="easy">简单</option>
+    <option value="medium" selected>中等</option>
+    <option value="hard">困难</option>
+  </select>
+</div>
+<div class="info-bar">
+  <div class="info-item">⏱ <span id="timer">0</span>秒</div>
+  <div class="info-item">❌ 错误: <span id="errors">0</span>/3</div>
+</div>
+<div class="board" id="board"></div>
+<div class="num-pad" id="numpad"></div>
+<div class="btn-row">
+  <button onclick="getHint()">💡 提示</button>
+  <button onclick="validateBoard()">✅ 验证</button>
+  <button onclick="newGame()">🔄 新游戏</button>
+</div>
+<div class="win-overlay hidden" id="winOverlay">
+  <div class="win-box">
+    <h2>🎉 恭喜完成!</h2>
+    <p>用时: <span id="winTime">0</span>秒 | 错误: <span id="winErrors">0</span></p>
+    <button onclick="newGame();document.getElementById('winOverlay').classList.add('hidden')">再来一局</button>
+  </div>
+</div>
+<script>
+let puzzle=[],solution=[],userGrid=[],selectedCell=null,maxErrors=3,errors=0,timer=0,timerInterval=null;
+
+function generateSudoku(diff){
+  const base=[
+    [5,3,4,6,7,8,9,1,2],[6,7,2,1,9,5,3,4,8],[1,9,8,3,4,2,5,6,7],
+    [8,5,9,7,6,1,4,2,3],[4,2,6,8,5,3,7,9,1],[7,1,3,9,2,4,8,5,6],
+    [9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]
+  ];
+  const sol=base.map(r=>[...r]);
+  for(let i=0;i<200;i++){
+    const op=Math.floor(Math.random()*6);
+    if(op<2){
+      const g=Math.floor(Math.random()*9);
+      const rows=[[0,1,2],[3,4,5],[6,7,8]];
+      const ri=g%3;
+      const a=rows[ri][Math.floor(Math.random()*3)],b=rows[ri][Math.floor(Math.random()*3)];
+      [sol[a],sol[b]]=[sol[b],sol[a]];
+    } else if(op<4){
+      const g=Math.floor(Math.random()*9);
+      const cols=[[0,1,2],[3,4,5],[6,7,8]];
+      const ci=g%3;
+      const a=cols[ci][Math.floor(Math.random()*3)],b=cols[ci][Math.floor(Math.random()*3)];
+      for(let r=0;r<9;r++)[sol[r][a],sol[r][b]]=[sol[r][b],sol[r][a]];
+    } else {
+      const v=Math.floor(Math.random()*9)+1;
+      const nums=[1,2,3,4,5,6,7,8,9];
+      const a=nums[Math.floor(Math.random()*9)],b=nums[Math.floor(Math.random()*9)];
+      if(a!==b)for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+        if(sol[r][c]===a)sol[r][c]=b;
+        else if(sol[r][c]===b)sol[r][c]=a;
+      }
+    }
+  }
+  const blanks={easy:35,medium:45,hard:55}[diff]||45;
+  const masked=sol.map(r=>[...r]);
+  let count=0;
+  while(count<blanks){
+    const r=Math.floor(Math.random()*9),c=Math.floor(Math.random()*9);
+    if(masked[r][c]!==0){masked[r][c]=0;count++}
+  }
+  return{puzzle:masked,solution:sol};
+}
+
+function newGame(){
+  const diff=document.getElementById('difficulty').value;
+  const g=generateSudoku(diff);
+  puzzle=g.puzzle;solution=g.solution;
+  userGrid=puzzle.map(r=>[...r]);
+  errors=0;selectedCell=null;timer=0;
+  document.getElementById('errors').textContent=0;
+  document.getElementById('timer').textContent=0;
+  document.getElementById('winOverlay').classList.add('hidden');
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{timer++;document.getElementById('timer').textContent=timer},1000);
+  render();
+}
+
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  const selVal=selectedCell?userGrid[selectedCell.r][selectedCell.c]:0;
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    const val=userGrid[r][c];
+    if(puzzle[r][c]!==0)cell.classList.add('given');
+    else if(val!==0)cell.classList.add('user');
+    if(selectedCell&&selectedCell.r===r&&selectedCell.c===c)cell.classList.add('selected');
+    else if(selVal&&val===selVal&&val!==0)cell.classList.add('same');
+    if(val!==0&&puzzle[r][c]===0&&val!==solution[r][c])cell.classList.add('error');
+    cell.textContent=val||'';
+    cell.onclick=()=>{selectedCell={r,c};render()};
+    board.appendChild(cell);
+  }
+}
+
+function renderNumpad(){
+  const el=document.getElementById('numpad');
+  el.innerHTML='';
+  for(let i=1;i<=9;i++){
+    const btn=document.createElement('button');
+    btn.className='num-btn';btn.textContent=i;
+    btn.onclick=()=>inputNumber(i);
+    el.appendChild(btn);
+  }
+  const eraseBtn=document.createElement('button');
+  eraseBtn.className='num-btn erase';eraseBtn.textContent='清除';
+  eraseBtn.onclick=()=>inputNumber(0);
+  el.appendChild(eraseBtn);
+}
+
+function inputNumber(n){
+  if(!selectedCell)return;
+  const{r,c}=selectedCell;
+  if(puzzle[r][c]!==0)return;
+  userGrid[r][c]=n;
+  if(n!==0&&n!==solution[r][c]){
+    errors++;document.getElementById('errors').textContent=errors;
+    if(errors>=maxErrors){
+      clearInterval(timerInterval);
+      alert('错误过多，游戏结束！');
+      newGame();return;
+    }
+  }
+  render();checkWin();
+}
+
+function checkWin(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(userGrid[r][c]!==solution[r][c])return;
+  }
+  clearInterval(timerInterval);
+  document.getElementById('winTime').textContent=timer;
+  document.getElementById('winErrors').textContent=errors;
+  document.getElementById('winOverlay').classList.remove('hidden');
+}
+
+function getHint(){
+  const empty=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(userGrid[r][c]===0||userGrid[r][c]!==solution[r][c])empty.push({r,c});
+  }
+  if(empty.length===0)return;
+  const{r,c}=empty[Math.floor(Math.random()*empty.length)];
+  userGrid[r][c]=solution[r][c];
+  selectedCell={r,c};
+  render();
+}
+
+function validateBoard(){
+  let errors_found=0;
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(userGrid[r][c]!==0&&userGrid[r][c]!==solution[r][c])errors_found++;
+  }
+  if(errors_found===0)alert('✅ 全部正确！');
+  else alert('❌ 有 '+errors_found+' 处错误');
+}
+
+document.addEventListener('keydown',e=>{
+  if(!selectedCell)return;
+  const n=parseInt(e.key);
+  if(n>=1&&n<=9)inputNumber(n);
+  else if(e.key==='Backspace'||e.key==='Delete')inputNumber(0);
+  else if(e.key==='ArrowUp'&&selectedCell.r>0){selectedCell.r--;render()}
+  else if(e.key==='ArrowDown'&&selectedCell.r<8){selectedCell.r++;render()}
+  else if(e.key==='ArrowLeft'&&selectedCell.c>0){selectedCell.c--;render()}
+  else if(e.key==='ArrowRight'&&selectedCell.c<8){selectedCell.c++;render()}
+});
+
+renderNumpad();newGame();
+</script>
+</body>
+</html>

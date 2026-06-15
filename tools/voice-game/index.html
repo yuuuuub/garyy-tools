@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语音游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--error:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.5rem;margin-bottom:10px;color:var(--accent)}
+.mode-btns{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+.mode-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:0.85rem;transition:all 0.2s}
+.mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.mic-area{width:120px;height:120px;border-radius:50%;background:var(--card);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;margin:15px 0;transition:all 0.3s;cursor:pointer}
+.mic-area.active{border-color:var(--error);box-shadow:0 0 30px rgba(239,68,68,0.4);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.mic-area .icon{font-size:3rem}
+.info-bar{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.game-area{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;width:100%;max-width:500px;min-height:120px;margin-bottom:15px;text-align:center}
+.game-area .word{font-size:2rem;font-weight:bold;color:var(--accent);margin:10px 0}
+.game-area .hint{font-size:1rem;color:var(--text);opacity:0.7}
+.recognized{font-size:1rem;padding:8px;color:var(--success);min-height:30px;text-align:center}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+.msg{font-size:0.9rem;padding:6px;text-align:center;color:var(--text);opacity:0.7}
+</style>
+</head>
+<body>
+<h1>🎤 语音游戏</h1>
+<div class="mode-btns">
+  <button class="mode-btn active" onclick="setMode('read')">📖 朗读挑战</button>
+  <button class="mode-btn" onclick="setMode('repeat')">🔄 复述挑战</button>
+  <button class="mode-btn" onclick="setMode('count')">🔢 数数挑战</button>
+</div>
+<div class="info-bar">
+  <div class="info-item">🏆 分数: <span id="score">0</span></div>
+  <div class="info-item">📊 <span id="round">1</span>轮</div>
+  <div class="info-item">✅ 正确: <span id="correct">0</span></div>
+</div>
+<div class="mic-area" id="mic" onclick="toggleMic()">
+  <div class="icon">🎤</div>
+</div>
+<div class="game-area" id="gameArea">
+  <div class="hint">点击麦克风开始</div>
+</div>
+<div class="recognized" id="recognized"></div>
+<div class="buttons">
+  <button onclick="nextRound()">⏭ 下一题</button>
+  <button onclick="resetGame()">🔄 重置</button>
+</div>
+<div class="msg" id="msg"></div>
+<script>
+let mode='read',recognition=null,listening=false,score=0,correctCount=0,roundNum=0,currentTarget='';
+const WORDS=['苹果','香蕉','橙子','西瓜','葡萄','草莓','电脑','手机','电视','音乐','足球','篮球','熊猫','老虎','狮子','大海','河流','高山','太阳','月亮','火车','飞机','汽车','自行车','桌子','椅子','书本','铅笔'];
+const SENTENCES=['今天天气真好','我爱吃水果','早上起来跑步','晚上早点睡觉','春天花开了','小狗在公园玩','妈妈做的饭好吃','学校里有很多朋友'];
+let synth=window.speechSynthesis;
+
+function setMode(m){
+  mode=m;roundNum=0;score=0;correctCount=0;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.mode-btn').forEach(b=>{if(b.textContent.includes(m==='read'?'朗读':m==='repeat'?'复述':'数数'))b.classList.add('active')});
+  document.getElementById('score').textContent=0;document.getElementById('correct').textContent=0;
+  nextRound();
+}
+
+function initSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){document.getElementById('msg').textContent='⚠️ 浏览器不支持语音识别，请使用Chrome';return false}
+  recognition=new SR();
+  recognition.lang='zh-CN';
+  recognition.continuous=false;
+  recognition.interimResults=true;
+  recognition.onresult=e=>{
+    let transcript='';
+    for(let i=e.resultIndex;i<e.results.length;i++)transcript+=e.results[i][0].transcript;
+    document.getElementById('recognized').textContent='🗣 '+transcript;
+    if(e.results[e.resultIndex].isFinal)checkAnswer(transcript);
+  };
+  recognition.onerror=()=>{listening=false;document.getElementById('mic').classList.remove('active')};
+  recognition.onend=()=>{listening=false;document.getElementById('mic').classList.remove('active')};
+  return true;
+}
+
+function toggleMic(){
+  if(!recognition&&!initSpeech())return;
+  if(listening){recognition.stop();listening=false;document.getElementById('mic').classList.remove('active')}
+  else{recognition.start();listening=true;document.getElementById('mic').classList.add('active');document.getElementById('recognized').textContent=''}
+}
+
+function speak(text){
+  if(!synth)return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='zh-CN';u.rate=0.8;
+  synth.speak(u);
+}
+
+function nextRound(){
+  roundNum++;document.getElementById('round').textContent=roundNum;
+  document.getElementById('recognized').textContent='';
+  if(mode==='read'){
+    currentTarget=SENTENCES[Math.floor(Math.random()*SENTENCES.length)];
+    document.getElementById('gameArea').innerHTML=`<div class="hint">请朗读以下句子：</div><div class="word">${currentTarget}</div><button onclick="speak('${currentTarget}')" style="margin-top:10px;font-size:0.8rem;padding:5px 12px">🔊 播放</button>`;
+  } else if(mode==='repeat'){
+    currentTarget=SENTENCES[Math.floor(Math.random()*SENTENCES.length)];
+    document.getElementById('gameArea').innerHTML=`<div class="hint">听句子，然后复述：</div><div class="word" style="font-size:1.5rem">🔊 点击麦克风听</div>`;
+    setTimeout(()=>speak(currentTarget),500);
+  } else {
+    const num=Math.floor(Math.random()*20)+1;
+    currentTarget=WORDS[num%WORDS.length];
+    const count=num;
+    document.getElementById('gameArea').innerHTML=`<div class="hint">请说出 ${count} 个水果名称</div><div class="word">${count}</div>`;
+    currentTarget=count;
+  }
+}
+
+function checkAnswer(transcript){
+  if(mode==='count'){
+    const words=transcript.replace(/，/g,' ').replace(/。/g,' ').split(/\s+/).filter(Boolean);
+    if(words.length>=currentTarget){
+      score+=currentTarget*10;correctCount++;
+      document.getElementById('score').textContent=score;
+      document.getElementById('correct').textContent=correctCount;
+      document.getElementById('gameArea').innerHTML=`<div class="hint">✅ 正确！你说出了 ${words.length} 个词</div><div class="word">${words.join('、')}</div>`;
+    } else {
+      document.getElementById('gameArea').innerHTML=`<div class="hint">❌ 说了 ${words.length} 个，需要 ${currentTarget} 个</div>`;
+    }
+  } else {
+    const similarity=transcript.includes(currentTarget.substring(0,2));
+    if(similarity){
+      score+=100;correctCount++;
+      document.getElementById('score').textContent=score;
+      document.getElementById('correct').textContent=correctCount;
+      document.getElementById('gameArea').innerHTML=`<div class="hint">✅ 正确！</div><div class="word">${currentTarget}</div>`;
+    } else {
+      document.getElementById('gameArea').innerHTML=`<div class="hint">❌ 正确答案：</div><div class="word">${currentTarget}</div>`;
+    }
+  }
+}
+
+function resetGame(){
+  if(listening&&recognition)recognition.stop();
+  score=0;correctCount=0;roundNum=0;listening=false;
+  document.getElementById('score').textContent=0;
+  document.getElementById('correct').textContent=0;
+  document.getElementById('round').textContent=0;
+  document.getElementById('mic').classList.remove('active');
+  document.getElementById('recognized').textContent='';
+  document.getElementById('gameArea').innerHTML='<div class="hint">点击麦克风开始</div>';
+}
+
+initSpeech();
+</script>
+</body>
+</html>

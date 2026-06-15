@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Flappy Bird</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;user-select:none}
+h1{font-size:1.5rem;margin-bottom:10px;color:#3b82f6}
+canvas{background:#1a1a2e;border:2px solid #30363d;border-radius:8px;touch-action:none}
+.info{margin-top:10px;font-size:0.9rem;color:#8b949e}
+</style>
+</head>
+<body>
+<h1>🐦 Flappy Bird</h1>
+<canvas id="game" width="400" height="600"></canvas>
+<div class="info">点击/空格键 控制飞行</div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+let bird={x:80,y:300,vy:0,r:15},pipes=[],score=0,best=0,gameState='start',frame=0;
+const gravity=0.4,flapForce=-7,pipeW=60,pipeGap=150,pipeSpeed=2.5;
+
+function reset(){bird={x:80,y:300,vy:0,r:15};pipes=[];score=0;frame=0}
+function flap(){if(gameState==='start'){gameState='playing';bird.vy=flapForce}else if(gameState==='playing'){bird.vy=flapForce}else if(gameState==='over'){reset();gameState='start'}}
+
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();flap()});
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();flap()}});
+
+function drawBird(){
+  ctx.save();ctx.translate(bird.x,bird.y);ctx.rotate(Math.min(bird.vy*0.05,0.5));
+  ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(0,0,bird.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(4,-4,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#000';ctx.beginPath();ctx.arc(5,-4,2.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#f97316';ctx.beginPath();ctx.moveTo(bird.r,0);ctx.lineTo(bird.r+8,-3);ctx.lineTo(bird.r+8,3);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+function drawPipe(p){
+  ctx.fillStyle='#22c55e';
+  ctx.fillRect(p.x,0,pipeW,p.gap);
+  ctx.fillRect(p.x,p.gap+150,pipeW,H-p.gap-150);
+  ctx.fillStyle='#16a34a';
+  ctx.fillRect(p.x-4,p.gap-20,pipeW+8,20);
+  ctx.fillRect(p.x-4,p.gap+150,pipeW+8,20);
+}
+
+function draw(){
+  ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
+  // ground
+  ctx.fillStyle='#854d0e';ctx.fillRect(0,H-20,W,20);
+  ctx.fillStyle='#a16207';for(let i=0;i<W;i+=30){ctx.fillRect(i,H-20,15,20)}
+
+  if(gameState==='start'){
+    drawBird();
+    ctx.fillStyle='#e6edf3';ctx.font='bold 28px system-ui';ctx.textAlign='center';
+    ctx.fillText('Flappy Bird',W/2,150);
+    ctx.font='18px system-ui';ctx.fillText('点击/空格 开始游戏',W/2,200);
+    return;
+  }
+
+  pipes.forEach(drawPipe);
+  drawBird();
+
+  ctx.fillStyle='#e6edf3';ctx.font='bold 32px system-ui';ctx.textAlign='center';
+  ctx.fillText(score,W/2,50);
+
+  if(gameState==='over'){
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ef4444';ctx.font='bold 36px system-ui';ctx.fillText('游戏结束',W/2,220);
+    ctx.fillStyle='#e6edf3';ctx.font='22px system-ui';
+    ctx.fillText(`得分: ${score}`,W/2,270);
+    ctx.fillText(`最高: ${best}`,W/2,305);
+    ctx.font='18px system-ui';ctx.fillStyle='#8b949e';
+    ctx.fillText('点击重新开始',W/2,360);
+  }
+}
+
+function update(){
+  if(gameState!=='playing')return;
+  frame++;
+  bird.vy+=gravity;bird.y+=bird.vy;
+
+  if(frame%90===0){const gap=Math.random()*(H-300)+80;pipes.push({x:W,gap,scored:false})}
+
+  pipes.forEach(p=>{
+    p.x-=pipeSpeed;
+    if(!p.scored&&p.x+pipeW<bird.x){p.scored=true;score++}
+  });
+  pipes=pipes.filter(p=>p.x+pipeW>-10);
+
+  if(bird.y+bird.r>H-20||bird.y-bird.r<0){gameOver();return}
+  for(const p of pipes){
+    if(bird.x+bird.r>p.x&&bird.x-bird.r<p.x+pipeW){
+      if(bird.y-bird.r<p.gap||bird.y+bird.r>p.gap+150){gameOver();return}
+    }
+  }
+}
+
+function gameOver(){gameState='over';best=Math.max(best,score)}
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+loop();
+</script>
+</body>
+</html>

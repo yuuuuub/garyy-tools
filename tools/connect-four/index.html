@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>四子棋</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+h1{font-size:1.5rem;margin-bottom:10px;color:#3b82f6}
+.controls{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;justify-content:center}
+.controls button{padding:8px 16px;border:1px solid #30363d;background:#161b22;color:#e6edf3;border-radius:6px;cursor:pointer;font-size:0.9rem}
+.controls button.active{background:#3b82f6;border-color:#3b82f6}
+.board{display:flex;flex-direction:column;gap:4px;padding:10px;background:#161b22;border-radius:10px;border:2px solid #30363d}
+.row{display:flex;gap:4px}
+.cell{width:52px;height:52px;background:#1e293b;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.cell:hover{border-color:#475569}
+.cell.red{background:#ef4444;animation:drop .3s ease}
+.cell.yellow{background:#eab308;animation:drop .3s ease}
+@keyframes drop{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.status{margin-top:12px;font-size:1rem}
+.scores{display:flex;gap:25px;margin-top:8px;font-size:0.9rem}
+.preview{display:flex;gap:4px;margin-bottom:8px;height:40px}
+.preview .cell{width:52px;height:40px;border-radius:6px;background:transparent;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>🔴🟡 四子棋</h1>
+<div class="controls">
+<button id="pvpBtn" class="active" onclick="setMode('pvp')">双人对战</button>
+<button id="aiBtn" onclick="setMode('ai')">AI对战</button>
+<button onclick="reset()">重新开始</button>
+</div>
+<div class="preview" id="preview"></div>
+<div class="board" id="board"></div>
+<div class="status" id="status">🔴 红方回合</div>
+<div class="scores"><span>🔴: <b id="sR">0</b></span><span>🟡: <b id="sY">0</b></span><span>平: <b id="sD">0</b></span></div>
+<script>
+const ROWS=6,COLS=7;
+let grid=[],turn=0,mode='pvp',gameOver=false,scores={R:0,Y:0,D:0};
+
+function setMode(m){mode=m;document.getElementById('pvpBtn').className=m==='pvp'?'active':'';document.getElementById('aiBtn').className=m==='ai'?'active':'';reset()}
+
+function reset(){
+  grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  turn=0;gameOver=false;
+  document.getElementById('status').textContent='🔴 红方回合';
+  render();renderPreview();
+}
+
+function render(){
+  const el=document.getElementById('board');el.innerHTML='';
+  for(let r=0;r<ROWS;r++){const row=document.createElement('div');row.className='row';
+    for(let c=0;c<COLS;c++){const cell=document.createElement('div');cell.className='cell';
+      if(grid[r][c]===1)cell.classList.add('red');
+      if(grid[r][c]===2)cell.classList.add('yellow');
+      cell.onclick=()=>drop(c);row.appendChild(cell);}
+    el.appendChild(row);}
+}
+
+function renderPreview(){
+  const el=document.getElementById('preview');el.innerHTML='';
+  for(let c=0;c<COLS;c++){const cell=document.createElement('div');cell.className='cell';
+    cell.style.background=turn===0?'rgba(239,68,68,0.3)':'rgba(234,179,8,0.3)';
+    cell.onclick=()=>drop(c);el.appendChild(cell);}
+}
+
+function drop(col){
+  if(gameOver)return;
+  for(let r=ROWS-1;r>=0;r--){if(grid[r][col]===0){
+    grid[r][col]=turn+1;render();renderPreview();
+    if(checkWin(r,col,turn+1)){end(turn+1);return}
+    if(grid[0].every(v=>v)){end(0);return}
+    turn=1-turn;
+    const name=turn===0?'🔴 红方':'🟡 黄方';
+    document.getElementById('status').textContent=`${name}回合`;
+    if(mode==='ai'&&turn===1&&!gameOver)setTimeout(aiDrop,400);
+    return;}}
+}
+
+function checkWin(r,c,p){
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  for(const[dr,dc]of dirs){let cnt=1;
+    for(let i=1;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===p)cnt++;else break}
+    for(let i=1;i<4;i++){const nr=r-dr*i,nc=c-dc*i;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===p)cnt++;else break}
+    if(cnt>=4)return true;}
+  return false;
+}
+
+function aiDrop(){
+  let bestScore=-1,bestCol=3;
+  for(let c=0;c<COLS;c++){const r=getRow(c);if(r<0)continue;
+    grid[r][c]=2;const s=evaluate();grid[r][c]=0;
+    if(s>bestScore){bestScore=s;bestCol=c;}}
+  drop(bestCol);
+}
+
+function getRow(col){for(let r=ROWS-1;r>=0;r--)if(grid[r][col]===0)return r;return-1}
+
+function evaluate(){
+  let score=0;
+  // center preference
+  for(let r=0;r<ROWS;r++)if(grid[r][3]===2)score+=3;
+  // check all windows
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(c<=3){let cnt=0;for(let i=0;i<4;i++)if(grid[r][c+i]===2)cnt++;if(cnt===4)return 1000;if(cnt===3&&grid[r][c+i-4]===0)score+=5;}
+    if(r<=2){let cnt=0;for(let i=0;i<4;i++)if(grid[r+i][c]===2)cnt++;if(cnt===4)return 1000;if(cnt===3&&grid[r-1]?.[c]===0)score+=5;}
+  }
+  return score;
+}
+
+function end(winner){
+  gameOver=true;
+  if(winner===1)scores.R++;else if(winner===2)scores.Y++;else scores.D++;
+  const msg=winner===0?'平局！':winner===1?'🔴 红方获胜！🎉':'🟡 黄方获胜！🎉';
+  document.getElementById('status').textContent=msg;
+  document.getElementById('sR').textContent=scores.R;
+  document.getElementById('sY').textContent=scores.Y;
+  document.getElementById('sD').textContent=scores.D;
+}
+
+reset();
+</script>
+</body>
+</html>

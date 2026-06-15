@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>无障碍检查</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{opacity:.9}
+.score-bar{height:12px;background:var(--border);border-radius:6px;margin:8px 0;overflow:hidden}
+.score-fill{height:100%;border-radius:6px;transition:width .5s}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{font-size:16px;margin-bottom:12px;color:var(--accent)}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.check-item:last-child{border-bottom:none}
+.check-icon{font-size:18px;flex-shrink:0}
+.check-detail{color:var(--muted);font-size:12px;margin-top:4px}
+.result{display:none}
+.result.show{display:block}
+.contrast-demo{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap}
+.contrast-sample{padding:12px;border-radius:8px;font-size:14px;font-weight:500;min-width:120px;text-align:center}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">♿</span>
+<h1>无障碍检查</h1>
+</div>
+<div class="container">
+<button class="btn" onclick="runAudit()" style="width:100%;margin-bottom:20px">🔍 检查当前页面</button>
+<div class="result" id="result">
+<div class="card">
+<h3>📈 无障碍评分</h3>
+<div class="score-bar"><div class="score-fill" id="scoreFill"></div></div>
+<div style="text-align:center;font-size:24px;font-weight:700" id="scoreText"></div>
+</div>
+<div class="card"><h3>🔤 文本可读性</h3><div id="textChecks"></div></div>
+<div class="card"><h3>🖼️ 图片替代文本</h3><div id="imgChecks"></div></div>
+<div class="card"><h3>🎨 颜色对比度</h3><div id="contrastChecks"></div></div>
+<div class="card"><h3>⌨️ 键盘可访问性</h3><div id="kbChecks"></div></div>
+<div class="card"><h3>🏷️ 语义化标签</h3><div id="semanticChecks"></div></div>
+<div class="card"><h3>📱 ARIA属性</h3><div id="ariaChecks"></div></div>
+</div>
+</div>
+<script>
+function runAudit(){
+let score=0,total=0;const results=[];
+function addResult(ok,label,detail=''){total++;if(ok)score++;results.push(ci(ok,label,detail))}
+// Text checks
+const allText=document.querySelectorAll('body *');
+let smallFont=0;
+allText.forEach(el=>{
+const cs=getComputedStyle(el);
+const fs=parseFloat(cs.fontSize);
+if(el.textContent.trim()&&fs<12)smallFont++;
+});
+addResult(smallFont===0,'字体大小',smallFont?`${smallFont}个元素字体小于12px`:'所有文本≥12px');
+const lineHeights=document.querySelectorAll('p,span,div,li,a,label');
+let badLH=0;
+lineHeights.forEach(el=>{
+const lh=parseFloat(getComputedStyle(el).lineHeight);
+if(el.textContent.trim()&&lh&&lh<parseFloat(getComputedStyle(el).fontSize)*1.4)badLH++;
+});
+addResult(badLH<3,'行高',badLH?`${badLH}个元素行高过小`:'行高合适');
+// Image checks
+const imgs=document.querySelectorAll('img');
+let noAlt=0,hasAlt=0;
+imgs.forEach(i=>{if(i.alt)hasAlt++;else noAlt++});
+addResult(noAlt===0,'图片alt',imgs.length?`${hasAlt}/${imgs.length}有alt`:'无图片');
+const decorative=document.querySelectorAll('img[role="presentation"],img[alt=""]');
+addResult(true,'装饰图片',decorative.length?`${decorative.length}张标记为装饰`:'无装饰图片标记');
+// Contrast
+const pairs=[[document.body,'#ffffff','#000000']];
+let lowContrast=0;
+document.querySelectorAll('p,a,span,h1,h2,h3,h4,h5,h6,button,label,li').forEach(el=>{
+const cs=getComputedStyle(el);
+const fg=cs.color;const bg=cs.backgroundColor;
+if(fg&&bg&&fg!=='rgba(0, 0, 0, 0)'){
+const ratio=getContrastRatio(parseRGB(fg),parseRGB(bg));
+if(ratio<4.5)lowContrast++;
+}
+});
+addResult(lowContrast<5,'颜色对比度',lowContrast?`${lowContrast}个元素对比度不足(4.5:1)`:'对比度合格');
+// Keyboard
+const focusable=document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]');
+let noFocus=0;
+focusable.forEach(el=>{
+const cs=getComputedStyle(el);
+if(cs.outline==='none'||cs.outline==='0px'||cs.outlineStyle==='none')noFocus++;
+});
+addResult(noFocus<focusable.length/2,'焦点样式',noFocus?`${noFocus}个可聚焦元素无焦点样式`:'焦点样式可见');
+const tabindex=document.querySelectorAll('[tabindex]');
+let posTabindex=0;
+tabindex.forEach(el=>{if(parseInt(el.tabIndex)>0)posTabindex++});
+addResult(posTabindex===0,'Tab索引',posTabindex?`${posTabindex}个元素使用正tabindex`:'无正tabindex');
+// Semantic
+addResult(!!document.querySelector('h1'),'H1标签',document.querySelector('h1')?'存在':'缺失');
+let headingOrder=true;const headings=document.querySelectorAll('h1,h2,h3,h4,h5,h6');
+let prevLevel=0;
+headings.forEach(h=>{const level=parseInt(h.tagName[1]);if(level>prevLevel+1&&prevLevel>0)headingOrder=false;prevLevel=level});
+addResult(headingOrder,'标题层级',headings.length?`${headings.length}个标题, 层级${headingOrder?'正确':'跳跃'}`:'无标题');
+addResult(!!document.querySelector('nav'),'导航标签',document.querySelector('nav')?'存在':'缺失');
+addResult(!!document.querySelector('main'),'主内容标签',document.querySelector('main')?'存在':'缺失');
+addResult(!!document.querySelector('footer'),'页脚标签',document.querySelector('footer')?'存在':'缺失');
+// ARIA
+const ariaEls=document.querySelectorAll('[aria-label],[aria-labelledby],[aria-describedby],[role]');
+addResult(ariaEls.length>0,'ARIA属性',`${ariaEls.length}个元素使用ARIA`);
+const formLabels=document.querySelectorAll('input:not([type="hidden"]):not([type="submit"])');
+let unlabeled=0;
+formLabels.forEach(i=>{
+const hasLabel=!!(document.querySelector(`label[for="${i.id}"]`)||i.closest('label')||i.getAttribute('aria-label')||i.getAttribute('aria-labelledby'));
+if(!hasLabel)unlabeled++;
+});
+addResult(unlabeled===0,'表单标签',unlabeled?`${unlabeled}个表单元素缺少标签`:'所有表单元素有标签');
+// Render
+const scorePct=Math.round(score/total*100);
+const color=scorePct>=80?'var(--green)':scorePct>=50?'var(--yellow)':'var(--red)';
+document.getElementById('scoreFill').style.width=scorePct+'%';
+document.getElementById('scoreFill').style.background=color;
+document.getElementById('scoreText').textContent=scorePct+'分 ('+score+'/'+total+')';
+document.getElementById('scoreText').style.color=color;
+document.getElementById('textChecks').innerHTML=results.slice(0,2).join('');
+document.getElementById('imgChecks').innerHTML=results.slice(2,4).join('');
+document.getElementById('contrastChecks').innerHTML=results[4];
+document.getElementById('kbChecks').innerHTML=results.slice(5,7).join('');
+document.getElementById('semanticChecks').innerHTML=results.slice(7,12).join('');
+document.getElementById('ariaChecks').innerHTML=results.slice(12).join('');
+document.getElementById('result').classList.add('show');
+}
+function ci(ok,label,detail=''){return `<div class="check-item"><span class="check-icon">${ok?'✅':'⚠️'}</span><div><div>${label}</div><div class="check-detail">${detail}</div></div></div>`}
+function parseRGB(color){
+const m=color.match(/\d+/g);return m?m.map(Number):[0,0,0];
+}
+function luminance(r,g,b){const a=[r,g,b].map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)});return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2]}
+function getContrastRatio(l1,l2){
+const lum1=luminance(...l1),lum2=luminance(...l2);
+const light=Math.max(lum1,lum2),dark=Math.min(lum1,lum2);
+return(light+0.05)/(dark+0.05);
+}
+runAudit();
+</script>
+</body>
+</html>

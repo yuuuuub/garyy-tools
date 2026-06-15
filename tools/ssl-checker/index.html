@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSL证书检查</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.input-group{display:flex;gap:8px;margin:20px 0}
+.input-group input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;outline:none}
+.input-group input:focus{border-color:var(--accent)}
+.input-group input::placeholder{color:var(--muted)}
+.btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500;transition:opacity .2s}
+.btn:hover{opacity:.9}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.result{display:none;margin-top:24px}
+.result.show{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--muted)}
+.info-row .value{font-weight:500;text-align:right;max-width:60%;word-break:break-all}
+.status-ok{color:var(--green)}
+.status-warn{color:var(--yellow)}
+.status-err{color:var(--red)}
+.loading{text-align:center;padding:40px;color:var(--muted);display:none}
+.loading.show{display:block}
+.spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:rgba(248,81,73,.1);border:1px solid var(--red);border-radius:8px;padding:16px;color:var(--red);display:none}
+.error-msg.show{display:block}
+@media(max-width:600px){.container{padding:16px}.input-group{flex-direction:column}.input-group .btn{width:100%}}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">🔒</span>
+<h1>SSL证书检查</h1>
+</div>
+<div class="container">
+<div class="input-group">
+<input type="text" id="domain" placeholder="输入域名，如 example.com" onkeydown="if(event.key==='Enter')checkSSL()">
+<button class="btn" id="checkBtn" onclick="checkSSL()">检查证书</button>
+</div>
+<div class="loading" id="loading"><div class="spinner"></div><p style="margin-top:12px">正在检查证书信息...</p></div>
+<div class="error-msg" id="error"></div>
+<div class="result" id="result">
+<div class="card">
+<h3>📋 基本信息</h3>
+<div id="basicInfo"></div>
+</div>
+<div class="card">
+<h3>🔐 证书详情</h3>
+<div id="certInfo"></div>
+</div>
+<div class="card">
+<h3>⏱️ 有效期</h3>
+<div id="validInfo"></div>
+</div>
+<div class="card">
+<h3>🏢 颁发信息</h3>
+<div id="issuerInfo"></div>
+</div>
+</div>
+</div>
+<script>
+function checkSSL(){
+const domain=document.getElementById('domain').value.trim().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+if(!domain){showError('请输入域名');return}
+hideError();showLoading();
+fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://crt.sh/?q='+domain+'&output=json')}`)
+.then(r=>r.json())
+.then(d=>{
+try{
+const certs=JSON.parse(d.contents);
+if(!certs.length){showError('未找到该域名的SSL证书信息');hideLoading();return}
+const c=certs[0];
+const notBefore=new Date(c.not_before);
+const notAfter=new Date(c.not_after);
+const now=new Date();
+const daysLeft=Math.ceil((notAfter-now)/(1000*60*60*24));
+const isExpired=daysLeft<0;
+const isWarning=daysLeft<30&&!isExpired;
+const statusClass=isExpired?'status-err':isWarning?'status-warn':'status-ok';
+const statusText=isExpired?'已过期':isWarning?`即将过期(${daysLeft}天)`:'有效';
+document.getElementById('basicInfo').innerHTML=`
+<div class="info-row"><span class="label">域名</span><span class="value">${c.common_name||domain}</span></div>
+<div class="info-row"><span class="label">序列号</span><span class="value" style="font-size:12px">${c.serial_number||'N/A'}</span></div>
+<div class="info-row"><span class="label">SHA-256</span><span class="value" style="font-size:11px;word-break:break-all">${c.fingerprint||'N/A'}</span></div>`;
+document.getElementById('certInfo').innerHTML=`
+<div class="info-row"><span class="label">状态</span><span class="value ${statusClass}">${statusText}</span></div>
+<div class="info-row"><span class="label">匹配域名</span><span class="value">${c.name_value||'N/A'}</span></div>
+<div class="info-row"><span class="label">子域名</span><span class="value">${c.subdomain_count||1} 个</span></div>
+<div class="info-row"><span class="label">ID</span><span class="value">#${c.id}</span></div>`;
+document.getElementById('validInfo').innerHTML=`
+<div class="info-row"><span class="label">签发时间</span><span class="value">${formatDate(notBefore)}</span></div>
+<div class="info-row"><span class="label">过期时间</span><span class="value ${statusClass}">${formatDate(notAfter)}</span></div>
+<div class="info-row"><span class="label">剩余天数</span><span class="value ${statusClass}">${isExpired?'已过期':daysLeft+'天'}</span></div>`;
+document.getElementById('issuerInfo').innerHTML=`
+<div class="info-row"><span class="label">颁发机构</span><span class="value">${c.issuer_name||'N/A'}</span></div>
+<div class="info-row"><span class="label">颁发CA ID</span><span class="value">#${c.issuer_ca_id||'N/A'}</span></div>`;
+document.getElementById('result').classList.add('show');
+hideLoading();
+}catch(e){showError('解析证书数据失败: '+e.message);hideLoading()}
+})
+.catch(e=>{showError('请求失败，请检查网络或稍后重试');hideLoading()});
+}
+function formatDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function showLoading(){document.getElementById('loading').classList.add('show')}
+function hideLoading(){document.getElementById('loading').classList.remove('show')}
+function showError(m){document.getElementById('error').textContent=m;document.getElementById('error').classList.add('show')}
+function hideError(){document.getElementById('error').classList.remove('show')}
+</script>
+</body>
+</html>

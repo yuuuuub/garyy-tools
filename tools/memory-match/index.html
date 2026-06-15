@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>记忆配对</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+h1{font-size:1.5rem;margin-bottom:10px;color:#3b82f6}
+.hud{display:flex;gap:20px;margin-bottom:15px;font-size:1rem}
+.board{display:grid;grid-template-columns:repeat(4,80px);gap:8px}
+.card{width:80px;height:80px;background:#161b22;border:2px solid #30363d;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:2rem;transition:all .3s;transform-style:preserve-3d}
+.card.flipped,.card.matched{background:#1e3a5f;border-color:#3b82f6}
+.card.matched{background:#166534;border-color:#22c55e}
+.card:not(.flipped):not(.matched):hover{border-color:#475569}
+.status{margin-top:15px;font-size:1rem;min-height:1.5em}
+button{padding:10px 24px;border:none;background:#3b82f6;color:#fff;border-radius:8px;cursor:pointer;font-size:1rem;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>🧠 记忆配对</h1>
+<div class="hud"><span>⏱ <b id="time">0</b>秒</span><span>步数: <b id="moves">0</b></span><span>配对: <b id="pairs">0</b>/8</span></div>
+<div class="board" id="board"></div>
+<div class="status" id="status">翻开两张牌寻找配对</div>
+<button onclick="newGame()">新游戏</button>
+<script>
+const emojis=['🍎','🍊','🍋','🍇','🌟','🎀','🐱','🐶'];
+let cards=[],flipped=[],matched=0,moves=0,timer=0,timerId=null,locked=false;
+
+function newGame(){
+  const deck=[...emojis,...emojis].sort(()=>Math.random()-0.5);
+  cards=deck.map((e,i)=>({id:i,emoji:e,flipped:false,matched:false}));
+  flipped=[];matched=0;moves=0;timer=0;
+  if(timerId)clearInterval(timerId);timerId=null;
+  document.getElementById('moves').textContent=0;
+  document.getElementById('pairs').textContent=0;
+  document.getElementById('time').textContent=0;
+  document.getElementById('status').textContent='翻开两张牌寻找配对';
+  render();
+}
+
+function render(){
+  const el=document.getElementById('board');el.innerHTML='';
+  cards.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='card';
+    if(c.flipped||c.matched){d.textContent=c.emoji;d.classList.add(c.matched?'matched':'flipped')}
+    d.onclick=()=>flipCard(i);el.appendChild(d);
+  });
+}
+
+function flipCard(i){
+  if(locked||cards[i].flipped||cards[i].matched||flipped.length>=2)return;
+  if(!timerId){timerId=setInterval(()=>{timer++;document.getElementById('time').textContent=timer},1000)}
+  cards[i].flipped=true;flipped.push(i);render();
+  if(flipped.length===2){
+    moves++;document.getElementById('moves').textContent=moves;
+    const[a,b]=flipped;
+    if(cards[a].emoji===cards[b].emoji){
+      cards[a].matched=cards[b].matched=true;matched++;flipped=[];
+      document.getElementById('pairs').textContent=matched;
+      render();
+      if(matched===emojis.length){
+        clearInterval(timerId);
+        document.getElementById('status').textContent=`🎉 全部配对成功！用时${timer}秒，${moves}步`;
+      }
+    }else{
+      locked=true;
+      setTimeout(()=>{cards[a].flipped=cards[b].flipped=false;flipped=[];locked=false;render()},800);
+    }
+  }
+}
+
+newGame();
+</script>
+</body>
+</html>

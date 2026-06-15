@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whois查询</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--red:#f85149}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.input-row{display:flex;gap:8px;margin-bottom:20px}
+.input-row input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;outline:none}
+.input-row input:focus{border-color:var(--accent)}
+.btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{opacity:.9}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;display:none}
+.card.show{display:block}
+.card h3{font-size:16px;margin-bottom:12px;color:var(--accent)}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--muted);flex-shrink:0;margin-right:16px}
+.info-row .value{font-weight:500;text-align:right;word-break:break-all}
+.loading{text-align:center;padding:40px;display:none}
+.loading.show{display:block}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:rgba(248,81,73,.1);border:1px solid var(--red);border-radius:8px;padding:12px;color:var(--red);display:none;margin-bottom:16px}
+.raw-box{background:#000;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;line-height:1.6;max-height:400px;overflow-y:auto;white-space:pre-wrap;display:none}
+@media(max-width:600px){.container{padding:16px}.input-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">🔎</span>
+<h1>Whois查询</h1>
+</div>
+<div class="container">
+<div class="input-row">
+<input type="text" id="domain" placeholder="输入域名，如 example.com" onkeydown="if(event.key==='Enter')lookup()">
+<button class="btn" onclick="lookup()">查询</button>
+</div>
+<div class="error-box" id="error"></div>
+<div class="loading" id="loading"><div class="spinner"></div><p style="margin-top:10px;color:var(--muted)">查询中...</p></div>
+<div class="card" id="registrar"><h3>🏢 注册商信息</h3><div id="registrarInfo"></div></div>
+<div class="card" id="domainInfo"><h3>🌐 域名信息</h3><div id="domainDetails"></div></div>
+<div class="card" id="dates"><h3>📅 时间信息</h3><div id="dateInfo"></div></div>
+<div class="card" id="nameservers"><h3>🖥️ 域名服务器</h3><div id="nsInfo"></div></div>
+<div class="raw-box" id="rawWhois"></div>
+</div>
+<script>
+function lookup(){
+const domain=document.getElementById('domain').value.trim().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+if(!domain)return;
+hideAll();
+showLoading();
+fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://rdap.org/domain/'+domain)}`)
+.then(r=>r.json())
+.then(d=>{
+const data=JSON.parse(d.contents);
+hideLoading();
+if(data.errorCode){showError(data.title||'查询失败');return}
+const reg=data.registrar||{};
+document.getElementById('registrarInfo').innerHTML=infoRows([
+['名称',reg.name],
+['URL',reg.url],
+['邮箱',reg.lfasr]]
+);
+document.getElementById('domainDetails').innerHTML=infoRows([
+['域名',data.ldhName],
+['状态',(data.status||[]).join(', ')],
+['Handle',data.handle]
+]);
+const events=data.events||[];
+const cr=events.find(e=>e.eventAction==='registration');
+const up=events.find(e=>e.eventAction==='last changed');
+const ex=events.find(e=>e.eventAction==='expiration');
+document.getElementById('dateInfo').innerHTML=infoRows([
+['注册时间',cr?formatDate(cr.eventDate):'N/A'],
+['过期时间',ex?formatDate(ex.eventDate):'N/A'],
+['更新时间',up?formatDate(up.eventDate):'N/A']
+]);
+const ns=(data.nameservers||[]).map(n=>n.ldhName).join(', ');
+document.getElementById('nsInfo').innerHTML=infoRows([['名称服务器',ns||'N/A']]);
+document.querySelectorAll('.card').forEach(c=>c.classList.add('show'));
+})
+.catch(e=>{hideLoading();showError('查询失败: '+e.message)});
+}
+function infoRows(pairs){return pairs.map(([l,v])=>`<div class="info-row"><span class="label">${l}</span><span class="value">${v||'N/A'}</span></div>`).join('')}
+function formatDate(d){return new Date(d).toLocaleString('zh-CN')}
+function hideAll(){document.querySelectorAll('.card').forEach(c=>c.classList.remove('show'));document.getElementById('error').classList.remove('show')}
+function showLoading(){document.getElementById('loading').classList.add('show')}
+function hideLoading(){document.getElementById('loading').classList.remove('show')}
+function showError(m){const e=document.getElementById('error');e.textContent=m;e.classList.add('show')}
+</script>
+</body>
+</html>

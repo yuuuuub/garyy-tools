@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>安全检查</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:20px;font-weight:600}
+.container{max-width:800px;margin:0 auto;padding:24px}
+.btn{padding:12px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{opacity:.9}
+.score-bar{height:12px;background:var(--border);border-radius:6px;margin:8px 0;overflow:hidden}
+.score-fill{height:100%;border-radius:6px;transition:width .5s}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{font-size:16px;margin-bottom:12px;color:var(--accent)}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.check-item:last-child{border-bottom:none}
+.check-icon{font-size:18px;flex-shrink:0}
+.check-detail{color:var(--muted);font-size:12px;margin-top:4px}
+.result{display:none}
+.result.show{display:block}
+</style>
+</head>
+<body>
+<div class="header">
+<span style="font-size:28px">🛡️</span>
+<h1>安全检查</h1>
+</div>
+<div class="container">
+<button class="btn" onclick="runCheck()" style="width:100%;margin-bottom:20px">🔍 检查当前页面安全</button>
+<div class="result" id="result">
+<div class="card">
+<h3>📈 安全评分</h3>
+<div class="score-bar"><div class="score-fill" id="scoreFill"></div></div>
+<div style="text-align:center;font-size:24px;font-weight:700" id="scoreText"></div>
+</div>
+<div class="card"><h3>🔒 HTTPS检查</h3><div id="httpsChecks"></div></div>
+<div class="card"><h3>🧩 混合内容</h3><div id="mixedChecks"></div></div>
+<div class="card"><h3>🍪 Cookie安全</h3><div id="cookieChecks"></div></div>
+<div class="card"><h3>📜 脚本安全</h3><div id="scriptChecks"></div></div>
+<div class="card"><h3>🛡️ 安全头检查</h3><div id="headerChecks"></div></div>
+<div class="card"><h3>🔗 链接安全</h3><div id="linkChecks"></div></div>
+</div>
+</div>
+<script>
+function runCheck(){
+let score=0,total=0;const results=[];
+function add(ok,label,detail=''){total++;if(ok)score++;results.push(ci(ok,label,detail))}
+// HTTPS
+const isHTTPS=location.protocol==='https:';
+add(isHTTPS,'HTTPS协议',isHTTPS?'已启用':'未启用HTTPS，数据明文传输');
+add(isHTTPS||location.hostname==='localhost','本地环境',location.hostname==='localhost'?'本地开发环境':'生产环境应使用HTTPS');
+// Mixed content
+const httpResources=[];
+document.querySelectorAll('img[src^="http:"],script[src^="http:"],link[href^="http:"],iframe[src^="http:"],video[src^="http:"],audio[src^="http:"]').forEach(el=>{
+httpResources.push({tag:el.tagName,src:el.src||el.href});
+});
+add(httpResources.length===0,'混合内容',httpResources.length?`发现${httpResources.length}个HTTP资源`:'无HTTP资源');
+httpResources.forEach(r=>{if(!isHTTPS)results.push(ci(false,'混合内容',`${r.tag}: ${r.src}`))});
+// Cookies
+const cookies=document.cookie.split(';').filter(s=>s.trim());
+let secureCookies=0,insecureCookies=0;
+cookies.forEach(c=>{
+const name=c.split('=')[0].trim();
+if(name.toLowerCase().includes('session')||name.toLowerCase().includes('token')||name.toLowerCase().includes('auth')){
+insecureCookies++;results.push(ci(false,'敏感Cookie',`"${name}" 未设置Secure/HttpOnly`));
+}
+});
+add(insecureCookies===0,'敏感Cookie安全',insecureCookies?`${insecureCookies}个敏感Cookie不安全`:'敏感Cookie已保护');
+// Scripts
+const inlineScripts=document.querySelectorAll('script:not([src])');
+let evalUsage=0;
+document.querySelectorAll('script').forEach(s=>{
+if(s.textContent.includes('eval(')||s.textContent.includes('innerHTML'))evalUsage++;
+});
+add(inlineScripts.length<3,'内联脚本',`${inlineScripts.length}个内联脚本`);
+// Security headers (simulated - can't check from client)
+const metaCSP=document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+add(!!metaCSP,'CSP策略',metaCSP?'已设置':'未设置Content-Security-Policy');
+const xFrame=document.querySelector('meta[http-equiv="X-Frame-Options"]');
+add(!!xFrame,'X-Frame-Options',xFrame?'已设置':'未设置(可能被点击劫持)');
+// Links
+const externalLinks=document.querySelectorAll('a[target="_blank"]');
+let noOpener=0;
+externalLinks.forEach(l=>{
+if(!l.rel||!l.rel.includes('noopener'))noOpener++;
+});
+add(noOpener===0,'外链安全',noOpener?`${noOpener}个target=_blank链接缺少rel=noopener`:'外链安全');
+const unsafeLinks=document.querySelectorAll('a[href^="javascript:"]');
+add(unsafeLinks.length===0,'JavaScript链接',unsafeLinks.length?`${unsafeLinks.length}个javascript:链接`:'无危险链接');
+// Render
+const scorePct=total?Math.round(score/total*100):0;
+const color=scorePct>=80?'var(--green)':scorePct>=50?'var(--yellow)':'var(--red)';
+document.getElementById('scoreFill').style.width=scorePct+'%';
+document.getElementById('scoreFill').style.background=color;
+document.getElementById('scoreText').textContent=scorePct+'分 ('+score+'/'+total+')';
+document.getElementById('scoreText').style.color=color;
+let idx=0;
+const sections=[2,2+httpResources.length,Math.min(idx+2,results.length)];
+document.getElementById('httpsChecks').innerHTML=results.slice(0,2).join('');
+document.getElementById('mixedChecks').innerHTML=results.slice(2,2+httpResources.length+1).join('')||ci(true,'混合内容','无HTTP资源');
+document.getElementById('cookieChecks').innerHTML=results.slice(3+httpResources.length,4+httpResources.length).join('')||ci(true,'Cookie安全','无敏感Cookie');
+document.getElementById('scriptChecks').innerHTML=ci(true,'内联脚本',`${inlineScripts.length}个`);
+document.getElementById('headerChecks').innerHTML=results.slice(-4,-2).join('');
+document.getElementById('linkChecks').innerHTML=results.slice(-2).join('');
+document.getElementById('result').classList.add('show');
+}
+function ci(ok,label,detail=''){return `<div class="check-item"><span class="check-icon">${ok?'✅':'⚠️'}</span><div><div>${label}</div><div class="check-detail">${detail}</div></div></div>`}
+runCheck();
+</script>
+</body>
+</html>

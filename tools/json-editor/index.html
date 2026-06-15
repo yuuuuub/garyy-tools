@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON编辑器</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--radius:12px;--json-key:#79c0ff;--json-str:#a5d6ff;--json-num:#ffa657;--json-bool:#ff7b72;--json-null:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.toolbar{display:flex;gap:6px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);cursor:pointer;font-size:.8rem;transition:.2s}
+.btn:hover{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.editor-wrap{display:flex;flex:1;overflow:hidden}
+.editor-pane{flex:1;display:flex;flex-direction:column;min-width:0}
+.pane-header{padding:6px 12px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);font-size:.75rem;color:var(--muted);display:flex;justify-content:space-between}
+.code-area{flex:1;display:flex;overflow:hidden}
+.line-numbers{width:40px;padding:12px 4px;background:rgba(255,255,255,.02);border-right:1px solid var(--border);font-family:'Fira Code',monospace;font-size:.85rem;color:var(--muted);text-align:right;line-height:1.5;overflow:hidden}
+textarea.json-input{flex:1;padding:12px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5;resize:none;outline:none;tab-size:2}
+.tree-view{flex:1;overflow:auto;padding:12px;font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.6}
+.tree-node{cursor:pointer}
+.tree-key{color:var(--json-key)}
+.tree-str{color:var(--json-str)}
+.tree-num{color:var(--json-num)}
+.tree-bool{color:var(--json-bool)}
+.tree-null{color:var(--json-null)}
+.tree-toggle{display:inline-block;width:14px;color:var(--muted);text-align:center;cursor:pointer}
+.tree-children{padding-left:20px}
+.error-bar{padding:8px 12px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:6px;margin:8px 12px;font-size:.8rem;color:var(--danger);display:none}
+.valid-bar{padding:8px 12px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);border-radius:6px;margin:8px 12px;font-size:.8rem;color:var(--success);display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+.search-box{padding:6px 12px;background:var(--card);border-bottom:1px solid var(--border);display:none}
+.search-box input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:.85rem;outline:none}
+.search-box input:focus{border-color:var(--accent)}
+@media(max-width:700px){.editor-wrap{flex-direction:column}.editor-pane{min-height:40vh}}
+</style>
+</head>
+<body>
+<div class="toolbar">
+<button class="btn" onclick="formatJson()">格式化</button>
+<button class="btn" onclick="minifyJson()">压缩</button>
+<button class="btn" onclick="validateJson()">验证</button>
+<div class="sep"></div>
+<button class="btn active" id="btnText" onclick="switchView('text',this)">文本</button>
+<button class="btn" id="btnTree" onclick="switchView('tree',this)">树视图</button>
+<div class="sep"></div>
+<button class="btn" onclick="toggleSearch()">🔍</button>
+<button class="btn" onclick="copyOutput()">复制</button>
+<button class="btn" onclick="downloadJson()">下载</button>
+<button class="btn" onclick="loadSnippet()">示例</button>
+<button class="btn" onclick="clearAll()">清空</button>
+</div>
+<div class="search-box" id="searchBox"><input type="text" id="searchInput" placeholder="搜索 JSON..." oninput="searchJson()"></div>
+<div class="editor-wrap">
+<div class="editor-pane">
+<div class="pane-header"><span>编辑器</span><span id="lineInfo">行 1</span></div>
+<div class="code-area">
+<div class="line-numbers" id="lineNumbers">1</div>
+<textarea class="json-input" id="editor" placeholder='{"键": "值"}' oninput="onInput()"></textarea>
+</div>
+</div>
+<div class="editor-pane">
+<div class="pane-header"><span>预览</span><span id="sizeInfo">0 B</span></div>
+<div class="json-input tree-view" id="treeView" style="display:none;white-space:pre;overflow:auto;padding:12px;font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5"></div>
+<div id="highlightView" style="flex:1;overflow:auto;padding:12px;font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5;white-space:pre"></div>
+</div>
+</div>
+<div class="error-bar" id="errorBar"></div>
+<div class="valid-bar" id="validBar"></div>
+<div class="toast" id="toast"></div>
+<script>
+let viewMode = 'text';
+const editor = document.getElementById('editor');
+
+function onInput() {
+  updateLineNumbers();
+  highlightJson();
+  autoValidate();
+  document.getElementById('sizeInfo').textContent = formatSize(editor.value.length);
+}
+
+function updateLineNumbers() {
+  const lines = editor.value.split('\n').length;
+  document.getElementById('lineNumbers').innerHTML = Array.from({length:lines},(_,i)=>i+1).join('<br>');
+  const pos = editor.selectionStart;
+  const line = editor.value.substring(0,pos).split('\n').length;
+  document.getElementById('lineInfo').textContent = `行 ${line}`;
+}
+
+function highlightJson() {
+  const text = editor.value;
+  try {
+    const obj = JSON.parse(text);
+    document.getElementById('highlightView').innerHTML = syntaxHighlight(JSON.stringify(obj, null, 2));
+    document.getElementById('errorBar').style.display = 'none';
+  } catch(e) {
+    document.getElementById('highlightView').textContent = text;
+  }
+}
+
+function syntaxHighlight(json) {
+  json = json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+    let cls = 'tree-num';
+    if (/^"/.test(match)) {
+      cls = /:$/.test(match) ? 'tree-key' : 'tree-str';
+    } else if (/true|false/.test(match)) cls = 'tree-bool';
+    else if (/null/.test(match)) cls = 'tree-null';
+    return `<span class="${cls}">${match}</span>`;
+  });
+}
+
+function formatJson() {
+  try {
+    const obj = JSON.parse(editor.value);
+    editor.value = JSON.stringify(obj, null, 2);
+    onInput();
+    showToast('已格式化');
+  } catch(e) { showToast('JSON 格式错误'); }
+}
+
+function minifyJson() {
+  try {
+    const obj = JSON.parse(editor.value);
+    editor.value = JSON.stringify(obj);
+    onInput();
+    showToast('已压缩');
+  } catch(e) { showToast('JSON 格式错误'); }
+}
+
+function validateJson() {
+  try {
+    const obj = JSON.parse(editor.value);
+    const bar = document.getElementById('validBar');
+    bar.style.display = 'block';
+    bar.textContent = `✅ 有效的 JSON | ${Array.isArray(obj) ? '数组' : '对象'} | ${JSON.stringify(obj).length} 字符`;
+    setTimeout(() => bar.style.display = 'none', 3000);
+    document.getElementById('errorBar').style.display = 'none';
+  } catch(e) {
+    const bar = document.getElementById('errorBar');
+    bar.style.display = 'block';
+    bar.textContent = `❌ ${e.message}`;
+  }
+}
+
+function autoValidate() {
+  try { JSON.parse(editor.value); document.getElementById('errorBar').style.display = 'none'; }
+  catch(e) { document.getElementById('errorBar').style.display = 'block'; document.getElementById('errorBar').textContent = `❌ ${e.message}`; }
+}
+
+function switchView(mode, el) {
+  viewMode = mode;
+  document.querySelectorAll('.toolbar .btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('highlightView').style.display = mode === 'text' ? 'block' : 'none';
+  document.getElementById('treeView').style.display = mode === 'tree' ? 'block' : 'none';
+  if (mode === 'tree') renderTree();
+  else highlightJson();
+}
+
+function renderTree() {
+  try {
+    const obj = JSON.parse(editor.value);
+    document.getElementById('treeView').innerHTML = buildTree(obj, 0);
+  } catch(e) {
+    document.getElementById('treeView').textContent = 'JSON 格式错误，无法显示树视图';
+  }
+}
+
+function buildTree(obj, depth) {
+  if (obj === null) return '<span class="tree-null">null</span>';
+  if (typeof obj === 'boolean') return `<span class="tree-bool">${obj}</span>`;
+  if (typeof obj === 'number') return `<span class="tree-num">${obj}</span>`;
+  if (typeof obj === 'string') return `<span class="tree-str">"${escapeHtml(obj)}"</span>`;
+  const isArray = Array.isArray(obj);
+  const entries = isArray ? obj.map((v, i) => [i, v]) : Object.entries(obj);
+  if (entries.length === 0) return isArray ? '[]' : '{}';
+  const id = 'n' + Math.random().toString(36).substr(2, 6);
+  let html = `<span class="tree-toggle" onclick="toggleNode('${id}')">▼</span> ${isArray ? '[' : '{'}<div class="tree-children" id="${id}">`;
+  entries.forEach(([key, val], i) => {
+    const prefix = isArray ? '' : `<span class="tree-key">"${escapeHtml(String(key))}"</span>: `;
+    html += `<div>${prefix}${buildTree(val, depth + 1)}${i < entries.length - 1 ? ',' : ''}</div>`;
+  });
+  html += `</div>${isArray ? ']' : '}'`;
+  return html;
+}
+
+function toggleNode(id) {
+  const el = document.getElementById(id);
+  const toggle = el.previousElementSibling;
+  if (el.style.display === 'none') { el.style.display = 'block'; toggle.textContent = '▼'; }
+  else { el.style.display = 'none'; toggle.textContent = '▶'; }
+}
+
+function toggleSearch() {
+  const box = document.getElementById('searchBox');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') document.getElementById('searchInput').focus();
+}
+
+function searchJson() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  if (!q) { highlightJson(); return; }
+  try {
+    const obj = JSON.parse(editor.value);
+    const highlighted = searchObj(obj, q);
+    document.getElementById('highlightView').innerHTML = syntaxHighlight(JSON.stringify(obj, null, 2));
+  } catch(e) {}
+}
+
+function searchObj(obj, q) { return obj; }
+
+function copyOutput() {
+  navigator.clipboard.writeText(editor.value).then(() => showToast('已复制'));
+}
+
+function downloadJson() {
+  const blob = new Blob([editor.value], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'data.json'; a.click(); showToast('已下载');
+}
+
+function loadSnippet() {
+  editor.value = JSON.stringify({
+    "name": "张三", "age": 28, "active": true, "email": "zhangsan@example.com",
+    "address": { "city": "北京", "district": "海淀区", "street": "中关村大街1号" },
+    "hobbies": ["编程", "阅读", "跑步"],
+    "scores": [95, 87, 92],
+    "metadata": null
+  }, null, 2);
+  onInput();
+}
+
+function clearAll() { editor.value = ''; onInput(); }
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatSize(n) { return n < 1024 ? n + ' B' : (n/1024).toFixed(1) + ' KB'; }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+
+editor.addEventListener('scroll', () => { document.getElementById('lineNumbers').scrollTop = editor.scrollTop; });
+editor.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart; editor.value = editor.value.substring(0,s) + '  ' + editor.value.substring(editor.selectionEnd); editor.setSelectionRange(s+2,s+2); } });
+onInput();
+</script>
+</body>
+</html>

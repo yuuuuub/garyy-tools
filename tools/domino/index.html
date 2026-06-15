@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多米诺骨牌</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px}
+h1{font-size:1.5rem;margin-bottom:10px;color:var(--accent)}
+.info-bar{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.info-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.board-area{width:100%;max-width:700px;min-height:120px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;overflow-x:auto}
+.domino{display:flex;background:#1a2332;border:2px solid var(--border);border-radius:6px;cursor:pointer;transition:all 0.2s;flex-shrink:0}
+.domino:hover{border-color:var(--accent);transform:scale(1.05)}
+.domino.selected{border-color:var(--accent);box-shadow:0 0 10px rgba(59,130,246,0.5)}
+.domino .half{width:30px;height:50px;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:2px;padding:4px}
+.domino .half+.half{border-left:2px solid var(--border)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--text)}
+.domino .half .dot:nth-child(n+4){display:none}
+.domino.vertical{flex-direction:column}
+.domino.vertical .half{width:50px;height:30px;align-content:center}
+.domino.vertical .half+.half{border-left:none;border-top:2px solid var(--border)}
+.player-hand{width:100%;max-width:700px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
+.hand-label{font-size:0.85rem;color:var(--text);opacity:0.7;margin-bottom:5px;text-align:center}
+.endpoint{font-size:0.8rem;padding:4px 10px;background:var(--accent);color:#fff;border-radius:12px;cursor:pointer;border:none;font-family:inherit}
+.endpoint:hover{opacity:0.85}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.9rem;cursor:pointer;font-family:inherit;transition:all 0.2s}
+button:hover{opacity:0.85}
+.message{font-size:1rem;padding:10px;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center}
+.game-over{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:100}
+.game-over .box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px;text-align:center}
+.game-over h2{color:var(--accent);margin-bottom:15px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<h1>🁣 多米诺骨牌</h1>
+<div class="info-bar">
+  <div class="info-item">👤 我的分数: <span id="myScore">0</span></div>
+  <div class="info-item">🤖 AI分数: <span id="aiScore">0</span></div>
+  <div class="info-item">🎯 剩余: <span id="remaining">0</span></div>
+</div>
+<div class="board-area" id="board"></div>
+<div class="message" id="message">点击手牌选择骨牌，再点击两端放置</div>
+<div class="hand-label">👤 我的手牌</div>
+<div class="player-hand" id="myHand"></div>
+<div class="hand-label">🤖 AI手牌 (<span id="aiCount">0</span>张)</div>
+<div class="btn-row">
+  <button onclick="startGame()">🔄 新游戏</button>
+  <button onclick="aiTurn()" id="passBtn" style="display:none">⏭ 跳过</button>
+</div>
+<div class="game-over hidden" id="gameOver">
+  <div class="box">
+    <h2 id="resultText">游戏结束</h2>
+    <p id="resultDetail"></p>
+    <button onclick="startGame()">再来一局</button>
+  </div>
+</div>
+<script>
+let allTiles=[],myTiles=[],aiTiles=[],boardLeft=[],boardRight=[],selectedTile=null,myScore=0,aiScore=0;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function createAll(){
+  allTiles=[];
+  for(let i=0;i<=6;i++)for(let j=i;j<=6;j++)allTiles.push([i,j]);
+  shuffle(allTiles);
+}
+
+function drawDots(count){
+  let html='';
+  for(let i=0;i<count;i++)html+='<div class="dot"></div>';
+  return html;
+}
+
+function renderDomino(tile,id,cls=''){
+  return `<div class="domino ${cls}" data-id="${id}" onclick="onTileClick(${id})">
+    <div class="half">${drawDots(tile[0])}</div>
+    <div class="half">${drawDots(tile[1])}</div></div>`;
+}
+
+function canPlace(tile){
+  if(boardLeft.length===0)return true;
+  const l=boardLeft[0],r=boardRight[boardRight.length-1];
+  return tile[0]===l||tile[1]===l||tile[0]===r||tile[1]===r;
+}
+
+function render(){
+  const boardEl=document.getElementById('board');
+  let html='';
+  if(boardLeft.length>0){
+    const lVal=boardLeft[0];
+    html+='<span style="font-size:0.8rem;margin-right:5px;color:var(--accent)">◀ '+lVal+'</span>';
+    for(let i=0;i<boardLeft.length;i++){
+      const t=boardLeft[i];
+      html+=renderDomino(t,'b'+i,'');
+    }
+    html+='<span style="font-size:0.8rem;margin-left:5px;color:var(--accent)">'+boardRight[boardRight.length-1]+' ▶</span>';
+  } else {
+    html='<span style="color:var(--text);opacity:0.5">棋盘为空，先手出牌</span>';
+  }
+  boardEl.innerHTML=html;
+
+  const handEl=document.getElementById('myHand');
+  handEl.innerHTML='';
+  myTiles.forEach((t,i)=>{
+    const can=canPlace(t);
+    const sel=selectedTile===i;
+    handEl.innerHTML+=renderDomino(t,i,sel?'selected':'');
+  });
+  document.getElementById('myScore').textContent=myScore;
+  document.getElementById('aiScore').textContent=aiScore;
+  document.getElementById('aiCount').textContent=aiTiles.length;
+  document.getElementById('remaining').textContent=myTiles.length+aiTiles.length;
+}
+
+function onTileClick(id){
+  if(boardLeft.length===0){
+    const t=myTiles.splice(id,1)[0];
+    boardLeft=[t[0]];
+    boardRight=[t[1]];
+    selectedTile=null;
+    render();
+    if(myTiles.length===0){endGame(true);return}
+    setTimeout(aiTurn,500);
+    return;
+  }
+  if(selectedTile===id){
+    const t=myTiles[id];
+    placeOnBoard(t,id);
+    return;
+  }
+  selectedTile=id;
+  render();
+}
+
+function placeOnBoard(tile,id){
+  myTiles.splice(id,1);
+  const lVal=boardLeft[0],rVal=boardRight[boardRight.length-1];
+  if(tile[0]===rVal){boardRight.push(tile[1])}
+  else if(tile[1]===rVal){boardRight.push(tile[0])}
+  else if(tile[0]===lVal){boardLeft.unshift(tile[1])}
+  else if(tile[1]===lVal){boardLeft.unshift(tile[0])}
+  selectedTile=null;
+  render();
+  myScore+=tile[0]+tile[1];
+  document.getElementById('myScore').textContent=myScore;
+  if(myTiles.length===0){endGame(true);return}
+  setTimeout(aiTurn,500);
+}
+
+function aiTurn(){
+  const msg=document.getElementById('message');
+  if(boardLeft.length===0&&aiTiles.length>0){
+    const t=aiTiles.shift();
+    boardLeft=[t[0]];boardRight=[t[1]];
+    aiScore+=t[0]+t[1];
+    msg.textContent='🤖 AI 出了 '+t[0]+'|'+t[1];
+    render();
+    if(aiTiles.length===0){endGame(false);return}
+    return;
+  }
+  let placed=false;
+  for(let i=0;i<aiTiles.length;i++){
+    const t=aiTiles[i];
+    const lVal=boardLeft[0],rVal=boardRight[boardRight.length-1];
+    if(t[0]===rVal||t[1]===rVal||t[0]===lVal||t[1]===lVal){
+      aiTiles.splice(i,1);
+      if(t[0]===rVal)boardRight.push(t[1]);
+      else if(t[1]===rVal)boardRight.push(t[0]);
+      else if(t[0]===lVal)boardLeft.unshift(t[1]);
+      else boardLeft.unshift(t[0]);
+      aiScore+=t[0]+t[1];
+      msg.textContent='🤖 AI 出了 '+t[0]+'|'+t[1];
+      placed=true;
+      break;
+    }
+  }
+  if(!placed)msg.textContent='🤖 AI 跳过';
+  render();
+  if(aiTiles.length===0){endGame(false);return}
+}
+
+function endGame(playerWin){
+  clearInterval(window._timer);
+  document.getElementById('resultText').textContent=playerWin?'🎉 你赢了！':'😢 AI赢了';
+  document.getElementById('resultDetail').textContent=`你的分数: ${myScore} | AI分数: ${aiScore}`;
+  document.getElementById('gameOver').classList.remove('hidden');
+}
+
+function startGame(){
+  document.getElementById('gameOver').classList.add('hidden');
+  document.getElementById('message').textContent='选择手牌，点击两端放置';
+  createAll();
+  myTiles=allTiles.slice(0,7);
+  aiTiles=allTiles.slice(7,14);
+  boardLeft=[];boardRight=[];selectedTile=null;myScore=0;aiScore=0;
+  render();
+}
+startGame();
+</script>
+</body>
+</html>

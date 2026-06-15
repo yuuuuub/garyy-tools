@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YAML编辑器</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--muted:#8b949e;--radius:12px;--yaml-key:#79c0ff;--yaml-str:#a5d6ff;--yaml-num:#ffa657;--yaml-bool:#ff7b72;--yaml-comment:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.toolbar{display:flex;gap:6px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);cursor:pointer;font-size:.8rem;transition:.2s}
+.btn:hover{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.editor-wrap{display:flex;flex:1;overflow:hidden}
+.editor-pane{flex:1;display:flex;flex-direction:column;min-width:0}
+.pane-header{padding:6px 12px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);font-size:.75rem;color:var(--muted);display:flex;justify-content:space-between}
+.code-area{flex:1;display:flex;overflow:hidden}
+.line-numbers{width:40px;padding:12px 4px;background:rgba(255,255,255,.02);border-right:1px solid var(--border);font-family:'Fira Code',monospace;font-size:.85rem;color:var(--muted);text-align:right;line-height:1.5;overflow:hidden}
+textarea.yaml-input{flex:1;padding:12px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5;resize:none;outline:none;tab-size:2}
+.output-view{flex:1;overflow:auto;padding:12px;font-family:'Fira Code',monospace;font-size:.85rem;line-height:1.5;white-space:pre}
+.error-bar{padding:8px 12px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:6px;margin:8px 12px;font-size:.8rem;color:var(--danger);display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:8px 16px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+@media(max-width:700px){.editor-wrap{flex-direction:column}.editor-pane{min-height:40vh}}
+</style>
+</head>
+<body>
+<div class="toolbar">
+<button class="btn" onclick="formatYaml()">格式化</button>
+<button class="btn" onclick="minifyYaml()">压缩</button>
+<button class="btn" onclick="validateYaml()">验证</button>
+<div class="sep"></div>
+<button class="btn" onclick="toJson()">YAML→JSON</button>
+<button class="btn" onclick="fromJson()">JSON→YAML</button>
+<div class="sep"></div>
+<button class="btn" onclick="copyOutput()">复制</button>
+<button class="btn" onclick="downloadYaml()">下载</button>
+<button class="btn" onclick="loadSnippet()">示例</button>
+<button class="btn" onclick="clearAll()">清空</button>
+</div>
+<div class="editor-wrap">
+<div class="editor-pane">
+<div class="pane-header"><span>YAML 编辑器</span><span id="lineInfo">行 1</span></div>
+<div class="code-area">
+<div class="line-numbers" id="lineNumbers">1</div>
+<textarea class="yaml-input" id="editor" placeholder="在此输入 YAML..." oninput="onInput()"></textarea>
+</div>
+</div>
+<div class="editor-pane">
+<div class="pane-header"><span>高亮预览</span><span id="sizeInfo">0 B</span></div>
+<div class="output-view" id="highlightView"></div>
+</div>
+</div>
+<div class="error-bar" id="errorBar"></div>
+<div class="toast" id="toast"></div>
+<script>
+const editor = document.getElementById('editor');
+
+function onInput() {
+  updateLineNumbers();
+  highlightYaml();
+  document.getElementById('sizeInfo').textContent = formatSize(editor.value.length);
+}
+
+function updateLineNumbers() {
+  const lines = editor.value.split('\n').length;
+  document.getElementById('lineNumbers').innerHTML = Array.from({length:lines},(_,i)=>i+1).join('<br>');
+  const pos = editor.selectionStart;
+  const line = editor.value.substring(0,pos).split('\n').length;
+  document.getElementById('lineInfo').textContent = `行 ${line}`;
+}
+
+function highlightYaml() {
+  const lines = editor.value.split('\n');
+  const highlighted = lines.map(line => {
+    if (/^\s*#/.test(line)) return `<span class="yaml-comment">${esc(line)}</span>`;
+    const m = line.match(/^(\s*)(- )?([^:]+?)(:)\s*(.*)$/);
+    if (m) {
+      const [, indent, dash, key, colon, val] = m;
+      let valHtml = '';
+      if (val) {
+        if (/^(true|false|yes|no|on|off)$/i.test(val)) valHtml = `<span class="yaml-bool">${esc(val)}</span>`;
+        else if (/^-?\d+(\.\d+)?(e[+-]?\d+)?$/i.test(val)) valHtml = `<span class="yaml-num">${esc(val)}</span>`;
+        else if (/^null$/i.test(val)) valHtml = `<span class="yaml-comment">${esc(val)}</span>`;
+        else valHtml = `<span class="yaml-str">${esc(val)}</span>`;
+      }
+      return `${esc(indent)}${dash ? '<span class="yaml-str">- </span>' : ''}<span class="yaml-key">${esc(key)}</span>${esc(colon)} ${valHtml}`;
+    }
+    if (/^\s*- /.test(line)) {
+      return line.replace(/^(\s*)(- )(.*)$/, (_, ind, dash, val) => {
+        return `${esc(ind)}<span class="yaml-str">${esc(dash)}</span><span class="yaml-str">${esc(val)}</span>`;
+      });
+    }
+    return esc(line);
+  }).join('\n');
+  document.getElementById('highlightView').innerHTML = highlighted;
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function yamlToObj(yaml) {
+  const lines = yaml.split('\n');
+  const result = {};
+  let currentObj = result;
+  let stack = [{ obj: result, indent: -1 }];
+  let currentArray = null;
+  let currentArrayParent = null;
+
+  for (const line of lines) {
+    if (/^\s*$/.test(line) || /^\s*#/.test(line)) continue;
+    const indent = line.search(/\S/);
+    const content = line.trim();
+
+    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+      stack.pop();
+      currentArray = null;
+    }
+    currentObj = stack[stack.length - 1].obj;
+
+    if (content.startsWith('- ')) {
+      const val = content.substring(2).trim();
+      if (currentArray) {
+        currentArray.push(parseValue(val));
+      } else {
+        const lastKey = Object.keys(currentObj).pop();
+        if (!Array.isArray(currentObj[lastKey])) currentObj[lastKey] = [];
+        currentArray = currentObj[lastKey];
+        currentArray.push(parseValue(val));
+      }
+      continue;
+    }
+
+    const colonIdx = content.indexOf(':');
+    if (colonIdx > 0) {
+      const key = content.substring(0, colonIdx).trim();
+      const val = content.substring(colonIdx + 1).trim();
+      currentArray = null;
+      if (val === '' || val === '|' || val === '>') {
+        currentObj[key] = {};
+        stack.push({ obj: currentObj[key], indent: indent });
+      } else {
+        currentObj[key] = parseValue(val);
+      }
+    }
+  }
+  return result;
+}
+
+function parseValue(val) {
+  if (/^(true|yes|on)$/i.test(val)) return true;
+  if (/^(false|no|off)$/i.test(val)) return false;
+  if (/^-?\d+(\.\d+)?(e[+-]?\d+)?$/i.test(val)) return parseFloat(val);
+  if (/^null$/i.test(val)) return null;
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
+    return val.slice(1, -1);
+  return val;
+}
+
+function objToYaml(obj, indent = 0) {
+  const prefix = '  '.repeat(indent);
+  let result = '';
+  if (Array.isArray(obj)) {
+    obj.forEach(item => {
+      if (typeof item === 'object' && item !== null) {
+        result += `${prefix}- \n${objToYaml(item, indent + 1)}`;
+      } else {
+        result += `${prefix}- ${formatVal(item)}\n`;
+      }
+    });
+  } else if (typeof obj === 'object' && obj !== null) {
+    Object.entries(obj).forEach(([key, val]) => {
+      if (typeof val === 'object' && val !== null) {
+        result += `${prefix}${key}:\n${objToYaml(val, indent + 1)}`;
+      } else {
+        result += `${prefix}${key}: ${formatVal(val)}\n`;
+      }
+    });
+  }
+  return result;
+}
+
+function formatVal(val) {
+  if (val === null) return 'null';
+  if (typeof val === 'boolean') return val ? 'true' : 'false';
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'string') {
+    if (/[:{}\[\],&*?|>!%@`]/.test(val) || val.includes('\n') || val === '' || /^\d/.test(val))
+      return `"${val.replace(/"/g, '\\"')}"`;
+    return val;
+  }
+  return String(val);
+}
+
+function formatYaml() {
+  try {
+    const obj = yamlToObj(editor.value);
+    editor.value = objToYaml(obj).trimEnd();
+    onInput();
+    showToast('已格式化');
+  } catch(e) { showToast('YAML 格式错误: ' + e.message); }
+}
+
+function minifyYaml() {
+  const lines = editor.value.split('\n').filter(l => !/^\s*#/.test(l.trim()) && l.trim());
+  editor.value = lines.map(l => l.trim()).join('\n');
+  onInput();
+  showToast('已压缩');
+}
+
+function validateYaml() {
+  try {
+    yamlToObj(editor.value);
+    document.getElementById('errorBar').style.display = 'block';
+    document.getElementById('errorBar').style.borderColor = 'rgba(74,222,128,.3)';
+    document.getElementById('errorBar').style.background = 'rgba(74,222,128,.1)';
+    document.getElementById('errorBar').style.color = 'var(--success)';
+    document.getElementById('errorBar').textContent = '✅ YAML 格式有效';
+    setTimeout(() => { document.getElementById('errorBar').style.display = 'none'; document.getElementById('errorBar').style.borderColor = ''; document.getElementById('errorBar').style.background = ''; document.getElementById('errorBar').style.color = ''; }, 3000);
+  } catch(e) {
+    const bar = document.getElementById('errorBar');
+    bar.style.display = 'block';
+    bar.style.borderColor = ''; bar.style.background = ''; bar.style.color = '';
+    bar.textContent = `❌ ${e.message}`;
+  }
+}
+
+function toJson() {
+  try {
+    const obj = yamlToObj(editor.value);
+    editor.value = JSON.stringify(obj, null, 2);
+    onInput();
+    showToast('已转换为 JSON');
+  } catch(e) { showToast('转换失败: ' + e.message); }
+}
+
+function fromJson() {
+  try {
+    const obj = JSON.parse(editor.value);
+    editor.value = objToYaml(obj).trimEnd();
+    onInput();
+    showToast('已转换为 YAML');
+  } catch(e) { showToast('请先输入有效的 JSON'); }
+}
+
+function copyOutput() { navigator.clipboard.writeText(editor.value).then(() => showToast('已复制')); }
+
+function downloadYaml() {
+  const blob = new Blob([editor.value], { type: 'text/yaml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'data.yaml'; a.click(); showToast('已下载');
+}
+
+function loadSnippet() {
+  editor.value = `# 项目配置\nname: my-project\nversion: 1.0.0\ndescription: 一个示例项目\n\n# 服务配置\nserver:\n  host: localhost\n  port: 3000\n  ssl: true\n\n# 数据库配置\ndatabase:\n  type: postgresql\n  host: db.example.com\n  port: 5432\n  name: mydb\n  credentials:\n    username: admin\n    password: secret123\n\n# 功能特性\nfeatures:\n  - 用户认证\n  - 数据分析\n  - 实时通知\n  - API 网关\n\n# 日志配置\nlogging:\n  level: info\n  format: json\n  outputs:\n    - console\n    - file\n\n# 环境变量\nenvironment: production\ndebug: false\nmax_connections: 100`;
+  onInput();
+}
+
+function clearAll() { editor.value = ''; onInput(); }
+function formatSize(n) { return n < 1024 ? n + ' B' : (n/1024).toFixed(1) + ' KB'; }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+
+editor.addEventListener('scroll', () => { document.getElementById('lineNumbers').scrollTop = editor.scrollTop; });
+editor.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart; editor.value = editor.value.substring(0,s) + '  ' + editor.value.substring(editor.selectionEnd); editor.setSelectionRange(s+2,s+2); } });
+onInput();
+</script>
+</body>
+</html>

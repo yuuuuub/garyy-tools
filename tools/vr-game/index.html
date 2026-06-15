@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VR太空探索</title>
+<style>
+:root{--bg:#0a0a1a;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--success:#22c55e;--gold:#f59e0b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:15px;overflow:hidden}
+h1{font-size:1.5rem;margin-bottom:5px;color:var(--accent);position:relative;z-index:10}
+.info-bar{display:flex;gap:12px;margin-bottom:5px;flex-wrap:wrap;justify-content:center;position:relative;z-index:10}
+.info-item{background:rgba(22,27,34,0.8);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:0.85rem}
+.info-item span{color:var(--accent);font-weight:bold}
+.vr-viewport{position:relative;width:100%;max-width:500px;height:70vh;border-radius:16px;overflow:hidden;border:2px solid var(--border);perspective:800px}
+.scene{width:100%;height:100%;transform-style:preserve-3d;transition:transform 0.1s}
+.star{position:absolute;border-radius:50%;background:#fff}
+.star.far{width:1px;height:1px;opacity:0.5}
+.star.mid{width:2px;height:2px;opacity:0.7}
+.star.near{width:3px;height:3px;opacity:1}
+.star.collected{background:var(--gold);box-shadow:0 0 10px var(--gold);transition:all 0.3s}
+.crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border:2px solid rgba(255,255,255,0.5);border-radius:50%;pointer-events:none;z-index:5}
+.crosshair::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;background:var(--accent);border-radius:50%}
+.hud{position:absolute;bottom:10px;left:10px;right:10px;display:flex;justify-content:space-between;z-index:5}
+.hud-item{background:rgba(0,0,0,0.6);padding:4px 8px;border-radius:6px;font-size:0.75rem}
+.msg{font-size:0.85rem;padding:4px;text-align:center;position:relative;z-index:10;color:var(--accent)}
+.buttons{display:flex;gap:8px;position:relative;z-index:10;margin-top:5px}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:0.85rem;cursor:pointer;font-family:inherit}
+button:hover{opacity:0.85}
+.hint{font-size:0.7rem;color:var(--text);opacity:0.5;text-align:center;margin-top:3px;position:relative;z-index:10}
+</style>
+</head>
+<body>
+<h1>🚀 VR太空探索</h1>
+<div class="info-bar">
+  <div class="info-item">⭐ 星星: <span id="stars">0</span></div>
+  <div class="info-item">🏆 得分: <span id="score">0</span></div>
+  <div class="info-item">⏱ <span id="timer">60</span>秒</div>
+</div>
+<div class="vr-viewport" id="viewport">
+  <div class="scene" id="scene"></div>
+  <div class="crosshair"></div>
+  <div class="hud">
+    <div class="hud-item">X: <span id="hudX">0</span></div>
+    <div class="hud-item">Y: <span id="hudY">0</span></div>
+  </div>
+</div>
+<div class="msg" id="msg">移动视角收集星星</div>
+<div class="buttons">
+  <button onclick="startGame()">▶ 开始探索</button>
+</div>
+<div class="hint">📱 移动设备倾斜控制 | 🖱️ 桌面鼠标移动控制</div>
+<script>
+let viewport,scene,stars=[],starCount=0,score=0,timer=60,timerInterval=null,running=false;
+let rotX=0,rotY=0,hasGyro=false;
+
+function init(){
+  viewport=document.getElementById('viewport');
+  scene=document.getElementById('scene');
+  // Generate background stars
+  for(let i=0;i<200;i++){
+    const star=document.createElement('div');
+    star.className='star '+(i<100?'far':i<160?'mid':'near');
+    star.style.left=Math.random()*100+'%';
+    star.style.top=Math.random()*100+'%';
+    star.style.animationDelay=Math.random()*3+'s';
+    scene.appendChild(star);
+  }
+  // Gyroscope
+  if(window.DeviceOrientationEvent){
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      document.addEventListener('click',()=>{
+        DeviceOrientationEvent.requestPermission().then(r=>{
+          if(r==='granted')window.addEventListener('deviceorientation',onOrientation);
+        }).catch(()=>{});
+      },{once:true});
+    } else {
+      window.addEventListener('deviceorientation',e=>{
+        if(e.gamma!==null){hasGyro=true;onOrientation(e)}
+      });
+    }
+  }
+  // Mouse fallback
+  viewport.addEventListener('mousemove',e=>{
+    if(hasGyro)return;
+    const rect=viewport.getBoundingClientRect();
+    rotY=((e.clientX-rect.left)/rect.width-0.5)*60;
+    rotX=((e.clientY-rect.top)/rect.height-0.5)*40;
+    updateView();
+  });
+}
+
+function onOrientation(e){
+  hasGyro=true;
+  rotY=Math.max(-30,Math.min(30,e.gamma||0));
+  rotX=Math.max(-20,Math.min(20,(e.beta||0)-40));
+  updateView();
+  document.getElementById('hudX').textContent=Math.round(rotX);
+  document.getElementById('hudY').textContent=Math.round(rotY);
+  checkStarCollection();
+}
+
+function updateView(){
+  scene.style.transform=`rotateX(${-rotX}deg) rotateY(${rotY}deg)`;
+  document.getElementById('hudX').textContent=Math.round(rotX);
+  document.getElementById('hudY').textContent=Math.round(rotY);
+}
+
+function startGame(){
+  starCount=0;score=0;timer=60;
+  document.getElementById('stars').textContent=0;
+  document.getElementById('score').textContent=0;
+  document.getElementById('timer').textContent=60;
+  running=true;
+  // Remove old collectible stars
+  scene.querySelectorAll('.star.collectible').forEach(s=>s.remove());
+  stars=[];
+  // Add collectible stars
+  for(let i=0;i<15;i++){
+    const star=document.createElement('div');
+    star.className='star collectible near';
+    star.style.left=(20+Math.random()*60)+'%';
+    star.style.top=(20+Math.random()*60)+'%';
+    star.dataset.idx=i;
+    scene.appendChild(star);
+    stars.push({el:star,x:parseFloat(star.style.left),y:parseFloat(star.style.top),collected:false});
+  }
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    if(!running)return;
+    timer--;document.getElementById('timer').textContent=timer;
+    if(timer<=0){running=false;document.getElementById('msg').textContent='⏱ 探索结束！得分: '+score;clearInterval(timerInterval)}
+  },1000);
+  document.getElementById('msg').textContent='移动视角收集星星！';
+}
+
+function checkStarCollection(){
+  if(!running)return;
+  // Check if crosshair is near any star
+  const cx=50+rotY*1.5;const cy=50+rotX*1.5;
+  stars.forEach(s=>{
+    if(s.collected)return;
+    const dx=cx-s.x,dy=cy-s.y;
+    if(Math.sqrt(dx*dx+dy*dy)<8){
+      s.collected=true;s.el.classList.add('collected');
+      starCount++;score+=100;
+      document.getElementById('stars').textContent=starCount;
+      document.getElementById('score').textContent=score;
+      document.getElementById('msg').textContent=`⭐ +100! (${starCount}/15)`;
+      if(starCount>=15){
+        running=false;clearInterval(timerInterval);
+        document.getElementById('msg').textContent='🎉 全部收集！得分: '+score;
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎬 电影问答</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--correct:#2ea043;--wrong:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;min-height:100vh;padding:16px}
+.container{width:100%;max-width:500px;display:flex;flex-direction:column;gap:16px}
+.header{text-align:center;padding:16px 0}
+.header h1{font-size:1.8rem;margin-bottom:8px}
+.stats{display:flex;justify-content:center;gap:24px;font-size:.9rem;color:#8b949e}
+.stats span{display:flex;flex-direction:column;align-items:center;gap:4px}
+.stats .num{font-size:1.4rem;font-weight:700;color:var(--text)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+.categories{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.cat-btn{padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:.9rem;transition:.2s}
+.cat-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.cat-btn:hover{border-color:var(--accent)}
+.progress-bar{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.progress-fill{height:100%;background:var(--accent);transition:width .3s}
+.question{font-size:1.1rem;line-height:1.6;margin-bottom:16px}
+.question-num{color:#8b949e;font-size:.85rem;margin-bottom:8px}
+.options{display:flex;flex-direction:column;gap:10px}
+.option-btn{padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);cursor:pointer;font-size:1rem;text-align:left;transition:.2s}
+.option-btn:hover{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.option-btn.correct{background:var(--correct);border-color:var(--correct);color:#fff}
+.option-btn.wrong{background:var(--wrong);border-color:var(--wrong);color:#fff}
+.option-btn:disabled{cursor:not-allowed;opacity:.7}
+.feedback{text-align:center;font-size:1rem;font-weight:600;padding:10px 0;min-height:40px}
+.start-btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:1.1rem;cursor:pointer}
+.timer{font-size:.85rem;color:#8b949e;text-align:center;margin-bottom:8px}
+.game-over{text-align:center;padding:30px 0}
+.game-over h2{font-size:1.6rem;margin-bottom:16px}
+.game-over .final-score{font-size:3rem;font-weight:700;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header"><h1>🎬 电影问答</h1>
+<div class="stats"><span>得分<span class="num" id="score">0</span></span><span>连对<span class="num" id="streak">0</span></span><span>正确率<span class="num" id="acc">0%</span></span></div></div>
+<div class="card" id="startScreen">
+<p style="text-align:center;margin-bottom:12px">选择分类开始答题</p>
+<div class="categories" id="catList"></div>
+<button class="start-btn" onclick="startGame()">开始游戏</button>
+</div>
+<div class="card" id="gameArea" style="display:none">
+<div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+<div class="timer" id="timer">⏱ 15s</div>
+<div class="question-num" id="qnum"></div>
+<div class="question" id="question"></div>
+<div class="feedback" id="feedback"></div>
+<div class="options" id="options"></div>
+</div>
+<div class="card game-over" id="endScreen" style="display:none">
+<h2>🎉 游戏结束</h2><div class="final-score" id="finalScore">0</div>
+<p style="margin:12px 0">答对 <span id="c">0</span>/<span id="t">0</span></p>
+<button class="start-btn" onclick="showStart()">再来一局</button>
+</div>
+</div>
+<script>
+const Q=[
+{cat:'华语电影',q:'《霸王别姬》的导演是谁？',opts:['陈凯歌','张艺谋','冯小刚','王家卫'],ans:0},
+{cat:'华语电影',q:'周星驰在哪部电影中说了"我养你啊"？',opts:['大话西游','功夫','少林足球','喜剧之王'],ans:3},
+{cat:'华语电影',q:'《让子弹飞》中姜文的角色叫什么？',opts:['张麻子','马邦德','黄四郎','汤师爷'],ans:0},
+{cat:'华语电影',q:'《无间道》是哪位导演的作品？',opts:['杜琪峰','刘伟强','王家卫','许鞍华'],ans:1},
+{cat:'华语电影',q:'《卧虎藏龙》获得了哪项奥斯卡大奖？',opts:['最佳影片','最佳导演','最佳外语片','最佳摄影'],ans:2},
+{cat:'好莱坞',q:'《泰坦尼克号》的主题曲是？',opts:['My Heart Will Go On','I Will Always Love You','Yesterday Once More','Unchained Melody'],ans:0},
+{cat:'好莱坞',q:'漫威电影中，美国队长的武器是？',opts:['雷神锤','盾牌','弓箭','战甲'],ans:1},
+{cat:'好莱坞',q:'《盗梦空间》中用来区分梦境的物品是？',opts:['陀螺','硬币','手表','钥匙'],ans:0},
+{cat:'好莱坞',q:'《阿甘正传》中阿甘最爱说的一句话是？',opts:['生活就像巧克力','我要回家','一切都会好','继续跑'],ans:0},
+{cat:'好莱坞',q:'《肖申克的救赎》中安迪花了多少年越狱？',opts:['10年','15年','19年','25年'],ans:2},
+{cat:'好莱坞',q:'《星球大战》中达斯·维达的真实身份是？',opts:['卢克·天行者','阿纳金·天行者','欧比旺','尤达'],ans:1},
+{cat:'日韩电影',q:'《千与千寻》中千寻的父母变成了什么？',opts:['牛','猪','羊','鸡'],ans:1},
+{cat:'日韩电影',q:'《寄生虫》是哪个国家的电影？',opts:['日本','韩国','中国','泰国'],ans:1},
+{cat:'日韩电影',q:'宫崎骏的哪部电影获得了奥斯卡最佳动画片？',opts:['龙猫','幽灵公主','千与千寻','哈尔的移动城堡'],ans:2},
+{cat:'日韩电影',q:'《你的名字》中男女主角互换了什么？',opts:['灵魂','身体','记忆','声音'],ans:1},
+{cat:'动画电影',q:'《冰雪奇缘》中艾莎的妹妹叫什么？',opts:['安娜','爱莎','艾拉','露娜'],ans:0},
+{cat:'动画电影',q:'《疯狂动物城》中的主角兔子叫什么？',opts:['朱迪','露西','艾米','莎拉'],ans:0},
+{cat:'动画电影',q:'《Toy Story》中牛仔玩具叫什么？',opts:['胡迪','巴斯','翠丝','红心'],ans:0},
+{cat:'动画电影',q:'《哪吒之魔童降世》中哪吒说的经典台词是？',opts:['我命由我不由天','我要拯救世界','我是最棒的','绝不认输'],ans:0},
+{cat:'动画电影',q:'《大鱼海棠》的故事发生在哪个地方？',opts:['福建土楼','北京故宫','苏州园林','云南大理'],ans:0},
+{cat:'经典电影',q:'《教父》中维托·柯里昂的扮演者是？',opts:['罗伯特·德尼罗','马龙·白兰度','阿尔·帕西诺','詹姆斯·凯恩'],ans:1},
+{cat:'经典电影',q:'《辛德勒的名单》的主题是关于？',opts:['二战犹太人大屠杀','越战','冷战','南北战争'],ans:0},
+{cat:'经典电影',q:'《公民凯恩》中"玫瑰花蕾"代表什么？',opts:['童年记忆','财富密码','爱情','权力'],ans:0},
+{cat:'经典电影',q:'《阿甘正传》中那盒巧克力的台词是什么？',opts:['人生就像一盒巧克力','爱情就像巧克力','生活很甜','每天都要吃巧克力'],ans:0},
+{cat:'经典电影',q:'《黑客帝国》中主角选择了什么颜色的药丸？',opts:['红色','蓝色','绿色','黄色'],ans:0},
+];
+let selected=[],questions=[],qIdx=0,score=0,streak=0,correct=0,timer=null,timeLeft=15;
+const cats=[...new Set(Q.map(q=>q.cat))];
+let selectedCats=new Set(cats);
+function init(){const d=document.getElementById('catList');d.innerHTML='';cats.forEach(c=>{const b=document.createElement('button');b.className='cat-btn active';b.textContent=c;b.onclick=()=>{if(selectedCats.has(c)){selectedCats.delete(c);b.classList.remove('active')}else{selectedCats.add(c);b.classList.add('active')}};d.appendChild(b)})}
+function showStart(){document.getElementById('startScreen').style.display='block';document.getElementById('endScreen').style.display='none'}
+function startGame(){
+questions=Q.filter(q=>selectedCats.has(q.cat)).sort(()=>Math.random()-.5).slice(0,15);
+qIdx=0;score=0;streak=0;correct=0;
+document.getElementById('startScreen').style.display='none';
+document.getElementById('endScreen').style.display='none';
+document.getElementById('gameArea').style.display='block';
+updateStats();showQ();
+}
+function showQ(){
+if(qIdx>=questions.length){endGame();return}
+const q=questions[qIdx];
+document.getElementById('qnum').textContent='第'+(qIdx+1)+'题 / 共'+questions.length+'题';
+document.getElementById('question').textContent=q.q;
+document.getElementById('feedback').textContent='';
+const d=document.getElementById('options');d.innerHTML='';
+q.opts.forEach((o,i)=>{const b=document.createElement('button');b.className='option-btn';b.textContent=o;b.onclick=()=>check(i===q.ans,b);d.appendChild(b)});
+timeLeft=15;document.getElementById('timer').textContent='⏱ 15s';
+clearInterval(timer);
+timer=setInterval(()=>{timeLeft--;document.getElementById('timer').textContent='⏱ '+timeLeft+'s';if(timeLeft<=0){clearInterval(timer);timeUp()}},1000);
+document.getElementById('progress').style.width=(qIdx/questions.length*100)+'%';
+}
+function check(isCorrect,btn){
+clearInterval(timer);
+document.querySelectorAll('.option-btn').forEach((b,i)=>{b.disabled=true;if(i===questions[qIdx].ans)b.classList.add('correct')});
+if(isCorrect){score+=timeLeft*10+streak*5;streak++;correct++;document.getElementById('feedback').textContent='✅ 正确！';document.getElementById('feedback').style.color='var(--correct)'}
+else{streak=0;document.getElementById('feedback').textContent='❌ 答错啦';document.getElementById('feedback').style.color='var(--wrong)'}
+updateStats();qIdx++;setTimeout(showQ,1500);
+}
+function timeUp(){
+streak=0;document.querySelectorAll('.option-btn').forEach((b,i)=>{b.disabled=true;if(i===questions[qIdx].ans)b.classList.add('correct')});
+document.getElementById('feedback').textContent='⏰ 超时！';document.getElementById('feedback').style.color='var(--wrong)';
+updateStats();qIdx++;setTimeout(showQ,1500);
+}
+function updateStats(){document.getElementById('score').textContent=score;document.getElementById('streak').textContent=streak;document.getElementById('acc').textContent=qIdx>0?Math.round(correct/qIdx*100)+'%':'0%'}
+function endGame(){clearInterval(timer);document.getElementById('gameArea').style.display='none';document.getElementById('endScreen').style.display='block';document.getElementById('finalScore').textContent=score;document.getElementById('c').textContent=correct;document.getElementById('t').textContent=questions.length}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🂡 21点</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--correct:#2ea043;--wrong:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;min-height:100vh;padding:16px}
+.container{width:100%;max-width:500px;display:flex;flex-direction:column;gap:12px;align-items:center}
+h1{font-size:1.5rem}
+.balance{font-size:1rem;color:#8b949e}.balance b{color:var(--accent)}
+.hand-section{text-align:center;min-height:120px}
+.hand-section h3{font-size:.9rem;color:#8b949e;margin-bottom:8px}
+.hand-cards{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:90px}
+.playing-card{width:56px;height:80px;border-radius:6px;border:1px solid #888;background:#fff;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;transition:.2s}
+.playing-card.red{color:#dc2626}
+.playing-card.hidden{background:#2c3e50;color:transparent}
+.playing-card.hidden::after{content:'🂠';font-size:1.5rem;position:absolute}
+.hand-value{font-size:1rem;font-weight:700;margin-top:4px}
+.result-text{font-size:1.3rem;font-weight:700;min-height:36px;text-align:center}
+.bet-area{display:flex;gap:8px;align-items:center;justify-content:center}
+.bet-area input{width:80px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);text-align:center;font-size:1rem}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+button{padding:10px 20px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:.9rem}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.green{background:var(--correct);border-color:var(--correct);color:#fff}
+button.red{background:var(--wrong);border-color:var(--wrong);color:#fff}
+.history{font-size:.8rem;color:#8b949e;max-height:60px;overflow-y:auto;width:100%;padding:6px;background:var(--card);border-radius:6px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🂡 21点</h1>
+<div class="balance">余额: <b id="balance">1000</b> 💰</div>
+<div class="bet-area"><span>下注:</span><input type="number" id="betInput" value="100" min="10"></div>
+<div class="hand-section"><h3>庄家 <span id="dVal"></span></h3><div class="hand-cards" id="dealer"></div></div>
+<div class="result-text" id="result"></div>
+<div class="hand-section"><h3>你的手牌 <span id="pVal"></span></h3><div class="hand-cards" id="player"></div></div>
+<div class="controls">
+<button class="primary" id="dealBtn" onclick="deal()">发牌</button>
+<button id="hitBtn" onclick="hit()" style="display:none" class="green">要牌</button>
+<button id="standBtn" onclick="stand()" style="display:none" class="red">停牌</button>
+<button id="doubleBtn" onclick="doubleDown()" style="display:none">加倍</button>
+</div>
+<div class="history" id="history"></div>
+</div>
+<script>
+const SUITS=['♠','♥','♦','♣'],RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+let deck=[],playerHand=[],dealerHand=[],balance=1000,gameActive=false,betAmount=100;
+
+function newDeck(){let d=[];SUITS.forEach(s=>RANKS.forEach(r=>d.push({rank:r,suit:s})));for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}return d}
+function cardVal(c){return['J','Q','K'].includes(c.rank)?10:c.rank==='A'?11:parseInt(c.rank)}
+function handValue(h){let v=0,aces=0;h.forEach(c=>{v+=cardVal(c);if(c.rank==='A')aces++});while(v>21&&aces>0){v-=10;aces--}return v}
+function isRed(c){return c.suit==='♥'||c.suit==='♦'}
+
+function renderCards(hand,containerId,hideSecond=false){
+const div=document.getElementById(containerId);div.innerHTML='';
+hand.forEach((c,i)=>{
+const d=document.createElement('div');
+d.className='playing-card'+(isRed(c)?' red':'')+(hideSecond&&i===1?' hidden':'');
+d.innerHTML=`<span>${c.rank}</span><span style="font-size:1.1rem">${c.suit}</span>`;
+div.appendChild(d);
+});
+}
+
+function updateValues(){
+document.getElementById('pVal').textContent=handValue(playerHand)>0?'('+handValue(playerHand)+')':'';
+if(dealerHand.length>1){
+const faceUp=cardVal(dealerHand[0]);
+document.getElementById('dVal').textContent='('+faceUp+'?)';
+}
+}
+
+function deal(){
+betAmount=Math.min(parseInt(document.getElementById('betInput').value)||100,balance);
+if(betAmount<=0)return;
+balance-=betAmount;document.getElementById('balance').textContent=balance;
+deck=newDeck();playerHand=[deck.pop(),deck.pop()];dealerHand=[deck.pop(),deck.pop()];
+gameActive=true;
+document.getElementById('dealBtn').style.display='none';
+document.getElementById('hitBtn').style.display='inline-block';
+document.getElementById('standBtn').style.display='inline-block';
+document.getElementById('doubleBtn').style.display='inline-block';
+document.getElementById('result').textContent='';
+renderCards(dealerHand,'dealer',true);
+renderCards(playerHand,'player');
+updateValues();
+if(handValue(playerHand)===21)stand();
+}
+
+function hit(){
+if(!gameActive)return;
+playerHand.push(deck.pop());
+renderCards(playerHand,'player');updateValues();
+const v=handValue(playerHand);
+if(v>21){endRound('playerBust')}
+else if(v===21)stand();
+document.getElementById('doubleBtn').style.display='none';
+}
+
+function stand(){
+if(!gameActive)return;
+gameActive=false;
+while(handValue(dealerHand)<17)dealerHand.push(deck.pop());
+renderCards(dealerHand,'dealer');
+const dv=handValue(dealerHand),pv=handValue(playerHand);
+if(dv>21)endRound('dealerBust');
+else if(pv>dv)endRound('win');
+else if(pv<dv)endRound('lose');
+else endRound('push');
+}
+
+function doubleDown(){
+if(!gameActive||playerHand.length!==2)return;
+balance+=betAmount;betAmount*=2;balance-=betAmount;
+document.getElementById('balance').textContent=balance;
+hit();
+if(gameActive)stand();
+}
+
+function endRound(reason){
+gameActive=false;
+const pv=handValue(playerHand),dv=handValue(dealerHand);
+let result='',payout=0;
+switch(reason){
+case'playerBust':result='💥 爆牌！';payout=0;break;
+case'dealerBust':result='🎉 庄家爆牌！';payout=betAmount*2;break;
+case'win':result='🎉 你赢了！';payout=betAmount*2;break;
+case'lose':result='😞 你输了';payout=0;break;
+case'push':result='🤝 平局';payout=betAmount;break;
+}
+balance+=payout;document.getElementById('balance').textContent=balance;
+document.getElementById('result').textContent=result+` (${pv} vs ${dv})`;
+document.getElementById('hitBtn').style.display='none';
+document.getElementById('standBtn').style.display='none';
+document.getElementById('doubleBtn').style.display='none';
+document.getElementById('dealBtn').style.display='inline-block';
+document.getElementById('history').innerHTML=`<div>${result} ${pv} vs ${dv} ${payout>betAmount?'+'+(payout-betAmount):'-'+betAmount}</div>`+document.getElementById('history').innerHTML;
+if(balance<=0){balance=1000;document.getElementById('balance').textContent=1000}
+renderCards(dealerHand,'dealer');
+}
+</script>
+</body>
+</html>

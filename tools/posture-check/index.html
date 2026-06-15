@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>姿势检查</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#60a5fa;--success:#4ade80;--warning:#fbbf24;--danger:#f87171;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+.container{width:100%;max-width:600px}
+h1{font-size:1.5rem;text-align:center;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.video-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:8px;overflow:hidden;margin-bottom:12px}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+.score-display{text-align:center;margin:16px 0}
+.score-ring{width:120px;height:120px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;border:6px solid var(--border);transition:border-color .3s}
+.score-ring.good{border-color:var(--success)}.score-ring.ok{border-color:var(--warning)}.score-ring.bad{border-color:var(--danger)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.metric{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.metric-label{font-size:.75rem;color:var(--muted)}
+.metric-value{font-size:1.1rem;font-weight:600;margin-top:4px}
+.metric-value.good{color:var(--success)}.metric-value.ok{color:var(--warning)}.metric-value.bad{color:var(--danger)}
+.suggestions{margin-top:16px}
+.suggestion{display:flex;gap:10px;padding:10px;border-left:3px solid var(--accent);background:rgba(59,130,246,.05);border-radius:0 8px 8px 0;margin-bottom:8px;font-size:.85rem;line-height:1.5}
+.btn{padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-group{display:flex;gap:10px;justify-content:center}
+.timer-display{text-align:center;font-size:2rem;font-weight:700;color:var(--accent);margin:10px 0}
+.hidden{display:none}
+.status-bar{display:flex;justify-content:center;gap:16px;margin:12px 0}
+.status-item{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
+.status-dot{width:8px;height:8px;border-radius:50%}
+.status-dot.on{background:var(--success);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🧍 姿势检查</h1>
+
+<div class="card" id="startCard">
+<p style="color:var(--muted);text-align:center;line-height:1.8">
+  使用摄像头实时检测您的坐姿<br>
+  系统会分析头部倾斜和肩膀水平度<br>
+  给出实时评分和改善建议
+</p>
+<div style="text-align:center;margin:16px 0;color:var(--muted);font-size:.85rem">
+  ⚠️ 仅在本地处理，不会上传任何数据
+</div>
+<button class="btn btn-primary" style="width:100%" onclick="startCamera()">开始检测</button>
+</div>
+
+<div class="card hidden" id="testCard">
+<div class="video-wrap">
+<video id="video" autoplay playsinline muted></video>
+<canvas id="overlay"></canvas>
+</div>
+<div class="status-bar">
+<div class="status-item"><div class="status-dot on"></div>检测中</div>
+<div class="status-item" id="timerDisplay">⏱ 00:00</div>
+</div>
+<div class="score-display"><div class="score-ring" id="scoreRing">--</div></div>
+<div class="metrics">
+<div class="metric"><div class="metric-label">头部偏移</div><div class="metric-value" id="headTilt">--</div></div>
+<div class="metric"><div class="metric-label">肩膀水平</div><div class="metric-value" id="shoulderLevel">--</div></div>
+<div class="metric"><div class="metric-label">坐姿评分</div><div class="metric-value" id="postureScore">--</div></div>
+<div class="metric"><div class="metric-label">检测时长</div><div class="metric-value" id="duration">0s</div></div>
+</div>
+<div class="btn-group">
+<button class="btn btn-primary" onclick="analyzePosture()">手动分析</button>
+<button class="btn btn-danger" onclick="stopCamera()">停止检测</button>
+</div>
+</div>
+
+<div class="card hidden" id="resultCard">
+<h3 style="text-align:center;margin-bottom:12px">姿势分析报告</h3>
+<div class="score-display"><div class="score-ring" id="finalScore">--</div></div>
+<div class="suggestions" id="suggestions"></div>
+<button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="startCamera()">再次检测</button>
+</div>
+</div>
+
+<script>
+let videoStream = null;
+let timerInterval = null;
+let analysisInterval = null;
+let startTime = 0;
+let scores = [];
+
+function startCamera() {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } })
+    .then(stream => {
+      videoStream = stream;
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      document.getElementById('startCard').classList.add('hidden');
+      document.getElementById('testCard').classList.remove('hidden');
+      document.getElementById('resultCard').classList.add('hidden');
+      startTime = Date.now();
+      scores = [];
+      timerInterval = setInterval(updateTimer, 1000);
+      analysisInterval = setInterval(analyzePosture, 2000);
+      analyzePosture();
+    })
+    .catch(e => alert('无法访问摄像头: ' + e.message));
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = `⏱ ${m}:${s}`;
+  document.getElementById('duration').textContent = elapsed + 's';
+}
+
+function analyzePosture() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('overlay');
+  const ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.drawImage(video, 0, 0);
+  const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  let skinPixels = [];
+  for (let y = 0; y < canvas.height; y += 4) {
+    for (let x = 0; x < canvas.width; x += 4) {
+      const i = (y * canvas.width + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (r > 150 && g > 100 && b > 50 && r > g && r > b) {
+        skinPixels.push({ x, y });
+      }
+    }
+  }
+
+  let headCenter = { x: cx, y: cy * 0.4 };
+  let shoulderL = { x: cx * 0.3, y: cy * 0.7 };
+  let shoulderR = { x: cx * 1.7, y: cy * 0.7 };
+
+  if (skinPixels.length > 50) {
+    const topPixels = skinPixels.filter(p => p.y < cy * 0.7);
+    if (topPixels.length > 0) {
+      headCenter.x = topPixels.reduce((s, p) => s + p.x, 0) / topPixels.length;
+      headCenter.y = topPixels.reduce((s, p) => s + p.y, 0) / topPixels.length;
+    }
+    const midPixels = skinPixels.filter(p => p.y > cy * 0.5 && p.y < cy * 0.85);
+    if (midPixels.length > 10) {
+      const sorted = [...midPixels].sort((a, b) => a.x - b.x);
+      const q1 = sorted[Math.floor(sorted.length * 0.15)];
+      const q2 = sorted[Math.floor(sorted.length * 0.85)];
+      if (q1) shoulderL = q1;
+      if (q2) shoulderR = q2;
+    }
+  }
+
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(shoulderL.x, shoulderL.y);
+  ctx.lineTo(shoulderR.x, shoulderR.y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, headCenter.y);
+  ctx.lineTo(cx, shoulderL.y + 40);
+  ctx.stroke();
+
+  ctx.fillStyle = '#3b82f6';
+  ctx.beginPath();
+  ctx.arc(headCenter.x, headCenter.y - 15, 12, 0, Math.PI * 2);
+  ctx.fill();
+
+  const headOffset = Math.abs(headCenter.x - cx) / canvas.width * 100;
+  const shoulderDiff = Math.abs(shoulderL.y - shoulderR.y) / canvas.height * 100;
+  const headScore = Math.max(0, 100 - headOffset * 10);
+  const shoulderScore = Math.max(0, 100 - shoulderDiff * 20);
+  const totalScore = Math.round((headScore + shoulderScore) / 2);
+
+  scores.push(totalScore);
+
+  updateMetric('headTilt', headOffset < 3 ? 'good' : headOffset < 8 ? 'ok' : 'bad',
+    headOffset < 3 ? '正常' : headOffset.toFixed(1) + '%偏移');
+  updateMetric('shoulderLevel', shoulderDiff < 2 ? 'good' : shoulderDiff < 5 ? 'ok' : 'bad',
+    shoulderDiff < 2 ? '水平' : shoulderDiff.toFixed(1) + '%偏差');
+  updateMetric('postureScore', totalScore >= 80 ? 'good' : totalScore >= 60 ? 'ok' : 'bad', totalScore + '分');
+
+  const ring = document.getElementById('scoreRing');
+  ring.textContent = totalScore;
+  ring.className = 'score-ring ' + (totalScore >= 80 ? 'good' : totalScore >= 60 ? 'ok' : 'bad');
+}
+
+function updateMetric(id, cls, text) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'metric-value ' + cls;
+}
+
+function stopCamera() {
+  if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+  if (timerInterval) clearInterval(timerInterval);
+  if (analysisInterval) clearInterval(analysisInterval);
+  videoStream = null;
+  showResult();
+}
+
+function showResult() {
+  document.getElementById('testCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.remove('hidden');
+  const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  const ring = document.getElementById('finalScore');
+  ring.textContent = avg;
+  ring.className = 'score-ring ' + (avg >= 80 ? 'good' : avg >= 60 ? 'ok' : 'bad');
+
+  const suggestions = document.getElementById('suggestions');
+  suggestions.innerHTML = '';
+  const tips = [
+    { cond: avg < 80, text: '保持头部正直，避免前倾或侧倾' },
+    { cond: avg < 70, text: '调整椅子高度，使双脚平放在地面' },
+    { cond: avg < 90, text: '屏幕顶部与视线平齐或略低' },
+    { cond: true, text: '每30分钟起身活动，放松肩颈' },
+    { cond: true, text: '使用靠垫支撑腰部，保持脊柱自然弯曲' },
+    { cond: true, text: '双臂自然放在桌面，避免耸肩' }
+  ];
+  tips.filter(t => t.cond).forEach(t => {
+    suggestions.innerHTML += `<div class="suggestion">💡 ${t.text}</div>`;
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>老虎机</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+h1{font-size:1.5rem;margin-bottom:15px;color:#3b82f6}
+.machine{background:#161b22;border:3px solid #30363d;border-radius:16px;padding:30px 20px 20px;position:relative}
+.machine::before{content:'🎰';position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:2rem}
+.slots{display:flex;gap:10px;margin-bottom:20px}
+.slot{width:90px;height:90px;background:#1e293b;border:2px solid #30363d;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2.8rem;overflow:hidden;position:relative}
+.slot .reel{transition:transform .1s}
+.slot .reel.spinning{transition:none}
+.controls{display:flex;gap:12px;margin-bottom:15px}
+button{padding:12px 32px;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;font-weight:bold}
+.spin-btn{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;letter-spacing:2px}
+.spin-btn:hover{background:linear-gradient(135deg,#dc2626,#b91c1c)}
+.spin-btn:disabled{opacity:0.5;cursor:not-allowed}
+.reset-btn{background:#30363d;color:#e6edf3;font-size:0.9rem}
+.credit{font-size:1.2rem;margin-bottom:10px}
+.credit b{color:#fbbf24}
+.message{font-size:1.1rem;min-height:1.5em;margin-top:8px}
+.win-anim{animation:winGlow .5s ease 3}
+@keyframes winGlow{0%,100%{box-shadow:none}50%{box-shadow:0 0 20px #fbbf24}}
+.symbols=['🍒','🍋','🍊','🍇','🔔','💎','7️⃣'];
+</style>
+</head>
+<body>
+<h1>🎰 老虎机</h1>
+<div class="machine">
+<div class="credit">余额: <b id="credit">100</b> 💰</div>
+<div class="slots">
+<div class="slot" id="s0">🍒</div>
+<div class="slot" id="s1">🍋</div>
+<div class="slot" id="s2">🍊</div>
+</div>
+<div class="controls">
+<button class="spin-btn" id="spinBtn" onclick="spin()">转 拉</button>
+<button class="reset-btn" onclick="reset()">重置</button>
+</div>
+<div class="message" id="msg">投入10💰旋转试试运气！</div>
+</div>
+<script>
+const symbols=['🍒','🍋','🍊','🍇','🔔','💎','7️⃣'];
+const payouts=[2,2,3,4,5,10,20];
+let credit=100,spinning=false;
+
+function spin(){
+  if(spinning||credit<10)return;
+  spinning=true;credit-=10;updateCredit();
+  document.getElementById('spinBtn').disabled=true;
+  document.getElementById('msg').textContent='旋转中...';
+
+  const results=[0,1,2].map(()=>Math.floor(Math.random()*symbols.length));
+  const slots=[0,1,2].map(i=>document.getElementById('s'+i));
+
+  slots.forEach(s=>s.classList.add('spinning'));
+
+  let counts=[0,0,0];
+  const intervals=slots.map((s,i)=>{
+    return setInterval(()=>{
+      counts[i]++;
+      s.textContent=symbols[counts[i]%symbols.length];
+    },80);
+  });
+
+  setTimeout(()=>{intervals.forEach((iv,i)=>{
+    setTimeout(()=>{clearInterval(iv);slots[i].classList.remove('spinning');
+      slots[i].textContent=symbols[results[i]];
+    },i*200);
+  });
+
+  setTimeout(()=>{
+    spinning=false;document.getElementById('spinBtn').disabled=false;
+    const [a,b,c]=results;
+    if(a===b&&b===c){
+      const win=payouts[a]*10;credit+=win;updateCredit();
+      document.getElementById('msg').textContent=`🎉 三连！赢得 ${win}💰`;
+      slots.forEach(s=>s.classList.add('win-anim'));
+      setTimeout(()=>slots.forEach(s=>s.classList.remove('win-anim')),1600);
+    }else if(a===b||b===c||a===c){
+      const pair=a===b?a:b===c?b:a;
+      const win=payouts[pair]*3;credit+=win;updateCredit();
+      document.getElementById('msg').textContent=`两个相同！赢得 ${win}💰`;
+    }else{
+      document.getElementById('msg').textContent=credit<=0?'💀 破产了！':'再试试运气！';
+    }
+  },600);
+  },500);
+}
+
+function updateCredit(){document.getElementById('credit').textContent=credit}
+function reset(){credit=100;updateCredit();document.getElementById('msg').textContent='余额已重置！'}
+</script>
+</body>
+</html>

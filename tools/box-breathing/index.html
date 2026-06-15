@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方块呼吸</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#60a5fa;--success:#4ade80;--warning:#fbbf24;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+.container{width:100%;max-width:500px}
+h1{font-size:1.5rem;text-align:center;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.breath-container{position:relative;width:240px;height:240px;margin:20px auto}
+.breath-shape{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.breath-circle{width:100px;height:100px;border-radius:50%;border:4px solid var(--accent);transition:all 1s ease-in-out;display:flex;align-items:center;justify-content:center}
+.breath-square{width:100px;height:100px;border:4px solid var(--accent);transition:all 1s ease-in-out;display:flex;align-items:center;justify-content:center}
+.phase-label{font-size:1.2rem;font-weight:600;text-align:center;margin:16px 0}
+.timer-big{font-size:3rem;font-weight:700;text-align:center;color:var(--accent)}
+.stats-row{display:flex;justify-content:space-around;margin:16px 0;padding-top:16px;border-top:1px solid var(--border)}
+.stat-item{text-align:center}
+.stat-val{font-size:1.3rem;font-weight:700;color:var(--accent)}
+.stat-lbl{font-size:.7rem;color:var(--muted);margin-top:2px}
+.settings{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:16px 0}
+.setting-btn{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer;transition:.2s;font-size:.85rem}
+.setting-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.controls{display:flex;gap:10px;justify-content:center;margin-top:16px}
+.btn{padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.history-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.history-item:last-child{border:none}
+.phase-indicator{display:flex;gap:8px;justify-content:center;margin:16px 0}
+.phase-dot{width:10px;height:10px;border-radius:50%;background:var(--border);transition:.3s}
+.phase-dot.active{background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.phase-dot.done{background:var(--success)}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🫧 方块呼吸</h1>
+
+<div class="card">
+<div class="breath-container">
+<div class="breath-shape">
+<div class="breath-circle" id="breathShape">
+<span id="shapeText" style="font-size:.8rem;color:var(--muted)">准备开始</span>
+</div>
+</div>
+</div>
+<div class="phase-indicator" id="phaseIndicator">
+<div class="phase-dot" data-phase="0"></div>
+<div class="phase-dot" data-phase="1"></div>
+<div class="phase-dot" data-phase="2"></div>
+<div class="phase-dot" data-phase="3"></div>
+</div>
+<div class="phase-label" id="phaseLabel">点击开始</div>
+<div class="timer-big" id="timerBig">0:00</div>
+<div class="settings">
+<span style="font-size:.85rem;color:var(--muted);line-height:32px">每阶段：</span>
+<button class="setting-btn" onclick="setDuration(3)">3秒</button>
+<button class="setting-btn active" onclick="setDuration(4)">4秒</button>
+<button class="setting-btn" onclick="setDuration(5)">5秒</button>
+<button class="setting-btn" onclick="setDuration(6)">6秒</button>
+</div>
+<div class="stats-row">
+<div class="stat-item"><div class="stat-val" id="breathCount">0</div><div class="stat-lbl">呼吸次数</div></div>
+<div class="stat-item"><div class="stat-val" id="sessionTime">0:00</div><div class="stat-lbl">练习时长</div></div>
+<div class="stat-item"><div class="stat-val" id="totalBreaths">0</div><div class="stat-lbl">累计次数</div></div>
+</div>
+<div class="controls">
+<button class="btn btn-primary" id="startBtn" onclick="toggleBreathing()">开始</button>
+<button class="btn btn-outline" onclick="resetSession()">重置</button>
+</div>
+</div>
+
+<div class="card" id="historyCard">
+<h3 style="font-size:.95rem;margin-bottom:12px">练习记录</h3>
+<div id="historyList"></div>
+</div>
+</div>
+
+<script>
+const phases = ['吸气', '屏息', '呼气', '屏息'];
+let duration = 4;
+let isRunning = false, currentPhase = 0, phaseTime = 0;
+let sessionTimer = null, breathCount = 0, sessionStart = 0;
+let animInterval = null;
+
+function setDuration(d) {
+  duration = d;
+  document.querySelectorAll('.setting-btn').forEach(b => b.classList.toggle('active', b.textContent === d + '秒'));
+}
+
+function toggleBreathing() {
+  if (isRunning) stopBreathing();
+  else startBreathing();
+}
+
+function startBreathing() {
+  isRunning = true;
+  currentPhase = 0;
+  phaseTime = duration;
+  breathCount = 0;
+  sessionStart = Date.now();
+  document.getElementById('startBtn').textContent = '暂停';
+  updatePhase();
+  runTimer();
+  updateSessionTimer();
+}
+
+function runTimer() {
+  if (animInterval) clearInterval(animInterval);
+  animInterval = setInterval(() => {
+    if (!isRunning) return;
+    phaseTime--;
+    document.getElementById('timerBig').textContent = `0:${String(phaseTime).padStart(2, '0')}`;
+    updateShape();
+    if (phaseTime <= 0) {
+      currentPhase = (currentPhase + 1) % 4;
+      if (currentPhase === 0) breathCount++;
+      phaseTime = duration;
+      updatePhase();
+      document.getElementById('breathCount').textContent = breathCount;
+    }
+  }, 1000);
+}
+
+function updatePhase() {
+  document.getElementById('phaseLabel').textContent = phases[currentPhase];
+  document.querySelectorAll('.phase-dot').forEach((dot, i) => {
+    dot.className = 'phase-dot';
+    if (i === currentPhase) dot.classList.add('active');
+    else if (i < currentPhase || (currentPhase === 0 && breathCount > 0)) dot.classList.add('done');
+  });
+}
+
+function updateShape() {
+  const shape = document.getElementById('breathShape');
+  const pct = (duration - phaseTime) / duration;
+  let size, opacity, color;
+  if (currentPhase === 0) {
+    size = 100 + pct * 60;
+    opacity = 0.5 + pct * 0.5;
+    color = `rgba(59,130,246,${opacity})`;
+  } else if (currentPhase === 1) {
+    size = 160;
+    opacity = 1;
+    color = 'rgba(74,222,128,0.7)';
+  } else if (currentPhase === 2) {
+    size = 160 - pct * 60;
+    opacity = 1 - pct * 0.5;
+    color = `rgba(167,139,250,${opacity})`;
+  } else {
+    size = 100;
+    opacity = 0.8;
+    color = 'rgba(251,191,36,0.6)';
+  }
+  shape.style.width = size + 'px';
+  shape.style.height = size + 'px';
+  shape.style.background = color;
+}
+
+function updateSessionTimer() {
+  if (sessionTimer) clearInterval(sessionTimer);
+  sessionTimer = setInterval(() => {
+    if (!isRunning) return;
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('sessionTime').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopBreathing() {
+  isRunning = false;
+  if (animInterval) clearInterval(animInterval);
+  if (sessionTimer) clearInterval(sessionTimer);
+  document.getElementById('startBtn').textContent = '继续';
+  saveSession();
+}
+
+function resetSession() {
+  stopBreathing();
+  breathCount = 0;
+  document.getElementById('breathCount').textContent = '0';
+  document.getElementById('sessionTime').textContent = '0:00';
+  document.getElementById('timerBig').textContent = '0:00';
+  document.getElementById('phaseLabel').textContent = '点击开始';
+  document.getElementById('breathShape').style.cssText = '';
+  document.getElementById('shapeText').textContent = '准备开始';
+  document.querySelectorAll('.phase-dot').forEach(d => d.className = 'phase-dot');
+}
+
+function saveSession() {
+  if (breathCount === 0) return;
+  const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+  const sessions = JSON.parse(localStorage.getItem('breath_sessions') || '[]');
+  sessions.unshift({ date: new Date().toLocaleString('zh-CN'), breaths: breathCount, duration: elapsed, phase: duration });
+  if (sessions.length > 20) sessions.pop();
+  localStorage.setItem('breath_sessions', JSON.stringify(sessions));
+  loadHistory();
+  updateTotal();
+}
+
+function loadHistory() {
+  const sessions = JSON.parse(localStorage.getItem('breath_sessions') || '[]');
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  if (sessions.length === 0) { list.innerHTML = '<div style="color:var(--muted);text-align:center;font-size:.85rem">暂无记录</div>'; return; }
+  sessions.slice(0, 10).forEach(s => {
+    const m = Math.floor(s.duration / 60);
+    const sec = s.duration % 60;
+    list.innerHTML += `<div class="history-item"><span>${s.date}</span><span>${s.breaths}次呼吸 · ${m}分${sec}秒 · 每阶段${s.phase}秒</span></div>`;
+  });
+}
+
+function updateTotal() {
+  const sessions = JSON.parse(localStorage.getItem('breath_sessions') || '[]');
+  const total = sessions.reduce((s, x) => s + x.breaths, 0);
+  document.getElementById('totalBreaths').textContent = total;
+}
+
+loadHistory();
+updateTotal();
+</script>
+</body>
+</html>
