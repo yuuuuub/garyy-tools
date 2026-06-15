@@ -77,41 +77,49 @@ var resultArea=document.getElementById('resultArea');
 var translationText=document.getElementById('translationText');
 var errorMsg=document.getElementById('errorMsg');
 var waitingMsg=document.getElementById('waitingMsg');
+var API_URL='https://api.siliconflow.cn/v1/chat/completions';
+var API_KEY=localStorage.getItem('sf_api_key')||'';
+var MODEL='Qwen/Qwen2-7B-Instruct';
 
-var MODEL_MAP={
-  en:'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-zh-en',
-  zh:'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-zh',
-  ja:'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-ja',
-  fr:'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-fr',
-  de:'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-de',
-  es:'https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-es'
+var LANG_MAP={
+  en:'English',zh:'Chinese',ja:'Japanese',fr:'French',de:'German',es:'Spanish'
 };
-
-function getModelUrl(){
-  var lang=targetLang.value;
-  if(lang==='en') return MODEL_MAP.en;
-  if(lang==='zh') return MODEL_MAP.zh;
-  if(lang==='ja') return MODEL_MAP.ja;
-  if(lang==='fr') return MODEL_MAP.fr;
-  if(lang==='de') return MODEL_MAP.de;
-  if(lang==='es') return MODEL_MAP.es;
-  return MODEL_MAP.en;
-}
 
 function translate(){
   var text=input.value.trim();
   if(!text){showError('请输入要翻译的文本');return;}
+  if(!API_KEY){showError('请先设置 API Key');return;}
   setLoading(true);
   hideError();
   hideWaiting();
   resultArea.style.display='none';
-  fetch(getModelUrl(),{
+  var target=LANG_MAP[targetLang.value]||'English';
+  fetch(API_URL,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({inputs:text})
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+    body:JSON.stringify({model:MODEL,messages:[{role:'system',content:'你是一个翻译助手，请将用户输入的文本翻译成'+target+'，只输出翻译结果，不要解释。'},{role:'user',content:text}],max_tokens:500,temperature:0.3})
   })
   .then(function(r){
-    if(r.status===503){showWaiting();return r.json().then(function(d){throw new Error('模型加载中');});}
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.error?.message||'请求失败')});
+    return r.json();
+  })
+  .then(function(data){
+    setLoading(false);
+    hideWaiting();
+    if(data&&data.choices&&data.choices[0]&&data.choices[0].message){
+      resultArea.style.display='block';
+      translationText.textContent=data.choices[0].message.content;
+    }else{
+      showError('无法解析返回结果');
+    }
+  })
+  .catch(function(err){
+    setLoading(false);
+    showError(err.message||'请求失败，请稍后重试');
+  });
+}
+
+function escapeHtml(str){
     if(!r.ok)return r.json().then(function(d){throw new Error(d.error||'请求失败')});
     return r.json();
   })

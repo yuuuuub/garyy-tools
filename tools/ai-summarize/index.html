@@ -63,42 +63,40 @@ var resultArea=document.getElementById('resultArea');
 var summaryText=document.getElementById('summaryText');
 var errorMsg=document.getElementById('errorMsg');
 var waitingMsg=document.getElementById('waitingMsg');
-var API_URL='https://api-inference.huggingface.co/models/facebook/bart-large-cnn';
+var API_URL='https://api.siliconflow.cn/v1/chat/completions';
+var API_KEY=localStorage.getItem('sf_api_key')||'';
+var MODEL='Qwen/Qwen2-7B-Instruct';
 
 function summarize(){
   var text=input.value.trim();
   if(!text){showError('请输入要摘要的文本');return;}
   if(text.length<20){showError('文本太短，请输入更多内容');return;}
+  if(!API_KEY){showError('请先设置 API Key');return;}
   setLoading(true);
   hideError();
   hideWaiting();
   resultArea.style.display='none';
   fetch(API_URL,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({inputs:text})
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+    body:JSON.stringify({model:MODEL,messages:[{role:'system',content:'你是一个文本摘要助手，请用简洁的中文总结以下内容，保留关键信息。'},{role:'user',content:text}],max_tokens:300,temperature:0.3})
   })
   .then(function(r){
-    if(r.status===503){showWaiting();return r.json().then(function(d){throw new Error('模型加载中');});}
-    if(!r.ok)return r.json().then(function(d){throw new Error(d.error||'请求失败')});
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.error?.message||'请求失败')});
     return r.json();
   })
   .then(function(data){
     setLoading(false);
     hideWaiting();
-    if(data && data[0] && data[0].summary_text){
+    if(data&&data.choices&&data.choices[0]&&data.choices[0].message){
       resultArea.style.display='block';
-      summaryText.textContent=data[0].summary_text;
-    }else if(data && data[0] && typeof data[0]==='string'){
-      resultArea.style.display='block';
-      summaryText.textContent=data[0];
+      summaryText.textContent=data.choices[0].message.content;
     }else{
       showError('无法解析返回结果');
     }
   })
   .catch(function(err){
     setLoading(false);
-    if(err.message==='模型加载中')return;
     showError(err.message||'请求失败，请稍后重试');
   });
 }

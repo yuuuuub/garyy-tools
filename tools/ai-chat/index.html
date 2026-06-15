@@ -44,7 +44,11 @@ header p{color:var(--text2);font-size:.85rem}
 <div class="container">
 <header>
 <h1>💬 简易AI对话</h1>
-<p>HuggingFace · DialoGPT</p>
+<p>SiliconFlow · Qwen2</p>
+<div style="margin-top:8px">
+<button onclick="promptApiKey()" style="padding:4px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:.75rem;cursor:pointer">⚙️ 设置 API Key</button>
+<span id="keyStatus" style="font-size:.7rem;color:var(--text2);margin-left:8px"></span>
+</div>
 </header>
 <div class="card">
 <div class="chat-box" id="chatBox">
@@ -74,8 +78,11 @@ var sendBtn=document.getElementById('sendBtn');
 var clearChatBtn=document.getElementById('clearChatBtn');
 var errorMsg=document.getElementById('errorMsg');
 var waitingMsg=document.getElementById('waitingMsg');
-var API_URL='https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
+var API_URL='https://api.siliconflow.cn/v1/chat/completions';
+var API_KEY=localStorage.getItem('sf_api_key')||'';
+var MODEL='Qwen/Qwen2-7B-Instruct';
 var isWaiting=false;
+var chatHistory=[{role:'system',content:'你是一个有用的AI助手，请用中文回答问题。'}];
 
 function addMessage(role,text){
   var div=document.createElement('div');
@@ -115,12 +122,11 @@ function sendMessage(){
   addTyping();
   fetch(API_URL,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({inputs:text})
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+    body:JSON.stringify({model:MODEL,messages:chatHistory.concat([{role:'user',content:text}]),max_tokens:500,temperature:0.7})
   })
   .then(function(r){
-    if(r.status===503){removeTyping();showWaiting();isWaiting=false;sendBtn.disabled=false;return r.json().then(function(d){throw new Error('模型加载中');});}
-    if(!r.ok)return r.json().then(function(d){throw new Error(d.error||'请求失败')});
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.error?.message||'请求失败 ('+r.status+')')});
     return r.json();
   })
   .then(function(data){
@@ -129,10 +135,11 @@ function sendMessage(){
     sendBtn.disabled=false;
     hideWaiting();
     var reply='';
-    if(data && data[0] && data[0].generated_text){
-      reply=data[0].generated_text;
-    }else if(data && data.generated_text){
-      reply=data.generated_text;
+    if(data&&data.choices&&data.choices[0]&&data.choices[0].message){
+      reply=data.choices[0].message.content;
+      chatHistory.push({role:'user',content:text});
+      chatHistory.push({role:'assistant',content:reply});
+      if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
     }else{
       reply='抱歉，我暂时无法回答这个问题。';
     }
@@ -143,6 +150,7 @@ function sendMessage(){
     isWaiting=false;
     sendBtn.disabled=false;
     if(err.message==='模型加载中')return;
+    if(!API_KEY){showError('请先设置 API Key（点击右上角齿轮图标）');return;}
     showError(err.message||'请求失败，请稍后重试');
   });
 }
@@ -158,12 +166,28 @@ function hideError(){errorMsg.style.display='none';}
 function showWaiting(){waitingMsg.style.display='block';}
 function hideWaiting(){waitingMsg.style.display='none';}
 
+function promptApiKey(){
+  var key=prompt('请输入 SiliconFlow API Key\n\n免费注册: https://cloud.siliconflow.cn',API_KEY);
+  if(key!==null){
+    API_KEY=key.trim();
+    localStorage.setItem('sf_api_key',API_KEY);
+    updateKeyStatus();
+  }
+}
+function updateKeyStatus(){
+  var el=document.getElementById('keyStatus');
+  if(API_KEY){el.textContent='✅ 已设置';el.style.color='var(--green)';}
+  else{el.textContent='❌ 未设置';el.style.color='var(--red)';}
+}
+updateKeyStatus();
+
 sendBtn.addEventListener('click',sendMessage);
 msgInput.addEventListener('keydown',function(e){
   if(e.key==='Enter')sendMessage();
 });
 clearChatBtn.addEventListener('click',function(){
   chatBox.innerHTML='<div class="msg msg-bot"><div class="msg-avatar">🤖</div><div class="msg-content"><div>你好！我是AI助手，有什么可以帮你的吗？</div><div class="msg-time">现在</div></div></div>';
+  chatHistory=[{role:'system',content:'你是一个有用的AI助手，请用中文回答问题。'}];
   hideError();
   hideWaiting();
 });

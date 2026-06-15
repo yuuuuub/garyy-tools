@@ -83,7 +83,9 @@ var tweetGrid=document.getElementById('tweetGrid');
 var errorMsg=document.getElementById('errorMsg');
 var waitingMsg=document.getElementById('waitingMsg');
 
-var API_URL='https://api-inference.huggingface.co/models/gpt2';
+var API_URL='https://api.siliconflow.cn/v1/chat/completions';
+var API_KEY=localStorage.getItem('sf_api_key')||'';
+var MODEL='Qwen/Qwen2-7B-Instruct';
 
 var LOCAL_TWEETS={
   casual:[
@@ -134,29 +136,27 @@ function generate(){
   setLoading(false);
   hideWaiting();
   renderTweets(selectedTweets);
-  fetch(API_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({inputs:'Write a tweet about '+topic+':',parameters:{max_length:60,max_new_tokens:50}})
-  })
-  .then(function(r){
-    if(r.status===503){return;} 
-    if(!r.ok)return;
-    return r.json();
-  })
-  .then(function(data){
-    setLoading(false);
-    if(data && data[0] && data[0].generated_text){
-      var gen=data[0].generated_text.replace(/^.*?:\s*/,'').trim();
-      if(gen.length>10 && gen.length<280){
-        selectedTweets.unshift(gen);
-        renderTweets(selectedTweets.slice(0,5));
+  if(API_KEY){
+    fetch(API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+      body:JSON.stringify({model:MODEL,messages:[{role:'system',content:'你是一个社交媒体文案助手。根据主题生成一条中文推文，风格为'+{casual:'轻松日常',professional:'专业深度',funny:'幽默搞笑',inspirational:'励志鸡汤',tech:'科技数码'}[style]||'轻松日常'+'。不超过140字。'},{role:'user',content:'主题：'+topic}],max_tokens:150,temperature:0.8})
+    })
+    .then(function(r){
+      if(!r.ok)return;
+      return r.json();
+    })
+    .then(function(data){
+      if(data&&data.choices&&data.choices[0]&&data.choices[0].message){
+        var gen=data.choices[0].message.content.trim();
+        if(gen.length>10 && gen.length<280){
+          selectedTweets.unshift(gen);
+          renderTweets(selectedTweets.slice(0,5));
+        }
       }
-    }
-  })
-  .catch(function(){
-    setLoading(false);
-  });
+    })
+    .catch(function(){});
+  }
 }
 
 function renderTweets(tweets){
