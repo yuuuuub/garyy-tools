@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOAP游乐场</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .left{display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{display:grid;grid-template-columns:1fr 320px;gap:16px;padding:16px;max-width:1600px;margin:0 auto;height:calc(100vh - 53px)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+.templates{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border)}
+.tpl-btn{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer;font-size:12px}
+.tpl-btn:hover{border-color:var(--accent);color:var(--accent)}
+textarea{width:100%;height:100%;background:var(--bg);color:var(--text);border:none;padding:16px;font-family:'SF Mono','Fira Code',monospace;font-size:13px;line-height:1.6;resize:none;outline:none;tab-size:2}
+.output{padding:16px;font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow:auto;flex:1}
+.xml-tag{color:var(--accent2)}
+.xml-attr{color:var(--warning)}
+.xml-val{color:var(--success)}
+.xml-text{color:var(--text)}
+.btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-size:13px;transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.status-bar{padding:6px 16px;border-top:1px solid var(--border);font-size:12px;color:#8b949e;display:flex;justify-content:space-between}
+.ref-panel{overflow:auto;padding:12px;font-size:13px;line-height:1.7}
+.ref-section{margin-bottom:16px}
+.ref-section h3{color:var(--accent2);font-size:14px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.ref-item{margin-bottom:6px;padding:6px 8px;background:var(--bg);border-radius:4px}
+.ref-item code{color:var(--accent);font-family:monospace;font-size:11px;word-break:break-all}
+.ref-item p{color:#8b949e;font-size:12px;margin-top:2px}
+@media(max-width:900px){.container{grid-template-columns:1fr;height:auto}.panel{min-height:250px}}
+</style>
+</head>
+<body>
+<nav>
+<div class="left"><a href="../index.html">← 返回</a><h1>SOAP游乐场</h1></div>
+<button class="btn btn-primary" onclick="sendSOAP()">▶ 发送请求</button>
+</nav>
+<div class="container">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div class="panel" style="flex:1">
+<div class="panel-header">SOAP请求 <span style="font-size:12px;color:#8b949e">XML编辑器</span></div>
+<div class="templates">
+<button class="tpl-btn" onclick="loadTemplate('getWeather')">天气查询</button>
+<button class="tpl-btn" onclick="loadTemplate('getUser')">用户信息</button>
+<button class="tpl-btn" onclick="loadTemplate('calc')">计算器</button>
+<button class="tpl-btn" onclick="loadTemplate('auth')">身份验证</button>
+<button class="tpl-btn" onclick="loadTemplate('crud')">CRUD操作</button>
+</div>
+<div style="flex:1">
+<textarea id="soapRequest" spellcheck="false"><?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:web="http://www.example.com/weather">
+  <soap:Header>
+    <web:AuthToken>token_abc123</web:AuthToken>
+  </soap:Header>
+  <soap:Body>
+    <web:GetWeatherRequest>
+      <web:City>北京</web:City>
+      <web:Country>中国</web:Country>
+    </web:GetWeatherRequest>
+  </soap:Body>
+</soap:Envelope></textarea>
+</div>
+<div class="status-bar"><span id="status">就绪</span></div>
+</div>
+<div class="panel" style="flex:1">
+<div class="panel-header">SOAP响应</div>
+<div class="output" id="soapResponse"><span style="color:#8b949e">发送请求后显示响应XML</span></div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-header">SOAP语法参考</div>
+<div class="ref-panel">
+<div class="ref-section">
+<h3>Envelope结构</h3>
+<div class="ref-item"><code>&lt;soap:Envelope&gt;</code><p>SOAP消息根元素，包含命名空间声明</p></div>
+<div class="ref-item"><code>&lt;soap:Header&gt;</code><p>可选，携带认证/事务等元数据</p></div>
+<div class="ref-item"><code>&lt;soap:Body&gt;</code><p>必需，包含实际请求/响应数据</p></div>
+<div class="ref-item"><code>&lt;soap:Fault&gt;</code><p>错误信息，位于Body内</p></div>
+</div>
+<div class="ref-section">
+<h3>常见命名空间</h3>
+<div class="ref-item"><code>xmlns:soap="...soap/envelope/"</code><p>SOAP 1.1 Envelope</p></div>
+<div class="ref-item"><code>xmlns:wsse="...wssecurity"</code><p>Web Services Security</p></div>
+<div class="ref-item"><code>xmlns:xsi="...instance"</code><p>XML Schema实例</p></div>
+<div class="ref-item"><code>xmlns:xsd="...schema"</code><p>XML Schema定义</p></div>
+</div>
+<div class="ref-section">
+<h3>HTTP绑定</h3>
+<div class="ref-item"><code>Content-Type: text/xml</code><p>SOAP 1.1</p></div>
+<div class="ref-item"><code>Content-Type: application/soap+xml</code><p>SOAP 1.2</p></div>
+<div class="ref-item"><code>SOAPAction: "operation"</code><p>指定操作（1.1）</p></div>
+</div>
+<div class="ref-section">
+<h3>请求模板</h3>
+<div class="ref-item"><code>&lt;soap:Envelope&gt;</code><p>根包装元素</p></div>
+<div class="ref-item"><code>&lt;soap:Header&gt;</code><p>认证和元数据</p></div>
+<div class="ref-item"><code>&lt;soap:Body&gt;</code><p>操作参数</p></div>
+<div class="ref-item"><code>&lt;ns:OperationName&gt;</code><p>具体操作（自定义命名空间）</p></div>
+</div>
+<div class="ref-section">
+<h3>Fault结构</h3>
+<div class="ref-item"><code>&lt;faultcode&gt;</code><p>错误代码（Client/Server）</p></div>
+<div class="ref-item"><code>&lt;faultstring&gt;</code><p>错误描述</p></div>
+<div class="ref-item"><code>&lt;detail&gt;</code><p>详细错误信息</p></div>
+</div>
+<div class="ref-section">
+<h3>WS-Security头</h3>
+<div class="ref-item"><code>&lt;wsse:Security&gt;</code><p>安全头容器</p></div>
+<div class="ref-item"><code>&lt;wsse:UsernameToken&gt;</code><p>用户名令牌认证</p></div>
+<div class="ref-item"><code>&lt;wsu:Timestamp&gt;</code><p>消息时间戳</p></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const templates={
+getWeather:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:web="http://www.example.com/weather">
+  <soap:Header>
+    <web:AuthToken>token_abc123</web:AuthToken>
+  </soap:Header>
+  <soap:Body>
+    <web:GetWeatherRequest>
+      <web:City>北京</web:City>
+      <web:Country>中国</web:Country>
+    </web:GetWeatherRequest>
+  </soap:Body>
+</soap:Envelope>`,
+
+getUser:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:usr="http://www.example.com/user">
+  <soap:Body>
+    <usr:GetUserRequest>
+      <usr:UserId>10086</usr:UserId>
+    </usr:GetUserRequest>
+  </soap:Body>
+</soap:Envelope>`,
+
+calc:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:calc="http://www.example.com/calculator">
+  <soap:Body>
+    <calc:Add>
+      <calc:NumberA>100</calc:NumberA>
+      <calc:NumberB>200</calc:NumberB>
+    </calc:Add>
+  </soap:Body>
+</soap:Envelope>`,
+
+auth:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+  xmlns:auth="http://www.example.com/auth">
+  <soap:Header>
+    <wsse:Security>
+      <wsse:UsernameToken>
+        <wsse:Username>admin</wsse:Username>
+        <wsse:Password>password123</wsse:Password>
+      </wsse:UsernameToken>
+    </wsse:Security>
+  </soap:Header>
+  <soap:Body>
+    <auth:LoginRequest>
+      <auth:Username>admin</auth:Username>
+      <auth:Password>password123</auth:Password>
+    </auth:LoginRequest>
+  </soap:Body>
+</soap:Envelope>`,
+
+crud:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:api="http://www.example.com/api">
+  <soap:Body>
+    <api:CreateProduct>
+      <api:Name>笔记本电脑</api:Name>
+      <api:Price>5999.00</api:Price>
+      <api:Category>电子产品</api:Category>
+      <api:Description>高性能办公笔记本</api:Description>
+    </api:CreateProduct>
+  </soap:Body>
+</soap:Envelope>`
+};
+
+function loadTemplate(name){document.getElementById('soapRequest').value=templates[name]||'';}
+
+function simulateSOAPResponse(request){
+if(request.includes('GetWeather')){
+return{status:200,body:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:web="http://www.example.com/weather">
+  <soap:Body>
+    <web:GetWeatherResponse>
+      <web:City>北京</web:City>
+      <web:Temperature>22°C</web:Temperature>
+      <web:Humidity>65%</web:Humidity>
+      <web:Condition>晴转多云</web:Condition>
+      <web:Wind>北风3级</web:Wind>
+      <web:Forecast>
+        <web:Day>明天</web:Day>
+        <web:High>25°C</web:High>
+        <web:Low>18°C</web:Low>
+      </web:Forecast>
+    </web:GetWeatherResponse>
+  </soap:Body>
+</soap:Envelope>`};
+}
+if(request.includes('GetUser')){
+return{status:200,body:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:usr="http://www.example.com/user">
+  <soap:Body>
+    <usr:GetUserResponse>
+      <usr:UserId>10086</usr:UserId>
+      <usr:Name>张三</usr:Name>
+      <usr:Email>zhangsan@example.com</usr:Email>
+      <usr:Role>管理员</usr:Role>
+      <usr:CreatedAt>2020-01-15</usr:CreatedAt>
+    </usr:GetUserResponse>
+  </soap:Body>
+</soap:Envelope>`};
+}
+if(request.includes('Add')){
+return{status:200,body:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:calc="http://www.example.com/calculator">
+  <soap:Body>
+    <calc:AddResponse>
+      <calc:AddResult>300</calc:AddResult>
+    </calc:AddResponse>
+  </soap:Body>
+</soap:Envelope>`};
+}
+if(request.includes('Login')){
+return{status:200,body:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:auth="http://www.example.com/auth">
+  <soap:Body>
+    <auth:LoginResponse>
+      <auth:Success>true</auth:Success>
+      <auth:Token>eyJhbGciOiJIUzI1NiJ9.token</auth:Token>
+      <auth:ExpiresIn>3600</auth:ExpiresIn>
+    </auth:LoginResponse>
+  </soap:Body>
+</soap:Envelope>`};
+}
+return{status:200,body:`<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope 
+  xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <api:Response>
+      <api:Status>Success</api:Status>
+      <api:Message>操作完成</api:Message>
+    </api:Response>
+  </soap:Body>
+</soap:Envelope>`};
+}
+
+function syntaxHighlightXML(xml){
+return xml.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+.replace(/(&lt;\/?)([\w:]+)/g,'$1<span class="xml-tag">$2</span>')
+.replace(/([\w:]+)(=")/g,'<span class="xml-attr">$1</span>$2')
+.replace(/"([^"]*")/g,'"<span class="xml-val">$1</span>');
+}
+
+function sendSOAP(){
+const request=document.getElementById('soapRequest').value;
+const response=document.getElementById('soapResponse');
+const status=document.getElementById('status');
+status.textContent='发送中...';
+response.innerHTML='<span style="color:#8b949e">请求发送中...</span>';
+setTimeout(()=>{
+try{
+const result=simulateSOAPResponse(request);
+response.innerHTML=`<span style="color:#8b949e">HTTP ${result.status} · Content-Type: text/xml</span>\n\n`+syntaxHighlightXML(result.body);
+status.textContent='响应完成';
+}catch(e){
+response.innerHTML=`<span style="color:var(--error)">错误: ${e.message}</span>`;
+status.textContent='请求失败';
+}
+},500);
+}
+</script>
+</body>
+</html>

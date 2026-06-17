@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桥梁查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--cyan:#06b6d4;--green:#22c55e;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.card-badge{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600;background:rgba(6,182,212,.2);color:var(--cyan);border:1px solid rgba(6,182,212,.4)}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;border-radius:6px;font-size:.75rem}
+.tag-length{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--accent)}
+.tag-year{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:var(--green)}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){.results{grid-template-columns:1fr}.search-row{flex-direction:column}.filter-row{flex-direction:column;align-items:stretch}.filter-group select{min-width:auto;width:100%}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🌉 桥梁查找</h1>
+<p class="subtitle">探索世界著名桥梁的建筑奇迹</p>
+<div class="controls">
+<div class="search-row"><input type="text" class="search-input" id="searchInput" placeholder="搜索桥梁名称或城市..."></div>
+<div class="filter-row">
+<div class="filter-group"><label>类型</label><select id="typeFilter"><option value="">全部类型</option><option value="悬索桥">悬索桥</option><option value="拱桥">拱桥</option><option value="斜拉桥">斜拉桥</option><option value="梁桥">梁桥</option><option value="吊桥">吊桥</option><option value="石拱桥">石拱桥</option></select></div>
+<div class="filter-group"><label>排序</label>
+<div class="sort-btns"><button class="sort-btn active" data-sort="length">长度 ↓</button><button class="sort-btn" data-sort="year">年代</button><button class="sort-btn" data-sort="rating">评分 ↓</button></div>
+</div></div></div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const bridges=[
+{id:1,name:"金门大桥",city:"美国旧金山",type:"悬索桥",length:2737,year:1937,rating:4.8,architect:"Joseph Strauss",desc:"旧金山地标，橘红色桥身横跨金门海峡，是工程与美学的完美结合。",features:["日落观赏","步行/骑行道","雾中景观","艺术装饰风格"]},
+{id:2,name:"悉尼海港大桥",city:"澳大利亚悉尼",type:"拱桥",length:1149,year:1932,rating:4.7,architect:"Dorman Long",desc:"悉尼标志性建筑，可登顶攀爬大桥体验360度全景。",features:["大桥攀爬","钢铁拱形","海港全景","新年前烟火"]},
+{id:3,name:"伦敦塔桥",city:"英国伦敦",type:"吊桥",length:244,year:1894,rating:4.6,architect:"Horace Jones",desc:"维多利亚时代工程杰作，双塔结构可开启让大船通过。",features:["玻璃步道","塔楼博物馆","开桥仪式","泰晤士河游船"]},
+{id:4,name:"港珠澳大桥",city:"中国珠海-香港",type:"斜拉桥",length:55000,year:2018,rating:4.7,architect:"港珠澳大桥管理局",desc:"世界最长跨海大桥，集桥、岛、隧于一体，连接三地。",features:["海底隧道","人工岛","口岸枢纽","珠江口全景"]},
+{id:5,name:"布鲁克林大桥",city:"美国纽约",type:"悬索桥",length:1825,year:1883,rating:4.8,architect:"John Roebling",desc:"纽约地标，世界上第一座钢索悬索桥，哥特式桥塔极具辨识度。",features:["步行道","曼哈顿天际线","布鲁克林区","历史地标"]},
+{id:6,name:"赵州桥",city:"中国河北赵县",type:"石拱桥",length:37,year:605,rating:4.9,architect:"李春",desc:"世界现存最古老的敞肩石拱桥，建于隋朝，至今仍在使用。",features:["1400年历史","敞肩设计","石雕艺术","中国古建遗产"]},
+{id:7,name:"米约高架桥",city:"法国米约",type:"斜拉桥",length:2460,year:2004,rating:4.5,architect:"Norman Foster",desc:"世界最高桥梁，桥面距地面270米，横跨塔恩河谷。",features:["最高桥面","悬索结构","多维尔桥墩","高空观景"]},
+{id:8,name:"安集海大桥",city:"中国新疆",type:"悬索桥",length:560,year:2013,rating:4.4,architect:"中交集团",desc:"新疆安集海大峡谷上的悬索桥，峡谷色彩斑斓如油画。",features:["峡谷景观","色彩砂岩","极限风光","摄影师天堂"]},
+{id:9,name:"盖茨黑德千禧桥",city:"英国纽卡斯尔",type:"拱桥",length:137,year:2001,rating:4.3,architect:"Grimshaw Architects",desc:"世界上第一座倾斜桥，可整体倾斜让船只通过，造型如眨眼。",features:["倾斜开启","千禧年地标","夜间灯光","泰恩河畔"]},
+{id:10,name:"查理大桥",city:"捷克布拉格",type:"石拱桥",length:516,year:1402,rating:4.9,architect:"Peter Parler",desc:"布拉格最古老的桥梁，30座巴洛克雕塑排列桥上，是欧洲最美桥梁之一。",features:["巴洛克雕塑","30尊圣像","老城桥塔","街头艺人"]}
+];
+let currentSort="length";
+let filtered=[...bridges];
+function render(){
+const s=document.getElementById("searchInput").value.toLowerCase();
+const type=document.getElementById("typeFilter").value;
+filtered=bridges.filter(b=>{
+if(s&&!b.name.includes(s)&&!b.city.includes(s))return false;
+if(type&&b.type!==type)return false;
+return true;
+});
+if(currentSort==="length")filtered.sort((a,b)=>b.length-a.length);
+else if(currentSort==="year")filtered.sort((a,b)=>a.year-b.year);
+else if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 座桥梁`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results">没有找到匹配的桥梁</div>';return;}
+c.innerHTML=filtered.map(b=>`<div class="card">
+<div class="card-header"><span class="card-name">🌉 ${b.name}</span><span class="card-badge">${b.type}</span></div>
+<div class="card-location">📍 ${b.city} · ⭐ ${b.rating}</div>
+<div class="card-desc">${b.desc}</div>
+<div class="card-meta">
+<span class="meta-tag tag-length">📏 ${b.length.toLocaleString()}m</span>
+<span class="meta-tag tag-year">📅 建成: ${b.year}年</span>
+<span class="meta-tag tag-length">👨‍🎨 ${b.architect}</span>
+</div>
+<ul class="card-features">${b.features.map(f=>`<li>${f}</li>`).join("")}</ul>
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("typeFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>延迟测试</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#238636;--red:#da3633;--yellow:#9e6a03;--dim:#8b949e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding:20px}
+.container{max-width:700px;margin:0 auto;text-align:center}
+h1{font-size:1.8rem;margin-bottom:8px}
+.subtitle{color:var(--dim);margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:16px}
+.ping-display{font-size:4rem;font-weight:700;margin:16px 0}
+.ping-label{font-size:1rem;color:var(--dim);margin-bottom:16px}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:12px 32px;font-size:15px;cursor:pointer;font-weight:600;transition:opacity .2s}
+button:hover{opacity:.85}
+button:disabled{opacity:.5;cursor:not-allowed}
+.progress{width:100%;height:6px;background:var(--border);border-radius:3px;margin:16px 0;overflow:hidden}
+.progress-bar{height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width .3s}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px 8px;text-align:center}
+.stat-label{font-size:11px;color:var(--dim);text-transform:uppercase}
+.stat-value{font-size:1.5rem;font-weight:700;margin-top:4px}
+.good{color:var(--green)}.warn{color:var(--yellow)}.bad{color:var(--red)}
+.chart{width:100%;height:150px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-top:16px;position:relative;overflow:hidden}
+.chart canvas{width:100%;height:100%}
+.legend{display:flex;justify-content:center;gap:20px;margin-top:8px;font-size:12px;color:var(--dim)}
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.target-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.target-btn{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer;transition:all .2s}
+.target-btn:hover{border-color:var(--accent)}
+.target-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.results-log{max-height:200px;overflow-y:auto;text-align:left;margin-top:12px;font-family:monospace;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px}
+.log-line{padding:2px 0;border-bottom:1px solid var(--border)}
+.log-good{color:var(--green)}.log-warn{color:var(--yellow)}.log-bad{color:var(--red)}
+@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.ping-display{font-size:3rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📶 延迟测试</h1>
+<p class="subtitle">测量网络延迟和抖动</p>
+
+<div class="card">
+<div class="target-select">
+<button class="target-btn active" onclick="setTarget(this,'https://httpbin.org/delay/0')">httpbin</button>
+<button class="target-btn" onclick="setTarget(this,'https://jsonplaceholder.typicode.com/posts/1')">JSONPlaceholder</button>
+<button class="target-btn" onclick="setTarget(this,'https://api.github.com')">GitHub API</button>
+<button class="target-btn" onclick="setTarget(this,'https://httpstat.us/200')">httpstat.us</button>
+</div>
+<div class="ping-display" id="pingDisplay">--</div>
+<div class="ping-label">毫秒 (ms)</div>
+<button id="startBtn" onclick="startTest()">开始测试</button>
+<div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
+</div>
+
+<div class="stats" id="stats" style="display:none">
+<div class="stat"><div class="stat-label">平均延迟</div><div class="stat-value" id="avgPing">-</div></div>
+<div class="stat"><div class="stat-label">最低延迟</div><div class="stat-value" id="minPing">-</div></div>
+<div class="stat"><div class="stat-label">最高延迟</div><div class="stat-value" id="maxPing">-</div></div>
+<div class="stat"><div class="stat-label">抖动</div><div class="stat-value" id="jitter">-</div></div>
+</div>
+
+<div class="card" id="chartCard" style="display:none">
+<h3 style="margin-bottom:8px;font-size:14px">延迟趋势</h3>
+<div class="chart"><canvas id="chart"></canvas></div>
+<div class="legend">
+<span><span class="legend-dot" style="background:var(--accent)"></span>延迟</span>
+<span><span class="legend-dot" style="background:var(--green)"></span>平均</span>
+</div>
+</div>
+
+<div class="card" id="logCard" style="display:none">
+<h3 style="margin-bottom:8px;font-size:14px">测试日志</h3>
+<div class="results-log" id="logList"></div>
+</div>
+</div>
+
+<script>
+let targetUrl='https://httpbin.org/delay/0';
+let testing=false;
+const totalPings=20;
+function setTarget(btn,url){
+document.querySelectorAll('.target-btn').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
+targetUrl=url;
+}
+async function startTest(){
+if(testing)return;
+testing=true;
+const btn=document.getElementById('startBtn');
+btn.disabled=true;
+btn.textContent='测试中...';
+document.getElementById('progress').style.display='block';
+document.getElementById('stats').style.display='grid';
+document.getElementById('chartCard').style.display='block';
+document.getElementById('logCard').style.display='block';
+document.getElementById('logList').innerHTML='';
+const pings=[];
+for(let i=0;i<totalPings;i++){
+document.getElementById('progressBar').width=((i+1)/totalPings*100)+'%';
+try{
+const start=performance.now();
+await fetch(targetUrl+'?_='+Date.now()+'#'+i,{cache:'no-store',mode:'cors'});
+const latency=performance.now()-start;
+pings.push(Math.round(latency));
+document.getElementById('pingDisplay').textContent=Math.round(latency);
+document.getElementById('pingDisplay').className='ping-display '+(latency<100?'good':latency<300?'warn':'bad');
+addLog(i+1,latency);
+}catch(e){
+pings.push(-1);
+document.getElementById('pingDisplay').textContent='超时';
+document.getElementById('pingDisplay').className='ping-display bad';
+addLog(i+1,-1);
+}
+await new Promise(r=>setTimeout(r,200));
+}
+const validPings=pings.filter(p=>p>=0);
+if(validPings.length===0){
+document.getElementById('avgPing').textContent='超时';
+document.getElementById('minPing').textContent='-';
+document.getElementById('maxPing').textContent='-';
+document.getElementById('jitter').textContent='-';
+}else{
+const avg=validPings.reduce((a,b)=>a+b,0)/validPings.length;
+const min=Math.min(...validPings);
+const max=Math.max(...validPings);
+const jitter=calculateJitter(validPings);
+document.getElementById('avgPing').textContent=avg.toFixed(1)+' ms';
+document.getElementById('avgPing').className='stat-value '+(avg<100?'good':avg<300?'warn':'bad');
+document.getElementById('minPing').textContent=min+' ms';
+document.getElementById('minPing').className='stat-value good';
+document.getElementById('maxPing').textContent=max+' ms';
+document.getElementById('maxPing').className='stat-value '+(max<100?'good':max<300?'warn':'bad');
+document.getElementById('jitter').textContent=jitter.toFixed(1)+' ms';
+document.getElementById('jitter').className='stat-value '+(jitter<20?'good':jitter<50?'warn':'bad');
+drawChart(validPings,avg);
+}
+document.getElementById('progressBar').width='100%';
+document.getElementById('status')&&(document.getElementById('status').textContent='测试完成！');
+btn.disabled=false;
+btn.textContent='重新测试';
+testing=false;
+}
+function calculateJitter(pings){
+if(pings.length<2)return 0;
+let sum=0;
+for(let i=1;i<pings.length;i++){
+sum+=Math.abs(pings[i]-pings[i-1]);
+}
+return sum/(pings.length-1);
+}
+function addLog(i,latency){
+const log=document.getElementById('logList');
+const cls=latency<0?'log-bad':latency<100?'log-good':latency<300?'log-warn':'log-bad';
+const text=latency<0?'超时/失败':latency.toFixed(1)+' ms';
+log.innerHTML+=`<div class="log-line ${cls}">Ping #${String(i).padStart(2,'0')}: ${text}</div>`;
+log.scrollTop=log.scrollHeight;
+}
+function drawChart(pings,avg){
+const canvas=document.getElementById('chart');
+const ctx=canvas.getContext('2d');
+const rect=canvas.parentElement.getBoundingClientRect();
+canvas.width=rect.width*2;
+canvas.height=rect.height*2;
+ctx.scale(2,2);
+const w=rect.width;
+const h=rect.height;
+const padding=30;
+const maxVal=Math.max(...pings)*1.2||100;
+const minVal=0;
+const stepX=(w-padding*2)/(pings.length-1||1);
+ctx.clearRect(0,0,w,h);
+ctx.strokeStyle='#30363d';
+ctx.lineWidth=0.5;
+for(let i=0;i<5;i++){
+const y=padding+((h-padding*2)/4)*i;
+ctx.beginPath();ctx.moveTo(padding,y);ctx.lineTo(w-padding,y);ctx.stroke();
+ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.textAlign='right';
+ctx.fillText(Math.round(maxVal-(maxVal/4)*i)+'ms',padding-4,y+4);
+}
+ctx.strokeStyle='rgba(34,197,94,0.5)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+const avgY=padding+(1-avg/maxVal)*(h-padding*2);
+ctx.beginPath();ctx.moveTo(padding,avgY);ctx.lineTo(w-padding,avgY);ctx.stroke();
+ctx.setLineDash([]);
+ctx.strokeStyle='#3b82f6';ctx.lineWidth=2;ctx.beginPath();
+pings.forEach((p,i)=>{
+const x=padding+i*stepX;
+const y=padding+(1-p/maxVal)*(h-padding*2);
+if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+});
+ctx.stroke();
+pings.forEach((p,i)=>{
+const x=padding+i*stepX;
+const y=padding+(1-p/maxVal)*(h-padding*2);
+ctx.fillStyle=p<100?'#238636':p<300?'#9e6a03':'#da3633';
+ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();
+});
+}
+</script>
+</body>
+</html>

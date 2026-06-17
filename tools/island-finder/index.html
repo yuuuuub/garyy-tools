@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>岛屿查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#22c55e;--accent3:#f59e0b;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none;transition:border .2s}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select,.filter-group input[type="range"]{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.card-rating{background:var(--accent);color:#fff;padding:2px 8px;border-radius:12px;font-size:.8rem;font-weight:600;white-space:nowrap}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px;display:flex;align-items:center;gap:4px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:6px;font-size:.75rem;color:var(--accent)}
+.meta-tag.green{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:var(--accent2)}
+.meta-tag.yellow{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:var(--accent3)}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){
+.results{grid-template-columns:1fr}
+.search-row{flex-direction:column}
+.filter-row{flex-direction:column;align-items:stretch}
+.filter-group select{min-width:auto;width:100%}
+h1{font-size:1.4rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🏝️ 岛屿查找</h1>
+<p class="subtitle">发现世界上最美的岛屿，探索热带天堂</p>
+<div class="controls">
+<div class="search-row">
+<input type="text" class="search-input" id="searchInput" placeholder="搜索岛屿名称或地区...">
+</div>
+<div class="filter-row">
+<div class="filter-group">
+<label>地区</label>
+<select id="regionFilter"><option value="">全部地区</option><option value="东南亚">东南亚</option><option value="太平洋">太平洋</option><option value="印度洋">印度洋</option><option value="加勒比">加勒比海</option><option value="欧洲">欧洲</option><option value="东亚">东亚</option></select>
+</div>
+<div class="filter-group">
+<label>最佳季节</label>
+<select id="seasonFilter"><option value="">全部季节</option><option value="春">春季</option><option value="夏">夏季</option><option value="秋">秋季</option><option value="冬">冬季</option></select>
+</div>
+<div class="filter-group">
+<label>交通方式</label>
+<select id="accessFilter"><option value="">全部</option><option value="飞机">飞机</option><option value="轮船">轮船</option><option value="飞机+轮船">飞机+轮船</option></select>
+</div>
+<div class="filter-group">
+<label>排序</label>
+<div class="sort-btns">
+<button class="sort-btn active" data-sort="rating">评分 ↓</button>
+<button class="sort-btn" data-sort="area">面积 ↓</button>
+<button class="sort-btn" data-sort="name">名称</button>
+</div>
+</div>
+</div>
+</div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const islands=[
+{id:1,name:"巴厘岛",nameEn:"Bali",region:"东南亚",location:"印度尼西亚·巴厘省",area:5780,population:4300000,access:"飞机",bestSeason:"夏",rating:4.8,attractions:["海神庙","乌布梯田","库塔海滩","金塔马尼火山"],accommodation:"从背包客栈到五星度假村",desc:"印度尼西亚的旅游瑰宝，以独特的印度教文化、壮观梯田和冲浪胜地闻名于世。"},
+{id:2,name:"马尔代夫",nameEn:"Maldives",region:"印度洋",location:"马尔代夫共和国",area:298,population:540000,access:"飞机",bestSeason:"冬",rating:4.9,attractions:["水上别墅","马累古城","鲸鲨潜水","白沙滩"],accommodation:"高端水上别墅为主",desc:"由26个环礁组成的热带天堂，以碧蓝海水和奢华水上度假村享誉全球。"},
+{id:3,name:"圣托里尼",nameEn:"Santorini",region:"欧洲",location:"希腊·爱琴海",area:73,population:15500,access:"飞机+轮船",bestSeason:"夏",rating:4.7,attractions:["伊亚日落","红沙滩","火山口","蓝顶教堂"],accommodation:"悬崖酒店与民宿",desc:"爱琴海上的明珠，白色建筑与蓝色穹顶构成了世界最经典的海岛风光。"},
+{id:4,name:"毛里求斯",nameEn:"Mauritius",region:"印度洋",location:"毛里求斯共和国",area:2040,population:1265000,access:"飞机",bestSeason:"春",rating:4.6,attractions:["七色土","鹿岛","路易港","深海钓鱼"],accommodation:"全包式度假村与精品酒店",desc:"印度洋上的多元文化岛国，以绝美海滩和丰富水上运动著称。"},
+{id:5,name:"冲绳",nameEn:"Okinawa",region:"东亚",location:"日本·冲绳县",area:2282,population:1460000,access:"飞机",bestSeason:"春",rating:4.5,attractions:["美丽海水族馆","首里城","古宇利岛","美国村"],accommodation:"海景酒店与传统民宿",desc:"日本南部的亚热带群岛，融合琉球文化与美军基地文化，海鲜美食闻名。"},
+{id:6,name:"夏威夷",nameEn:"Hawaii",region:"太平洋",location:"美国·夏威夷州",area:28313,population:1455000,access:"飞机",bestSeason:"冬",rating:4.8,attractions:["威基基海滩","火山国家公园","珍珠港","北岸冲浪"],accommodation:"度假村与民宿齐全",desc:"太平洋中的火山群岛，以火山地貌、冲浪文化和热情的阿罗哈精神著称。"},
+{id:7,name:"兰卡威",nameEn:"Langkawi",region:"东南亚",location:"马来西亚·吉打州",area:478,population:120000,access:"飞机+轮船",bestSeason:"冬",rating:4.4,attractions:["天空之桥","红树林","免税购物岛","地质公园"],accommodation:"度假村与经济酒店",desc:"马来西亚的免税购物天堂，拥有壮观的天空之桥和原始红树林生态。"},
+{id:8,name:"大溪地",nameEn:"Tahiti",region:"太平洋",location:"法属波利尼西亚",area:1045,population:280000,access:"飞机",bestSeason:"秋",rating:4.9,attractions:["波拉波拉泻湖","黑珍珠农场","水上屋","观鲸"],accommodation:"顶级水上别墅",desc:"南太平洋的终极蜜月圣地，以蓝绿渐变的泻湖和波利尼西亚文化闻名。"},
+{id:9,name:"济州岛",nameEn:"Jeju",region:"东亚",location:"韩国·济州特别自治道",area:1849,population:670000,access:"飞机",bestSeason:"春",rating:4.3,attractions:["汉拿山","城山日出峰","泰迪熊博物馆","油菜花田"],accommodation:"民宿与度假酒店",desc:"韩国最大岛屿，以火山地貌、柑橘和独特的海女文化吸引游客。"},
+{id:10,name:"塞班岛",nameEn:"Saipan",region:"太平洋",location:"美国·北马里亚纳群岛",area:185,population:52000,access:"飞机",bestSeason:"冬",rating:4.5,attractions:["蓝洞潜水","鸟岛日出","万岁崖","军舰岛"],accommodation:"度假酒店与民宿",desc:"西太平洋的二战历史遗址，以世界级潜水点和蔚蓝海水著称。"}
+];
+let currentSort="rating";
+let filtered=[...islands];
+function render(){
+const search=document.getElementById("searchInput").value.toLowerCase();
+const region=document.getElementById("regionFilter").value;
+const season=document.getElementById("seasonFilter").value;
+const access=document.getElementById("accessFilter").value;
+filtered=islands.filter(i=>{
+if(search&&!i.name.toLowerCase().includes(search)&&!i.nameEn.toLowerCase().includes(search)&&!i.location.includes(search))return false;
+if(region&&i.region!==region)return false;
+if(season&&i.bestSeason!==season)return false;
+if(access&&i.access!==access)return false;
+return true;
+});
+if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+else if(currentSort==="area")filtered.sort((a,b)=>b.area-a.area);
+else if(currentSort==="name")filtered.sort((a,b)=>a.name.localeCompare(b.name,"zh"));
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 个岛屿`;
+const container=document.getElementById("results");
+if(!filtered.length){container.innerHTML='<div class="no-results">没有找到匹配的岛屿，试试调整筛选条件</div>';return;}
+container.innerHTML=filtered.map(i=>`
+<div class="card">
+<div class="card-header"><span class="card-name">${i.name} <small style="color:var(--muted);font-weight:normal;font-size:.8rem">${i.nameEn}</small></span><span class="card-rating">⭐ ${i.rating}</span></div>
+<div class="card-location">📍 ${i.location}</div>
+<div class="card-desc">${i.desc}</div>
+<div class="card-meta">
+<span class="meta-tag">面积 ${i.area.toLocaleString()} km²</span>
+<span class="meta-tag green">人口 ${(i.population/10000).toFixed(1)}万</span>
+<span class="meta-tag yellow">🚌 ${i.access}</span>
+<span class="meta-tag">🗓️ 最佳: ${i.bestSeason}季</span>
+</div>
+<ul class="card-features">${i.attractions.map(a=>`<li>${a}</li>`).join("")}</ul>
+<div style="margin-top:8px;font-size:.8rem;color:var(--muted)">🏨 住宿: ${i.accommodation}</div>
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("regionFilter").addEventListener("change",render);
+document.getElementById("seasonFilter").addEventListener("change",render);
+document.getElementById("accessFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

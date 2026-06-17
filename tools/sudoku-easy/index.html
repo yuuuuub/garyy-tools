@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简单数独</title>
+<style>
+:root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --accent:#3b82f6; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:20px; }
+h1 { color:var(--accent); margin-bottom:8px; font-size:1.5rem; }
+.hud { display:flex; gap:12px; margin:10px 0; }
+.hud span { background:var(--card); border:1px solid var(--border); padding:6px 14px; border-radius:8px; }
+.board { display:grid; grid-template-columns:repeat(4,60px); grid-template-rows:repeat(4,60px); gap:2px; margin:10px 0; background:var(--border); padding:2px; border-radius:6px; }
+.cell { width:60px; height:60px; display:flex; align-items:center; justify-content:center; background:var(--bg); font-size:24px; font-weight:bold; cursor:pointer; user-select:none; }
+.cell.given { color:var(--accent); }
+.cell.user { color:var(--text); }
+.cell.selected { background:#1e3a5f; }
+.cell.error { color:#ef4444; }
+.cell.correct { color:#22c55e; }
+.controls { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center; }
+button { background:var(--accent); color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:1rem; }
+button:hover { opacity:0.85; }
+.numpad { display:flex; gap:6px; margin:10px 0; flex-wrap:wrap; justify-content:center; }
+.numpad button { width:48px; height:48px; font-size:1.3rem; padding:0; }
+.hint-text { font-size:0.85rem; color:#8b949e; margin:6px 0; }
+</style>
+</head>
+<body>
+<h1>🔢 简单数独 4x4</h1>
+<div class="hud">
+<span id="timer">⏱ 0s</span>
+<span id="errors">❌ 0</span>
+</div>
+<div class="board" id="board"></div>
+<div class="numpad" id="numpad"></div>
+<div class="controls">
+<button onclick="newGame()">新游戏</button>
+<button onclick="hint()">提示</button>
+<button onclick="checkSolution()">检查</button>
+</div>
+<div class="hint-text">选择一个空格，然后点击数字填入</div>
+<script>
+let puzzle,solution,board,selectedCell,startTimer,timerInterval,errors;
+
+// Generate a valid 4x4 sudoku
+function generateSudoku(){
+  const base=[[1,2,3,4],[3,4,1,2],[2,1,4,3],[4,3,2,1]];
+  // Shuffle: swap rows within bands and columns within stacks
+  const s=structuredClone(base);
+  // Shuffle rows in first band
+  if(Math.random()>0.5)[s[0],s[1]]=[s[1],s[0]];
+  if(Math.random()>0.5)[s[2],s[3]]=[s[3],s[2]];
+  // Shuffle bands
+  if(Math.random()>0.5)[s[0],s[2]]=[s[2],s[0]];
+  // Shuffle columns within left stack
+  if(Math.random()>0.5){for(let r=0;r<4;r++)[s[r][0],s[r][1]]=[s[r][1],s[r][0]];}
+  if(Math.random()>0.5){for(let r=0;r<4;r++)[s[r][2],s[r][3]]=[s[r][3],s[r][2]];}
+  // Shuffle stacks
+  if(Math.random()>0.5){for(let r=0;r<4;r++)[s[r][0],s[r][2]]=[s[r][2],s[r][0]];}
+  // Shuffle values
+  const perm=[1,2,3,4].sort(()=>Math.random()-0.5);
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++)s[r][c]=perm[s[r][c]-1];
+  return s;
+}
+
+function newGame(){
+  solution=generateSudoku();
+  // Remove cells for puzzle (remove ~4 cells for easy)
+  puzzle=solution.map(r=>[...r]);
+  const removeCount=4;
+  let removed=0;
+  while(removed<removeCount){
+    const r=Math.floor(Math.random()*4),c=Math.floor(Math.random()*4);
+    if(puzzle[r][c]!==0){puzzle[r][c]=0;removed++;}
+  }
+  board=puzzle.map(r=>[...r]);
+  selectedCell=null;errors=0;
+  clearInterval(timerInterval);startTimer=null;
+  document.getElementById('errors').textContent='❌ 0';
+  render();
+}
+
+function render(){
+  const el=document.getElementById('board');el.innerHTML='';
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    if(puzzle[r][c]!==0){
+      cell.classList.add('given');
+      cell.textContent=puzzle[r][c];
+    }else if(board[r][c]!==0){
+      cell.classList.add('user');
+      cell.textContent=board[r][c];
+      if(selectedCell&&selectedCell.r===r&&selectedCell.c===c)cell.classList.add('selected');
+    }else{
+      if(selectedCell&&selectedCell.r===r&&selectedCell.c===c)cell.classList.add('selected');
+    }
+    cell.addEventListener('click',()=>{
+      if(puzzle[r][c]===0){
+        selectedCell={r,c};
+        render();
+      }
+    });
+    el.appendChild(cell);
+  }
+}
+
+function initNumpad(){
+  const el=document.getElementById('numpad');el.innerHTML='';
+  for(let n=1;n<=4;n++){
+    const btn=document.createElement('button');
+    btn.textContent=n;
+    btn.addEventListener('click',()=>{
+      if(selectedCell){
+        board[selectedCell.r][selectedCell.c]=n;
+        render();
+      }
+    });
+    el.appendChild(btn);
+  }
+  const clearBtn=document.createElement('button');
+  clearBtn.textContent='✕';
+  clearBtn.addEventListener('click',()=>{
+    if(selectedCell){
+      board[selectedCell.r][selectedCell.c]=0;
+      render();
+    }
+  });
+  el.appendChild(clearBtn);
+}
+
+function hint(){
+  if(!selectedCell)return;
+  const{r,c}=selectedCell;
+  if(puzzle[r][c]===0&&board[r][c]===0){
+    board[r][c]=solution[r][c];
+    render();
+  }
+}
+
+function checkSolution(){
+  let allFilled=true,allCorrect=true;
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    if(puzzle[r][c]===0&&board[r][c]===0)allFilled=false;
+    if(puzzle[r][c]===0&&board[r][c]!==0&&board[r][c]!==solution[r][c])allCorrect=false;
+  }
+  if(!allFilled){alert('还没填完哦！');return;}
+  if(allCorrect){
+    alert('🎉 恭喜你完成了数独！');
+    clearInterval(timerInterval);
+  }else{
+    errors++;
+    document.getElementById('errors').textContent='❌ '+errors;
+    alert('有些数字不对，再检查一下吧！');
+  }
+}
+
+function startTimerLoop(){
+  startTimer=Date.now();
+  timerInterval=setInterval(()=>{document.getElementById('timer').textContent='⏱ '+Math.floor((Date.now()-startTimer)/1000)+'s';},1000);
+}
+
+document.addEventListener('click',()=>{
+  if(!startTimer&&selectedCell)startTimerLoop();
+});
+
+document.addEventListener('keydown',e=>{
+  if(!selectedCell)return;
+  const n=parseInt(e.key);
+  if(n>=1&&n<=4){board[selectedCell.r][selectedCell.c]=n;render();}
+  if(e.key==='Backspace'||e.key==='Delete'){board[selectedCell.r][selectedCell.c]=0;render();}
+});
+
+newGame();initNumpad();
+</script>
+</body>
+</html>

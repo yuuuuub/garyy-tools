@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>警察局查找 - Police Station Finder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+header{text-align:center;padding:24px 0}
+header h1{font-size:1.8em;margin-bottom:4px}
+header p{color:var(--muted)}
+.emergency-banner{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center}
+.emergency-banner p{font-size:14px;color:var(--red)}
+.emergency-banner strong{font-size:24px}
+.filters{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.filter-group label{font-size:12px;color:var(--muted);font-weight:600}
+.filter-group input,.filter-group select{background:#0d1117;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;width:100%}
+.filter-group input:focus,.filter-group select:focus{outline:none;border-color:var(--accent)}
+.sort-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.sort-bar span{color:var(--muted);font-size:14px}
+.sort-options{display:flex;gap:8px}
+.sort-btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+.sort-btn.active{background:var(--accent);border-color:var(--accent)}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:transform .2s}
+.card:hover{transform:translateY(-2px)}
+.card h3{font-size:16px;margin-bottom:6px}
+.dept-badge{font-size:11px;padding:3px 8px;border-radius:12px;font-weight:600;display:inline-block;margin-bottom:8px}
+.dept-派出所{background:rgba(59,130,246,.15);color:var(--accent)}
+.dept-交警{background:rgba(234,179,8,.15);color:var(--yellow)}
+.dept-刑侦{background:rgba(239,68,68,.15);color:var(--red)}
+.dept-特警{background:rgba(168,85,247,.15);color:#a855f7}
+.card-info{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);margin-bottom:10px}
+.card-info span{display:flex;align-items:center;gap:6px}
+.services{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.svc-tag{font-size:11px;background:rgba(59,130,246,.1);color:var(--accent);padding:2px 8px;border-radius:10px}
+.emergency-num{font-size:14px;color:var(--red);font-weight:700;margin-top:8px}
+.distance{font-size:12px;color:var(--green);font-weight:600;margin-top:6px}
+.no-results{text-align:center;padding:60px 20px;color:var(--muted)}
+@media(max-width:640px){.results{grid-template-columns:1fr}.filters{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>🚔 警察局查找</h1><p>查找附近公安机关，保障安全</p></header>
+<div class="emergency-banner"><p>紧急情况请拨打报警电话 <strong>110</strong></p></div>
+<div class="filters">
+<div class="filter-group" style="flex:2"><label>搜索</label><input type="text" id="search" placeholder="输入名称或地址..."></div>
+<div class="filter-group"><label>类型</label><select id="typeFilter"><option value="">全部</option><option value="派出所">派出所</option><option value="交警">交警大队</option><option value="刑侦">刑侦支队</option><option value="特警">特警支队</option></select></div>
+<div class="filter-group"><label>服务</label><select id="serviceFilter"><option value="">全部</option><option value="户籍办理">户籍办理</option><option value="身份证">身份证</option><option value="交通违法">交通违法</option><option value="报案">报案</option></select></div>
+</div>
+<div class="sort-bar"><span id="resultCount"></span><div class="sort-options"><button class="sort-btn active" data-sort="distance">距离优先</button><button class="sort-btn" data-sort="name">名称排序</button></div></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const stations=[
+{id:1,name:"朝阳区公安分局",type:"派出所",address:"朝阳区呼家楼街1号",rating:4.5,phone:"010-65931100",hours:"24小时",distance:0.8,services:["报案","户籍办理","身份证"],description:"朝阳区公安分局，管辖区域最大"},
+{id:2,name:"海淀交通大队",type:"交警",address:"海淀区中关村大街1号",rating:4.3,phone:"010-62557888",hours:"09:00-18:00",distance:1.2,services:["交通违法","驾驶证","事故处理"],description:"海淀区交通管理大队"},
+{id:3,name:"东城刑侦支队",type:"刑侦",address:"东城区东四北大街148号",rating:4.6,phone:"010-64034455",hours:"24小时",distance:2.0,services:["报案","案件受理"],description:"东城区刑事侦查专业队伍"},
+{id:4,name:"西城天安门派出所",type:"派出所",address:"东城区东交民巷36号",rating:4.7,phone:"010-65252888",hours:"24小时",distance:1.5,services:["报案","户籍办理","身份证","出入境"],description:"天安门地区治安管理"},
+{id:5,name:"朝阳交通支队",type:"交警",address:"朝阳区建国路88号",rating:4.2,phone:"010-65881688",hours:"09:00-18:00",distance:0.5,services:["交通违法","驾驶证","事故处理"],description:"朝阳区交通管理支队"},
+{id:6,name:"海淀公安分局",type:"派出所",address:"海淀区颐和园路1号",rating:4.4,phone:"010-62551688",hours:"24小时",distance:2.5,services:["报案","户籍办理","身份证"],description:"海淀区公安分局"},
+{id:7,name:"北京特警总队",type:"特警",address:"大兴区金星路1号",rating:4.8,phone:"010-69241100",hours:"24小时",distance:5.0,services:["应急处突","反恐"],description:"北京市公安局特警总队"},
+{id:8,name:"丰台交通大队",type:"交警",address:"丰台区丰台路1号",rating:4.1,phone:"010-63811688",hours:"09:00-18:00",distance:3.0,services:["交通违法","驾驶证","事故处理"],description:"丰台区交通管理大队"},
+{id:9,name:"东城东华门派出所",type:"派出所",address:"东城区东华门大街16号",rating:4.3,phone:"010-65251100",hours:"24小时",distance:1.8,services:["报案","户籍办理"],description:"东华门地区社区警务"},
+{id:10,name:"石景山刑侦支队",type:"刑侦",address:"石景山区八角西街1号",rating:4.4,phone:"010-68861100",hours:"24小时",distance:4.0,services:["报案","案件受理"],description:"石景山区刑侦专业队伍"}
+];
+let currentSort="distance";
+function render(){
+const q=document.getElementById("search").value.toLowerCase();
+const tf=document.getElementById("typeFilter").value;
+const sf=document.getElementById("serviceFilter").value;
+let filtered=stations.filter(s=>{
+if(q&&!s.name.includes(q)&&!s.address.includes(q))return false;
+if(tf&&s.type!==tf)return false;
+if(sf&&!s.services.includes(sf))return false;
+return true;
+});
+filtered.sort({distance:(a,b)=>a.distance-b.distance,name:(a,b)=>a.name.localeCompare(b.name,"zh")}[currentSort]||(a,b)=>a.distance-b.distance);
+document.getElementById("resultCount").textContent=`找到 ${filtered.length} 个公安机关`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results"><p>未找到符合条件的公安机关</p></div>';return}
+c.innerHTML=filtered.map(s=>`<div class="card"><h3>${s.name}</h3><span class="dept-badge dept-${s.type}">${s.type}</span><div class="card-info"><span>📍 ${s.address}</span><span>📞 ${s.phone}</span><span>🕐 ${s.hours}</span><span>⭐ ${s.rating}</span></div><p style="font-size:13px;color:var(--muted);margin-bottom:8px">${s.description}</p><div class="services">${s.services.map(sv=>`<span class="svc-tag">${sv}</span>`).join("")}</div><div class="emergency-num">🚨 报警电话：110</div><div class="distance">📍 距您 ${s.distance}km</div></div>`).join("")
+}
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("typeFilter").addEventListener("change",render);
+document.getElementById("serviceFilter").addEventListener("change",render);
+document.querySelectorAll(".sort-btn").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render()}));
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>100格扫雷</title>
+<style>
+:root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --accent:#3b82f6; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:20px; }
+h1 { color:var(--accent); margin-bottom:8px; font-size:1.5rem; }
+.hud { display:flex; gap:12px; margin:10px 0; flex-wrap:wrap; justify-content:center; }
+.hud span { background:var(--card); border:1px solid var(--border); padding:6px 14px; border-radius:8px; }
+.board { display:grid; grid-template-columns:repeat(10,36px); gap:2px; margin:10px 0; }
+.cell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:3px; font-weight:bold; font-size:13px; cursor:pointer; user-select:none; transition:transform 0.1s; }
+.cell:hover { transform:scale(1.05); }
+.cell.hidden { background:var(--card); border:1px solid var(--border); }
+.cell.revealed { background:#21262d; border:1px solid #30363d; }
+.cell.mine { background:#ef4444; }
+.cell.flagged { background:var(--card); border:2px solid #eab308; }
+.controls { display:flex; gap:10px; margin-top:10px; }
+button { background:var(--accent); color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:1rem; }
+button:hover { opacity:0.85; }
+</style>
+</head>
+<body>
+<h1>💣 100格扫雷</h1>
+<div class="hud">
+<span id="mines">💣 15</span>
+<span id="flags">🚩 0</span>
+<span id="timer">⏱ 0s</span>
+</div>
+<div class="board" id="board"></div>
+<div class="controls">
+<button onclick="initGame()">重新开始</button>
+</div>
+<script>
+const ROWS=10,COLS=10,MINES=15;
+let board,revealed,flagged,gameOver,gameWon,startTimer,timerInterval;
+
+function initGame(){
+  board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  revealed=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  flagged=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  gameOver=false;gameWon=false;clearInterval(timerInterval);startTimer=null;
+  
+  let placed=0;
+  while(placed<MINES){
+    const r=Math.floor(Math.random()*ROWS),c=Math.floor(Math.random()*COLS);
+    if(board[r][c]!==-1){board[r][c]=-1;placed++;}
+  }
+  
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(board[r][c]===-1)continue;
+    let count=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===-1)count++;
+    }
+    board[r][c]=count;
+  }
+  render();
+}
+
+function render(){
+  const el=document.getElementById('board');el.innerHTML='';
+  document.getElementById('mines').textContent='💣 '+MINES;
+  document.getElementById('flags').textContent='🚩 '+flagged.flat().filter(Boolean).length;
+  const NC=['','#3b82f6','#22c55e','#ef4444','#7c3aed','#f97316','#06b6d4','#000','#666'];
+  
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    if(revealed[r][c]){
+      cell.classList.add('revealed');
+      if(board[r][c]===-1){cell.classList.add('mine');cell.textContent='💣';}
+      else if(board[r][c]>0){cell.textContent=board[r][c];cell.style.color=NC[board[r][c]];}
+    }else if(flagged[r][c]){
+      cell.classList.add('hidden','flagged');cell.textContent='🚩';
+    }else{
+      cell.classList.add('hidden');
+    }
+    cell.addEventListener('click',()=>reveal(r,c));
+    cell.addEventListener('contextmenu',e=>{e.preventDefault();toggleFlag(r,c);});
+    el.appendChild(cell);
+  }
+}
+
+function reveal(r,c){
+  if(gameOver||gameWon||flagged[r][c]||revealed[r][c])return;
+  if(!startTimer){startTimer=Date.now();timerInterval=setInterval(()=>{document.getElementById('timer').textContent='⏱ '+Math.floor((Date.now()-startTimer)/1000)+'s';},1000);}
+  revealed[r][c]=true;
+  if(board[r][c]===-1){
+    gameOver=true;clearInterval(timerInterval);
+    for(let i=0;i<ROWS;i++)for(let j=0;j<COLS;j++)if(board[i][j]===-1)revealed[i][j]=true;
+    render();setTimeout(()=>alert('踩雷了！游戏结束'),100);return;
+  }
+  if(board[r][c]===0){
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS)reveal(nr,nc);
+    }
+  }
+  checkWin();render();
+}
+
+function toggleFlag(r,c){
+  if(gameOver||gameWon||revealed[r][c])return;
+  flagged[r][c]=!flagged[r][c];render();
+}
+
+function checkWin(){
+  let unrevealed=0;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!revealed[r][c])unrevealed++;
+  if(unrevealed===MINES){gameWon=true;clearInterval(timerInterval);setTimeout(()=>alert('恭喜你赢了！'),100);}
+}
+
+initGame();
+</script>
+</body>
+</html>

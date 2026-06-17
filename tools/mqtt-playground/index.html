@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MQTT游乐场</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .left{display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{display:grid;grid-template-columns:320px 1fr 300px;gap:16px;padding:16px;max-width:1600px;margin:0 auto;height:calc(100vh - 53px)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+.input-group{padding:12px 16px;border-bottom:1px solid var(--border)}
+.input-group label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px}
+.input{width:100%;padding:8px 12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;font-family:monospace}
+.input:focus{border-color:var(--accent)}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row .input{flex:1}
+.btn{padding:8px 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-size:13px;transition:all .15s;width:100%}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-success{background:var(--success);border-color:var(--success);color:#fff}
+.btn-danger{background:var(--error);border-color:var(--error);color:#fff}
+.status-indicator{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px}
+.status-dot{width:8px;height:8px;border-radius:50%}
+.status-dot.connected{background:var(--success)}
+.status-dot.disconnected{background:var(--error)}
+.status-dot.connecting{background:var(--warning);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b949e}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.msg-list{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:6px}
+.msg{padding:8px 12px;border-radius:6px;font-size:12px;font-family:monospace;line-height:1.5;word-break:break-all}
+.msg.pub{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2)}
+.msg.sub{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.2)}
+.msg.sys{background:var(--bg);border:1px solid var(--border);color:#8b949e;font-size:11px;align-self:center}
+.msg-topic{color:var(--accent2);font-weight:600}
+.msg-time{color:#8b949e;font-size:11px;margin-top:2px}
+.sub-list{flex:1;overflow:auto;padding:12px}
+.sub-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:6px;font-size:12px}
+.sub-item .topic{font-family:monospace;color:var(--accent)}
+.sub-item .qos{font-size:10px;padding:2px 6px;border-radius:3px;background:var(--card);color:var(--warning)}
+.sub-item .del{cursor:pointer;color:var(--error);font-size:14px}
+.ref-panel{overflow:auto;padding:12px;font-size:13px;line-height:1.7}
+.ref-section{margin-bottom:16px}
+.ref-section h3{color:var(--accent2);font-size:14px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.ref-item{margin-bottom:6px;padding:6px 8px;background:var(--bg);border-radius:4px}
+.ref-item code{color:var(--accent);font-family:monospace;font-size:12px}
+.ref-item p{color:#8b949e;font-size:12px;margin-top:2px}
+.qos-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.qos-0{background:rgba(63,185,80,0.15);color:var(--success)}
+.qos-1{background:rgba(210,153,34,0.15);color:var(--warning)}
+.qos-2{background:rgba(248,81,73,0.15);color:var(--error)}
+@media(max-width:1000px){.container{grid-template-columns:1fr;height:auto}.panel{min-height:200px}}
+</style>
+</head>
+<body>
+<nav>
+<div class="left"><a href="../index.html">← 返回</a><h1>MQTT游乐场</h1></div>
+<div class="status-indicator">
+<div class="status-dot disconnected" id="connDot"></div>
+<span id="connText">未连接</span>
+</div>
+</nav>
+<div class="container">
+<div class="panel">
+<div class="panel-header">Broker配置</div>
+<div class="input-group">
+<label>Broker地址</label>
+<input class="input" id="brokerHost" value="broker.hivemq.com" placeholder="broker.hivemq.com">
+</div>
+<div class="input-group">
+<label>端口 (WebSocket)</label>
+<input class="input" id="brokerPort" value="8884" placeholder="8884">
+</div>
+<div class="input-group">
+<label>Client ID</label>
+<input class="input" id="clientId" value="" placeholder="自动生成">
+</div>
+<div class="input-group">
+<label>用户名 (可选)</label>
+<input class="input" id="mqttUser" placeholder="username">
+</div>
+<div class="input-group">
+<label>密码 (可选)</label>
+<input class="input" type="password" id="mqttPass" placeholder="password">
+</div>
+<div class="input-group">
+<div class="row">
+<button class="btn btn-primary" id="connBtn" onclick="toggleConnection()">连接</button>
+<button class="btn" onclick="clearLog()">清空</button>
+</div>
+</div>
+<div class="input-group">
+<label>发布消息</label>
+<input class="input" id="pubTopic" value="test/topic" placeholder="Topic" style="margin-bottom:6px">
+<textarea class="input" id="pubPayload" rows="2" placeholder="消息内容" style="resize:none;font-family:monospace">{"message":"Hello MQTT","ts":0}</textarea>
+<div class="row" style="margin-top:6px;margin-bottom:0">
+<select id="pubQos" style="padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;flex:1">
+<option value="0">QoS 0</option>
+<option value="1" selected>QoS 1</option>
+<option value="2">QoS 2</option>
+</select>
+<button class="btn btn-success" style="width:auto;flex:1" onclick="publish()">发布</button>
+</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0">
+<div class="panel" style="flex:1;display:flex;flex-direction:column">
+<div class="panel-header">
+消息日志
+<span style="font-size:11px;color:#8b949e" id="msgCount">0 条</span>
+</div>
+<div class="tabs">
+<div class="tab active" onclick="filterMsg('all',this)">全部</div>
+<div class="tab" onclick="filterMsg('pub',this)">发布</div>
+<div class="tab" onclick="filterMsg('sub',this)">接收</div>
+<div class="tab" onclick="filterMsg('sys',this)">系统</div>
+</div>
+<div class="msg-list" id="msgList">
+<div class="msg sys">配置Broker后点击"连接"开始测试MQTT协议</div>
+</div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-header">订阅列表</div>
+<div style="padding:12px;border-bottom:1px solid var(--border)">
+<div class="row">
+<input class="input" id="subTopic" value="test/#" placeholder="Topic (支持通配符)">
+<select id="subQos" style="padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px">
+<option value="0">QoS 0</option>
+<option value="1" selected>QoS 1</option>
+<option value="2">QoS 2</option>
+</select>
+</div>
+<button class="btn btn-primary" onclick="subscribe()">订阅</button>
+</div>
+<div class="sub-list" id="subList">
+<div class="msg sys" style="margin:12px">暂无订阅</div>
+</div>
+<div style="border-top:1px solid var(--border)">
+<div class="panel-header">QoS说明</div>
+<div class="ref-panel" style="max-height:250px">
+<div class="ref-section">
+<h3>QoS等级</h3>
+<div class="ref-item"><code>QoS 0 - 最多一次</code><p>fire-and-forget，可能丢失</p></div>
+<div class="ref-item"><code>QoS 1 - 至少一次</code><p>确保到达，可能重复</p></div>
+<div class="ref-item"><code>QoS 2 - 恰好一次</code><p>四步握手，最可靠</p></div>
+</div>
+<div class="ref-section">
+<h3>Topic通配符</h3>
+<div class="ref-item"><code># - 多层通配</code><p>匹配任意层级（含父级）</p></div>
+<div class="ref-item"><code>+ - 单层通配</code><p>匹配一个层级</p></div>
+<div class="ref-item"><code>$SYS/</code><p>系统主题前缀</p></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+let mqttClient=null;
+let subscriptions=[];
+let msgTotal=0;
+let msgFilter='all';
+
+function generateClientId(){return 'mqtt_playground_'+Math.random().toString(36).substr(2,8);}
+
+function addMsg(type,topic,payload){
+const list=document.getElementById('msgList');
+const msg=document.createElement('div');
+msg.className=`msg ${type}`;
+msg.dataset.type=type;
+const time=new Date().toLocaleTimeString();
+msg.innerHTML=`<div><span class="msg-topic">${topic}</span> <span class="qos-badge qos-${payload.qos||0}">QoS${payload.qos||0}</span></div><div>${escapeHtml(payload.payload||payload.message||'')}</div><div class="msg-time">${time}</div>`;
+list.appendChild(msg);
+list.scrollTop=list.scrollHeight;
+msgTotal++;
+document.getElementById('msgCount').textContent=msgTotal+' 条';
+applyFilter();
+}
+
+function addSysMsg(text){
+const list=document.getElementById('msgList');
+const msg=document.createElement('div');
+msg.className='msg sys';
+msg.dataset.type='sys';
+msg.textContent=text;
+list.appendChild(msg);
+list.scrollTop=list.scrollHeight;
+msgTotal++;
+document.getElementById('msgCount').textContent=msgTotal+' 条';
+applyFilter();
+}
+
+function escapeHtml(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function filterMsg(type,el){
+msgFilter=type;
+document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
+el.classList.add('active');
+applyFilter();
+}
+
+function applyFilter(){
+document.querySelectorAll('.msg-list .msg').forEach(m=>{
+if(msgFilter==='all')m.style.display='';
+else m.style.display=m.dataset.type===msgFilter?'':'none';
+});
+}
+
+function toggleConnection(){
+if(mqttClient){
+disconnect();
+return;
+}
+const host=document.getElementById('brokerHost').value;
+const port=document.getElementById('brokerPort').value;
+const clientId=document.getElementById('clientId').value||generateClientId();
+const url=`wss://${host}:${port}/mqtt`;
+document.getElementById('connDot').className='status-dot connecting';
+document.getElementById('connText').textContent='连接中...';
+addSysMsg(`连接 ${url}...`);
+try{
+if(typeof Paho!=='undefined'){
+mqttClient=new Paho.MQTT.Client(host,Number(port),clientId);
+mqttClient.onConnectionLost=(rc)=>{
+document.getElementById('connDot').className='status-dot disconnected';
+document.getElementById('connText').textContent='已断开';
+document.getElementById('connBtn').textContent='连接';
+document.getElementById('connBtn').className='btn btn-primary';
+addSysMsg(`连接断开 (rc: ${rc})`);
+mqttClient=null;
+};
+mqttClient.onMessageArrived=(msg)=>{
+addMsg('sub',msg.destinationName,{payload:msg.payloadString,qos:msg.qos});
+};
+mqttClient.connect({
+onSuccess:()=>{
+document.getElementById('connDot').className='status-dot connected';
+document.getElementById('connText').textContent='已连接';
+document.getElementById('connBtn').textContent='断开';
+document.getElementById('connBtn').className='btn btn-danger';
+addSysMsg(`已连接到 ${host}:${port}`);
+resubscribeAll();
+},
+onError:(e)=>{
+document.getElementById('connDot').className='status-dot disconnected';
+document.getElementById('connText').textContent='连接失败';
+addSysMsg(`连接失败: ${e.errorMessage||e}`);
+}
+});
+}else{
+setTimeout(()=>{
+document.getElementById('connDot').className='status-dot connected';
+document.getElementById('connText').textContent='模拟连接';
+document.getElementById('connBtn').textContent='断开';
+document.getElementById('connBtn').className='btn btn-danger';
+addSysMsg(`模拟连接到 ${host}:${port}`);
+addSysMsg('注意: Paho MQTT库未加载，使用模拟模式');
+resubscribeAll();
+},500);
+}
+}catch(e){
+document.getElementById('connDot').className='status-dot disconnected';
+document.getElementById('connText').textContent='连接失败';
+addSysMsg(`连接失败: ${e.message}`);
+}
+}
+
+function disconnect(){
+if(mqttClient){
+try{mqttClient.disconnect();}catch(e){}
+mqttClient=null;
+}
+document.getElementById('connDot').className='status-dot disconnected';
+document.getElementById('connText').textContent='已断开';
+document.getElementById('connBtn').textContent='连接';
+document.getElementById('connBtn').className='btn btn-primary';
+addSysMsg('已断开连接');
+}
+
+function publish(){
+const topic=document.getElementById('pubTopic').value;
+let payload=document.getElementById('pubPayload').value;
+const qos=Number(document.getElementById('pubQos').value);
+if(!topic){alert('请输入Topic');return;}
+payload=payload.replace(/"ts":\d+/,'"ts":'+Date.now());
+if(mqttClient&&typeof Paho!=='undefined'){
+try{
+const msg=new Paho.MQTT.Message(payload);
+msg.destinationName=topic;
+msg.qos=qos;
+mqttClient.send(msg);
+addMsg('pub',topic,{payload,qos});
+}catch(e){
+addSysMsg(`发布失败: ${e.message}`);
+}
+}else{
+addMsg('pub',topic,{payload,qos});
+simulateIncoming(topic,payload,qos);
+}
+document.getElementById('pubPayload').value=payload;
+}
+
+function subscribe(){
+const topic=document.getElementById('subTopic').value;
+const qos=Number(document.getElementById('subQos').value);
+if(!topic)return;
+if(!subscriptions.find(s=>s.topic===topic)){
+subscriptions.push({topic,qos});
+renderSubs();
+if(mqttClient&&typeof Paho!=='undefined'){
+try{mqttClient.subscribe(topic,{qos});}catch(e){}
+}
+addSysMsg(`已订阅: ${topic} (QoS${qos})`);
+}
+}
+
+function unsubscribe(topic){
+subscriptions=subscriptions.filter(s=>s.topic!==topic);
+renderSubs();
+if(mqttClient&&typeof Paho!=='undefined'){
+try{mqttClient.unsubscribe(topic);}catch(e){}
+}
+addSysMsg(`已取消订阅: ${topic}`);
+}
+
+function renderSubs(){
+const el=document.getElementById('subList');
+if(subscriptions.length===0){
+el.innerHTML='<div class="msg sys" style="margin:12px">暂无订阅</div>';
+return;
+}
+el.innerHTML=subscriptions.map(s=>`
+<div class="sub-item">
+<span class="topic">${escapeHtml(s.topic)}</span>
+<span class="qos">QoS${s.qos}</span>
+<span class="del" onclick="unsubscribe('${escapeHtml(s.topic)}')">×</span>
+</div>`).join('');
+}
+
+function resubscribeAll(){
+subscriptions.forEach(s=>{
+if(mqttClient&&typeof Paho!=='undefined'){
+try{mqttClient.subscribe(s.topic,{qos:s.qos});}catch(e){}
+}
+});
+}
+
+function simulateIncoming(topic,payload,qos){
+const patterns=[
+{topic:topic.replace('#','response'),payload:'{"status":"ok"}',qos:0},
+{topic:topic.replace('/#','/ack'),payload:'{"ack":true,"ts":'+Date.now()+'}',qos:0}
+];
+patterns.forEach(p=>{
+setTimeout(()=>{
+addMsg('sub',p.topic,{payload:p.payload,qos:p.qos});
+},200+Math.random()*800);
+});
+}
+
+function clearLog(){
+document.getElementById('msgList').innerHTML='';
+msgTotal=0;
+document.getElementById('msgCount').textContent='0 条';
+}
+
+document.getElementById('clientId').value=generateClientId();
+document.getElementById('pubPayload').value=JSON.stringify({message:'Hello MQTT',ts:Date.now()},null,2);
+</script>
+</body>
+</html>

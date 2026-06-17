@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文文本编辑器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav a:hover{text-decoration:underline}
+nav h1{font-size:18px;font-weight:600}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar button{background:var(--border);color:var(--text);border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:background .2s}
+.toolbar button:hover{background:var(--accent)}
+.toolbar button.danger{background:var(--error)}
+.toolbar button.danger:hover{background:#da3633}
+.toolbar button.success{background:var(--success)}
+.toolbar .spacer{flex:1}
+.toolbar .stats{font-size:13px;color:#8b949e}
+.editor-wrap{flex:1;display:flex;flex-direction:column}
+#editor{flex:1;width:100%;background:var(--bg);color:var(--text);border:none;padding:20px;font-size:15px;line-height:1.7;resize:none;outline:none;font-family:inherit;min-height:calc(100vh - 140px)}
+.editor-wrap.fullscreen{position:fixed;top:0;left:0;right:0;bottom:0;z-index:100}
+.editor-wrap.fullscreen #editor{min-height:100vh}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--success);color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
+.toast.show{opacity:1}
+.search-bar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:none;gap:8px;align-items:center}
+.search-bar.show{display:flex}
+.search-bar input{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;outline:none;width:200px}
+.search-bar input:focus{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html">← 返回</a>
+  <h1>中文文本编辑器</h1>
+</nav>
+<div class="toolbar">
+  <button onclick="undo()" title="撤销">↩ 撤销</button>
+  <button onclick="redo()" title="重做">↪ 重做</button>
+  <button onclick="toggleSearch()" title="查找替换">🔍 查找替换</button>
+  <button onclick="copyAll()" title="复制全部">📋 复制</button>
+  <button onclick="clearEditor()" class="danger" title="清空">🗑 清空</button>
+  <button onclick="exportTxt()" class="success" title="导出TXT">💾 导出TXT</button>
+  <button onclick="toggleFullscreen()" title="全屏">⛶ 全屏</button>
+  <span class="spacer"></span>
+  <span class="stats" id="stats">字数: 0 | 行数: 1</span>
+</div>
+<div class="search-bar" id="searchBar">
+  <input type="text" id="searchInput" placeholder="查找内容..." oninput="doSearch()">
+  <input type="text" id="replaceInput" placeholder="替换为...">
+  <button onclick="replaceOne()">替换</button>
+  <button onclick="replaceAll()">全部替换</button>
+  <button onclick="toggleSearch()">✕</button>
+</div>
+<div class="editor-wrap" id="editorWrap">
+  <textarea id="editor" placeholder="在这里输入文本..."></textarea>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const editor = document.getElementById('editor');
+const stats = document.getElementById('stats');
+const undoStack = [];
+const redoStack = [];
+let searchMode = false;
+
+function updateStats() {
+  const text = editor.value;
+  const chars = text.length;
+  const lines = text ? text.split('\n').length : 1;
+  stats.textContent = `字数: ${chars} | 行数: ${lines}`;
+}
+
+editor.addEventListener('input', () => {
+  undoStack.push(editor.value);
+  if (undoStack.length > 200) undoStack.shift();
+  redoStack.length = 0;
+  updateStats();
+});
+
+editor.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+  if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
+  if (e.ctrlKey && e.key === 'f') { e.preventDefault(); toggleSearch(); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, s) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = s + 2;
+    updateStats();
+  }
+});
+
+function undo() {
+  if (undoStack.length < 2) return;
+  redoStack.push(undoStack.pop());
+  editor.value = undoStack[undoStack.length - 1] || '';
+  updateStats();
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  const val = redoStack.pop();
+  undoStack.push(val);
+  editor.value = val;
+  updateStats();
+}
+
+function copyAll() {
+  navigator.clipboard.writeText(editor.value).then(() => showToast('已复制到剪贴板'));
+}
+
+function clearEditor() {
+  if (!editor.value.trim() || confirm('确定要清空所有内容吗？')) {
+    editor.value = '';
+    undoStack.length = 0;
+    redoStack.length = 0;
+    updateStats();
+  }
+}
+
+function exportTxt() {
+  const blob = new Blob([editor.value], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '文本编辑器导出.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('已导出TXT文件');
+}
+
+function toggleFullscreen() {
+  const wrap = document.getElementById('editorWrap');
+  wrap.classList.toggle('fullscreen');
+  editor.style.minHeight = wrap.classList.contains('fullscreen') ? '100vh' : 'calc(100vh - 140px)';
+}
+
+function toggleSearch() {
+  searchMode = !searchMode;
+  document.getElementById('searchBar').classList.toggle('show', searchMode);
+  if (searchMode) document.getElementById('searchInput').focus();
+}
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value;
+  if (!q) return;
+  const text = editor.value;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase(), editor.selectionEnd);
+  if (idx !== -1) {
+    editor.focus();
+    editor.selectionStart = idx;
+    editor.selectionEnd = idx + q.length;
+  }
+}
+
+function replaceOne() {
+  const q = document.getElementById('searchInput').value;
+  const r = document.getElementById('replaceInput').value;
+  if (!q) return;
+  const start = editor.selectionStart;
+  const sel = editor.value.substring(start, editor.selectionEnd);
+  if (sel.toLowerCase() === q.toLowerCase()) {
+    editor.value = editor.value.substring(0, start) + r + editor.value.substring(editor.selectionEnd);
+    editor.selectionStart = start;
+    editor.selectionEnd = start + r.length;
+    updateStats();
+  }
+  doSearch();
+}
+
+function replaceAll() {
+  const q = document.getElementById('searchInput').value;
+  const r = document.getElementById('replaceInput').value;
+  if (!q) return;
+  const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  editor.value = editor.value.replace(regex, r);
+  updateStats();
+  showToast('已全部替换');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+updateStats();
+</script>
+</body>
+</html>

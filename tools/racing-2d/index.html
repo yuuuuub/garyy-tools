@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D赛车 - 极速狂飙</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #ef4444;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .game-header {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .game-header h1 {
+            font-size: 1.3rem;
+        }
+        
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .stat {
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        
+        .game-canvas {
+            width: 100%;
+            height: 500px;
+            background: #1a1a2e;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .track {
+            position: absolute;
+            width: 100%;
+            height: 200%;
+            background: #374151;
+            left: 0;
+            top: 0;
+        }
+        
+        .track-line {
+            position: absolute;
+            width: 4px;
+            height: 30px;
+            background: #fbbf24;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .track-border {
+            position: absolute;
+            height: 100%;
+            width: 20px;
+        }
+        
+        .border-left {
+            left: 60px;
+            background: repeating-linear-gradient(180deg, #ef4444, #ef4444 20px, white 20px, white 40px);
+        }
+        
+        .border-right {
+            right: 60px;
+            background: repeating-linear-gradient(180deg, #ef4444, #ef4444 20px, white 20px, white 40px);
+        }
+        
+        .player-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            left: 50%;
+            bottom: 80px;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        
+        .car-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+            border-radius: 8px 8px 5px 5px;
+            position: relative;
+        }
+        
+        .car-window {
+            position: absolute;
+            top: 15px;
+            left: 5px;
+            right: 5px;
+            height: 20px;
+            background: #93c5fd;
+            border-radius: 3px;
+        }
+        
+        .car-wheel {
+            position: absolute;
+            width: 10px;
+            height: 15px;
+            background: #1f2937;
+            border-radius: 2px;
+        }
+        
+        .wheel-fl { top: 5px; left: -5px; }
+        .wheel-fr { top: 5px; right: -5px; }
+        .wheel-bl { bottom: 5px; left: -5px; }
+        .wheel-br { bottom: 5px; right: -5px; }
+        
+        .enemy-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            z-index: 5;
+        }
+        
+        .enemy-body {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px 8px 5px 5px;
+            position: relative;
+        }
+        
+        .enemy-window {
+            position: absolute;
+            top: 15px;
+            left: 5px;
+            right: 5px;
+            height: 20px;
+            background: #9ca3af;
+            border-radius: 3px;
+        }
+        
+        .finish-line {
+            position: absolute;
+            width: 100%;
+            height: 20px;
+            background: repeating-linear-gradient(90deg, #000 0px, #000 10px, #fff 10px, #fff 20px);
+            top: 0;
+        }
+        
+        .control-info {
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.3);
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .controls-hint {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .key {
+            padding: 8px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 0.85rem;
+        }
+        
+        .menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .menu-title {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+        
+        .menu-subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            opacity: 0.8;
+        }
+        
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .menu-btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .menu-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .start-btn {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+        
+        .menu-btn.secondary {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        .result-content {
+            text-align: center;
+        }
+        
+        .result-title {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        
+        .result-time {
+            font-size: 1.3rem;
+            color: #fbbf24;
+            margin-bottom: 20px;
+        }
+        
+        .result-stats {
+            background: var(--bg);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .result-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .result-stat:last-child {
+            border-bottom: none;
+        }
+        
+        .mobile-controls {
+            display: none;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+        }
+        
+        .mobile-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .mobile-btn {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            border-radius: 10px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mobile-btn:active {
+            background: var(--accent);
+        }
+        
+        .speed-bar {
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.3);
+        }
+        
+        .speed-label {
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .speed-meter {
+            height: 10px;
+            background: var(--bg);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .speed-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+            transition: width 0.1s;
+        }
+        
+        .hidden { display: none !important; }
+        
+        @media (max-width: 600px) {
+            .mobile-controls {
+                display: block;
+            }
+            .game-canvas {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>极速狂飙</h1>
+            <div class="stats-bar">
+                <div class="stat">⏱️ <span id="time">00:00.0</span></div>
+                <div class="stat">🏁 <span id="lap">0</span>/3</div>
+            </div>
+        </div>
+        
+        <div class="game-canvas" id="game-canvas">
+            <div class="track" id="track">
+                <div class="track-border border-left"></div>
+                <div class="track-border border-right"></div>
+                <div class="finish-line" id="finish-line"></div>
+            </div>
+            <div class="player-car" id="player-car">
+                <div class="car-body">
+                    <div class="car-window"></div>
+                    <div class="car-wheel wheel-fl"></div>
+                    <div class="car-wheel wheel-fr"></div>
+                    <div class="car-wheel wheel-bl"></div>
+                    <div class="car-wheel wheel-br"></div>
+                </div>
+            </div>
+            
+            <div class="menu-overlay" id="menu-overlay">
+                <div class="menu-title">极速狂飙</div>
+                <div class="menu-subtitle">避开其他车辆，完成3圈比赛！</div>
+                <div class="menu-buttons">
+                    <button class="menu-btn start-btn" onclick="startGame()">开始比赛</button>
+                </div>
+            </div>
+            
+            <div class="menu-overlay hidden" id="result-overlay">
+                <div class="result-content">
+                    <div class="result-title" id="result-title">比赛完成！</div>
+                    <div class="result-time" id="result-time">用时: 00:00.0</div>
+                    <div class="result-stats">
+                        <div class="result-stat"><span>最高时速</span><span id="max-speed">0 km/h</span></div>
+                        <div class="result-stat"><span>碰撞次数</span><span id="crash-count">0</span></div>
+                        <div class="result-stat"><span>超越车辆</span><span id="overtake-count">0</span></div>
+                    </div>
+                    <div class="menu-buttons">
+                        <button class="menu-btn start-btn" onclick="startGame()">再来一次</button>
+                        <button class="menu-btn secondary" onclick="backToMenu()">返回菜单</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="speed-bar">
+            <div class="speed-label">速度: <span id="speed-value">0</span> km/h</div>
+            <div class="speed-meter">
+                <div class="speed-fill" id="speed-fill" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <div class="control-info">
+            使用方向键或 WASD 控制车辆
+            <div class="controls-hint">
+                <span class="key">↑ 加速</span>
+                <span class="key">↓ 刹车</span>
+                <span class="key">← → 转向</span>
+            </div>
+        </div>
+        
+        <div class="mobile-controls">
+            <div class="mobile-row">
+                <button class="mobile-btn" id="btn-up" ontouchstart="mobileInput('up', true)" ontouchend="mobileInput('up', false)">↑</button>
+            </div>
+            <div class="mobile-row">
+                <button class="mobile-btn" id="btn-left" ontouchstart="mobileInput('left', true)" ontouchend="mobileInput('left', false)">←</button>
+                <button class="mobile-btn" id="btn-down" ontouchstart="mobileInput('down', true)" ontouchend="mobileInput('down', false)">↓</button>
+                <button class="mobile-btn" id="btn-right" ontouchstart="mobileInput('right', true)" ontouchend="mobileInput('right', false)">→</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const track = document.getElementById('track');
+        const playerCar = document.getElementById('player-car');
+        
+        let game = {
+            running: false,
+            speed: 0,
+            maxSpeed: 15,
+            acceleration: 0.3,
+            friction: 0.98,
+            turnSpeed: 5,
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            time: 0,
+            lap: 0,
+            laps: 3,
+            trackHeight: 0,
+            enemies: [],
+            crashes: 0,
+            overtakes: 0,
+            maxSpeedReached: 0
+        };
+        
+        let keys = {
+            up: false,
+            down: false,
+            left: false,
+            right: false
+        };
+        
+        function startGame() {
+            document.getElementById('menu-overlay').classList.add('hidden');
+            document.getElementById('result-overlay').classList.add('hidden');
+            
+            game.running = true;
+            game.speed = 0;
+            game.position = { x: 0, y: 0 };
+            game.rotation = 0;
+            game.time = 0;
+            game.lap = 0;
+            game.enemies = [];
+            game.crashes = 0;
+            game.overtakes = 0;
+            game.maxSpeedReached = 0;
+            game.trackHeight = track.scrollHeight;
+            
+            // 重置玩家位置
+            playerCar.style.transform = 'translateX(-50%) rotate(0deg)';
+            
+            // 生成敌方车辆
+            spawnEnemies();
+            
+            // 开始游戏循环
+            requestAnimationFrame(gameLoop);
+            
+            // 开始计时
+            game.timerInterval = setInterval(() => {
+                game.time += 100;
+                updateTimeDisplay();
+            }, 100);
+        }
+        
+        function spawnEnemies() {
+            // 清除现有敌人
+            document.querySelectorAll('.enemy-car').forEach(e => e.remove());
+            game.enemies = [];
+            
+            const colors = ['#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'];
+            
+            for (let i = 0; i < 5; i++) {
+                const enemy = {
+                    x: 80 + Math.random() * (canvas.offsetWidth - 160),
+                    y: -200 - i * 300,
+                    speed: 2 + Math.random() * 3,
+                    color: colors[i % colors.length]
+                };
+                
+                const el = document.createElement('div');
+                el.className = 'enemy-car';
+                el.innerHTML = `<div class="enemy-body" style="background: linear-gradient(180deg, ${enemy.color}, ${enemy.color}dd)">
+                    <div class="enemy-window"></div>
+                </div>`;
+                el.style.left = enemy.x + 'px';
+                el.style.top = enemy.y + 'px';
+                
+                track.appendChild(el);
+                game.enemies.push({ ...enemy, element: el });
+            }
+        }
+        
+        function gameLoop() {
+            if (!game.running) return;
+            
+            updatePlayer();
+            updateEnemies();
+            checkCollisions();
+            checkLap();
+            updateUI();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function updatePlayer() {
+            // 加速
+            if (keys.up) {
+                game.speed = Math.min(game.maxSpeed, game.speed + game.acceleration);
+            } else if (keys.down) {
+                game.speed = Math.max(-5, game.speed - game.acceleration * 2);
+            } else {
+                game.speed *= game.friction;
+            }
+            
+            // 转向
+            if (keys.left) {
+                game.position.x -= game.turnSpeed * (game.speed / game.maxSpeed);
+            }
+            if (keys.right) {
+                game.position.x += game.turnSpeed * (game.speed / game.maxSpeed);
+            }
+            
+            // 限制在赛道内
+            const trackLeft = 70;
+            const trackRight = canvas.offsetWidth - 70;
+            game.position.x = Math.max(trackLeft, Math.min(trackRight, game.position.x));
+            
+            // 更新位置
+            game.position.y += game.speed;
+            
+            // 更新最大速度
+            game.maxSpeedReached = Math.max(game.maxSpeedReached, Math.abs(game.speed));
+            
+            // 更新玩家车辆位置
+            playerCar.style.left = game.position.x + 'px';
+            track.style.transform = `translateY(${-game.position.y}px)`;
+        }
+        
+        function updateEnemies() {
+            const playerY = game.position.y;
+            
+            game.enemies.forEach((enemy, i) => {
+                // 敌人向下移动（模拟向上）
+                enemy.y += enemy.speed - game.speed * 0.5;
+                enemy.element.style.top = enemy.y + 'px';
+                
+                // 重新生成超出屏幕的敌人
+                if (enemy.y > canvas.offsetHeight + 100) {
+                    enemy.y = -300 - Math.random() * 500;
+                    enemy.x = 80 + Math.random() * (canvas.offsetWidth - 160);
+                    enemy.element.style.left = enemy.x + 'px';
+                }
+                
+                // 检查超越
+                if (enemy.y < -50 && enemy.y > -100) {
+                    game.overtakes++;
+                }
+            });
+        }
+        
+        function checkCollisions() {
+            const playerRect = playerCar.getBoundingClientRect();
+            
+            game.enemies.forEach(enemy => {
+                const enemyRect = enemy.element.getBoundingClientRect();
+                
+                if (isColliding(playerRect, enemyRect)) {
+                    game.crashes++;
+                    game.speed *= 0.5;
+                    
+                    // 简单的碰撞反馈
+                    playerCar.style.filter = 'brightness(1.5)';
+                    setTimeout(() => playerCar.style.filter = '', 100);
+                }
+            });
+        }
+        
+        function isColliding(rect1, rect2) {
+            return !(rect1.right < rect2.left || 
+                     rect1.left > rect2.right || 
+                     rect1.bottom < rect2.top || 
+                     rect1.top > rect2.bottom);
+        }
+        
+        function checkLap() {
+            const finishLine = document.getElementById('finish-line');
+            const finishRect = finishLine.getBoundingClientRect();
+            const playerRect = playerCar.getBoundingClientRect();
+            
+            // 简化的圈数检测
+            if (game.position.y > 0 && game.position.y < 20) {
+                if (!game.lastLapTime || Date.now() - game.lastLapTime > 3000) {
+                    game.lap++;
+                    game.lastLapTime = Date.now();
+                    
+                    if (game.lap >= game.laps) {
+                        endGame(true);
+                    }
+                }
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('lap').textContent = Math.min(game.lap, game.laps);
+            
+            const speedKmh = Math.round(Math.abs(game.speed) * 20);
+            document.getElementById('speed-value').textContent = speedKmh;
+            document.getElementById('speed-fill').style.width = (speedKmh / 300 * 100) + '%';
+        }
+        
+        function updateTimeDisplay() {
+            const minutes = Math.floor(game.time / 60000);
+            const seconds = Math.floor((game.time % 60000) / 1000);
+            const ms = Math.floor((game.time % 1000) / 100);
+            document.getElementById('time').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${ms}`;
+        }
+        
+        function endGame(success) {
+            game.running = false;
+            clearInterval(game.timerInterval);
+            
+            document.getElementById('result-overlay').classList.remove('hidden');
+            document.getElementById('result-title').textContent = success ? '比赛完成！' : '比赛结束';
+            document.getElementById('result-time').textContent = `用时: ${document.getElementById('time').textContent}`;
+            document.getElementById('max-speed').textContent = Math.round(game.maxSpeedReached * 20) + ' km/h';
+            document.getElementById('crash-count').textContent = game.crashes;
+            document.getElementById('overtake-count').textContent = Math.floor(game.overtakes / 2);
+        }
+        
+        function backToMenu() {
+            document.getElementById('result-overlay').classList.add('hidden');
+            document.getElementById('menu-overlay').classList.remove('hidden');
+            
+            // 重置游戏状态
+            game.running = false;
+            game.speed = 0;
+            game.position = { x: 0, y: 0 };
+            track.style.transform = 'translateY(0)';
+            
+            // 清除敌人
+            document.querySelectorAll('.enemy-car').forEach(e => e.remove());
+            game.enemies = [];
+            
+            // 重置显示
+            document.getElementById('time').textContent = '00:00.0';
+            document.getElementById('lap').textContent = '0';
+            document.getElementById('speed-value').textContent = '0';
+            document.getElementById('speed-fill').style.width = '0%';
+        }
+        
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    keys.up = true;
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    keys.down = true;
+                    e.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    keys.left = true;
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    keys.right = true;
+                    e.preventDefault();
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    keys.up = false;
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    keys.down = false;
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    keys.left = false;
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    keys.right = false;
+                    break;
+            }
+        });
+        
+        // 移动端控制
+        function mobileInput(direction, pressed) {
+            keys[direction] = pressed;
+        }
+        
+        // 生成赛道线
+        function generateTrackLines() {
+            for (let i = 0; i < 50; i++) {
+                const line = document.createElement('div');
+                line.className = 'track-line';
+                line.style.top = (i * 80) + 'px';
+                track.appendChild(line);
+            }
+        }
+        
+        generateTrackLines();
+    </script>
+</body>
+</html>

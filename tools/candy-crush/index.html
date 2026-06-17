@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>糖果传奇</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ui{display:flex;gap:16px;margin-bottom:12px;font-size:14px}
+.ui span{background:var(--card);padding:6px 14px;border-radius:6px;border:1px solid var(--border)}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:16px;cursor:pointer;margin-top:12px}
+.btn:hover{opacity:.85}
+.board{display:grid;grid-template-columns:repeat(8,50px);gap:3px;background:var(--border);padding:3px;border-radius:8px}
+.cell{width:50px;height:50px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;transition:transform .15s,opacity .15s;user-select:none}
+.cell:hover{transform:scale(1.1)}
+.cell.selected{outline:3px solid var(--accent);transform:scale(1.15)}
+.cell.matched{animation:pop .3s}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.3);opacity:.5}100%{transform:scale(0);opacity:0}}
+.candy-0{background:#f85149}.candy-1{background:#3b82f6}.candy-2{background:#2ea043}
+.candy-3{background:#f0c000}.candy-4{background:#a371f7}.candy-5{background:#f0883e}
+.special{box-shadow:0 0 12px rgba(255,255,255,.5);border:2px solid #fff}
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:8px">糖果传奇</h2>
+<div class="ui">
+<span id="scoreText">分数: 0</span>
+<span id="movesText">步数: 30</span>
+<span id="comboText">连击: 0</span>
+</div>
+<div class="board" id="board"></div>
+<p style="margin-top:10px;font-size:13px;color:#8b949e">点击选中一个糖果，再点击相邻糖果交换</p>
+<script>
+const ROWS=8,COLS=8,CANDY_TYPES=6;
+const CANDY_COLORS=['🔴','🔵','🟢','🟡','🟣','🟠'];
+let grid,selected,score,moves,combo,animating=false;
+
+function init(){
+  grid=[];score=0;moves=30;combo=0;selected=null;
+  for(let r=0;r<ROWS;r++){
+    grid[r]=[];
+    for(let c=0;c<COLS;c++){
+      let t;
+      do{t=Math.floor(Math.random()*CANDY_TYPES)}while(
+        (c>=2&&grid[r][c-1]===t&&grid[r][c-2]===t)||
+        (r>=2&&grid[r-1][c]===t&&grid[r-2][c]===t)
+      );
+      grid[r][c]=t;
+    }
+  }
+  render();
+}
+
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cell=document.createElement('div');
+      cell.className='cell candy-'+grid[r][c];
+      if(selected&&selected.r===r&&selected.c===c)cell.classList.add('selected');
+      if(grid[r][c]>=100)cell.classList.add('special');
+      cell.textContent=CANDY_COLORS[grid[r][c]%CANDY_TYPES];
+      if(grid[r][c]>=100)cell.textContent='✨';
+      cell.onclick=()=>onClick(r,c);
+      board.appendChild(cell);
+    }
+  }
+  document.getElementById('scoreText').textContent='分数: '+score;
+  document.getElementById('movesText').textContent='步数: '+moves;
+  document.getElementById('comboText').textContent='连击: '+combo;
+}
+
+function onClick(r,c){
+  if(animating)return;
+  if(!selected){selected={r,c};render();return}
+  const dr=Math.abs(selected.r-r),dc=Math.abs(selected.c-c);
+  if((dr===1&&dc===0)||(dr===0&&dc===1)){
+    swap(selected.r,selected.c,r,c);
+    const matches=findMatches();
+    if(matches.length===0){
+      swap(selected.r,selected.c,r,c);
+      selected=null;render();return;
+    }
+    moves--;selected=null;
+    animating=true;
+    processMatches();
+  }else{
+    selected={r,c};render();
+  }
+}
+
+function swap(r1,c1,r2,c2){
+  const t=grid[r1][c1];grid[r1][c1]=grid[r2][c2];grid[r2][c2]=t;
+}
+
+function findMatches(){
+  const matched=new Set();
+  // horizontal
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS-2;c++){
+      const t=grid[r][c]%CANDY_TYPES;
+      if(t<6&&grid[r][c+1]%CANDY_TYPES===t&&grid[r][c+2]%CANDY_TYPES===t){
+        let end=c+2;
+        while(end+1<COLS&&grid[r][end+1]%CANDY_TYPES===t)end++;
+        for(let i=c;i<=end;i++)matched.add(r*COLS+i);
+        // special candy for 4+
+        if(end-c>=3){
+          const specialIdx=r*COLS+Math.floor((c+end)/2);
+          grid[Math.floor(specialIdx/COLS)][specialIdx%COLS]=100+t;
+        }
+      }
+    }
+  }
+  // vertical
+  for(let c=0;c<COLS;c++){
+    for(let r=0;r<ROWS-2;r++){
+      const t=grid[r][c]%CANDY_TYPES;
+      if(t<6&&grid[r+1][c]%CANDY_TYPES===t&&grid[r+2][c]%CANDY_TYPES===t){
+        let end=r+2;
+        while(end+1<ROWS&&grid[end+1][c]%CANDY_TYPES===t)end++;
+        for(let i=r;i<=end;i++)matched.add(i*COLS+c);
+        if(end-r>=3){
+          const specialIdx=Math.floor((r+end)/2)*COLS+c;
+          grid[Math.floor(specialIdx/COLS)][specialIdx%COLS]=100+t;
+        }
+      }
+    }
+  }
+  return[...matched].map(i=>({r:Math.floor(i/COLS),c:i%COLS}));
+}
+
+function processMatches(){
+  const matches=findMatches();
+  if(matches.length===0){
+    animating=false;
+    if(moves<=0){
+      setTimeout(()=>alert('游戏结束！最终分数: '+score),300);
+    }
+    render();return;
+  }
+  combo++;
+  const points=matches.length*10*combo;
+  score+=points;
+  // remove matched
+  for(const m of matches){
+    if(grid[m.r][m.c]>=100){
+      // special candy effect - clear row/col
+      const type=grid[m.r][m.c]-100;
+      for(let i=0;i<COLS;i++)grid[m.r][i]=-1;
+      for(let i=0;i<ROWS;i++)grid[i][m.c]=-1;
+      score+=50;
+    }
+    grid[m.r][m.c]=-1;
+  }
+  render();
+  setTimeout(()=>{
+    dropCandies();
+    fillEmpty();
+    render();
+    setTimeout(()=>processMatches(),200);
+  },250);
+}
+
+function dropCandies(){
+  for(let c=0;c<COLS;c++){
+    let empty=ROWS-1;
+    for(let r=ROWS-1;r>=0;r--){
+      if(grid[r][c]!==-1){
+        grid[empty][c]=grid[r][c];
+        if(empty!==r)grid[r][c]=-1;
+        empty--;
+      }
+    }
+    for(let r=empty;r>=0;r--)grid[r][c]=-1;
+  }
+}
+
+function fillEmpty(){
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(grid[r][c]===-1)grid[r][c]=Math.floor(Math.random()*CANDY_TYPES);
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>

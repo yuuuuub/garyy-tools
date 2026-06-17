@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R游乐场</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .left{display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav a:hover{text-decoration:underline}
+nav h1{font-size:18px;font-weight:600}
+.container{display:grid;grid-template-columns:1fr 320px;gap:16px;padding:16px;max-width:1600px;margin:0 auto;height:calc(100vh - 53px)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+.toolbar{display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-size:13px;transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);border-color:var(--success);color:#fff}
+textarea{width:100%;height:100%;background:var(--bg);color:var(--text);border:none;padding:16px;font-family:'SF Mono','Fira Code',monospace;font-size:14px;line-height:1.6;resize:none;outline:none;tab-size:2}
+.output{padding:16px;font-family:'SF Mono','Fira Code',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow:auto;flex:1}
+.output .info{color:var(--accent2)}
+.output .error{color:var(--error)}
+.output .warn{color:var(--warning)}
+.output .ok{color:var(--success)}
+.templates{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border)}
+.tpl-btn{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer;font-size:12px}
+.tpl-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ref-panel{overflow:auto;padding:12px;font-size:13px;line-height:1.7}
+.ref-section{margin-bottom:16px}
+.ref-section h3{color:var(--accent2);font-size:14px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.ref-item{margin-bottom:6px;padding:6px 8px;background:var(--bg);border-radius:4px}
+.ref-item code{color:var(--accent);font-family:monospace;font-size:12px}
+.ref-item p{color:#8b949e;font-size:12px;margin-top:2px}
+.status-bar{padding:6px 16px;border-top:1px solid var(--border);font-size:12px;color:#8b949e;display:flex;justify-content:space-between}
+@media(max-width:900px){.container{grid-template-columns:1fr;height:auto}.panel{min-height:300px}}
+</style>
+</head>
+<body>
+<nav>
+<div class="left"><a href="../index.html">← 返回</a><h1>R游乐场</h1></div>
+<button class="btn btn-primary" onclick="executeCode()">▶ 运行</button>
+</nav>
+<div class="container">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div class="panel" style="flex:2">
+<div class="panel-header">R代码编辑器 <span style="font-size:12px;color:#8b949e">模拟执行</span></div>
+<div class="templates">
+<button class="tpl-btn" onclick="loadTemplate('df')">数据框</button>
+<button class="tpl-btn" onclick="loadTemplate('ggplot')">ggplot2</button>
+<button class="tpl-btn" onclick="loadTemplate('stat')">统计分析</button>
+<button class="tpl-btn" onclick="loadTemplate('vector')">向量操作</button>
+<button class="tpl-btn" onclick="loadTemplate('matrix')">矩阵运算</button>
+<button class="tpl-btn" onclick="loadTemplate('list')">列表操作</button>
+</div>
+<div style="flex:1;position:relative">
+<textarea id="code" spellcheck="false">library(ggplot2)
+
+# 创建数据框
+df <- data.frame(
+  x = 1:10,
+  y = c(2, 4, 5, 7, 6, 8, 9, 10, 12, 11),
+  category = c("A","A","B","B","A","B","A","B","A","B")
+)
+
+# 查看数据
+print(df)
+
+# 基本统计
+summary(df$y)
+mean(df$y)
+sd(df$y)</textarea>
+</div>
+<div class="status-bar"><span id="status">就绪</span><span id="lineCount">行数: 15</span></div>
+</div>
+<div class="panel">
+<div class="panel-header">输出</div>
+<div class="output" id="output"><span class="info">点击"运行"执行R代码（模拟环境）</span></div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-header">R语法参考</div>
+<div class="ref-panel">
+<div class="ref-section">
+<h3>基础语法</h3>
+<div class="ref-item"><code>x <- 5</code><p>赋值运算符</p></div>
+<div class="ref-item"><code>print(x)</code><p>打印输出</p></div>
+<div class="ref-item"><code>ls()</code><p>列出所有对象</p></div>
+<div class="ref-item"><code>rm(x)</code><p>删除对象</p></div>
+</div>
+<div class="ref-section">
+<h3>数据类型</h3>
+<div class="ref-item"><code>numeric, integer, character, logical</code><p>基本数据类型</p></div>
+<div class="ref-item"><code>vector, list, matrix, data.frame</code><p>数据结构</p></div>
+</div>
+<div class="ref-section">
+<h3>向量操作</h3>
+<div class="ref-item"><code>c(1, 2, 3)</code><p>创建向量</p></div>
+<div class="ref-item"><code>seq(1, 10, by=2)</code><p>序列生成</p></div>
+<div class="ref-item"><code>rep(1, 5)</code><p>重复元素</p></div>
+<div class="ref-item"><code>length(), sum(), mean()</code><p>向量函数</p></div>
+</div>
+<div class="ref-section">
+<h3>数据框</h3>
+<div class="ref-item"><code>data.frame()</code><p>创建数据框</p></div>
+<div class="ref-item"><code>df[rows, cols]</code><p>索引子集</p></div>
+<div class="ref-item"><code>subset(df, condition)</code><p>条件筛选</p></div>
+<div class="ref-item"><code>merge(df1, df2)</code><p>合并数据框</p></div>
+</div>
+<div class="ref-section">
+<h3>统计函数</h3>
+<div class="ref-item"><code>mean(), sd(), var()</code><p>均值、标准差、方差</p></div>
+<div class="ref-item"><code>median(), quantile()</code><p>中位数、分位数</p></div>
+<div class="ref-item"><code>t.test(), chisq.test()</code><p>假设检验</p></div>
+<div class="ref-item"><code>lm(), glm()</code><p>线性/广义线性模型</p></div>
+</div>
+<div class="ref-section">
+<h3>ggplot2</h3>
+<div class="ref-item"><code>ggplot(data, aes(x, y))</code><p>初始化绘图</p></div>
+<div class="ref-item"><code>geom_point(), geom_line()</code><p>散点图、折线图</p></div>
+<div class="ref-item"><code>geom_bar(), geom_histogram()</code><p>柱状图、直方图</p></div>
+<div class="ref-item"><code>theme_minimal()</code><p>主题设置</p></div>
+</div>
+<div class="ref-section">
+<h3>控制流</h3>
+<div class="ref-item"><code>ifelse(condition, yes, no)</code><p>条件判断</p></div>
+<div class="ref-item"><code>for(i in 1:n) { }</code><p>循环</p></div>
+<div class="ref-item"><code>sapply(x, fun)</code><p>函数式编程</p></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const templates={
+df:`# 创建数据框
+name <- c("Alice", "Bob", "Charlie", "Diana")
+age <- c(25, 30, 35, 28)
+score <- c(88, 92, 75, 95)
+
+df <- data.frame(name, age, score)
+print(df)
+
+# 查看结构
+str(df)
+dim(df)`,
+ggplot:`library(ggplot2)
+
+# 散点图 + 回归线
+df <- data.frame(
+  x = 1:20,
+  y = rnorm(20, 10, 3),
+  group = rep(c("A", "B"), each = 10)
+)
+
+# 创建图形
+p <- ggplot(df, aes(x = x, y = y, color = group)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(title = "散点图示例", x = "X轴", y = "Y轴") +
+  theme_minimal()
+
+print(p)`,
+stat:`# 统计分析示例
+set.seed(42)
+
+# 生成两组数据
+group1 <- rnorm(100, mean = 50, sd = 10)
+group2 <- rnorm(100, mean = 55, sd = 12)
+
+# 描述统计
+cat("=== 组1统计 ===\\n")
+cat("均值:", mean(group1), "\\n")
+cat("标准差:", sd(group1), "\\n")
+cat("中位数:", median(group1), "\\n")
+
+cat("\\n=== 组2统计 ===\\n")
+cat("均值:", mean(group2), "\\n")
+cat("标准差:", sd(group2), "\\n")
+
+# t检验
+t_result <- t.test(group1, group2)
+cat("\\n=== t检验 ===\\n")
+print(t_result)`,
+vector:`# 向量操作
+
+# 创建向量
+v1 <- c(1, 2, 3, 4, 5)
+v2 <- c(10, 20, 30, 40, 50)
+
+# 基本运算
+cat("v1 + v2:", v1 + v2, "\\n")
+cat("v1 * 2:", v1 * 2, "\\n")
+cat("sum:", sum(v1), "\\n")
+cat("mean:", mean(v1), "\\n")
+
+# 序列
+s <- seq(0, 1, by = 0.1)
+cat("\\n序列:", s, "\\n")
+
+# 逻辑向量
+log_vec <- v1 > 3
+cat("v1 > 3:", log_vec, "\\n")
+cat("满足条件的索引:", which(v1 > 3), "\\n")`,
+matrix:`# 矩阵运算
+
+# 创建矩阵
+m1 <- matrix(1:9, nrow = 3, ncol = 3)
+cat("矩阵 m1:\\n")
+print(m1)
+
+# 转置
+cat("\\n转置:\\n")
+print(t(m1))
+
+# 矩阵乘法
+cat("\\nm1 * t(m1):\\n")
+print(m1 %*% t(m1))
+
+# 行列式
+cat("\\n行列式:", det(m1), "\\n")
+
+# 特征值
+cat("\\n特征值:\\n")
+print(eigen(m1)$values)`,
+list:`# 列表操作
+
+# 创建列表
+person <- list(
+  name = "张三",
+  age = 30,
+  scores = c(85, 92, 78),
+  active = TRUE
+)
+
+# 访问元素
+cat("姓名:", person[["name"]], "\\n")
+cat("年龄:", person$age, "\\n")
+cat("分数:", person$scores, "\\n")
+
+# 添加元素
+person$city <- "北京"
+
+# 列表长度
+cat("元素数:", length(person), "\\n")
+cat("名称:", names(person), "\\n")`
+};
+
+const rInterpreter={
+simulate(code){
+let output=[];
+const lines=code.split('\\n').filter(l=>l.trim()&&!l.trim().startsWith('#'));
+lines.forEach(line=>{
+const t=line.trim();
+if(t.startsWith('library(')){
+output.push({type:'ok',text:'[载入包]'});
+}else if(t.startsWith('print(')){
+const arg=t.match(/print\\((.+)\\)/);
+if(arg){
+output.push({type:'info',text:this.mockPrint(arg[1])});
+}
+}else if(t.startsWith('cat(')){
+output.push({type:'info',text:this.mockCat(t)});
+}else if(t.match(/^(mean|sd|var|sum|median|min|max|length)\\(/)){
+const fn=t.match(/^(\\w+)\\((.+)\\)/);
+if(fn){
+output.push({type:'info',text:`[1] ${this.mockStat(fn[1])}`});
+}
+}else if(t.startsWith('str(')){
+output.push({type:'info',text:"'data.frame':\\t4 obs. of  2 variables:\\n $ x: int  1 2 3 4\\n $ y: num  2 4 6 8"});
+}else if(t.startsWith('dim(')){
+output.push({type:'info',text:'[1] 4 2'});
+}else if(t.startsWith('set.seed')){
+output.push({type:'ok',text:'[随机种子已设置]'});
+}else if(t.startsWith('data.frame')||t.match(/\\w+\\s*<-\\s*data\\.frame/)){
+output.push({type:'ok',text:'[数据框已创建]'});
+}else if(t.match(/<-/)){
+output.push({type:'ok',text:`[已赋值]`});
+}else if(t.startsWith('t.test')){
+output.push({type:'info',text:'Welch Two Sample t-test\\nt = -1.5234, df = 190.12, p-value = 0.1291'});
+}else if(t.startsWith('cat(')){
+output.push({type:'info',text:this.mockCat(t)});
+}
+});
+return output;
+},
+mockPrint(arg){
+if(arg.includes('"')||arg.includes("'"))return arg.replace(/["']/g,'');
+if(arg.includes('\\$'))return '[1] 88 92 75 95';
+if(arg.match(/\\w+/))return '[1] 1 2 3 4 5';
+return arg;
+},
+mockCat(line){
+return line.replace(/cat\\(|\\)/g,'').replace(/,\\s*/g,' ').replace(/\\n/g,'').replace(/["']/g,'');
+},
+mockStat(fn){
+const vals={mean:'5.0',sd:'1.5811',var:'2.5',sum:'15',median:'3',min:'1',max:'5',length:'5'};
+return vals[fn]||'?';
+}
+};
+
+function loadTemplate(name){
+const templates2={df:templates.df,ggplot:templates.ggplot,stat:templates.stat,vector:templates.vector,matrix:templates.matrix,list:templates.list};
+document.getElementById('code').value=templates2[name]||'';
+}
+
+function executeCode(){
+const code=document.getElementById('code').value;
+const output=document.getElementById('output');
+output.innerHTML='';
+document.getElementById('status').textContent='运行中...';
+setTimeout(()=>{
+try{
+const results=rInterpreter.simulate(code);
+if(results.length===0){
+output.innerHTML='<span class="info">执行完成，无输出</span>';
+}else{
+results.forEach(r=>{
+const div=document.createElement('div');
+div.className=r.type==='error'?'error':r.type==='ok'?'ok':'info';
+div.textContent=r.text;
+output.appendChild(div);
+output.appendChild(document.createElement('br'));
+});
+}
+output.innerHTML+='<br><span class="ok">✓ 执行完成</span>';
+document.getElementById('status').textContent='执行完成';
+}catch(e){
+output.innerHTML=`<span class="error">错误: ${e.message}</span>`;
+document.getElementById('status').textContent='执行出错';
+}
+},100);
+}
+
+document.getElementById('code').addEventListener('input',function(){
+const lines=this.value.split('\\n').length;
+document.getElementById('lineCount').textContent='行数: '+lines;
+});
+
+document.getElementById('code').addEventListener('keydown',function(e){
+if(e.key==='Tab'){
+e.preventDefault();
+const s=this.selectionStart;
+this.value=this.value.substring(0,s)+'  '+this.value.substring(this.selectionEnd);
+this.selectionStart=this.selectionEnd=s+2;
+}
+if(e.ctrlKey&&e.key==='Enter'){
+e.preventDefault();
+executeCode();
+}
+});
+</script>
+</body>
+</html>

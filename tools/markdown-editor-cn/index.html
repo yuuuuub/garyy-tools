@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文Markdown编辑器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar button{background:var(--border);color:var(--text);border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:background .2s}
+.toolbar button:hover{background:var(--accent)}
+.toolbar button.success{background:var(--success)}
+.toolbar .spacer{flex:1}
+.panels{display:flex;flex:1;overflow:hidden}
+.panel{flex:1;display:flex;flex-direction:column}
+.panel-header{background:var(--card);border-bottom:1px solid var(--border);padding:8px 16px;font-size:13px;color:#8b949e}
+#editor{flex:1;width:100%;background:var(--bg);color:var(--text);border:none;padding:16px;font-size:14px;line-height:1.7;font-family:"SF Mono",Monaco,Consolas,monospace;resize:none;outline:none;tab-size:2}
+.preview{flex:1;background:#fff;color:#1a1a2e;padding:20px 32px;overflow:auto;font-size:15px;line-height:1.8}
+.preview h1{font-size:28px;border-bottom:2px solid #eee;padding-bottom:10px;margin:20px 0 16px;color:#1a1a2e}
+.preview h2{font-size:22px;border-bottom:1px solid #eee;padding-bottom:8px;margin:18px 0 12px;color:#1a1a2e}
+.preview h3{font-size:18px;margin:16px 0 8px;color:#1a1a2e}
+.preview h4{font-size:16px;margin:14px 0 6px;color:#1a1a2e}
+.preview p{margin:10px 0;color:#333}
+.preview strong{font-weight:700;color:#1a1a2e}
+.preview em{font-style:italic;color:#555}
+.preview a{color:var(--accent);text-decoration:none}
+.preview a:hover{text-decoration:underline}
+.preview code{background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:13px;font-family:"SF Mono",Monaco,Consolas,monospace;color:#e83e8c}
+.preview pre{background:#1a1a2e;color:#e6edf3;padding:16px;border-radius:8px;overflow-x:auto;margin:12px 0}
+.preview pre code{background:none;padding:0;color:inherit}
+.preview blockquote{border-left:4px solid var(--accent);padding:8px 16px;margin:12px 0;background:#f8f9fa;color:#555}
+.preview ul,.preview ol{padding-left:24px;margin:10px 0}
+.preview li{margin:4px 0;color:#333}
+.preview hr{border:none;border-top:2px solid #eee;margin:20px 0}
+.preview img{max-width:100%;border-radius:8px}
+.preview table{border-collapse:collapse;width:100%;margin:12px 0}
+.preview th,.preview td{border:1px solid #ddd;padding:8px 12px;text-align:left}
+.preview th{background:#f5f5f5;font-weight:600}
+.divider{width:4px;background:var(--border);cursor:col-resize;flex-shrink:0}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--success);color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
+.toast.show{opacity:1}
+@media(max-width:768px){.panels{flex-direction:column}.divider{width:100%;height:4px;cursor:row-resize}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html">← 返回</a>
+  <h1>中文Markdown编辑器</h1>
+</nav>
+<div class="toolbar">
+  <button onclick="updatePreview()" class="success" title="刷新预览">▶ 刷新预览</button>
+  <button onclick="copyMarkdown()">📋 复制Markdown</button>
+  <button onclick="copyHTML()">📄 复制HTML</button>
+  <button onclick="toggleFullscreen()">⛶ 全屏</button>
+  <button onclick="loadDemo()">📄 加载示例</button>
+  <span class="spacer"></span>
+  <span style="font-size:13px;color:#8b949e">实时预览</span>
+</div>
+<div class="panels" id="panels">
+  <div class="panel">
+    <div class="panel-header"><span>Markdown 编辑</span></div>
+    <textarea id="editor" spellcheck="false" placeholder="在这里输入Markdown内容..."></textarea>
+  </div>
+  <div class="divider" id="divider"></div>
+  <div class="panel">
+    <div class="panel-header"><span>实时预览</span></div>
+    <div class="preview" id="preview"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+let updateTimer = null;
+
+function parseMarkdown(md) {
+  let html = md;
+
+  // 代码块 (``` ... ```)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><code class="lang-${lang}">${escapeHtml(code.trim())}</code></pre>`;
+  });
+
+  // 行内代码
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // 标题
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // 分割线
+  html = html.replace(/^---+$/gm, '<hr>');
+
+  // 引用
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // 粗体和斜体
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // 链接
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  // 图片
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+
+  // 无序列表
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // 有序列表
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // 表格
+  html = html.replace(/^\|(.+)\|$/gm, (match, content) => {
+    const cells = content.split('|').map(c => c.trim());
+    if (cells.every(c => /^[-:]+$/.test(c))) return '---TABLE_SEP---';
+    const isHeader = false;
+    return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+  });
+  html = html.replace(/((?:<tr>.*<\/tr>\n?---TABLE_SEP---\n?(?:<tr>.*<\/tr>\n?)+)/g, (match) => {
+    const rows = match.split('---TABLE_SEP---');
+    if (rows.length >= 2) {
+      const header = rows[0].replace(/<td>/g, '<th>').replace(/<\/td>/g, '</th>');
+      const body = rows.slice(1).join('');
+      return `<table><thead>${header.trim()}</thead><tbody>${body.trim()}</tbody></table>`;
+    }
+    return match;
+  });
+  html = html.replace(/---TABLE_SEP---\n?/g, '');
+
+  // 段落（非标签开头的行）
+  html = html.replace(/^(?!<[a-z/])((?!^\s*$).+)$/gm, '<p>$1</p>');
+
+  // 清理空段落
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  // 合并连续的blockquote
+  html = html.replace(/<\/blockquote>\s*<blockquote>/g, '<br>');
+
+  return html;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updatePreview() {
+  preview.innerHTML = parseMarkdown(editor.value);
+}
+
+editor.addEventListener('input', () => {
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(updatePreview, 400);
+});
+
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, s) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = s + 2;
+  }
+  if (e.ctrlKey && e.key === 'b') {
+    e.preventDefault();
+    wrapText('**', '**');
+  }
+  if (e.ctrlKey && e.key === 'i') {
+    e.preventDefault();
+    wrapText('*', '*');
+  }
+});
+
+function wrapText(before, after) {
+  const s = editor.selectionStart, end = editor.selectionEnd;
+  const selected = editor.value.substring(s, end);
+  editor.value = editor.value.substring(0, s) + before + selected + after + editor.value.substring(end);
+  editor.selectionStart = s + before.length;
+  editor.selectionEnd = end + before.length;
+  editor.focus();
+  updatePreview();
+}
+
+function copyMarkdown() {
+  navigator.clipboard.writeText(editor.value).then(() => showToast('已复制Markdown'));
+}
+
+function copyHTML() {
+  navigator.clipboard.writeText(preview.innerHTML).then(() => showToast('已复制HTML'));
+}
+
+function toggleFullscreen() {
+  const panels = document.getElementById('panels');
+  panels.classList.toggle('fullscreen');
+  if (panels.classList.contains('fullscreen')) {
+    panels.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:100';
+  } else {
+    panels.style.cssText = '';
+  }
+}
+
+function loadDemo() {
+  editor.value = `# Markdown 编辑器示例
+
+## 基本格式
+
+这是一段**粗体文字**，这是一段*斜体文字*，这是***粗斜体***。
+
+## 代码
+
+行内代码：\`console.log("Hello")\`
+
+代码块：
+
+\`\`\`javascript
+function greet(name) {
+  console.log(\`你好，\${name}！\`);
+}
+greet("世界");
+\`\`\`
+
+## 列表
+
+- 无序列表项 1
+- 无序列表项 2
+  - 嵌套项
+
+1. 有序列表项 1
+2. 有序列表项 2
+
+## 引用
+
+> 这是一段引用文字。
+> 可以多行书写。
+
+## 链接和图片
+
+[访问 GitHub](https://github.com)
+
+## 表格
+
+| 姓名 | 年龄 | 城市 |
+|------|------|------|
+| 张三 | 25 | 北京 |
+| 李四 | 30 | 上海 |
+
+---
+
+*开始编辑你自己的Markdown内容吧！*`;
+  updatePreview();
+}
+
+// Resizable divider
+const divider = document.getElementById('divider');
+let isDragging = false;
+divider.addEventListener('mousedown', (e) => { isDragging = true; e.preventDefault(); });
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const panels = document.getElementById('panels');
+  const rect = panels.getBoundingClientRect();
+  const pct = ((e.clientX - rect.left) / rect.width) * 100;
+  const clamped = Math.min(Math.max(pct, 20), 80);
+  panels.children[0].style.flex = 'none';
+  panels.children[0].style.width = clamped + '%';
+  panels.children[2].style.flex = '1';
+});
+document.addEventListener('mouseup', () => { isDragging = false; });
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+loadDemo();
+</script>
+</body>
+</html>

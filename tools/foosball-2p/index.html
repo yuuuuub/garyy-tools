@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双人桌上足球</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .score-board {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .score-board .player {
+            padding: 10px 30px;
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            text-align: center;
+        }
+        .score-board .player.p1 { border-color: #ef4444; }
+        .score-board .player.p2 { border-color: #3b82f6; }
+        .score-board .score { font-size: 2rem; font-weight: bold; }
+        #game-container {
+            background: #2d5016;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        canvas { display: block; }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .status {
+            margin-top: 15px;
+            padding: 12px 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1.1rem;
+        }
+        .status.win { border-color: #22c55e; background: #14532d; }
+        .controls-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #8b949e;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚽ 双人桌上足球</h1>
+    
+    <div class="score-board">
+        <div class="player p1">
+            <div>玩家1 (Q/A/Z)</div>
+            <div class="score" id="score1">0</div>
+        </div>
+        <div class="player p2">
+            <div>玩家2 (P/L/.)</div>
+            <div class="score" id="score2">0</div>
+        </div>
+    </div>
+    
+    <div id="game-container">
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button onclick="resetGame()">重新开始</button>
+    </div>
+    
+    <div class="status" id="status">先得5分获胜！</div>
+    
+    <div class="controls-info">
+        <p>玩家1：Q(前排上) A(中排上) Z(后排上) | 按住Shift反向</p>
+        <p>玩家2：P(前排上) L(中排上) .(后排上) | 按住Shift反向</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const score1El = document.getElementById('score1');
+        const score2El = document.getElementById('score2');
+        
+        const W = 600;
+        const H = 400;
+        const BALL_R = 8;
+        const PLAYER_R = 12;
+        const GOAL_W = 80;
+        const WIN_SCORE = 5;
+        
+        canvas.width = W;
+        canvas.height = H;
+        
+        let ball;
+        let rods = { p1: [], p2: [] };
+        let score1 = 0;
+        let score2 = 0;
+        let gameOver = false;
+        let keys = {};
+        
+        function init() {
+            ball = { x: W / 2, y: H / 2, vx: 2, vy: 1 };
+            
+            rods.p1 = [
+                { x: 80, players: [] },
+                { x: 200, players: [] },
+                { x: 300, players: [] }
+            ];
+            
+            rods.p2 = [
+                { x: W - 80, players: [] },
+                { x: W - 200, players: [] },
+                { x: W - 300, players: [] }
+            ];
+            
+            for (let i = 0; i < 3; i++) {
+                rods.p1[0].players.push({ y: H / 2 - 40, offset: 0 });
+                rods.p1[1].players.push({ y: H / 2 - 40, offset: 0 });
+                rods.p1[2].players.push({ y: H / 2 - 40, offset: 0 });
+                
+                rods.p2[0].players.push({ y: H / 2 - 40, offset: 0 });
+                rods.p2[1].players.push({ y: H / 2 - 40, offset: 0 });
+                rods.p2[2].players.push({ y: H / 2 - 40, offset: 0 });
+            }
+            
+            score1 = 0;
+            score2 = 0;
+            gameOver = false;
+            
+            score1El.textContent = score1;
+            score2El.textContent = score2;
+            statusEl.textContent = '先得5分获胜！';
+            statusEl.className = 'status';
+            
+            draw();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#2d5016';
+            ctx.fillRect(0, 0, W, H);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(5, 5, W - 10, H - 10);
+            
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(W / 2, 5);
+            ctx.lineTo(W / 2, H - 5);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.beginPath();
+            ctx.arc(W / 2, H / 2, 30, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.stroke();
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, H / 2 - GOAL_W / 2, 15, GOAL_W);
+            ctx.fillRect(W - 15, H / 2 - GOAL_W / 2, 15, GOAL_W);
+            
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(5, H / 2 - GOAL_W / 2);
+            ctx.lineTo(5, H / 2 + GOAL_W / 2);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.moveTo(W - 5, H / 2 - GOAL_W / 2);
+            ctx.lineTo(W - 5, H / 2 + GOAL_W / 2);
+            ctx.stroke();
+            
+            drawRods(rods.p1, '#ef4444');
+            drawRods(rods.p2, '#3b82f6');
+            
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        function drawRods(rodsArr, color) {
+            rodsArr.forEach(rod => {
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(rod.x, 5);
+                ctx.lineTo(rod.x, H - 5);
+                ctx.stroke();
+                
+                rod.players.forEach(player => {
+                    ctx.beginPath();
+                    ctx.arc(rod.x, player.y + player.offset, PLAYER_R, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+            });
+        }
+        
+        function update() {
+            if (gameOver) return;
+            
+            handleInput();
+            
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+            
+            if (ball.y - BALL_R < 10) { ball.y = BALL_R + 10; ball.vy *= -1; }
+            if (ball.y + BALL_R > H - 10) { ball.y = H - BALL_R - 10; ball.vy *= -1; }
+            
+            if (ball.x - BALL_R < 15 && ball.y > H / 2 - GOAL_W / 2 && ball.y < H / 2 + GOAL_W / 2) {
+                score2++;
+                score2El.textContent = score2;
+                if (score2 >= WIN_SCORE) {
+                    gameOver = true;
+                    statusEl.textContent = '🎉 玩家2获胜！';
+                    statusEl.className = 'status win';
+                } else {
+                    resetBall();
+                }
+            } else if (ball.x + BALL_R > W - 15 && ball.y > H / 2 - GOAL_W / 2 && ball.y < H / 2 + GOAL_W / 2) {
+                score1++;
+                score1El.textContent = score1;
+                if (score1 >= WIN_SCORE) {
+                    gameOver = true;
+                    statusEl.textContent = '🎉 玩家1获胜！';
+                    statusEl.className = 'status win';
+                } else {
+                    resetBall();
+                }
+            } else if (ball.x - BALL_R < 10) {
+                ball.x = BALL_R + 10;
+                ball.vx *= -1;
+            } else if (ball.x + BALL_R > W - 10) {
+                ball.x = W - BALL_R - 10;
+                ball.vx *= -1;
+            }
+            
+            checkRodCollisions(rods.p1, 1);
+            checkRodCollisions(rods.p2, -1);
+            
+            draw();
+        }
+        
+        function handleInput() {
+            const speed = 5;
+            
+            if (keys['q'] || keys['Q']) moveRod(rods.p1[0], -speed);
+            if (keys['a'] || keys['A']) moveRod(rods.p1[1], -speed);
+            if (keys['z'] || keys['Z']) moveRod(rods.p1[2], -speed);
+            
+            if (keys['p'] || keys['P']) moveRod(rods.p2[0], -speed);
+            if (keys['l'] || keys['L']) moveRod(rods.p2[1], -speed);
+            if (keys['.']) moveRod(rods.p2[2], -speed);
+        }
+        
+        function moveRod(rod, speed) {
+            const shift = keys['Shift'] ? -1 : 1;
+            rod.players.forEach(player => {
+                player.offset += speed * shift;
+                player.offset = Math.max(-H / 2 + PLAYER_R + 10, Math.min(H / 2 - PLAYER_R - 10, player.offset));
+            });
+        }
+        
+        function checkRodCollisions(rodsArr, dir) {
+            rodsArr.forEach(rod => {
+                rod.players.forEach(player => {
+                    const px = rod.x;
+                    const py = player.y + player.offset;
+                    
+                    const dx = ball.x - px;
+                    const dy = ball.y - py;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < BALL_R + PLAYER_R) {
+                        ball.vx = Math.abs(ball.vx) * dir * 1.2;
+                        ball.vy += (dy / dist) * 3;
+                        ball.x = px + (BALL_R + PLAYER_R) * (dx / dist);
+                    }
+                });
+            });
+        }
+        
+        function resetBall() {
+            ball.x = W / 2;
+            ball.y = H / 2;
+            ball.vx = (Math.random() > 0.5 ? 1 : -1) * 3;
+            ball.vy = (Math.random() - 0.5) * 4;
+        }
+        
+        function resetGame() {
+            init();
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            e.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        setInterval(update, 1000 / 60);
+        
+        init();
+    </script>
+</body>
+</html>

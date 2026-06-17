@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REST游乐场</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .left{display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{display:grid;grid-template-columns:1fr 1fr;gap:0;height:calc(100vh - 53px)}
+.col{display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.col:last-child{border-right:none}
+.col-header{padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);font-weight:600;font-size:13px}
+.request-bar{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);align-items:center}
+.method-select{padding:8px 12px;background:var(--bg);color:var(--accent);border:1px solid var(--border);border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
+.method-select option{background:var(--bg);color:var(--text)}
+.url-input{flex:1;padding:8px 12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:monospace;outline:none}
+.url-input:focus{border-color:var(--accent)}
+.send-btn{padding:8px 20px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:600}
+.send-btn:hover{opacity:.85}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--card)}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b949e}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--text)}
+.tab-content{flex:1;overflow:auto;position:relative}
+textarea{width:100%;height:100%;background:var(--bg);color:var(--text);border:none;padding:16px;font-family:monospace;font-size:13px;line-height:1.6;resize:none;outline:none}
+.headers-list{padding:12px 16px}
+.header-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.header-row input{flex:1;padding:6px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none}
+.header-row input:focus{border-color:var(--accent)}
+.header-row .del{padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--error);cursor:pointer;font-size:12px}
+.add-header{padding:4px 12px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer;font-size:12px;margin-top:4px}
+.response-area{flex:1;overflow:auto}
+.status-line{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;font-size:13px}
+.status-badge{padding:2px 8px;border-radius:4px;font-weight:600;font-size:12px}
+.status-badge.s2{background:rgba(63,185,80,0.15);color:var(--success)}
+.status-badge.s3{background:rgba(56,130,246,0.15);color:var(--accent2)}
+.status-badge.s4{background:rgba(210,153,34,0.15);color:var(--warning)}
+.status-badge.s5{background:rgba(248,81,73,0.15);color:var(--error)}
+.resp-meta{color:#8b949e;font-size:12px}
+.response-body{padding:16px;font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow:auto;flex:1}
+.response-body .key{color:var(--accent2)}
+.response-body .string{color:var(--success)}
+.response-body .number{color:var(--warning)}
+.templates-bar{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--card)}
+.tpl-btn{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer;font-size:11px}
+.tpl-btn:hover{border-color:var(--accent);color:var(--accent)}
+@media(max-width:900px){.container{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.col{border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<nav>
+<div class="left"><a href="../index.html">← 返回</a><h1>REST游乐场</h1></div>
+</nav>
+<div class="templates-bar">
+<button class="tpl-btn" onclick="loadTemplate('get')">GET /users</button>
+<button class="tpl-btn" onclick="loadTemplate('post')">POST /users</button>
+<button class="tpl-btn" onclick="loadTemplate('put')">PUT /users/1</button>
+<button class="tpl-btn" onclick="loadTemplate('delete')">DELETE /users/1</button>
+<button class="tpl-btn" onclick="loadTemplate('headers')">带请求头</button>
+</div>
+<div class="container">
+<div class="col">
+<div class="col-header">请求</div>
+<div class="request-bar">
+<select class="method-select" id="method">
+<option value="GET">GET</option>
+<option value="POST">POST</option>
+<option value="PUT">PUT</option>
+<option value="PATCH">PATCH</option>
+<option value="DELETE">DELETE</option>
+</select>
+<input class="url-input" id="url" value="https://jsonplaceholder.typicode.com/users" placeholder="输入请求URL...">
+<button class="send-btn" onclick="sendRequest()">发送</button>
+</div>
+<div class="tabs">
+<div class="tab active" onclick="switchTab(this,'body')">请求体</div>
+<div class="tab" onclick="switchTab(this,'headers')">请求头</div>
+<div class="tab" onclick="switchTab(this,'params')">查询参数</div>
+</div>
+<div class="tab-content" id="tab-body">
+<textarea id="requestBody" placeholder="输入JSON请求体...">{
+  "name": "张三",
+  "email": "zhangsan@example.com",
+  "phone": "13800138000"
+}</textarea>
+</div>
+<div class="tab-content" id="tab-headers" style="display:none">
+<div class="headers-list">
+<div class="header-row"><input placeholder="键" value="Content-Type"><input placeholder="值" value="application/json"><button class="del" onclick="this.parentElement.remove()">×</button></div>
+<div class="header-row"><input placeholder="键" value="Authorization"><input placeholder="值" value="Bearer token123"><button class="del" onclick="this.parentElement.remove()">×</button></div>
+<div class="header-row"><input placeholder="键" value="Accept"><input placeholder="值" value="application/json"><button class="del" onclick="this.parentElement.remove()">×</button></div>
+</div>
+<button class="add-header" onclick="addHeader()">+ 添加请求头</button>
+</div>
+<div class="tab-content" id="tab-params" style="display:none">
+<textarea id="queryParams" placeholder='{"key": "value"}'>{
+  "_limit": 10,
+  "_page": 1
+}</textarea>
+</div>
+</div>
+<div class="col">
+<div class="col-header">响应</div>
+<div class="status-line" id="statusLine">
+<span style="color:#8b949e">等待请求...</span>
+</div>
+<div class="response-body" id="responseBody"><span style="color:#8b949e">发送请求后显示响应结果</span></div>
+</div>
+</div>
+<script>
+const templates={
+get:{method:'GET',url:'https://jsonplaceholder.typicode.com/users',headers:{'Accept':'application/json'},body:''},
+post:{method:'POST',url:'https://jsonplaceholder.typicode.com/users',headers:{'Content-Type':'application/json'},body:'{\n  "name": "张三",\n  "email": "zhangsan@example.com",\n  "phone": "13800138000"\n}'},
+put:{method:'PUT',url:'https://jsonplaceholder.typicode.com/users/1',headers:{'Content-Type':'application/json'},body:'{\n  "name": "李四",\n  "email": "lisi@example.com"\n}'},
+delete:{method:'DELETE',url:'https://jsonplaceholder.typicode.com/users/1',headers:{},body:''},
+headers:{method:'GET',url:'https://api.example.com/data',headers:{'Authorization':'Bearer eyJhbGciOiJIUzI1NiJ9...','X-Custom-Header':'my-value','Accept':'application/json'},body:''}
+};
+
+function loadTemplate(name){
+const t=templates[name];
+document.getElementById('method').value=t.method;
+document.getElementById('url').value=t.url;
+document.getElementById('requestBody').value=t.body;
+const hList=document.querySelector('.headers-list');
+hList.innerHTML='';
+Object.entries(t.headers).forEach(([k,v])=>{
+const row=document.createElement('div');
+row.className='header-row';
+row.innerHTML=`<input placeholder="键" value="${k}"><input placeholder="值" value="${v}"><button class="del" onclick="this.parentElement.remove()">×</button>`;
+hList.appendChild(row);
+});
+}
+
+function switchTab(el,tab){
+document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+el.classList.add('active');
+document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+document.getElementById('tab-'+tab).style.display='block';
+}
+
+function addHeader(){
+const hList=document.querySelector('.headers-list');
+const row=document.createElement('div');
+row.className='header-row';
+row.innerHTML='<input placeholder="键"><input placeholder="值"><button class="del" onclick="this.parentElement.remove()">×</button>';
+hList.appendChild(row);
+}
+
+function highlightJSON(str){
+return str.replace(/"([^"]+)"\s*:/g,'<span class="key">"$1"</span>:')
+.replace(/:\s*"([^"]*)"/g,': <span class="string">"$1"</span>')
+.replace(/:\s*(\d+)/g,': <span class="number">$1</span>')
+.replace(/:\s*(true|false|null)/g,': <span class="number">$1</span>');
+}
+
+function sendRequest(){
+const method=document.getElementById('method').value;
+const url=document.getElementById('url').value;
+const body=document.getElementById('requestBody').value;
+const statusLine=document.getElementById('statusLine');
+const responseBody=document.getElementById('responseBody');
+statusLine.innerHTML='<span style="color:#8b949e">请求中...</span>';
+responseBody.innerHTML='<span style="color:#8b949e">加载中...</span>';
+const start=Date.now();
+const simulateResponse=()=>{
+const elapsed=Date.now()-start+Math.floor(Math.random()*200+50);
+let statusCode=200,statusText='OK',statusClass='s2',respBody='';
+if(method==='DELETE'){statusCode=200;statusText='OK';respBody='{"success":true,"message":"删除成功"}';}
+else if(method==='POST'||method==='PUT'||method==='PATCH'){
+if(url.includes('users')){
+respBody=JSON.stringify({id:Math.floor(Math.random()*1000),...(body?JSON.parse(body):{}),createdAt:new Date().toISOString()},null,2);
+}else{
+respBody='{"status":"ok","method":"'+method+'"}';
+}
+}else{
+if(url.includes('users')&&url.includes('/1')){
+respBody=JSON.stringify({id:1,name:"张三",email:"zhangsan@example.com",phone:"13800138000",address:{city:"北京",street:"长安街"}},null,2);
+}else if(url.includes('users')){
+respBody=JSON.stringify(Array.from({length:5},(_,i)=>({id:i+1,name:["张三","李四","王五","赵六","孙七"][i],email:`user${i+1}@example.com`})),null,2);
+}else{
+respBody='{"data":[],"total":0}';
+}
+}
+const size=new Blob([respBody]).size;
+statusLine.innerHTML=`<span class="status-badge ${statusClass}">${statusCode} ${statusText}</span><span class="resp-meta">${elapsed}ms · ${size} bytes · ${method} ${url.split('?')[0]}</span>`;
+responseBody.innerHTML=highlightJSON(respBody);
+};
+setTimeout(simulateResponse,300);
+}
+</script>
+</body>
+</html>

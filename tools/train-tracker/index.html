@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>火车追踪 - 高铁时刻</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px}
+.header h1{font-size:20px;margin-bottom:12px}
+.header h1 span{font-size:24px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.controls input,.controls select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.controls input{width:200px}
+.controls button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px}
+.main{display:grid;grid-template-columns:1fr 360px;height:calc(100vh - 110px)}
+.timeline{padding:20px;overflow-y:auto}
+.train-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;transition:border-color .2s}
+.train-card:hover{border-color:var(--accent)}
+.train-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.train-card .train-no{font-size:20px;font-weight:700;color:var(--accent)}
+.train-card .train-type{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.train-card .train-type.g{background:rgba(248,81,73,.15);color:var(--red)}
+.train-card .train-type.d{background:rgba(88,166,255,.15);color:var(--blue)}
+.train-card .train-type.c{background:rgba(63,185,80,.15);color:var(--green)}
+.train-card .train-type.z{background:rgba(210,153,34,.15);color:var(--yellow)}
+.route-display{display:flex;align-items:center;justify-content:space-between;position:relative;padding:0 20px}
+.route-display .line{flex:1;height:3px;background:var(--border);margin:0 8px;border-radius:2px;position:relative}
+.route-display .line .progress{height:100%;background:var(--accent);border-radius:2px;position:absolute}
+.route-display .line .plane-icon{position:absolute;top:-8px;font-size:14px;transition:left .5s}
+.station-dot{width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.station-dot.end{background:var(--green)}
+.route-display .from-station,.route-display .to-station{text-align:center}
+.route-display .station-name{font-size:14px;font-weight:600}
+.route-display .station-code{font-size:11px;color:#8b949e}
+.route-display .time{font-size:16px;font-weight:600;margin-top:4px}
+.detail-panel{background:var(--card);border-left:1px solid var(--border);overflow-y:auto;padding:16px}
+.detail-panel h2{font-size:18px;margin-bottom:16px;color:var(--accent)}
+.stop-list{position:relative;padding-left:24px}
+.stop-list::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--border)}
+.stop-item{position:relative;padding:10px 0 10px 20px;font-size:13px}
+.stop-item::before{content:'';position:absolute;left:-24px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--border);border:2px solid var(--card)}
+.stop-item.passed::before{background:var(--accent)}
+.stop-item.current::before{background:var(--green);box-shadow:0 0 8px var(--green)}
+.stop-item .stop-name{font-weight:600;font-size:14px}
+.stop-item .stop-time{color:#8b949e;margin-top:2px}
+.stop-item .stop-arr{color:var(--green)}
+.stop-item .stop-dep{color:var(--accent)}
+.no-train{text-align:center;padding:40px;color:#8b949e}
+@media(max-width:768px){.main{grid-template-columns:1fr;grid-template-rows:1fr 250px}.detail-panel{border-left:none;border-top:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🚄</span> 火车追踪 - 高铁时刻表</h1>
+<div class="controls">
+<input type="text" id="searchInput" placeholder="车次号/站名..." oninput="renderTrains()">
+<select id="typeFilter" onchange="renderTrains()">
+<option value="all">所有车型</option>
+<option value="G">G 高铁</option>
+<option value="D">D 动车</option>
+<option value="C">C 城际</option>
+<option value="Z">Z 直达</option>
+</select>
+<select id="statusFilter" onchange="renderTrains()">
+<option value="all">所有状态</option>
+<option value="running">运行中</option>
+<option value="arrived">已到达</option>
+<option value="boarding">检票中</option>
+<option value="delayed">晚点</option>
+</select>
+<button onclick="renderTrains()">🔄 刷新</button>
+</div>
+</div>
+<div class="main">
+<div class="timeline" id="trainList"></div>
+<div class="detail-panel" id="detailPanel">
+<h2>📋 列车详情</h2>
+<div id="stopList"><div class="no-train">← 点击左侧车次查看详情</div></div>
+</div>
+</div>
+<script>
+const trains=[
+{no:'G1',type:'G',from:'北京南',fromCode:'VNP',to:'上海虹桥',toCode:'AOH',dep:'09:00',arr:'13:28',duration:'4h28m',status:'running',progress:65,carriages:17,seats:'商务座·一等座·二等座',price:'商务座2692 一等座933 二等座553',stops:[{station:'北京南',code:'VNP',dep:'09:00',arr:'—'},{station:'济南西',code:'JNK',dep:'10:33',arr:'10:31'},{station:'南京南',code:'NKH',dep:'12:27',arr:'12:25'},{station:'上海虹桥',code:'AOH',dep:'13:28',arr:'—'}]},
+{no:'G7',type:'G',from:'北京西',fromCode:'BXP',to:'广州南',toCode:'IZQ',dep:'10:00',arr:'18:18',duration:'8h18m',status:'running',progress:40,carriages:16,seats:'商务座·一等座·二等座',price:'商务座3424 一等座1774 二等座862',stops:[{station:'北京西',code:'BXP',dep:'10:00',arr:'—'},{station:'石家庄',code:'SJP',dep:'11:08',arr:'11:06'},{station:'郑州东',code:'ZAF',dep:'12:28',arr:'12:26'},{station:'武汉',code:'WHN',dep:'14:33',arr:'14:31'},{station:'长沙南',code:'CWQ',dep:'16:05',arr:'16:03'},{station:'广州南',code:'IZQ',dep:'18:18',arr:'—'}]},
+{no:'G65',type:'G',from:'北京西',fromCode:'BXP',to:'昆明南',toCode:'KOM',dep:'08:30',arr:'19:42',duration:'11h12m',status:'running',progress:25,carriages:16,seats:'商务座·一等座·二等座',price:'商务座4172 一等座2203 二等座1092',stops:[{station:'北京西',code:'BXP',dep:'08:30',arr:'—'},{station:'郑州东',code:'ZAF',dep:'10:40',arr:'10:38'},{station:'武汉',code:'WHN',dep:'12:45',arr:'12:43'},{station:'长沙南',code:'CWQ',dep:'14:18',arr:'14:16'},{station:'贵阳北',code:'KQW',dep:'16:55',arr:'16:53'},{station:'昆明南',code:'KOM',dep:'19:42',arr:'—'}]},
+{no:'D909',type:'D',from:'北京西',fromCode:'BXP',to:'深圳北',toCode:'IOQ',dep:'19:35',arr:'07:14',duration:'11h39m',status:'boarding',carriages:18,seats:'动卧·二等座',price:'动卧上铺650 下铺730 二等座540',stops:[{station:'北京西',code:'BXP',dep:'19:35',arr:'—'},{station:'郑州东',code:'ZAF',dep:'22:50',arr:'22:48'},{station:'武汉',code:'WHN',dep:'01:15',arr:'01:13'},{station:'长沙南',code:'CWQ',dep:'03:20',arr:'03:18'},{station:'深圳北',code:'IOQ',dep:'07:14',arr:'—'}]},
+{no:'C2551',type:'C',from:'北京南',fromCode:'VNP',to:'天津',toCode:'TJP',dep:'06:36',arr:'07:08',duration:'32m',status:'arrived',progress:100,carriages:8,seats:'二等座·一等座',price:'二等座54.5 一等座97.5',stops:[{station:'北京南',code:'VNP',dep:'06:36',arr:'—'},{station:'天津',code:'TJP',dep:'07:08',arr:'—'}]},
+{no:'Z161',type:'Z',from:'北京西',fromCode:'BXP',to:'昆明',toCode:'KMM',dep:'21:59',arr:'09:58',duration:'11h59m',status:'running',progress:55,carriages:18,seats:'软卧·硬卧·硬座',price:'软卧590 硬卧360 硬座210',stops:[{station:'北京西',code:'BXP',dep:'21:59',arr:'—'},{station:'石家庄',code:'SJP',dep:'23:15',arr:'23:13'},{station:'郑州',code:'ZAF',dep:'01:40',arr:'01:38'},{station:'西安',code:'XAY',dep:'06:20',arr:'06:18'},{station:'成都',code:'CDW',dep:'13:50',arr:'13:48'},{station:'昆明',code:'KMM',dep:'09:58',arr:'—'}]},
+{no:'G81',type:'G',from:'北京西',fromCode:'BXP',to:'香港西九龙',toCode:'XJA',dep:'10:00',arr:'18:55',duration:'8h55m',status:'running',progress:70,carriages:16,seats:'商务座·一等座·二等座',price:'商务座3492 一等座2032 二等座1082',stops:[{station:'北京西',code:'BXP',dep:'10:00',arr:'—'},{station:'石家庄',code:'SJP',dep:'11:08',arr:'11:06'},{station:'郑州东',code:'ZAF',dep:'12:28',arr:'12:26'},{station:'武汉',code:'WHN',dep:'14:33',arr:'14:31'},{station:'广州南',code:'IZQ',dep:'17:30',arr:'17:28'},{station:'香港西九龙',code:'XJA',dep:'18:55',arr:'—'}]},
+{no:'G577',type:'G',from:'上海虹桥',fromCode:'AOH',to:'成都东',toCode:'ICW',dep:'07:16',arr:'16:53',duration:'9h37m',status:'running',progress:45,carriages:17,seats:'商务座·一等座·二等座',price:'商务座3465 一等座1812 二等座872',stops:[{station:'上海虹桥',code:'AOH',dep:'07:16',arr:'—'},{station:'南京南',code:'NKH',dep:'08:26',arr:'08:24'},{station:'合肥南',code:'ENH',dep:'09:41',arr:'09:39'},{station:'武汉',code:'WHN',dep:'11:20',arr:'11:18'},{station:'重庆北',code:'CUW',dep:'14:55',arr:'14:53'},{station:'成都东',code:'ICW',dep:'16:53',arr:'—'}]}
+];
+const typeNames={G:'高铁',D:'动车',C:'城际',Z:'直达'};
+const statusNames={running:'运行中',arrived:'已到达',boarding:'检票中',delayed:'晚点',waiting:'候车中'};
+const statusColor={running:'var(--green)',arrived:'var(--blue)',boarding:'var(--yellow)',delayed:'var(--red)',waiting:'#8b949e'};
+function renderTrains(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+const typeF=document.getElementById('typeFilter').value;
+const statusF=document.getElementById('statusFilter').value;
+let list=trains.filter(t=>{
+if(typeF!=='all'&&t.type!==typeF)return false;
+if(statusF!=='all'&&t.status!==statusF)return false;
+if(search&&!t.no.toLowerCase().includes(search)&&!t.from.includes(search)&&!t.to.includes(search))return false;
+return true;
+});
+document.getElementById('trainList').innerHTML=list.length===0?'<div class="no-train">没有匹配的车次</div>':list.map(t=>`
+<div class="train-card" onclick="showDetail('${t.no}')">
+<div class="top">
+<div class="train-no">${t.no}</div>
+<div class="train-type ${t.type.toLowerCase()}">${t.type} ${typeNames[t.type]}</div>
+<span style="color:${statusColor[t.status]};font-size:12px;font-weight:600">${statusNames[t.status]}</span>
+</div>
+<div class="route-display">
+<div class="from-station">
+<div class="station-name">${t.from}</div>
+<div class="station-code">${t.fromCode}</div>
+<div class="time" style="color:var(--accent)">${t.dep}</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+<div class="line" style="width:100%;margin:0 12px">
+<div class="progress" style="width:${t.progress}%"></div>
+<div class="plane-icon" style="left:${t.progress}%">🚄</div>
+</div>
+<div style="font-size:11px;color:#8b949e;margin-top:4px">${t.duration}</div>
+</div>
+<div class="to-station">
+<div class="station-name">${t.to}</div>
+<div class="station-code">${t.toCode}</div>
+<div class="time" style="color:var(--green)">${t.arr}</div>
+</div>
+</div>
+</div>`).join('');
+}
+function showDetail(no){
+const t=trains.find(x=>x.no===no);if(!t)return;
+let currentIndex=-1;
+if(t.status==='arrived')currentIndex=t.stops.length-1;
+else if(t.status==='running'||t.status==='delayed')currentIndex=Math.floor(t.progress/100*(t.stops.length-1));
+else if(t.status==='boarding')currentIndex=0;
+document.getElementById('detailPanel').innerHTML=`
+<h2>${t.no} ${typeNames[t.type]}</h2>
+<div style="padding:12px;background:var(--bg);border-radius:8px;margin-bottom:16px;font-size:13px">
+<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#8b949e">路线</span><span>${t.from} → ${t.to}</span></div>
+<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#8b949e">车型</span><span>${t.type} ${typeNames[t.type]}</span></div>
+<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#8b949e">编组</span><span>${t.carriages}节</span></div>
+<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#8b949e">席别</span><span>${t.seats}</span></div>
+<div style="display:flex;justify-content:space-between"><span style="color:#8b949e">票价</span><span style="font-size:12px">${t.price}</span></div>
+</div>
+<h3 style="font-size:14px;margin-bottom:12px">📍 经停站</h3>
+<div class="stop-list">
+${t.stops.map((s,i)=>`
+<div class="stop-item ${i<currentIndex?'passed':i===currentIndex?'current':''}">
+<div class="stop-name">${s.station} <span style="color:#8b949e;font-size:11px">${s.code}</span></div>
+<div class="stop-time">${s.arr!=='—'?'<span class="stop-arr">到 '+s.arr+'</span> ':''}<span class="stop-dep">发 ${s.dep}</span></div>
+</div>`).join('')}
+</div>`;
+}
+renderTrains();
+</script>
+</body>
+</html>

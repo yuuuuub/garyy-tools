@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公交追踪</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149;--cyan:#39d2c0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px}
+.header h1{font-size:20px;margin-bottom:12px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.controls input{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px;width:200px}
+.controls select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.main{display:grid;grid-template-columns:1fr 380px;height:calc(100vh - 110px)}
+.map-area{background:#0a0e14;position:relative;display:flex;align-items:center;justify-content:center}
+.bus-map{width:90%;height:80%;position:relative}
+.sidebar{background:var(--card);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.bus-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px;cursor:pointer;transition:border-color .2s}
+.bus-card:hover{border-color:var(--accent)}
+.bus-card .route-no{font-size:22px;font-weight:700;color:var(--accent);display:inline-block;min-width:60px}
+.bus-card .direction{font-size:13px;color:#8b949e;margin-top:4px}
+.bus-card .eta-bar{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--card);border-radius:6px}
+.bus-card .eta-bar .bus-icon{font-size:16px}
+.bus-card .eta-bar .eta-text{font-size:13px}
+.bus-card .eta-bar .eta-time{font-weight:700;color:var(--green);margin-left:auto}
+.bus-card .eta-bar .eta-time.arriving{color:var(--red);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.5}}
+.detail-view{padding:16px;overflow-y:auto;flex:1}
+.detail-view h2{font-size:18px;color:var(--accent);margin-bottom:16px}
+.stop-list{position:relative;padding-left:28px}
+.stop-list::before{content:'';position:absolute;left:9px;top:0;bottom:0;width:3px;background:var(--border);border-radius:2px}
+.stop-item{position:relative;padding:10px 0 10px 16px;font-size:13px;border-bottom:1px solid var(--border)}
+.stop-item::before{content:'';position:absolute;left:-28px;top:14px;width:14px;height:14px;border-radius:50%;background:var(--border);border:3px solid var(--card);z-index:1}
+.stop-item.passed::before{background:var(--accent)}
+.stop-item.current::before{background:var(--green);box-shadow:0 0 10px var(--green)}
+.stop-item.next::before{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.stop-item .s-name{font-weight:600}
+.stop-item .s-info{color:#8b949e;font-size:11px;margin-top:2px}
+.stop-item .s-eta{float:right;font-weight:600;color:var(--green)}
+.bus-dot{position:absolute;width:20px;height:20px;cursor:pointer;z-index:5}
+.bus-dot::before{content:'🚌';font-size:16px}
+.bus-dot::after{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:var(--green);opacity:.3;top:-2px;left:-2px;z-index:-1}
+.no-result{text-align:center;padding:40px;color:#8b949e}
+@media(max-width:768px){.main{grid-template-columns:1fr;grid-template-rows:45vh 1fr}.sidebar{border-left:none;border-top:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🚌</span> 公交追踪</h1>
+<div class="controls">
+<input type="text" id="searchInput" placeholder="线路号/站名..." oninput="renderRoutes()">
+<select id="districtFilter" onchange="renderRoutes()">
+<option value="all">全部区域</option>
+<option value="海淀">海淀区</option>
+<option value="朝阳">朝阳区</option>
+<option value="西城">西城区</option>
+<option value="东城">东城区</option>
+<option value="丰台">丰台区</option>
+</select>
+</div>
+</div>
+<div class="main">
+<div class="map-area"><div class="bus-map" id="busMap"></div></div>
+<div class="sidebar">
+<div id="routeList" style="flex:1;overflow-y:auto"></div>
+<div class="detail-view" id="detailView" style="display:none"></div>
+</div>
+</div>
+<script>
+const routes=[
+{no:'1路',district:'东城',from:'老山公交场站',to:'四惠枢纽站',stops:['老山公交场站','地铁八宝山站','玉泉路口西','永定路口东','五棵松桥西','沙沟路口西','万寿路口东','翠微路口','公主坟','军事博物馆','木樨地西','工会大楼','南礼士路','复兴门内','西单路口东','天安门西','天安门东','东单路口西','北京站口东','日坛路','永安里','大北窑西','大北窑东','四惠枢纽站'],buses:[{id:1,lat:39.91,lon:116.31,eta:'3分钟',arriving:true},{id:2,lat:39.905,lon:116.30,eta:'8分钟',arriving:false},{id:3,lat:39.90,lon:116.29,eta:'15分钟',arriving:false}]},
+{no:'300路',district:'朝阳',from:'十里河',to:'十里河(环线)',stops:['十里河','潘家园','双井桥','国贸','大北窑','呼家楼','团结湖','长虹桥','亮马桥','三元桥','静安庄','国际展览中心','西坝河','太阳宫','和平东桥','和平西桥','安贞桥','安华桥','马甸桥','北太平庄','蓟门桥','四通桥','中关村南','海淀黄庄','人民大学','魏公村','国家图书馆','白石桥南','白堆子','马神庙','公主坟北','六里桥','六里桥北','莲花池','西客站','天宁寺','白云路','木樨地','工会大楼','南礼士路','复兴门','西单','宣武门','菜市口','虎坊桥','珠市口','前门','崇文门','磁器口','广渠门','双井','十里河'],buses:[{id:4,lat:39.908,lon:116.46,eta:'2分钟',arriving:true},{id:5,lat:39.915,lon:116.44,eta:'12分钟',arriving:false}]},
+{no:'特8路',district:'海淀',from:'怡海花园南门',to:'中关村南',stops:['怡海花园南门','怡海花园','科技园','丰台路口','丰台北路','七里庄','六里桥','六里桥北里','莲花池','西客站','天宁寺','白云路','木樨地','南礼士路','复兴门','西单','宣武门','和平门','前门','崇文门','磁器口','天坛东门','蒲黄榆','刘家窑','赵公口','木樨园','洋桥','马家堡','角门','草桥','玉泉营','菜户营','广安门','达官营','湾子','莲花池','六里桥','丰台北路','丰台路口','科技园','怡海花园','怡海花园南门'],buses:[{id:6,lat:39.88,lon:116.33,eta:'5分钟',arriving:false},{id:7,lat:39.89,lon:116.34,eta:'18分钟',arriving:false}]},
+{no:'740路',district:'朝阳',from:'十八里店北桥',to:'望京北路东口',stops:['十八里店北桥','十八里店','十八里店南站','大羊坊路口','大羊坊路口东','大洋坊路','双龙南里','双龙小区','松榆东里','潘家园','劲松桥南','双井桥北','国贸','大北窑','呼家楼','团结湖','长虹桥','亮马桥','三元桥','静安庄','西坝河','太阳宫','和平西桥','安贞桥','安华桥','马甸桥','北太平庄','牡丹园','健德门','祁家豁子','北辰路','北辰西桥北','北辰西路','中科院地理所','南沟泥河','北沙滩','洼里南口','豹房','大屯路东','大屯东','慧忠北里','慧忠路东口','辛店路','北苑路大屯','小营西路','望京北路东口'],buses:[{id:8,lat:39.92,lon:116.48,eta:'4分钟',arriving:true}]},
+{no:'快速公交1线',district:'丰台',from:'前门',to:'德茂庄',stops:['前门','天坛','天桥','永定门','陶然亭','自新路口','菜市口','牛街','广安门','达官营','湾子','莲花池','六里桥','丰台北路','丰台路口','岔路口','北大地','正阳桥','丰台','丰台东大街','七里庄','大井','五里店','郭庄子','大瓦窑','衙门口','鲁谷','焦家坟','永乐西小区','银河大街','京原路口','老山','老山南路','八角','古城','八角北里','杨庄','苹果园','苹果园地铁','金顶街','模式口','麻峪','石景山','电厂','北辛安','古城大院','古城路','八角南里','远洋山水','沁山水','玉泉路口西','永定路口东','大成路','青塔','双楼村','郭庄子','大瓦窑','西道口','卢沟新桥','抗战雕塑园','晓月苑','宛平城','抗战馆','杜家坎','崔村','二七厂','长辛店北口','长辛店','长辛店南口','张家坟','赵辛店','北岗洼','南岗洼','六里桥北里','六里桥','西客站','湾子','达官营','广安门','牛街','菜市口','自新路口','陶然亭','永定门','天桥','天坛','前门','崇文门','磁器口','天坛东门','蒲黄榆','刘家窑','赵公口桥','光彩路','双庙西','双庙','双庙东','红寺','石榴庄','大红门','久敬庄','和义农场','和义南里','大兴桥东','大兴桥西','黄村西大街','黄村火车站','星城商厦','兴丰大街','大兴区医院','大兴区政府','枣园小区','丽园路','枣园路口','枣园路','枣园东巷','枣园西巷','枣园东里','枣园西里','德茂庄'],buses:[{id:9,lat:39.90,lon:116.39,eta:'6分钟',arriving:false}]},
+{no:'夜1路',district:'东城',from:'老山公交场站',to:'四惠枢纽站',stops:['老山公交场站','地铁八宝山站','玉泉路口西','永定路口东','五棵松桥西','沙沟路口西','万寿路口东','翠微路口','公主坟','军事博物馆','木樨地西','工会大楼','南礼士路','复兴门内','西单路口东','天安门西','天安门东','东单路口西','北京站口东','日坛路','永安里','大北窑西','大北窑东','四惠枢纽站'],buses:[{id:10,lat:39.912,lon:116.32,eta:'5分钟',arriving:false}]},
+{no:'52路',district:'西城',from:'平乐园',to:'西直门',stops:['平乐园','九龙山','大郊亭','百子湾','大郊亭桥东','大郊亭桥西','九龙花园','双井','国贸','大北窑','呼家楼','金台夕照','亮马桥','三元桥','西坝河','和平里北街','和平里','北新桥','雍和宫','安定门','鼓楼大街','德胜门','积水潭','西直门'],buses:[{id:11,lat:39.92,lon:116.38,eta:'7分钟',arriving:false}]},
+{no:'685路',district:'朝阳',from:'动物园枢纽站',to:'北京华侨城',stops:['动物园枢纽站','白石桥南','国家图书馆','魏公村','人民大学','海淀黄庄','中关村南','四通桥','大钟寺','蓟门桥','北太平庄','马甸桥','安华桥','安贞桥','和平西桥','和平里','北新桥','雍和宫','东直门','春秀路','幸福三村','亮马桥','燕莎桥','大北窑','双井','劲松','潘家园','华威桥','十里河','分钟寺','龙爪树','小红门','姚村','小武基','北京华侨城'],buses:[{id:12,lat:39.91,lon:116.42,eta:'9分钟',arriving:false}]}
+];
+let selectedRoute=null;
+function renderRoutes(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+const district=document.getElementById('districtFilter').value;
+let list=routes.filter(r=>{
+if(district!=='all'&&r.district!==district)return false;
+if(search&&!r.no.includes(search)&&!r.from.includes(search)&&!r.to.includes(search))return false;
+return true;
+});
+document.getElementById('routeList').innerHTML=list.length===0?'<div class="no-result">没有匹配的线路</div>':list.map(r=>`
+<div class="bus-card" onclick="selectRoute('${r.no}')">
+<div class="route-no">${r.no}</div>
+<div class="direction">${r.from} → ${r.to}</div>
+${r.buses.map(b=>`<div class="eta-bar"><span class="bus-icon">🚌</span><span class="eta-text">${b.id}号车</span><span class="eta-time ${b.arriving?'arriving':''}">${b.eta}</span></div>`).join('')}
+</div>`).join('');
+renderMap();
+}
+function renderMap(){
+const map=document.getElementById('busMap');
+let html='<svg viewBox="0 0 100 80" width="100%" height="100%" style="opacity:.3">';
+for(let y=0;y<80;y+=10){html+=`<line x1="0" y1="${y}" x2="100" y2="${y}" stroke="#1a2332" stroke-width="0.1"/>`;}
+for(let x=0;x<100;x+=10){html+=`<line x1="${x}" y1="0" x2="${x}" y2="80" stroke="#1a2332" stroke-width="0.1"/>`;}
+html+='</svg>';
+const cityStops={天安门:{x:50,y:38},国贸:{x:70,y:40},西单:{x:42,y:38},公主坟:{x:25,y:40},中关村:{x:30,y:25},望京:{x:75,y:20},三元桥:{x:65,y:28},六里桥:{x:20,y:48}};
+Object.entries(cityStops).forEach(([name,pos])=>{
+html+=`<div style="position:absolute;left:${pos.x}%;top:${pos.y}%;transform:translate(-50%,-50%);text-align:center"><div style="width:10px;height:10px;background:var(--accent);border-radius:50%;margin:0 auto"></div><div style="font-size:10px;color:#8b949e;margin-top:2px">${name}</div></div>`;
+});
+routes.forEach(r=>{r.buses.forEach(b=>{
+const x=(b.lon-116.2)/0.4*80+10;
+const y=(39.95-b.lat)/0.15*60+10;
+html+=`<div class="bus-dot" style="left:${x}%;top:${y}%" title="${r.no} ${b.eta}"></div>`;
+});});
+map.innerHTML=html;
+}
+function selectRoute(no){
+const r=routes.find(x=>x.no===no);if(!r)return;
+selectedRoute=r;
+document.getElementById('routeList').style.display='none';
+document.getElementById('detailView').style.display='block';
+const currentStop=2;
+document.getElementById('detailView').innerHTML=`
+<h2 style="cursor:pointer" onclick="backToList()">← ${r.no} ${r.from} → ${r.to}</h2>
+<div style="margin-bottom:16px;padding:10px;background:var(--bg);border-radius:8px;font-size:13px">
+<div>共 ${r.stops.length} 站 · ${r.buses.length} 辆运营中</div>
+${r.buses.map(b=>`<div style="margin-top:6px;color:${b.arriving?'var(--red)':'var(--green)'}">🚌 ${b.id}号车: ${b.eta}</div>`).join('')}
+</div>
+<div class="stop-list">
+${r.stops.map((s,i)=>`
+<div class="stop-item ${i<currentStop?'passed':i===currentStop?'next':''}">
+<div class="s-name">${s}</div>
+<div class="s-info">第${i+1}站${i===currentStop?' · 下一站':''}</div>
+${i===currentStop?'<div class="s-eta" style="color:var(--yellow)">即将到站</div>':''}
+</div>`).join('')}
+</div>`;
+}
+function backToList(){
+document.getElementById('routeList').style.display='block';
+document.getElementById('detailView').style.display='none';
+}
+renderRoutes();
+</script>
+</body>
+</html>

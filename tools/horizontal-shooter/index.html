@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>横向射击</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .stats {
+            display: flex;
+            gap: 25px;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .stats span { color: var(--accent); font-weight: bold; }
+        #gameCanvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            max-width: 100%;
+        }
+        .info { margin-top: 10px; color: #8b949e; text-align: center; }
+        .mobile-controls {
+            display: none;
+            margin-top: 15px;
+        }
+        .mobile-btn {
+            width: 50px; height: 50px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        @media (max-width: 600px) {
+            .mobile-controls { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🛩️ 横向射击</h1>
+    <div class="stats">
+        分数：<span id="score">0</span>
+        关卡：<span id="level">1</span>
+        生命：<span id="lives">3</span>
+        火力：<span id="power">1</span>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="info">WASD/方向键移动 | 自动向右射击 | 消灭敌人和BOSS</div>
+    <div class="mobile-controls">
+        <button class="mobile-btn" id="bl">←</button>
+        <button class="mobile-btn" id="bu">↑</button>
+        <button class="mobile-btn" id="bd">↓</button>
+        <button class="mobile-btn" id="br">→</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 800, H = 500;
+
+        let player, bullets, enemies, particles, powerups, bgStars;
+        let score, level, power, scrollX, keys = {};
+
+        function init() {
+            player = {x:80, y:H/2, w:36, h:24, lives:3, inv:0};
+            bullets = [];
+            enemies = [];
+            particles = [];
+            powerups = [];
+            bgStars = Array.from({length:100}, () => ({x:Math.random()*W, y:Math.random()*H, s:Math.random()*1.5+0.5, v:Math.random()*3+1}));
+            score = 0;
+            level = 1;
+            power = 1;
+            scrollX = 0;
+            spawnTimer = 0;
+            waveEnemies = 0;
+            bossActive = false;
+        }
+
+        document.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        const mb = (id, key) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', () => keys[key] = false);
+        };
+        mb('bl','ArrowLeft'); mb('bu','ArrowUp'); mb('bd','ArrowDown'); mb('br','ArrowRight');
+
+        let spawnTimer = 0, shootTimer = 0, waveEnemies = 0, bossActive = false;
+
+        function spawnBoss() {
+            bossActive = true;
+            enemies.push({
+                x: W + 50, y: H/2, w: 60, h: 60,
+                vx: -1, vy: 0,
+                hp: 20 + level * 10, maxHp: 20 + level * 10,
+                pts: 500, color: '#a855f7', boss: true, t: 0
+            });
+        }
+
+        function update() {
+            const spd = 4;
+            if (keys['ArrowLeft'] || keys['a']) player.x -= spd;
+            if (keys['ArrowRight'] || keys['d']) player.x += spd;
+            if (keys['ArrowUp'] || keys['w']) player.y -= spd;
+            if (keys['ArrowDown'] || keys['s']) player.y += spd;
+            player.x = Math.max(18, Math.min(W-18, player.x));
+            player.y = Math.max(12, Math.min(H-12, player.y));
+            if (player.inv > 0) player.inv--;
+
+            shootTimer++;
+            if (shootTimer % 10 === 0) {
+                bullets.push({x:player.x+18, y:player.y, vx:10, vy:0, r:3});
+                if (power >= 2) {
+                    bullets.push({x:player.x+10, y:player.y-10, vx:9, vy:-1, r:2});
+                    bullets.push({x:player.x+10, y:player.y+10, vx:9, vy:1, r:2});
+                }
+                if (power >= 3) {
+                    bullets.push({x:player.x+5, y:player.y-15, vx:8, vy:-2, r:2});
+                    bullets.push({x:player.x+5, y:player.y+15, vx:8, vy:2, r:2});
+                }
+            }
+
+            bullets.forEach(b => { b.x += b.vx; b.y += b.vy; });
+            bullets = bullets.filter(b => b.x < W + 10 && b.x > -10 && b.y > -10 && b.y < H + 10);
+
+            scrollX += 2;
+
+            if (!bossActive) {
+                spawnTimer++;
+                const interval = Math.max(20, 60 - level * 3);
+                if (spawnTimer % interval === 0 && waveEnemies < 8 + level * 3) {
+                    const type = Math.random();
+                    let e;
+                    if (type < 0.5) {
+                        e = {x:W+20, y:30+Math.random()*(H-60), w:24, h:24, vx:-2-Math.random(), vy:0, hp:1, pts:10, color:'#ef4444'};
+                    } else if (type < 0.8) {
+                        e = {x:W+20, y:30+Math.random()*(H-60), w:28, h:28, vx:-1.5, vy:Math.random()<0.5?1:-1, hp:3, pts:25, color:'#f97316'};
+                    } else {
+                        e = {x:W+20, y:H/2, w:20, h:20, vx:-3, vy:Math.sin(0)*2, hp:2, pts:15, color:'#22c55e', sinMove:true, t:0};
+                    }
+                    enemies.push(e);
+                    waveEnemies++;
+                }
+                if (waveEnemies >= 8 + level * 3 && enemies.filter(e=>!e.boss).length === 0) {
+                    spawnBoss();
+                }
+            }
+
+            enemies.forEach(e => {
+                e.x += e.vx;
+                if (e.sinMove) {
+                    e.t = (e.t || 0) + 0.05;
+                    e.y += Math.sin(e.t) * 2;
+                } else {
+                    e.y += e.vy || 0;
+                }
+                if (e.boss) {
+                    e.t = (e.t || 0) + 1;
+                    e.y = H/2 + Math.sin(e.t * 0.02) * (H/2 - 50);
+                    if (e.x > W - 100) e.x = W - 100;
+                }
+            });
+            enemies = enemies.filter(e => e.x > -60 && e.y > -60 && e.y < H + 60);
+
+            bullets.forEach(b => {
+                enemies.forEach(e => {
+                    if (e.hp > 0 && Math.abs(b.x-e.x) < (e.w/2+b.r) && Math.abs(b.y-e.y) < (e.h/2+b.r)) {
+                        e.hp--;
+                        b.x = W + 100;
+                        if (e.hp <= 0) {
+                            score += e.pts;
+                            bossActive = false;
+                            waveEnemies = 0;
+                            for (let i = 0; i < 10; i++) {
+                                particles.push({x:e.x, y:e.y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, life:25, color:e.color});
+                            }
+                            if (Math.random() < 0.3) {
+                                powerups.push({x:e.x, y:e.y, vx:-1, vy:0, type: Math.random()<0.5?'power':'health'});
+                            }
+                        }
+                    }
+                });
+            });
+
+            if (player.inv <= 0) {
+                enemies.forEach(e => {
+                    if (e.hp > 0 && Math.abs(player.x-e.x) < (player.w+e.w)/2 && Math.abs(player.y-e.y) < (player.h+e.h)/2) {
+                        player.lives--;
+                        player.inv = 90;
+                        e.hp = Math.max(0, e.hp - 3);
+                        if (player.lives <= 0) init();
+                    }
+                });
+            }
+
+            powerups.forEach(p => { p.x += p.vx; p.y += p.vy; });
+            powerups = powerups.filter(p => p.x > -20);
+            powerups.forEach(p => {
+                if (Math.abs(p.x-player.x) < 25 && Math.abs(p.y-player.y) < 25) {
+                    p.x = -100;
+                    if (p.type === 'power') power = Math.min(3, power + 1);
+                    else player.lives = Math.min(5, player.lives + 1);
+                }
+            });
+
+            enemies = enemies.filter(e => e.hp > 0);
+            particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
+            particles = particles.filter(p => p.life > 0);
+            bgStars.forEach(s => { s.x -= s.v; if(s.x<0){s.x=W; s.y=Math.random()*H;} });
+
+            if (!bossActive && waveEnemies === 0 && enemies.length === 0 && spawnTimer > 60) {
+                level++;
+                spawnTimer = 0;
+                waveEnemies = 0;
+            }
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('lives').textContent = player.lives;
+            document.getElementById('power').textContent = power;
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, W, H);
+
+            bgStars.forEach(s => {
+                ctx.fillStyle = `rgba(255,255,255,${s.v*0.15})`;
+                ctx.fillRect(s.x, s.y, s.v, 1);
+            });
+
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life/25;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            bullets.forEach(b => {
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillRect(b.x-5, b.y-1.5, 10, 3);
+            });
+
+            powerups.forEach(p => {
+                ctx.fillStyle = p.type === 'power' ? '#3b82f6' : '#22c55e';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 10, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillText(p.type === 'power' ? 'P' : '+', p.x-4, p.y+4);
+            });
+
+            enemies.forEach(e => {
+                ctx.fillStyle = e.color;
+                if (e.boss) {
+                    ctx.beginPath();
+                    ctx.moveTo(e.x+e.w/2, e.y);
+                    ctx.lineTo(e.x-e.w/2, e.y-e.h/2);
+                    ctx.lineTo(e.x-e.w/3, e.y);
+                    ctx.lineTo(e.x-e.w/2, e.y+e.h/2);
+                    ctx.fill();
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.fillRect(e.x-e.w/2, e.y+e.h/2+5, e.w*(e.hp/e.maxHp), 5);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(e.x+e.w/2, e.y);
+                    ctx.lineTo(e.x-e.w/2, e.y-e.h/2);
+                    ctx.lineTo(e.x-e.w/2, e.y+e.h/2);
+                    ctx.fill();
+                }
+            });
+
+            const alpha = player.inv > 0 ? (Math.floor(player.inv/3)%2===0 ? 1 : 0.3) : 1;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.moveTo(player.x+player.w/2, player.y);
+            ctx.lineTo(player.x-player.w/2, player.y-player.h/2);
+            ctx.lineTo(player.x-player.w/3, player.y);
+            ctx.lineTo(player.x-player.w/2, player.y+player.h/2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(player.x+player.w/2-2, player.y-2, 6, 4);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>

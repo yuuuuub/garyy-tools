@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebSocket游乐场</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .left{display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.main-layout{display:grid;grid-template-columns:350px 1fr;gap:0;height:calc(100vh - 53px)}
+.sidebar{background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:auto}
+.sidebar-header{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px}
+.sidebar-section{padding:12px 16px;border-bottom:1px solid var(--border)}
+.sidebar-section label{display:block;font-size:12px;color:#8b949e;margin-bottom:6px}
+.input{width:100%;padding:8px 12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;font-family:monospace}
+.input:focus{border-color:var(--accent)}
+.btn{padding:8px 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-size:13px;transition:all .15s;width:100%}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-danger{background:var(--error);border-color:var(--error);color:#fff}
+.btn-danger:hover{opacity:.85}
+.btn-success{background:var(--success);border-color:var(--success);color:#fff}
+.status-indicator{display:flex;align-items:center;gap:8px;font-size:13px}
+.status-dot{width:10px;height:10px;border-radius:50%}
+.status-dot.connected{background:var(--success);box-shadow:0 0 6px var(--success)}
+.status-dot.disconnected{background:var(--error)}
+.status-dot.connecting{background:var(--warning);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.message-area{display:flex;flex-direction:column;height:100%}
+.message-header{padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:space-between}
+.message-list{flex:1;overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.msg{padding:8px 12px;border-radius:8px;max-width:85%;font-size:13px;line-height:1.5;word-break:break-all;font-family:monospace}
+.msg.sent{background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);align-self:flex-end}
+.msg.received{background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.3);align-self:flex-start}
+.msg.system{background:var(--card);border:1px solid var(--border);align-self:center;color:#8b949e;font-size:12px}
+.msg-time{font-size:11px;color:#8b949e;margin-top:4px}
+.msg-dir{font-size:11px;color:var(--accent2);margin-bottom:2px}
+.send-bar{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px}
+.send-bar .input{flex:1}
+.send-bar .btn{width:auto;white-space:nowrap}
+.templates{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px;border-bottom:1px solid var(--border)}
+.tpl-btn{padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer;font-size:11px}
+.tpl-btn:hover{border-color:var(--accent);color:var(--accent)}
+.log-section{border-top:1px solid var(--border);padding:8px 16px}
+.log-toggle{cursor:pointer;font-size:12px;color:#8b949e;display:flex;align-items:center;gap:4px}
+.log-content{margin-top:8px;max-height:150px;overflow:auto;font-family:monospace;font-size:11px;line-height:1.6;color:#8b949e}
+@media(max-width:900px){.main-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}.sidebar{max-height:40vh}}
+</style>
+</head>
+<body>
+<nav>
+<div class="left"><a href="../index.html">← 返回</a><h1>WebSocket游乐场</h1></div>
+<div class="status-indicator">
+<div class="status-dot disconnected" id="statusDot"></div>
+<span id="statusText">未连接</span>
+</div>
+</nav>
+<div class="main-layout">
+<div class="sidebar">
+<div class="sidebar-header">连接配置</div>
+<div class="sidebar-section">
+<label>WebSocket URL</label>
+<input class="input" id="wsUrl" value="wss://echo.websocket.org" placeholder="wss://example.com/ws">
+</div>
+<div class="sidebar-section">
+<label>子协议（可选）</label>
+<input class="input" id="wsProtocol" placeholder="chat, binary">
+</div>
+<div class="sidebar-section" style="display:flex;gap:8px">
+<button class="btn btn-primary" id="connectBtn" onclick="toggleConnection()">连接</button>
+<button class="btn" onclick="clearMessages()">清空日志</button>
+</div>
+<div class="sidebar-section">
+<label>快捷模板</label>
+<div class="templates">
+<button class="tpl-btn" onclick="loadTemplate('echo')">Echo回显</button>
+<button class="tpl-btn" onclick="loadTemplate('chat')">聊天服务器</button>
+<button class="tpl-btn" onclick="loadTemplate('binary')">二进制帧</button>
+<button class="tpl-btn" onclick="loadTemplate('ping')">Ping/Pong</button>
+</div>
+</div>
+<div class="log-section">
+<div class="log-toggle" onclick="toggleLog()">📋 事件日志 <span id="logArrow">▸</span></div>
+<div class="log-content" id="eventLog" style="display:none"></div>
+</div>
+</div>
+<div class="message-area">
+<div class="message-header">
+消息日志
+<span style="font-size:12px;color:#8b949e" id="msgCount">0 条消息</span>
+</div>
+<div class="message-list" id="messageList">
+<div class="msg system">配置连接参数后点击"连接"开始测试</div>
+</div>
+<div class="send-bar">
+<input class="input" id="messageInput" placeholder="输入要发送的消息..." onkeydown="if(event.key==='Enter')sendMessage()">
+<button class="btn btn-success" onclick="sendMessage()">发送</button>
+<button class="btn" onclick="sendJSON()">发送JSON</button>
+</div>
+</div>
+</div>
+<script>
+let ws=null;
+let msgTotal=0;
+let eventLogEl=document.getElementById('eventLog');
+
+function addMsg(dir,text,isJSON=false){
+const list=document.getElementById('messageList');
+const msg=document.createElement('div');
+msg.className=`msg ${dir}`;
+const time=new Date().toLocaleTimeString();
+let content=isJSON?highlightJSON(text):escapeHtml(text);
+msg.innerHTML=`<div class="msg-dir">${dir==='sent'?'↑ 发送':dir==='received'?'↓ 接收':'ℹ 系统'}</div>${content}<div class="msg-time">${time}</div>`;
+list.appendChild(msg);
+list.scrollTop=list.scrollHeight;
+msgTotal++;
+document.getElementById('msgCount').textContent=msgTotal+' 条消息';
+}
+
+function addLog(text){
+const time=new Date().toLocaleTimeString();
+eventLogEl.innerHTML+=`[${time}] ${text}\n`;
+eventLogEl.scrollTop=eventLogEl.scrollHeight;
+}
+
+function escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function highlightJSON(t){
+return escapeHtml(t).replace(/"([^"]+)"\s*:/g,'<span style="color:var(--accent2)">"$1"</span>:');
+}
+
+function toggleConnection(){
+if(ws&&ws.readyState===WebSocket.OPEN){
+ws.close();
+return;
+}
+const url=document.getElementById('wsUrl').value;
+const protocol=document.getElementById('wsProtocol').value;
+if(!url){alert('请输入WebSocket URL');return;}
+try{
+document.getElementById('statusDot').className='status-dot connecting';
+document.getElementById('statusText').textContent='连接中...';
+addLog(`尝试连接: ${url}`);
+ws=protocol?new WebSocket(url,[protocol]):new WebSocket(url);
+ws.onopen=()=>{
+document.getElementById('statusDot').className='status-dot connected';
+document.getElementById('statusText').textContent='已连接';
+document.getElementById('connectBtn').textContent='断开';
+document.getElementById('connectBtn').className='btn btn-danger';
+addMsg('system',`已连接到 ${url}`);
+addLog('连接成功');
+};
+ws.onmessage=(e)=>{
+const data=typeof e.data==='string'?e.data:`[二进制数据 ${e.data.byteLength} bytes]`;
+addMsg('received',data);
+addLog(`收到消息: ${data.substring(0,100)}${data.length>100?'...':''}`);
+};
+ws.onclose=(e)=>{
+document.getElementById('statusDot').className='status-dot disconnected';
+document.getElementById('statusText').textContent='已断开';
+document.getElementById('connectBtn').textContent='连接';
+document.getElementById('connectBtn').className='btn btn-primary';
+addMsg('system',`连接关闭 (代码: ${e.code}, 原因: ${e.reason||'无'})`);
+addLog(`连接关闭: code=${e.code}`);
+ws=null;
+};
+ws.onerror=(e)=>{
+addLog('连接错误');
+addMsg('system','连接发生错误');
+};
+}catch(e){
+addLog(`连接失败: ${e.message}`);
+addMsg('system',`连接失败: ${e.message}`);
+document.getElementById('statusDot').className='status-dot disconnected';
+document.getElementById('statusText').textContent='连接失败';
+}
+}
+
+function sendMessage(){
+const input=document.getElementById('messageInput');
+const text=input.value.trim();
+if(!text||!ws||ws.readyState!==WebSocket.OPEN)return;
+ws.send(text);
+addMsg('sent',text);
+addLog(`发送: ${text.substring(0,100)}`);
+input.value='';
+input.focus();
+}
+
+function sendJSON(){
+const input=document.getElementById('messageInput');
+const text=input.value.trim();
+if(!ws||ws.readyState!==WebSocket.OPEN)return;
+try{
+JSON.parse(text);
+ws.send(text);
+addMsg('sent',text,true);
+addLog(`发送JSON: ${text.substring(0,100)}`);
+input.value='';
+}catch(e){
+alert('无效的JSON: '+e.message);
+}
+}
+
+function clearMessages(){
+document.getElementById('messageList').innerHTML='';
+msgTotal=0;
+document.getElementById('msgCount').textContent='0 条消息';
+}
+
+function toggleLog(){
+const el=document.getElementById('eventLog');
+const arrow=document.getElementById('logArrow');
+if(el.style.display==='none'){el.style.display='block';arrow.textContent='▾';}
+else{el.style.display='none';arrow.textContent='▸';}
+}
+
+const templates={
+echo:{url:'wss://echo.websocket.org',protocol:'',msg:'Hello WebSocket!'},
+chat:{url:'wss://chat.websocket.org',protocol:'chat',msg:JSON.stringify({type:'message',content:'你好',room:'general'})},
+binary:{url:'wss://echo.websocket.org',protocol:'',msg:'Binary test'},
+ping:{url:'wss://echo.websocket.org',protocol:'',msg:'ping'}
+};
+
+function loadTemplate(name){
+const t=templates[name];
+document.getElementById('wsUrl').value=t.url;
+document.getElementById('wsProtocol').value=t.protocol;
+document.getElementById('messageInput').value=t.msg;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MongoDB游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card h2{font-size:16px;margin-bottom:16px;color:var(--accent2)}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+input,textarea{width:100%;padding:10px;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit}
+textarea{min-height:120px;resize:vertical;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#2ea043}
+.btn-danger{background:var(--error);color:#fff}
+.actions{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;background:#0d1117;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.result{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;max-height:400px;overflow-y:auto;white-space:pre-wrap;line-height:1.5}
+.result-success{border-color:var(--success)}
+.result-error{border-color:var(--error)}
+.ref-section{margin-top:16px}
+.ref-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.ref-item{padding:10px 12px;background:#0d1117;border-radius:4px;margin-bottom:6px;font-size:13px;cursor:pointer;transition:background .2s}
+.ref-item:hover{background:#1c2128}
+.ref-item code{color:var(--warning);display:block;margin-bottom:4px;font-family:'SF Mono',Monaco,Consolas,monospace}
+.template-card{padding:12px;background:#0d1117;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.template-card:hover{border-color:var(--accent)}
+.template-card h4{font-size:13px;color:var(--accent2);margin-bottom:4px}
+.template-card p{font-size:12px;color:#8b949e}
+.coll-badge{display:inline-block;padding:2px 8px;background:#3fb95033;color:var(--success);border-radius:4px;font-size:11px;margin:4px}
+.full-width{grid-column:1/-1}
+</style>
+</head>
+<body>
+<nav>
+<a href="../index.html">← 返回工具列表</a>
+<h1>MongoDB游乐场</h1>
+</nav>
+<div class="container">
+<div class="grid">
+<div class="card">
+<h2>查询编辑器</h2>
+<label>集合名称</label>
+<input type="text" id="collection" value="users" placeholder="输入集合名称">
+<label style="margin-top:12px">操作类型</label>
+<div class="tabs" style="margin-top:8px">
+<div class="tab active" onclick="switchOp('find',this)">find</div>
+<div class="tab" onclick="switchOp('insert',this)">insert</div>
+<div class="tab" onclick="switchOp('update',this)">update</div>
+<div class="tab" onclick="switchOp('delete',this)">delete</div>
+<div class="tab" onclick="switchOp('aggregate',this)">aggregate</div>
+</div>
+<label>查询条件 (JSON)</label>
+<textarea id="queryInput">{"age": {"$gte": 18}, "status": "active"}</textarea>
+<label style="margin-top:12px">投影/更新文档 (可选)</label>
+<textarea id="updateDoc" style="min-height:60px" placeholder='更新操作: {"$set": {"name": "新名字"}}'></textarea>
+<div class="actions">
+<button class="btn btn-primary" onclick="executeQuery()">执行查询</button>
+<button class="btn btn-success" onclick="showResult(JSON.stringify(generateSampleData(), null, 2), true)">生成示例数据</button>
+</div>
+</div>
+<div class="card">
+<h2>查询结果</h2>
+<div class="result" id="resultArea" style="min-height:300px">等待查询...</div>
+</div>
+<div class="card full-width">
+<h2>CRUD 模板</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+<div class="template-card" onclick="useTemplate('find')">
+<h4>📄 查询文档</h4>
+<p>db.collection.find(query, projection)</p>
+</div>
+<div class="template-card" onclick="useTemplate('findOne')">
+<h4>📄 查询单个</h4>
+<p>db.collection.findOne(query)</p>
+</div>
+<div class="template-card" onclick="useTemplate('insert')">
+<h4>➕ 插入文档</h4>
+<p>db.collection.insertOne(document)</p>
+</div>
+<div class="template-card" onclick="useTemplate('update')">
+<h4>✏️ 更新文档</h4>
+<p>db.collection.updateOne(filter, update)</p>
+</div>
+<div class="template-card" onclick="useTemplate('delete')">
+<h4>🗑️ 删除文档</h4>
+<p>db.collection.deleteOne(filter)</p>
+</div>
+<div class="template-card" onclick="useTemplate('aggregate')">
+<h4>📊 聚合管道</h4>
+<p>db.collection.aggregate([...stages])</p>
+</div>
+</div>
+</div>
+<div class="card">
+<h2>聚合管道模板</h2>
+<div class="ref-section">
+<div class="ref-item" onclick="useAggTemplate('group')">
+<code>$group: { _id: "$status", count: { $sum: 1 } }</code>
+按字段分组统计
+</div>
+<div class="ref-item" onclick="useAggTemplate('match')">
+<code>$match: { age: { $gte: 18 } }</code>
+过滤文档
+</div>
+<div class="ref-item" onclick="useAggTemplate('sort')">
+<code>$sort: { created_at: -1 }</code>
+排序
+</div>
+<div class="ref-item" onclick="useAggTemplate('project')">
+<code>$project: { name: 1, email: 1, _id: 0 }</code>
+字段投影
+</div>
+<div class="ref-item" onclick="useAggTemplate('unwind')">
+<code>$unwind: "$tags"</code>
+展开数组字段
+</div>
+<div class="ref-item" onclick="useAggTemplate('lookup')">
+<code>$lookup: { from: "orders", localField: "_id", foreignField: "userId", as: "orders" }</code>
+关联查询
+</div>
+</div>
+</div>
+<div class="card">
+<h2>语法参考</h2>
+<div class="ref-section">
+<h3>查询操作符</h3>
+<div class="ref-item"><code>$eq $ne $gt $gte $lt $lte</code>比较操作符</div>
+<div class="ref-item"><code>$in $nin</code>包含/不包含</div>
+<div class="ref-item"><code>$and $or $not</code>逻辑操作符</div>
+<div class="ref-item"><code>$regex</code>正则匹配</div>
+<h3 style="margin-top:16px">更新操作符</h3>
+<div class="ref-item"><code>$set $unset</code>设置/删除字段</div>
+<div class="ref-item"><code>$inc $mul</code>递增/递减</div>
+<div class="ref-item"><code>$push $pull $addToSet</code>数组操作</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+let currentOp = 'find';
+let sampleData = [];
+
+function switchOp(op, el) {
+    currentOp = op;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function useTemplate(type) {
+    const templates = {
+        find: '{"field": "value"}',
+        findOne: '{"_id": ObjectId("...")}',
+        insert: '{"name": "张三", "age": 25, "email": "zhangsan@example.com"}',
+        update: '{"$set": {"name": "新名字"}}',
+        delete: '{"status": "inactive"}',
+        aggregate: '[\n  {"$match": {"age": {"$gte": 18}}},\n  {"$group": {"_id": "$status", "count": {"$sum": 1}}}\n]'
+    };
+    document.getElementById('queryInput').value = templates[type] || '{}';
+}
+
+function useAggTemplate(type) {
+    const templates = {
+        group: '[\n  {"$group": {"_id": "$status", "count": {"$sum": 1}, "avgAge": {"$avg": "$age"}}}\n]',
+        match: '[\n  {"$match": {"age": {"$gte": 18}, "status": "active"}}\n]',
+        sort: '[\n  {"$sort": {"created_at": -1, "name": 1}}\n]',
+        project: '[\n  {"$project": {"name": 1, "email": 1, "age": 1, "_id": 0}}\n]',
+        unwind: '[\n  {"$unwind": "$tags"},\n  {"$group": {"_id": "$tags", "count": {"$sum": 1}}}\n]',
+        lookup: '[\n  {"$lookup": {\n    "from": "orders",\n    "localField": "_id",\n    "foreignField": "userId",\n    "as": "orders"\n  }}\n]'
+    };
+    document.getElementById('queryInput').value = templates[type] || '[]';
+}
+
+function generateSampleData() {
+    sampleData = [
+        {_id: 1, name: '张三', age: 28, email: 'zhangsan@example.com', status: 'active', tags: ['admin', 'user'], created_at: '2024-01-15'},
+        {_id: 2, name: '李四', age: 35, email: 'lisi@example.com', status: 'active', tags: ['user'], created_at: '2024-02-20'},
+        {_id: 3, name: '王五', age: 22, email: 'wangwu@example.com', status: 'inactive', tags: ['user'], created_at: '2024-03-10'},
+        {_id: 4, name: '赵六', age: 42, email: 'zhaoliu@example.com', status: 'active', tags: ['admin'], created_at: '2024-04-05'},
+        {_id: 5, name: '孙七', age: 19, email: 'sunqi@example.com', status: 'pending', tags: ['user', 'vip'], created_at: '2024-05-18'}
+    ];
+    return sampleData;
+}
+
+function executeQuery() {
+    if (sampleData.length === 0) generateSampleData();
+    
+    const collection = document.getElementById('collection').value;
+    let query, result;
+    
+    try {
+        query = JSON.parse(document.getElementById('queryInput').value);
+    } catch(e) {
+        showResult(`解析错误: ${e.message}`, false);
+        return;
+    }
+    
+    try {
+        switch(currentOp) {
+            case 'find':
+                result = sampleData.filter(doc => matchDoc(doc, query));
+                showResult(`db.${collection}.find(${JSON.stringify(query)})\n\n返回 ${result.length} 条文档:\n\n${JSON.stringify(result, null, 2)}`, true);
+                break;
+            case 'insert':
+                const newDoc = {_id: sampleData.length + 1, ...query, created_at: new Date().toISOString().split('T')[0]};
+                sampleData.push(newDoc);
+                showResult(`db.${collection}.insertOne(${JSON.stringify(query)})\n\n插入成功:\n${JSON.stringify(newDoc, null, 2)}`, true);
+                break;
+            case 'update':
+                const updateDoc = JSON.parse(document.getElementById('updateDoc').value || '{}');
+                const toUpdate = sampleData.find(doc => matchDoc(doc, query));
+                if (toUpdate) {
+                    if (updateDoc.$set) Object.assign(toUpdate, updateDoc.$set);
+                    showResult(`db.${collection}.updateOne(${JSON.stringify(query)}, ${JSON.stringify(updateDoc)})\n\n更新后:\n${JSON.stringify(toUpdate, null, 2)}`, true);
+                } else {
+                    showResult('未找到匹配文档', false);
+                }
+                break;
+            case 'delete':
+                const before = sampleData.length;
+                sampleData = sampleData.filter(doc => !matchDoc(doc, query));
+                showResult(`db.${collection}.deleteMany(${JSON.stringify(query)})\n\n删除了 ${before - sampleData.length} 条文档`, true);
+                break;
+            case 'aggregate':
+                result = simulateAggregate(sampleData, query);
+                showResult(`db.${collection}.aggregate(${JSON.stringify(query, null, 2)})\n\n聚合结果:\n${JSON.stringify(result, null, 2)}`, true);
+                break;
+        }
+    } catch(e) {
+        showResult(`执行错误: ${e.message}`, false);
+    }
+}
+
+function matchDoc(doc, query) {
+    for (const [key, value] of Object.entries(query)) {
+        if (key === '$and') {
+            if (!value.every(q => matchDoc(doc, q))) return false;
+        } else if (key === '$or') {
+            if (!value.some(q => matchDoc(doc, q))) return false;
+        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            for (const [op, val] of Object.entries(value)) {
+                if (op === '$gte' && doc[key] < val) return false;
+                if (op === '$lte' && doc[key] > val) return false;
+                if (op === '$gt' && doc[key] <= val) return false;
+                if (op === '$lt' && doc[key] >= val) return false;
+                if (op === '$ne' && doc[key] === val) return false;
+                if (op === '$in' && !val.includes(doc[key])) return false;
+            }
+        } else {
+            if (doc[key] !== value) return false;
+        }
+    }
+    return true;
+}
+
+function simulateAggregate(data, pipeline) {
+    let result = [...data];
+    for (const stage of pipeline) {
+        if (stage.$match) result = result.filter(doc => matchDoc(doc, stage.$match));
+        if (stage.$group) {
+            const groups = {};
+            result.forEach(doc => {
+                const id = doc[stage.$group._id?.replace('$', '')] || 'null';
+                if (!groups[id]) groups[id] = [];
+                groups[id].push(doc);
+            });
+            result = Object.entries(groups).map(([key, docs]) => {
+                const agg = {_id: key};
+                for (const [field, op] of Object.entries(stage.$group)) {
+                    if (field === '_id') continue;
+                    const fieldValues = docs.map(d => d[field.replace('$', '')]);
+                    if (op.$sum) agg[field] = fieldValues.length;
+                    if (op.$avg) agg[field] = fieldValues.reduce((a,b) => a+b, 0) / fieldValues.length;
+                    if (op.$max) agg[field] = Math.max(...fieldValues);
+                    if (op.$min) agg[field] = Math.min(...fieldValues);
+                }
+                return agg;
+            });
+        }
+        if (stage.$sort) {
+            const field = Object.keys(stage.$sort)[0];
+            const dir = stage.$sort[field];
+            result.sort((a,b) => dir * (a[field] > b[field] ? 1 : -1));
+        }
+        if (stage.$project) {
+            result = result.map(doc => {
+                const projected = {};
+                for (const [field, include] of Object.entries(stage.$project)) {
+                    if (include === 1) projected[field] = doc[field];
+                }
+                return projected;
+            });
+        }
+    }
+    return result;
+}
+
+function showResult(text, success) {
+    const area = document.getElementById('resultArea');
+    area.textContent = text;
+    area.className = 'result ' + (success ? 'result-success' : 'result-error');
+}
+</script>
+</body>
+</html>

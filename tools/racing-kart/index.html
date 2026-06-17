@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡丁车</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #3b82f6;
+        }
+        .controls {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+        .info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        canvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: #1a1e24;
+            max-width: 100%;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .message {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #8b949e;
+        }
+        .item-bar {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .item-slot {
+            width: 50px;
+            height: 50px;
+            background: #2d333b;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .item-slot.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <h1>🏎️ 卡丁车</h1>
+    <div class="controls">
+        <div class="info">
+            <span>圈数: <span id="laps">0</span>/3</span>
+            <span>时间: <span id="time">0.0</span>秒</span>
+            <span>道具: <span id="itemCount">0</span></span>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="item-bar">
+            <div class="item-slot" id="item1">-</div>
+            <div class="item-slot" id="item2">-</div>
+            <div class="item-slot" id="item3">-</div>
+        </div>
+        <div style="margin-top: 10px;">
+            <button class="btn" onclick="startGame()">开始比赛</button>
+            <button class="btn" onclick="resetGame()">重新开始</button>
+        </div>
+        <div class="message">方向键/WASD控制，空格键使用道具，收集道具箱获得随机道具！</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const lapsEl = document.getElementById('laps');
+        const timeEl = document.getElementById('time');
+        const itemCountEl = document.getElementById('itemCount');
+        const item1 = document.getElementById('item1');
+        const item2 = document.getElementById('item2');
+        const item3 = document.getElementById('item3');
+        
+        let gameRunning = false;
+        let gameTime = 0;
+        let lastTime = 0;
+        let laps = 0;
+        let itemCount = 0;
+        let car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 25 };
+        let keys = {};
+        let items = [];
+        let powerUps = [];
+        let activePowerUp = null;
+        let powerUpTimer = 0;
+        let checkpoints = [0, 0, 0, 0];
+        let lastCheckpoint = -1;
+        
+        // 道具类型
+        const itemTypes = [
+            { name: '加速', icon: '🚀', effect: 'speed', duration: 3 },
+            { name: '炸弹', icon: '💣', effect: 'bomb', duration: 0 },
+            { name: '护盾', icon: '🛡️', effect: 'shield', duration: 5 },
+            { name: '导弹', icon: '🎯', effect: 'missile', duration: 0 },
+            { name: '香蕉皮', icon: '🍌', effect: 'banana', duration: 0 }
+        ];
+        
+        // 赛道定义
+        const track = [
+            { x: 400, y: 500, type: 'start' },
+            { x: 400, y: 400, type: 'straight' },
+            { x: 400, y: 300, type: 'straight' },
+            { x: 300, y: 200, type: 'curve' },
+            { x: 200, y: 150, type: 'straight' },
+            { x: 200, y: 100, type: 'straight' },
+            { x: 300, y: 50, type: 'curve' },
+            { x: 500, y: 50, type: 'straight' },
+            { x: 600, y: 100, type: 'curve' },
+            { x: 600, y: 200, type: 'straight' },
+            { x: 600, y: 300, type: 'straight' },
+            { x: 500, y: 400, type: 'curve' },
+            { x: 400, y: 500, type: 'finish' }
+        ];
+        
+        // 生成道具箱
+        function spawnItemBox() {
+            if (Math.random() < 0.02 && items.length < 8) {
+                items.push({
+                    x: Math.random() * 700 + 50,
+                    y: Math.random() * 500 + 50,
+                    width: 20,
+                    height: 20,
+                    type: itemTypes[Math.floor(Math.random() * itemTypes.length)]
+                });
+            }
+        }
+        
+        function drawTrack() {
+            ctx.strokeStyle = '#30363d';
+            ctx.lineWidth = 80;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(track[0].x, track[0].y);
+            for (let i = 1; i < track.length; i++) {
+                ctx.lineTo(track[i].x, track[i].y);
+            }
+            ctx.stroke();
+            
+            // 赛道边线
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(track[0].x, track[0].y);
+            for (let i = 1; i < track.length; i++) {
+                ctx.lineTo(track[i].x, track[i].y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawCar() {
+            ctx.save();
+            ctx.translate(car.x, car.y);
+            ctx.rotate(car.angle);
+            
+            // 卡丁车
+            ctx.fillStyle = #3b82f6;
+            ctx.fillRect(-car.width/2, -car.height/2, car.width, car.height);
+            
+            // 车窗
+            ctx.fillStyle = '#1a1e24';
+            ctx.fillRect(-car.width/2 + 3, -car.height/2 + 3, car.width - 6, car.height/3);
+            
+            // 护盾效果
+            if (activePowerUp && activePowerUp.effect === 'shield') {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, 25, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawItems() {
+            items.forEach(item => {
+                ctx.fillStyle = '#ffd93d';
+                ctx.fillRect(item.x - item.width/2, item.y - item.height/2, item.width, item.height);
+                
+                ctx.fillStyle = '#0d1117';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('?', item.x, item.y + 4);
+            });
+        }
+        
+        function drawPowerUps() {
+            powerUps.forEach(pu => {
+                ctx.fillStyle = pu.type.effect === 'bomb' ? '#ff6b6b' : 
+                               pu.type.effect === 'missile' ? '#ff922b' : 
+                               pu.type.effect === 'banana' ? '#ffd93d' : '#6bcb77';
+                ctx.beginPath();
+                ctx.arc(pu.x, pu.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#0d1117';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(pu.type.icon, pu.x, pu.y + 3);
+            });
+        }
+        
+        function updateCar(deltaTime) {
+            // 加速/减速
+            if (keys['ArrowUp'] || keys['w']) {
+                let maxSpeed = 8;
+                if (activePowerUp && activePowerUp.effect === 'speed') {
+                    maxSpeed = 12;
+                }
+                car.speed = Math.min(car.speed + 0.1, maxSpeed);
+            } else if (keys['ArrowDown'] || keys['s']) {
+                car.speed = Math.max(car.speed - 0.2, -3);
+            } else {
+                car.speed *= 0.98;
+            }
+            
+            // 转向
+            if (keys['ArrowLeft'] || keys['a']) {
+                car.angle -= 0.05 * car.speed;
+            }
+            if (keys['ArrowRight'] || keys['d']) {
+                car.angle += 0.05 * car.speed;
+            }
+            
+            // 更新位置
+            car.x += Math.sin(car.angle) * car.speed;
+            car.y -= Math.cos(car.angle) * car.speed;
+            
+            // 边界检查
+            car.x = Math.max(20, Math.min(canvas.width - 20, car.x));
+            car.y = Math.max(20, Math.min(canvas.height - 20, car.y));
+            
+            // 道具收集
+            items = items.filter(item => {
+                const dx = car.x - item.x;
+                const dy = car.y - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 25) {
+                    // 添加到道具栏
+                    if (itemCount < 3) {
+                        itemCount++;
+                        itemCountEl.textContent = itemCount;
+                        
+                        // 更新道具栏显示
+                        if (itemCount === 1) item1.textContent = item.type.icon;
+                        else if (itemCount === 2) item2.textContent = item.type.icon;
+                        else if (itemCount === 3) item3.textContent = item.type.icon;
+                    }
+                    return false;
+                }
+                return true;
+            });
+            
+            // 道具使用
+            if (keys[' '] && itemCount > 0) {
+                useItem();
+                keys[' '] = false;
+            }
+            
+            // 更新激活的道具
+            if (activePowerUp) {
+                powerUpTimer -= deltaTime;
+                if (powerUpTimer <= 0) {
+                    activePowerUp = null;
+                }
+            }
+            
+            // 更新道具效果
+            powerUps = powerUps.filter(pu => {
+                pu.x += Math.sin(pu.angle) * pu.speed;
+                pu.y -= Math.cos(pu.angle) * pu.speed;
+                
+                // 碰撞检测
+                const dx = car.x - pu.x;
+                const dy = car.y - pu.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 25 && pu.owner !== car) {
+                    if (!activePowerUp || activePowerUp.effect !== 'shield') {
+                        car.speed *= 0.3;
+                    }
+                    return false;
+                }
+                
+                return pu.x > 0 && pu.x < canvas.width && pu.y > 0 && pu.y < canvas.height;
+            });
+            
+            spawnItemBox();
+        }
+        
+        function useItem() {
+            if (itemCount <= 0) return;
+            
+            const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+            
+            if (itemType.effect === 'speed' || itemType.effect === 'shield') {
+                activePowerUp = itemType;
+                powerUpTimer = itemType.duration;
+            } else {
+                // 发射道具
+                powerUps.push({
+                    x: car.x,
+                    y: car.y,
+                    angle: car.angle,
+                    speed: 10,
+                    type: itemType,
+                    owner: car
+                });
+            }
+            
+            itemCount--;
+            itemCountEl.textContent = itemCount;
+            
+            // 更新道具栏显示
+            if (itemCount === 0) {
+                item1.textContent = '-';
+                item2.textContent = '-';
+                item3.textContent = '-';
+            } else if (itemCount === 1) {
+                item2.textContent = '-';
+                item3.textContent = '-';
+            } else if (itemCount === 2) {
+                item3.textContent = '-';
+            }
+        }
+        
+        function updateGame(timestamp) {
+            if (!gameRunning) return;
+            
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            
+            gameTime += deltaTime;
+            timeEl.textContent = gameTime.toFixed(1);
+            
+            updateCar(deltaTime);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTrack();
+            drawItems();
+            drawPowerUps();
+            drawCar();
+            
+            requestAnimationFrame(updateGame);
+        }
+        
+        function startGame() {
+            if (gameRunning) return;
+            
+            car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 25 };
+            gameTime = 0;
+            laps = 0;
+            itemCount = 0;
+            items = [];
+            powerUps = [];
+            activePowerUp = null;
+            
+            lapsEl.textContent = '0';
+            timeEl.textContent = '0.0';
+            itemCountEl.textContent = '0';
+            item1.textContent = '-';
+            item2.textContent = '-';
+            item3.textContent = '-';
+            
+            gameRunning = true;
+            lastTime = performance.now();
+            requestAnimationFrame(updateGame);
+        }
+        
+        function resetGame() {
+            gameRunning = false;
+            car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 25 };
+            gameTime = 0;
+            laps = 0;
+            itemCount = 0;
+            items = [];
+            powerUps = [];
+            activePowerUp = null;
+            
+            lapsEl.textContent = '0';
+            timeEl.textContent = '0.0';
+            itemCountEl.textContent = '0';
+            item1.textContent = '-';
+            item2.textContent = '-';
+            item3.textContent = '-';
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTrack();
+            drawCar();
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // 初始绘制
+        drawTrack();
+        drawCar();
+    </script>
+</body>
+</html>

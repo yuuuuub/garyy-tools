@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>城堡查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--purple:#a855f7;--amber:#f59e0b;--green:#22c55e;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.card-style{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600;background:rgba(168,85,247,.2);color:var(--purple);border:1px solid rgba(168,85,247,.4)}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;border-radius:6px;font-size:.75rem}
+.tag-era{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:var(--amber)}
+.tag-fee{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.tag-condition{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--accent)}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.ghost-tag{background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);padding:6px 10px;border-radius:6px;font-size:.8rem;color:var(--purple);margin-top:8px}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){.results{grid-template-columns:1fr}.search-row{flex-direction:column}.filter-row{flex-direction:column;align-items:stretch}.filter-group select{min-width:auto;width:100%}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🏰 城堡查找</h1>
+<p class="subtitle">探索世界著名城堡的历史传奇</p>
+<div class="controls">
+<div class="search-row"><input type="text" class="search-input" id="searchInput" placeholder="搜索城堡名称或国家..."></div>
+<div class="filter-row">
+<div class="filter-group"><label>年代</label><select id="eraFilter"><option value="">全部年代</option><option value="中世纪">中世纪</option><option value="文艺复兴">文艺复兴</option><option value="近代">近代</option><option value="古代">古代</option></select></div>
+<div class="filter-group"><label>鬼故事</label><select id="ghostFilter"><option value="">全部</option><option value="有">有鬼故事</option><option value="无">无</option></select></div>
+<div class="filter-group"><label>排序</label>
+<div class="sort-btns"><button class="sort-btn active" data-sort="rating">评分 ↓</button><button class="sort-btn" data-sort="year">建造年代</button><button class="sort-btn" data-sort="name">名称</button></div>
+</div></div></div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const castles=[
+{id:1,name:"新天鹅堡",country:"德国巴伐利亚",era:"近代",year:1886,style:"哥特复兴",condition:"完好",tours:"导览",ghost:"无",fee:"15欧元",rating:4.9,desc:"迪士尼城堡原型，巴伐利亚国王路德维希二世的梦幻之作，童话般的新哥特式建筑。",features:["仙境瀑布","歌剧院","国王套房","阿尔卑斯山景"]},
+{id:2,name:"温莎城堡",country:"英国温莎",era:"中世纪",year:1070,style:"诺曼/哥特",condition:"完好",tours:"导览",ghost:"有",fee:"30英镑",rating:4.8,desc:"世界最古老且仍有人居住的城堡，英国王室的官邸之一。",features:["国事厅","圣乔治教堂","玛丽王后玩偶屋","卫兵换岗"]},
+{id:3,name:"紫禁城",country:"中国北京",era:"古代",year:1420,style:"中国宫殿",condition:"完好",tours:"导览",ghost:"有",fee:"60元",rating:4.9,desc:"世界最大宫殿建筑群，明清两代24位皇帝的皇家宫殿。",features:["太和殿","御花园","珍宝馆","角楼"]},
+{id:4,name:"布达拉宫",country:"中国西藏",era:"古代",year:637,style:"藏式宫殿",condition:"完好",tours:"导览",ghost:"无",fee:"200元",rating:4.9,desc:"世界海拔最高的宫殿，藏传佛教圣地，红白宫殿群壮丽宏伟。",features:["红宫","白宫","灵塔殿","金顶"]},
+{id:5,name:"布洛瓦城堡",country:"法国布洛瓦",era:"中世纪",year:1030,style:"哥特/文艺复兴",condition:"完好",tours:"导览",ghost:"有",fee:"14欧元",rating:4.6,desc:"卢瓦尔河谷最著名的城堡之一，法式花园与历史交相辉映。",features:["螺旋楼梯","哥特大厅","法式花园","火枪手之战"]},
+{id:6,name:"姬路城",country:"日本�的路",era:"中世纪",year:1333,style:"日本天守阁",condition:"完好",tours:"导览",ghost:"有",fee:"1000日元",rating:4.8,desc:"日本第一名城，白色城墙如展翅白鹭，日本现存最完整的古城堡。",features:["天守阁","好古园","千姬天守","三重护城河"]},
+{id=7,name:"布拉格城堡",country:"捷克布拉格",era:"中世纪",year:870,style:"哥特/巴洛克",condition:"完好",tours:"导览",ghost:"有",fee:"250克朗",rating:4.7,desc:"世界上最大的古城堡群，波西米亚国王的权力中心。",features:["圣维特大教堂","黄金巷","旧皇宫","城堡广场"]},
+{id:8,name:"爱丁堡城堡",country:"英国爱丁堡",era:"中世纪",year:1103,style:"中世纪防御",condition:"完好",tours:"导览",ghost:"有",fee:"19.5英镑",rating:4.7,desc:"苏格兰民族象征，矗立于死火山岩上，俯瞰爱丁堡全景。",features:["王冠珠宝","大炮仪式","战争博物馆","皇家苏格兰军团"]},
+{id:9,name:"海天堡",country:"中国山西",era:"古代",year:1500,style:"中国山寨",condition:"废墟",tours:"无导览",ghost:"无",fee:"免费",rating:4.2,desc:"太行山上的明代山寨，保存着原始的军事防御建筑。",features:["石砌城墙","烽火台","山寨民居","太行风光"]},
+{id:10,name:"克伦堡",country:"丹麦赫尔辛格",era:"文艺复兴",year:1420,style:"文艺复兴",condition:"完好",tours:"导览",ghost:"有",fee:"95克朗",rating:4.5,desc:"哈姆雷特故事的灵感来源地，扼守厄勒海峡的雄伟要塞。",features:["莎士比亚厅","地下堡垒","海峡全景","王室礼拜堂"]}
+];
+let currentSort="rating";
+let filtered=[...castles];
+function render(){
+const s=document.getElementById("searchInput").value.toLowerCase();
+const era=document.getElementById("eraFilter").value;
+const ghost=document.getElementById("ghostFilter").value;
+filtered=castles.filter(c=>{
+if(s&&!c.name.includes(s)&&!c.country.includes(s))return false;
+if(era&&c.era!==era)return false;
+if(ghost&&c.ghost!==ghost)return false;
+return true;
+});
+if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+else if(currentSort==="year")filtered.sort((a,b)=>a.year-b.year);
+else if(currentSort==="name")filtered.sort((a,b)=>a.name.localeCompare(b.name,"zh"));
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 座城堡`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results">没有找到匹配的城堡</div>';return;}
+c.innerHTML=filtered.map(c=>`<div class="card">
+<div class="card-header"><span class="card-name">🏰 ${c.name}</span><span class="card-style">${c.style}</span></div>
+<div class="card-location">📍 ${c.country} · ⭐ ${c.rating}</div>
+<div class="card-desc">${c.desc}</div>
+<div class="card-meta">
+<span class="meta-tag tag-era">📅 ${c.year}年建造 · ${c.era}</span>
+<span class="meta-tag tag-fee">🎫 ${c.fee}</span>
+<span class="meta-tag tag-condition">🏛️ ${c.condition} · ${c.tours}</span>
+</div>
+<ul class="card-features">${c.features.map(f=>`<li>${f}</li>`).join("")}</ul>
+${c.ghost==="有"?`<div class="ghost-tag">👻 有鬼故事传说 - 传说中有多位灵异目击报告</div>`:""}
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("eraFilter").addEventListener("change",render);
+document.getElementById("ghostFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

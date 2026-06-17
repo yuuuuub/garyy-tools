@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI五子棋</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+        .info span { padding: 8px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+        .info .black::before { content: '⚫'; margin-right: 8px; }
+        .info .white::before { content: '⚪'; margin-right: 8px; }
+        #board {
+            background: #dcb35c;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        canvas {
+            display: block;
+            cursor: pointer;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .status {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .win-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .win-overlay.show { display: flex; }
+        .win-dialog {
+            background: var(--card);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+        .win-dialog h2 { font-size: 2rem; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>♟️ AI五子棋</h1>
+    
+    <div class="info">
+        <span class="black">玩家：黑棋</span>
+        <span class="white">AI：白棋</span>
+    </div>
+    
+    <div id="board">
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button onclick="undoMove()">悔棋</button>
+        <button onclick="restartGame()">重新开始</button>
+    </div>
+    
+    <div class="status" id="status">轮到你下棋（黑棋）</div>
+    
+    <div class="win-overlay" id="win-overlay">
+        <div class="win-dialog">
+            <h2 id="win-text"></h2>
+            <button onclick="restartGame()">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 15;
+        const CELL_SIZE = 36;
+        const PADDING = 20;
+        const STONE_RADIUS = 15;
+        
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        const winOverlay = document.getElementById('win-overlay');
+        const winText = document.getElementById('win-text');
+        
+        let board = [];
+        let currentPlayer = 1;
+        let gameOver = false;
+        let moveHistory = [];
+        let isThinking = false;
+        
+        const CANVAS_SIZE = (BOARD_SIZE - 1) * CELL_SIZE + PADDING * 2;
+        canvas.width = CANVAS_SIZE;
+        canvas.height = CANVAS_SIZE;
+        
+        function init() {
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+            currentPlayer = 1;
+            gameOver = false;
+            moveHistory = [];
+            isThinking = false;
+            drawBoard();
+            status.textContent = '轮到你下棋（黑棋）';
+            winOverlay.classList.remove('show');
+        }
+        
+        function drawBoard() {
+            ctx.fillStyle = '#dcb35c';
+            ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(PADDING + i * CELL_SIZE, PADDING);
+                ctx.lineTo(PADDING + i * CELL_SIZE, CANVAS_SIZE - PADDING);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(PADDING, PADDING + i * CELL_SIZE);
+                ctx.lineTo(CANVAS_SIZE - PADDING, PADDING + i * CELL_SIZE);
+                ctx.stroke();
+            }
+            
+            const starPoints = [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];
+            starPoints.forEach(([x, y]) => {
+                ctx.beginPath();
+                ctx.arc(PADDING + x * CELL_SIZE, PADDING + y * CELL_SIZE, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+            });
+            
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (board[i][j] !== 0) {
+                        drawStone(i, j, board[i][j]);
+                    }
+                }
+            }
+        }
+        
+        function drawStone(row, col, player) {
+            const x = PADDING + col * CELL_SIZE;
+            const y = PADDING + row * CELL_SIZE;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, STONE_RADIUS, 0, Math.PI * 2);
+            
+            const gradient = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, STONE_RADIUS);
+            if (player === 1) {
+                gradient.addColorStop(0, '#666');
+                gradient.addColorStop(1, '#000');
+            } else {
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(1, '#ccc');
+            }
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            ctx.strokeStyle = player === 1 ? '#000' : '#999';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (gameOver || currentPlayer !== 1 || isThinking) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const col = Math.round((x - PADDING) / CELL_SIZE);
+            const row = Math.round((y - PADDING) / CELL_SIZE);
+            
+            if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) return;
+            if (board[row][col] !== 0) return;
+            
+            makeMove(row, col, 1);
+            
+            if (checkWin(row, col, 1)) {
+                endGame('你赢了！');
+                return;
+            }
+            
+            if (isBoardFull()) {
+                endGame('平局！');
+                return;
+            }
+            
+            currentPlayer = 2;
+            status.textContent = 'AI思考中...';
+            isThinking = true;
+            
+            setTimeout(() => {
+                const aiMove = findBestMove();
+                makeMove(aiMove.row, aiMove.col, 2);
+                
+                if (checkWin(aiMove.row, aiMove.col, 2)) {
+                    endGame('AI赢了！');
+                    return;
+                }
+                
+                if (isBoardFull()) {
+                    endGame('平局！');
+                    return;
+                }
+                
+                currentPlayer = 1;
+                isThinking = false;
+                status.textContent = '轮到你下棋（黑棋）';
+            }, 300);
+        });
+        
+        function makeMove(row, col, player) {
+            board[row][col] = player;
+            moveHistory.push({ row, col, player });
+            drawBoard();
+        }
+        
+        function undoMove() {
+            if (moveHistory.length < 2 || gameOver) return;
+            
+            for (let i = 0; i < 2; i++) {
+                const last = moveHistory.pop();
+                board[last.row][last.col] = 0;
+            }
+            
+            currentPlayer = 1;
+            isThinking = false;
+            drawBoard();
+            status.textContent = '轮到你下棋（黑棋）';
+        }
+        
+        function checkWin(row, col, player) {
+            const directions = [[1,0],[0,1],[1,1],[1,-1]];
+            
+            for (const [dx, dy] of directions) {
+                let count = 1;
+                
+                for (let i = 1; i < 5; i++) {
+                    const r = row + dx * i;
+                    const c = col + dy * i;
+                    if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === player) {
+                        count++;
+                    } else break;
+                }
+                
+                for (let i = 1; i < 5; i++) {
+                    const r = row - dx * i;
+                    const c = col - dy * i;
+                    if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === player) {
+                        count++;
+                    } else break;
+                }
+                
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+        
+        function isBoardFull() {
+            return board.every(row => row.every(cell => cell !== 0));
+        }
+        
+        function findBestMove() {
+            const candidates = getCandidates();
+            let bestScore = -Infinity;
+            let bestMove = candidates[0];
+            
+            for (const move of candidates) {
+                board[move.row][move.col] = 2;
+                const score = evaluatePosition() + Math.random() * 10;
+                board[move.row][move.col] = 0;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = move;
+                }
+            }
+            
+            return bestMove;
+        }
+        
+        function getCandidates() {
+            const candidates = [];
+            const range = 2;
+            
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (board[i][j] !== 0) {
+                        for (let di = -range; di <= range; di++) {
+                            for (let dj = -range; dj <= range; dj++) {
+                                const ni = i + di;
+                                const nj = j + dj;
+                                if (ni >= 0 && ni < BOARD_SIZE && nj >= 0 && nj < BOARD_SIZE && board[ni][nj] === 0) {
+                                    if (!candidates.some(c => c.row === ni && c.col === nj)) {
+                                        candidates.push({ row: ni, col: nj });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (candidates.length === 0) {
+                return [{ row: 7, col: 7 }];
+            }
+            
+            return candidates;
+        }
+        
+        function evaluatePosition() {
+            let score = 0;
+            
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (board[i][j] === 2) {
+                        score += evaluatePoint(i, j, 2);
+                    } else if (board[i][j] === 1) {
+                        score -= evaluatePoint(i, j, 1) * 1.1;
+                    }
+                }
+            }
+            
+            return score;
+        }
+        
+        function evaluatePoint(row, col, player) {
+            const directions = [[1,0],[0,1],[1,1],[1,-1]];
+            let totalScore = 0;
+            
+            for (const [dx, dy] of directions) {
+                let count = 1;
+                let open = 0;
+                
+                for (let i = 1; i < 5; i++) {
+                    const r = row + dx * i;
+                    const c = col + dy * i;
+                    if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+                        if (board[r][c] === player) count++;
+                        else if (board[r][c] === 0) { open++; break; }
+                        else break;
+                    }
+                }
+                
+                for (let i = 1; i < 5; i++) {
+                    const r = row - dx * i;
+                    const c = col - dy * i;
+                    if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+                        if (board[r][c] === player) count++;
+                        else if (board[r][c] === 0) { open++; break; }
+                        else break;
+                    }
+                }
+                
+                if (count >= 5) totalScore += 100000;
+                else if (count === 4 && open === 2) totalScore += 10000;
+                else if (count === 4 && open === 1) totalScore += 1000;
+                else if (count === 3 && open === 2) totalScore += 1000;
+                else if (count === 3 && open === 1) totalScore += 100;
+                else if (count === 2 && open === 2) totalScore += 100;
+                else if (count === 2 && open === 1) totalScore += 10;
+            }
+            
+            return totalScore;
+        }
+        
+        function endGame(msg) {
+            gameOver = true;
+            status.textContent = msg;
+            winText.textContent = msg;
+            winOverlay.classList.add('show');
+        }
+        
+        function restartGame() {
+            init();
+        }
+        
+        init();
+    </script>
+</body>
+</html>

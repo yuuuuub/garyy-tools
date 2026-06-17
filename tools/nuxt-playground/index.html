@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuxt 游乐场</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3;
+  --accent: #3b82f6; --accent2: #58a6ff; --success: #3fb950; --warning: #d29922; --error: #f85149;
+  --bg2: #21262d; --text2: #8b949e; --text3: #6e7681; --green: #00dc82;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+.header { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; background: linear-gradient(135deg, var(--green), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
+.header a { color: var(--text2); text-decoration: none; font-size: 13px; }
+.header a:hover { color: var(--accent); }
+.main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.sidebar { width: 280px; min-width: 280px; background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; flex-shrink: 0; }
+.content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--card); flex-shrink: 0; }
+.tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; }
+.tab:hover { color: var(--text); background: var(--bg2); }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+.editor-toolbar { display: flex; gap: 8px; padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); align-items: center; }
+.btn { padding: 6px 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 12px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+textarea { flex: 1; width: 100%; background: var(--bg); color: var(--text); border: none; padding: 16px; font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 13px; line-height: 1.6; resize: none; outline: none; tab-size: 2; }
+.template-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; }
+.template-item:hover { border-color: var(--green); background: rgba(0,220,130,0.1); }
+.template-item.active { border-color: var(--green); background: rgba(0,220,130,0.15); }
+.template-item h4 { font-size: 13px; color: var(--text); margin-bottom: 3px; }
+.template-item p { font-size: 11px; color: var(--text3); }
+.ref-section { margin-bottom: 12px; }
+.ref-section h3 { font-size: 12px; color: var(--green); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.ref-item { font-size: 12px; padding: 6px 8px; background: var(--bg); border-radius: 4px; margin-bottom: 4px; font-family: monospace; color: var(--text2); cursor: pointer; word-break: break-all; }
+.ref-item:hover { background: var(--bg2); color: var(--text); }
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; z-index: 999; pointer-events: none; }
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+.panel { flex: 1; overflow-y: auto; padding: 16px; }
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; min-width: 0; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Nuxt 游乐场</h1>
+  <a href="../index.html">← 返回工具列表</a>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <h3 style="font-size:13px;margin-bottom:10px;color:var(--green)">📋 代码模板</h3>
+    <div id="templateList"></div>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" data-tab="editor">编辑器</div>
+      <div class="tab" data-tab="ref">语法参考</div>
+    </div>
+    <div id="editorPanel">
+      <div class="editor-toolbar">
+        <select id="templateSelect" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;"></select>
+        <button class="btn primary" onclick="copyCode()">📋 复制代码</button>
+        <button class="btn" onclick="clearCode()">🗑️ 清空</button>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="在此输入 Nuxt 代码..."></textarea>
+    </div>
+    <div class="hidden" id="refPanel">
+      <div class="panel">
+        <div class="ref-section">
+          <h3>页面与布局</h3>
+          <div class="ref-item" onclick="insertRef(this)">pages/index.vue — 首页</div>
+          <div class="ref-item" onclick="insertRef(this)">pages/about.vue — 路由自动生成</div>
+          <div class="ref-item" onclick="insertRef(this)">pages/[id].vue — 动态路由</div>
+          <div class="ref-item" onclick="insertRef(this)">pages/product/[...slug].vue — 通配路由</div>
+          <div class="ref-item" onclick="insertRef(this)">layouts/default.vue — 默认布局</div>
+          <div class="ref-item" onclick="insertRef(this)"><NuxtLayout> — 布局切换</div>
+        </div>
+        <div class="ref-section">
+          <h3>组合式函数</h3>
+          <div class="ref-item" onclick="insertRef(this)">useFetch(url) — 数据获取</div>
+          <div class="ref-item" onclick="insertRef(this)">useAsyncData(key, fn) — 异步数据</div>
+          <div class="ref-item" onclick="insertRef(this)">useState(key, init) — 状态管理</div>
+          <div class="ref-item" onclick="insertRef(this)">useRoute() / useRouter() — 路由</div>
+          <div class="ref-item" onclick="insertRef(this)">useRuntimeConfig() — 运行时配置</div>
+          <div class="ref-item" onclick="insertRef(this)">useSeoMeta() — SEO元信息</div>
+        </div>
+        <div class="ref-section">
+          <h3>自动导入</h3>
+          <div class="ref-item" onclick="insertRef(this)">ref/reactive/computed — Vue自动导入</div>
+          <div class="ref-item" onclick="insertRef(this)">definePageMeta() — 页面元信息</div>
+          <div class="ref-item" onclick="insertRef(this)">navigateTo() — 编程式导航</div>
+          <div class="ref-item" onclick="insertRef(this)">abortNavigation() — 中止导航</div>
+          <div class="ref-item" onclick="insertRef(this)">setPageLayout() — 动态布局</div>
+        </div>
+        <div class="ref-section">
+          <h3>中间件</h3>
+          <div class="ref-item" onclick="insertRef(this)">middleware/auth.ts — 命名中间件</div>
+          <div class="ref-item" onclick="insertRef(this)">defineNuxtRouteMiddleware((to, from) => {})</div>
+          <div class="ref-item" onclick="insertRef(this)">definePageMeta({ middleware: 'auth' })</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const templates = [
+  { name: "页面组件", desc: "Vue SFC页面", code: `<!-- pages/index.vue -->\n<template>\n  <div>\n    <h1>{{ title }}</h1>\n    <p>{{ description }}</p>\n    \n    <div v-if=\"pending\">加载中...</div>\n    <div v-else-if=\"error\">错误: {{ error.message }}</div>\n    <div v-else>\n      <ul>\n        <li v-for=\"item in data\" :key=\"item.id\">\n          {{ item.name }}\n        </li>\n      </ul>\n    </div>\n  </div>\n</template>\n\n<script setup>\nuseHead({\n  title: '首页 - My App',\n  meta: [\n    { name: 'description', content: '这是一个Nuxt应用' }\n  ]\n})\n\nconst { data, pending, error } = await useFetch('/api/items')\n</script>` },
+  { name: "数据获取", desc: "useFetch/useAsyncData", code: `<script setup>\n// 基础数据获取\nconst { data: users } = await useFetch('/api/users')\n\n// 带选项的数据获取\nconst { data: products } = await useFetch('/api/products', {\n  query: {\n    page: 1,\n    limit: 10\n  },\n  headers: {\n    'Authorization': 'Bearer token'\n  },\n  transform: (data) => data.items\n})\n\n// useAsyncData 自定义key\nconst { data: stats } = await useAsyncData('stats', () => {\n  return $fetch('/api/stats')\n})\n\n// 组合多个请求\nconst [\n  { data: user },\n  { data: posts }\n] = await Promise.all([\n  useFetch(\`/api/users/\${userId}\`),\n  useFetch(\`/api/users/\${userId}/posts\")\n])\n\n// 客户端刷新\nconst { data, refresh } = await useFetch('/api/data')\n\n// watch效果\nawait useFetch('/api/data', {\n  watch: [() => searchQuery.value]\n})\n</script>` },
+  { name: "Server路由", desc: "server/api/接口", code: `// server/api/users.get.ts\nexport default defineEventHandler(async (event) => {\n  const query = getQuery(event)\n  const page = parseInt(query.page as string) || 1\n  \n  const users = await db.query('SELECT * FROM users LIMIT 10 OFFSET ?', [(page - 1) * 10])\n  \n  return {\n    users,\n    page,\n    total: await db.count('users')\n  }\n})\n\n// server/api/users.post.ts\nexport default defineEventHandler(async (event) => {\n  const body = await readBody(event)\n  \n  if (!body.name || !body.email) {\n    throw createError({\n      statusCode: 400,\n      statusMessage: '缺少必要字段'\n    })\n  }\n  \n  const user = await db.insert('users', {\n    name: body.name,\n    email: body.email,\n    createdAt: new Date()\n  })\n  \n  return user\n})\n\n// server/api/users/[id].ts\nexport default defineEventHandler(async (event) => {\n  const id = getRouterParam(event, 'id')\n  const user = await db.query('SELECT * FROM users WHERE id = ?', [id])\n  \n  if (!user) {\n    throw createError({ statusCode: 404, message: '用户不存在' })\n  }\n  \n  return user\n})\n\n// server/api/auth/login.post.ts\nexport default defineEventHandler(async (event) => {\n  const { email, password } = await readBody(event)\n  \n  const user = await authenticateUser(email, password)\n  \n  const token = createJWT({ userId: user.id })\n  \n  setCookie(event, 'auth_token', token, {\n    httpOnly: true,\n    secure: true,\n    maxAge: 60 * 60 * 24 * 7\n  })\n  \n  return { user, token }\n})` },
+  { name: "中间件", desc: "路由中间件", code: `// middleware/auth.ts\nexport default defineNuxtRouteMiddleware((to, from) => {\n  const user = useUser()\n  \n  if (!user.value) {\n    return navigateTo('/login')\n  }\n})\n\n// middleware/guest.ts\nexport default defineNuxtRouteMiddleware((to, from) => {\n  const user = useUser()\n  \n  if (user.value) {\n    return navigateTo('/dashboard')\n  }\n})\n\n// middleware/admin.ts\nexport default defineNuxtRouteMiddleware((to, from) => {\n  const user = useUser()\n  \n  if (!user.value || user.value.role !== 'admin') {\n    throw createError({\n      statusCode: 403,\n      message: '权限不足'\n    })\n  }\n})\n\n// 在页面中使用\n<script setup>\ndefinePageMeta({\n  middleware: 'auth',\n  // 或数组\n  middleware: ['auth', 'admin']\n})\n</script>` },
+  { name: "布局模板", desc: "layouts/default.vue", code: `<!-- layouts/default.vue -->\n<template>\n  <div class=\"layout\">\n    <header>\n      <nav>\n        <NuxtLink to=\"/\">首页</NuxtLink>\n        <NuxtLink to=\"/about\">关于</NuxtLink>\n        <NuxtLink to=\"/dashboard\">仪表盘</NuxtLink>\n      </nav>\n    </header>\n    \n    <main>\n      <slot />\n    </main>\n    \n    <footer>\n      <p>© 2024 My App</p>\n    </footer>\n  </div>\n</template>\n\n<style scoped>\n.layout {\n  min-height: 100vh;\n  display: flex;\n  flex-direction: column;\n}\nnav {\n  display: flex;\n  gap: 1rem;\n  padding: 1rem;\n}\nmain {\n  flex: 1;\n  padding: 2rem;\n}\n</style>\n\n\n<!-- pages/dashboard.vue -->\n<script setup>\n// 使用不同布局\nsetPageLayout('dashboard')\n</script>\n\n<!-- layouts/dashboard.vue -->\n<template>\n  <div class=\"dashboard-layout\">\n    <aside>\n      <nav>\n        <NuxtLink to=\"/dashboard\">概览</NuxtLink>\n        <NuxtLink to=\"/dashboard/users\">用户</NuxtLink>\n        <NuxtLink to=\"/dashboard/settings\">设置</NuxtLink>\n      </nav>\n    </aside>\n    <main><slot /></main>\n  </div>\n</template>` },
+  { name: "nuxt.config", desc: "项目配置", code: `// nuxt.config.ts\nexport default defineNuxtConfig({\n  // 模块\n  modules: [\n    '@nuxtjs/tailwindcss',\n    '@nuxt/icon',\n    '@pinia/nuxt'\n  ],\n\n  // 运行时配置\n  runtimeConfig: {\n    apiSecret: '',\n    public: {\n      apiBase: '/api'\n    }\n  },\n\n  // 应用配置\n  app: {\n    head: {\n      title: 'My Nuxt App',\n      meta: [\n        { name: 'viewport', content: 'width=device-width, initial-scale=1' },\n        { name: 'description', content: '' }\n      ],\n      link: [\n        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }\n      ]\n    },\n    pageTransition: { name: 'page', mode: 'out-in' }\n  },\n\n  // 路由配置\n  router: {\n    options: {\n      scrollBehaviorType: 'smooth'\n    }\n  },\n\n  // Vite配置\n  vite: {\n    css: {\n      preprocessorOptions: {\n        scss: {\n          additionalData: '@import \"~/assets/scss/variables.scss\";'\n        }\n      }\n    }\n  },\n\n  // Nitro配置\n  nitro: {\n    preset: 'cloudflare'\n  },\n\n  // 兼容性\n  compatibilityDate: '2024-11-01'\n})` }
+];
+
+const editor = document.getElementById('editor');
+const templateSelect = document.getElementById('templateSelect');
+const templateList = document.getElementById('templateList');
+
+templates.forEach((t, i) => {
+  templateSelect.innerHTML += `<option value="${i}">${t.name}</option>`;
+  templateList.innerHTML += `<div class="template-item" onclick="loadTemplate(${i})" data-idx="${i}"><h4>${t.name}</h4><p>${t.desc}</p></div>`;
+});
+
+function loadTemplate(idx) {
+  editor.value = templates[idx].code;
+  document.querySelectorAll('.template-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const isRef = tab.dataset.tab === 'ref';
+    document.getElementById('editorPanel').classList.toggle('hidden', isRef);
+    document.getElementById('refPanel').classList.toggle('hidden', !isRef);
+  });
+});
+
+function copyCode() { navigator.clipboard.writeText(editor.value).then(() => showToast('已复制到剪贴板')); }
+function clearCode() { editor.value = ''; }
+function insertRef(el) {
+  const text = el.textContent.split(' — ')[0];
+  editor.value += '\n' + text;
+  document.querySelectorAll('.tab')[0].click();
+  showToast('已插入代码片段');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+loadTemplate(0);
+</script>
+</body>
+</html>

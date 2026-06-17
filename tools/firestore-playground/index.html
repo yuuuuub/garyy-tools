@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firestore游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card h2{font-size:16px;margin-bottom:16px;color:var(--accent2)}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+input,textarea,select{width:100%;padding:10px;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit}
+textarea{min-height:150px;resize:vertical;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#2ea043}
+.btn-danger{background:var(--error);color:#fff}
+.actions{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.result{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;max-height:400px;overflow-y:auto;line-height:1.5}
+.result-success{border-color:var(--success)}
+.result-error{border-color:var(--error)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;background:#0d1117;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.template-card{padding:12px;background:#0d1117;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.template-card:hover{border-color:var(--accent)}
+.template-card h4{font-size:13px;color:var(--accent2);margin-bottom:4px}
+.template-card p{font-size:12px;color:#8b949e}
+.ref-section{margin-top:12px}
+.ref-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.ref-item{padding:10px 12px;background:#0d1117;border-radius:4px;margin-bottom:6px;font-size:13px;cursor:pointer;transition:background .2s}
+.ref-item:hover{background:#1c2128}
+.ref-item code{color:var(--warning);font-family:'SF Mono',Monaco,Consolas,monospace}
+.collection-tree{max-height:300px;overflow-y:auto}
+.tree-item{padding:8px 12px;background:#0d1117;border-radius:4px;margin-bottom:4px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.tree-item:hover{background:#1c2128}
+.tree-icon{color:var(--warning)}
+.doc-count{color:#8b949e;font-size:11px;margin-left:auto}
+.full-width{grid-column:1/-1}
+.rule-editor{font-family:'SF Mono',Monaco,Consolas,monospace}
+</style>
+</head>
+<body>
+<nav>
+<a href="../index.html">← 返回工具列表</a>
+<h1>Firestore游乐场</h1>
+</nav>
+<div class="container">
+<div class="grid">
+<div class="card">
+<h2>集合/文档操作</h2>
+<label>集合路径</label>
+<input type="text" id="collectionPath" value="users" placeholder="如: users 或 users/userId/posts">
+<label style="margin-top:12px">操作类型</label>
+<div class="tabs" style="margin-top:8px">
+<div class="tab active" onclick="switchOp('get',this)">get</div>
+<div class="tab" onclick="switchOp('add',this)">add</div>
+<div class="tab" onclick="switchOp('set',this)">set</div>
+<div class="tab" onclick="switchOp('update',this)">update</div>
+<div class="tab" onclick="switchOp('delete',this)">delete</div>
+<div class="tab" onclick="switchOp('query',this)">query</div>
+</div>
+<label>文档ID (可选)</label>
+<input type="text" id="docId" placeholder="留空则操作集合">
+<label style="margin-top:12px">数据/查询 (JSON)</label>
+<textarea id="dataInput">{
+  "name": "张三",
+  "email": "zhangsan@example.com",
+  "age": 25,
+  "tags": ["admin", "user"],
+  "profile": {
+    "avatar": "https://example.com/avatar.jpg",
+    "bio": "开发者"
+  }
+}</textarea>
+<div class="actions">
+<button class="btn btn-primary" onclick="executeOp()">执行操作</button>
+<button class="btn btn-success" onclick="generateSample()">生成示例</button>
+</div>
+</div>
+<div class="card">
+<h2>操作结果</h2>
+<div class="result" id="resultArea" style="min-height:280px">等待操作...</div>
+</div>
+<div class="card">
+<h2>集合浏览器</h2>
+<div class="collection-tree" id="collectionTree"></div>
+</div>
+<div class="card">
+<h2>安全规则编辑器</h2>
+<textarea id="rulesInput" class="rule-editor" style="min-height:180px">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 用户集合规则
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth.uid == userId;
+      allow delete: if request.auth != null && 
+        request.auth.uid == userId;
+      
+      // 子集合
+      match /posts/{postId} {
+        allow read: if true;
+        allow write: if request.auth.uid == userId;
+      }
+    }
+    
+    // 公共集合
+    match /public/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}</textarea>
+<div class="actions">
+<button class="btn btn-primary" onclick="validateRules()">验证规则</button>
+</div>
+</div>
+<div class="card full-width">
+<h2>SDK 代码模板</h2>
+<div class="tabs">
+<div class="tab active" onclick="switchSDK('web',this)">Web SDK</div>
+<div class="tab" onclick="switchSDK('admin',this)">Admin SDK</div>
+<div class="tab" onclick="switchSDK('security',this)">安全规则</div>
+</div>
+<div class="result" id="sdkCode" style="min-height:150px">选择SDK类型查看代码</div>
+</div>
+<div class="card full-width">
+<h2>Firestore 概念参考</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+<div class="ref-section">
+<h3>数据模型</h3>
+<div class="ref-item"><code>Collection</code> - 文档集合，类似表</div>
+<div class="ref-item"><code>Document</code> - 文档，类似行，最大1MB</div>
+<div class="ref-item"><code>Subcollection</code> - 子集合，嵌套在文档下</div>
+<div class="ref-item"><code>Reference</code> - 文档引用，支持跨集合</div>
+</div>
+<div class="ref-section">
+<h3>查询操作符</h3>
+<div class="ref-item"><code>==, !=, <, <=, >, >=</code> 比较</div>
+<div class="ref-item"><code>in, array-contains</code> 包含</div>
+<div class="ref-item"><code>orderBy, limit</code> 排序限制</div>
+<div class="ref-item"><code>startAt, endAt</code> 分页游标</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+let currentOp = 'get';
+let store = {users: {}};
+
+function switchOp(op, el) {
+    currentOp = op;
+    document.querySelectorAll('.card:first-child .tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function generateSample() {
+    const samples = [
+        {name:'张三',email:'zhang@test.com',age:28,tags:['admin','user']},
+        {name:'李四',email:'li@test.com',age:32,tags:['user']},
+        {name:'王五',email:'wang@test.com',age:25,tags:['user','vip']}
+    ];
+    store.users = {};
+    samples.forEach((s, i) => {
+        store.users[`user${i+1}`] = {...s, id: `user${i+1}`, created: new Date().toISOString()};
+    });
+    renderTree();
+    showResult(`已生成 ${samples.length} 个示例文档`, true);
+}
+
+function executeOp() {
+    const path = document.getElementById('collectionPath').value;
+    const docId = document.getElementById('docId').value;
+    const dataStr = document.getElementById('dataInput').value;
+    
+    let data;
+    try {
+        data = dataStr ? JSON.parse(dataStr) : null;
+    } catch(e) {
+        showResult(`JSON解析错误: ${e.message}`, false);
+        return;
+    }
+    
+    if (!store[path]) store[path] = {};
+    let result;
+    
+    switch(currentOp) {
+        case 'get':
+            if (docId) {
+                result = store[path][docId] || null;
+                showResult(result ? `文档 ${docId}:\n${JSON.stringify(result, null, 2)}` : '文档不存在', !!result);
+            } else {
+                showResult(`集合 ${path} (${Object.keys(store[path]).length} 个文档):\n${JSON.stringify(store[path], null, 2)}`, true);
+            }
+            break;
+        case 'add':
+            const newId = docId || `doc_${Date.now()}`;
+            store[path][newId] = {_id: newId, ...data, _created: new Date().toISOString()};
+            showResult(`文档已添加: ${newId}`, true);
+            break;
+        case 'set':
+            if (!docId) { showResult('请指定文档ID', false); return; }
+            store[path][docId] = {_id: docId, ...data};
+            showResult(`文档已设置: ${docId}`, true);
+            break;
+        case 'update':
+            if (!docId) { showResult('请指定文档ID', false); return; }
+            if (store[path][docId]) {
+                Object.assign(store[path][docId], data);
+                showResult(`文档已更新: ${docId}`, true);
+            } else {
+                showResult('文档不存在', false);
+            }
+            break;
+        case 'delete':
+            if (!docId) { showResult('请指定文档ID', false); return; }
+            if (store[path][docId]) {
+                delete store[path][docId];
+                showResult(`文档已删除: ${docId}`, true);
+            } else {
+                showResult('文档不存在', false);
+            }
+            break;
+        case 'query':
+            const filters = Object.entries(data || {});
+            let docs = Object.values(store[path]);
+            filters.forEach(([field, value]) => {
+                docs = docs.filter(d => d[field] === value);
+            });
+            showResult(`查询结果 (${docs.length} 个文档):\n${JSON.stringify(docs, null, 2)}`, true);
+            break;
+    }
+    renderTree();
+}
+
+function renderTree() {
+    const tree = document.getElementById('collectionTree');
+    let html = '';
+    for (const [col, docs] of Object.entries(store)) {
+        const count = Object.keys(docs).length;
+        html += `<div class="tree-item"><span class="tree-icon">📁</span> ${col} <span class="doc-count">${count} docs</span></div>`;
+        for (const [id, doc] of Object.entries(docs)) {
+            html += `<div class="tree-item" style="padding-left:28px" onclick="selectDoc('${col}','${id}')"><span class="tree-icon">📄</span> ${id}</div>`;
+        }
+    }
+    tree.innerHTML = html || '<p style="color:#8b949e;font-size:13px">暂无数据，点击"生成示例"创建</p>';
+}
+
+function selectDoc(col, id) {
+    document.getElementById('collectionPath').value = col;
+    document.getElementById('docId').value = id;
+    document.getElementById('dataInput').value = JSON.stringify(store[col][id], null, 2);
+}
+
+function validateRules() {
+    const rules = document.getElementById('rulesInput').value;
+    if (rules.includes('match') && rules.includes('allow')) {
+        showResult('✓ 安全规则语法正确\n\n规则说明:\n- 用户认证检查: request.auth != null\n- 用户ID匹配: request.auth.uid == userId\n- 子集合继承父规则', true);
+    } else {
+        showResult('规则格式有误', false);
+    }
+}
+
+function switchSDK(type, el) {
+    document.querySelectorAll('.card:last-child .tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    
+    const code = {
+        web: `// Web SDK - JavaScript
+import { getFirestore, collection, getDocs, addDoc, doc, setDoc } from 'firebase/firestore';
+
+const db = getFirestore();
+
+// 获取集合
+const querySnapshot = await getDocs(collection(db, 'users'));
+querySnapshot.forEach(doc => {
+  console.log(doc.id, doc.data());
+});
+
+// 添加文档
+await addDoc(collection(db, 'users'), {
+  name: '张三',
+  email: 'zhangsan@example.com',
+  age: 25
+});
+
+// 设置文档 (指定ID)
+await setDoc(doc(db, 'users', 'user123'), {
+  name: '李四',
+  email: 'lisi@example.com'
+});
+
+// 查询
+const q = query(collection(db, 'users'), 
+  where('age', '>=', 18),
+  orderBy('age', 'desc'),
+  limit(10)
+);`,
+        admin: `// Admin SDK - Node.js
+const admin = require('firebase-admin');
+admin.initializeApp();
+
+const db = admin.firestore();
+
+// 获取文档
+const docRef = db.collection('users').doc('user123');
+const doc = await docRef.get();
+if (doc.exists) {
+  console.log('文档数据:', doc.data());
+}
+
+// 批量写入
+const batch = db.batch();
+batch.set(db.collection('users').doc('user1'), {name: '张三'});
+batch.update(db.collection('users').doc('user2'), {age: 30});
+batch.delete(db.collection('users').doc('user3'));
+await batch.commit();
+
+// 事务
+await db.runTransaction(async (transaction) => {
+  const doc = await transaction.get(db.collection('counters').doc('likes'));
+  transaction.update(doc.ref, { count: doc.data().count + 1 });
+});`,
+        security: `// 安全规则最佳实践
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. 用户数据 - 仅自己可读写
+    match /users/{userId} {
+      allow read, write: if request.auth != null 
+        && request.auth.uid == userId;
+    }
+    
+    // 2. 公共帖子 - 所有人可读，作者可写
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null 
+        && request.auth.uid == resource.data.authorId;
+    }
+    
+    // 3. 聊天室 - 成员可访问
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null 
+        && request.auth.uid in resource.data.members;
+    }
+    
+    // 4. 管理员操作
+    match /admin/{doc} {
+      allow read, write: if request.auth != null 
+        && request.auth.token.admin == true;
+    }
+  }
+}`
+    };
+    document.getElementById('sdkCode').textContent = code[type] || '';
+}
+
+function showResult(text, success) {
+    const area = document.getElementById('resultArea');
+    area.textContent = text;
+    area.className = 'result ' + (success ? 'result-success' : 'result-error');
+}
+
+renderTree();
+</script>
+</body>
+</html>

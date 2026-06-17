@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perl 游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.navbar{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+.navbar a{color:var(--accent2);text-decoration:none;font-size:14px}.navbar a:hover{text-decoration:underline}
+.navbar h1{font-size:18px;font-weight:600}
+.navbar .tag{background:#39457e;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:320px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sidebar-header{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px}
+.sidebar-content{flex:1;overflow-y:auto;padding:8px}
+.syntax-section{margin-bottom:8px}
+.syntax-section h4{color:var(--accent2);font-size:13px;padding:8px 12px 4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.syntax-section h4::after{content:"▾"}.syntax-section.collapsed h4::after{content:"▸"}.syntax-section.collapsed .syntax-items{display:none}
+.syntax-item{padding:6px 12px;font-size:12px;border-radius:4px;margin:1px 0;cursor:pointer;transition:background .15s}
+.syntax-item:hover{background:var(--border)}
+.syntax-item code{color:var(--success);font-family:monospace;font-size:11px}
+.syntax-item .desc{color:#8b949e;font-size:11px;margin-top:2px}
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card)}
+.toolbar select,.toolbar button{font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+.toolbar .run-btn{background:var(--success);color:#000;border-color:var(--success);font-weight:600}
+.toolbar .clear-btn{background:transparent;color:var(--warning);border-color:var(--warning)}
+.editor-wrap{flex:1;display:flex;overflow:hidden}
+.line-numbers{width:48px;background:var(--card);border-right:1px solid var(--border);padding:12px 8px;font-family:monospace;font-size:13px;line-height:1.6;color:#484f58;text-align:right;overflow:hidden;user-select:none}
+#codeEditor{flex:1;background:#0d1117;color:var(--text);border:none;outline:none;resize:none;padding:12px 16px;font-family:monospace;font-size:13px;line-height:1.6;tab-size:4;white-space:pre;overflow:auto;width:100%}
+.output-panel{height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:var(--card)}
+.output-header{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.output-header .dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+.output-tabs{display:flex}
+.output-tabs button{padding:6px 14px;font-size:12px;border:none;background:transparent;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent}
+.output-tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+#outputContent{flex:1;overflow:auto;padding:12px 16px;font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.status-bar{padding:4px 12px;font-size:11px;color:#484f58;border-top:1px solid var(--border);background:var(--card);display:flex;justify-content:space-between}
+@media(max-width:700px){.main{flex-direction:column}.sidebar{width:100%;height:200px;border-right:none;border-bottom:1px solid var(--border)}.output-panel{height:160px}}
+</style>
+</head>
+<body>
+<nav class="navbar"><a href="../index.html">← 返回工具列表</a><h1>Perl 游乐场</h1><span class="tag">Perl</span></nav>
+<div class="main">
+<aside class="sidebar">
+<div class="sidebar-header">📖 语法参考</div>
+<div class="sidebar-content">
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">变量与标量</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('my $name = \\"Perl\\";\\nmy $version = 5.38;')"><code>my $var</code><div class="desc">标量变量</div></div>
+<div class="syntax-item" onclick="insertSnippet('my @array = (1, 2, 3, 4, 5);\\nprint $array[0];  # 1')"><code>my @array</code><div class="desc">数组</div></div>
+<div class="syntax-item" onclick="insertSnippet('my %hash = (name => \\"Perl\\", type => \\"lang\\");\\nprint $hash{name};')"><code>my %hash</code><div class="desc">哈希</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">正则表达式</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('if ($string =~ /pattern/) {\\n    print \\"匹配成功\\";\\n}')"><code>=~ /pattern/</code><div class="desc">正则匹配</div></div>
+<div class="syntax-item" onclick="insertSnippet('my $text = \\"Hello World\\";\\n$text =~ s/World/Perl/;\\nprint $text;  # Hello Perl')"><code>s///</code><div class="desc">正则替换</div></div>
+<div class="syntax-item" onclick="insertSnippet('my @words = $text =~ /\\w+/g;')"><code>=~ /pattern/g</code><div class="desc">全局匹配</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">子程序</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('sub greet {\\n    my ($name) = @_;\\n    return \\"Hello, $name!\\";\\n}')"><code>sub name { }</code><div class="desc">定义子程序</div></div>
+<div class="syntax-item" onclick="insertSnippet('sub add {\\n    my ($a, $b) = @_;\\n    return $a + $b;\\n}')"><code>@_</code><div class="desc">参数列表</div></div>
+<div class="syntax-item" onclick="insertSnippet('my $result = greet(\\"World\\");')"><code>&subroutine()</code><div class="desc">调用子程序</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">引用与复杂数据</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('my $aref = [1, 2, 3];\\nmy $href = {a => 1, b => 2};')"><code>[] / {}</code><div class="desc">引用</div></div>
+<div class="syntax-item" onclick="insertSnippet('my @nested = (\\@arr1, \\@arr2);')"><code>\\@array</code><div class="desc">数组引用</div></div>
+<div class="syntax-item" onclick="insertSnippet('use Data::Dumper;\\nprint Dumper(\\%hash);')"><code>Data::Dumper</code><div class="desc">调试输出</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">现代 Perl 特性</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('use v5.36;\\nmy \\@nums = (1..10);\\nmy @squares = map { $_ * $_ } @nums;')"><code>use v5.36</code><div class="desc">现代版本特性</div></div>
+<div class="syntax-item" onclick="insertSnippet('say \\"Hello, World!\\";')"><code>say</code><div class="desc">自动换行输出</div></div>
+<div class="syntax-item" onclick="insertSnippet('for my $i (0 .. $#array) {\\n    print \\"$i: $array[$i]\\n\\";\\n}')"><code>for / foreach</code><div class="desc">循环</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">文件操作</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('open(my $fh, &quot;&lt;&quot;, &quot;file.txt&quot;) or die $!;\\nwhile (&lt;$fh&gt;) { print; }\\nclose($fh);')"><code>open / close</code><div class="desc">文件读取</div></div>
+<div class="syntax-item" onclick="insertSnippet('open(my $fh, &quot;&gt;&quot;, &quot;output.txt&quot;);\\nprint $fh \\"Hello\\n\\";\\nclose($fh);')"><code>print $fh</code><div class="desc">文件写入</div></div>
+</div></div>
+</div>
+</aside>
+<div class="center">
+<div class="toolbar">
+<select id="templateSelect" onchange="loadTemplate(this.value)"><option value="">选择模板...</option><option value="regex">正则表达式</option><option value="ref">引用与数据结构</option><option value="hash">哈希操作</option><option value="sub">子程序</option><option value="modern">现代特性</option></select>
+<button class="run-btn" onclick="simulateRun()">▶ 模拟运行</button>
+<button class="clear-btn" onclick="clearAll()">清空</button>
+<button onclick="copyCode()">复制代码</button>
+</div>
+<div class="editor-wrap">
+<div class="line-numbers" id="lineNumbers">1</div>
+<textarea id="codeEditor" spellcheck="false" placeholder="#!/usr/bin/perl\nuse strict;\nuse warnings;\n\nprint &quot;Hello, World!\\n&quot;;"></textarea>
+</div>
+<div class="output-panel">
+<div class="output-header"><div class="dot"></div><span>输出</span></div>
+<div class="output-tabs"><button class="active" onclick="showTab('output',this)">运行输出</button><button onclick="showTab('notes',this)">注意事项</button></div>
+<div id="outputContent">// 点击"模拟运行"查看输出</div>
+</div>
+</div>
+</div>
+<div class="status-bar"><span id="statusText">就绪</span><span>Perl 游乐场 | 模拟环境</span></div>
+<script>
+const editor=document.getElementById('codeEditor'),lineNumbers=document.getElementById('lineNumbers'),outputContent=document.getElementById('outputContent');
+const templates={
+regex:`#!/usr/bin/perl
+use strict;
+use warnings;
+
+my $text = "Hello World, Perl is great! Perl 5.38 released.";
+
+# 正则匹配
+if ($text =~ /Perl/) {
+    print "找到 Perl\\n";
+}
+
+# 全局匹配
+my @matches = ($text =~ /\\w+/g);
+print "单词数: " . scalar(@matches) . "\\n";
+
+# 替换
+my $modified = $text;
+$modified =~ s/Perl/Python/g;
+print "替换后: $modified\\n";
+
+# 捕获组
+my $str = "2024-01-15";
+if ($str =~ /(\\d{4})-(\\d{2})-(\\d{2})/) {
+    print "年: $1, 月: $2, 日: $3\\n";
+}
+
+# 命名捕获
+if ($str =~ /(\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})/) {
+    print "月份: $+{month}\\n";
+}
+
+# 正则验证
+my $email = "user\@example.com";
+if ($email =~ /^[\\w.+-]+@[\\w-]+\\.[\\w.]+$/) {
+    print "邮箱格式正确\\n";
+}`,
+
+ref:`#!/usr/bin/perl
+use strict;
+use warnings;
+use Data::Dumper;
+
+# 数组引用
+my $nums = [1, 2, 3, 4, 5];
+print "数组: " . join(", ", @$nums) . "\\n";
+
+# 哈希引用
+my $person = {
+    name => "张三",
+    age  => 25,
+    city => "北京"
+};
+print "姓名: $person->{name}\\n";
+
+# 嵌套结构
+my $data = {
+    users => [
+        { name => "Alice", scores => [90, 85, 92] },
+        { name => "Bob",   scores => [78, 88, 95] }
+    ]
+};
+
+# 遍历
+for my $user (@{$data->{users}}) {
+    my $avg = sum($user->{scores}) / scalar(@{$user->{scores}});
+    print "$user->{name}: 平均分 = $avg\\n";
+}
+
+# 修改引用
+push @$nums, 6, 7;
+print "追加后: " . join(", ", @$nums) . "\\n";
+
+sub sum {
+    my $arr = shift;
+    my $total = 0;
+    $total += $_ for @$arr;
+    return $total;
+}`,
+
+hash:`#!/usr/bin/perl
+use strict;
+use warnings;
+
+# 创建哈希
+my %scores = (
+    Alice => 95,
+    Bob   => 87,
+    Carol => 92,
+    Dave  => 78
+);
+
+# 访问
+print "Alice: $scores{Alice}\\n";
+
+# 添加/修改
+$scores{Eve} = 88;
+$scores{Bob} = 90;
+
+# 删除
+delete $scores{Dave};
+
+# 遍历
+for my $name (sort keys %scores) {
+    print "$name: $scores{$name}\\n";
+}
+
+# 哈希切片
+my @names = qw(Alice Bob Carol);
+my @vals = @scores{@names};
+print "分数: " . join(", ", @vals) . "\\n";
+
+# 哈希合并
+my %extra = (Frank => 85, Grace => 91);
+my %merged = (%scores, %extra);
+
+# 统计频率
+my @words = qw(apple banana apple cherry banana apple);
+my %freq;
+$freq{$_}++ for @words;
+print "apple 出现: $freq{apple} 次\\n";`,
+
+sub:`#!/usr/bin/perl
+use strict;
+use warnings;
+
+# 基础子程序
+sub greet {
+    my ($name) = @_;
+    return "Hello, $name!";
+}
+
+print greet("Perl") . "\\n";
+
+# 默认参数
+sub power {
+    my ($base, $exp) = @_;
+    $exp //= 2;
+    return $base ** $exp;
+}
+
+print "2^3 = " . power(2, 3) . "\\n";
+print "5^2 = " . power(5) . "\\n";
+
+# 返回多个值
+sub min_max {
+    my @nums = @_;
+    return (sort { $a <=> $b } @nums)[0, -1];
+}
+
+my ($min, $max) = min_max(5, 2, 8, 1, 9);
+print "最小: $min, 最大: $max\\n";
+
+# 闭包
+sub make_counter {
+    my $count = 0;
+    return sub {
+        $count++;
+        return $count;
+    };
+}
+
+my $counter = make_counter();
+print "计数: " . $counter() . "\\n";
+print "计数: " . $counter() . "\\n";
+print "计数: " . $counter() . "\\n";`,
+
+modern:`#!/usr/bin/perl
+use v5.36;
+
+# say 自动换行
+say "Hello, Modern Perl!";
+
+# 实际签名 (signatures)
+sub add($a, $b) {
+    return $a + $b;
+}
+
+say "3 + 4 = " . add(3, 4);
+
+# 带签名的复杂函数
+sub greet($name, $greeting = "Hello") {
+    return "$greeting, $name!";
+}
+
+say greet("World");
+say greet("Perl", "Hi");
+
+# for 循环改进
+for my $i (1..5) {
+    say "数字: $i";
+}
+
+# map / grep
+my @nums = (1..20);
+my @squares = map { $_ ** 2 } @nums;
+my @evens = grep { $_ % 2 == 0 } @nums;
+
+say "平方: " . join(", ", @squares[0..4]);
+say "偶数: " . join(", ", @evens);
+
+# 嵌套数据操作
+my @students = (
+    { name => "Alice", score => 95 },
+    { name => "Bob",   score => 87 },
+    { name => "Carol", score => 92 }
+);
+
+my @top = sort { $b->{score} <=> $a->{score} }
+          grep { $_->{score} >= 90 } @students;
+
+say "优秀学生: " . join(", ", map { $_->{name} } @top);`
+};
+editor.addEventListener('input',updateLineNumbers);
+editor.addEventListener('scroll',()=>lineNumbers.scrollTop=editor.scrollTop);
+editor.addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const s=editor.selectionStart,end=editor.selectionEnd;editor.value=editor.value.substring(0,s)+'  '+editor.value.substring(end);editor.selectionStart=editor.selectionEnd=s+2;updateLineNumbers();}});
+function updateLineNumbers(){lineNumbers.innerHTML=Array.from({length:editor.value.split('\n').length},(_,i)=>i+1).join('\n');}
+function loadTemplate(k){if(templates[k]){editor.value=templates[k];updateLineNumbers();document.getElementById('statusText').textContent='已加载模板';}}
+function insertSnippet(c){const s=editor.selectionStart;editor.value=editor.value.substring(0,s)+c+editor.value.substring(editor.selectionEnd);editor.selectionStart=editor.selectionEnd=s+c.length;editor.focus();updateLineNumbers();}
+function simulateRun(){const code=editor.value;if(!code.trim()){outputContent.textContent='// 请先编写 Perl 代码';return;}let output='';code.split('\n').forEach(l=>{const t=l.trim();if(t.match(/^(print|say)/)){let m=t.match(/(?:print|say)\s+(.+?);/);if(m){let v=m[1].replace(/"/g,'').replace(/\\\\n/g,'');output+=v.replace(/\$[a-zA-Z_]\w*/g,'<值>')+'\n';}}});outputContent.textContent=output||'// 模拟运行完成\n// 完整运行需要 Perl: perl script.pl';document.getElementById('statusText').textContent='运行完成';}
+function showTab(t,b){document.querySelectorAll('.output-tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(t==='notes')outputContent.textContent='// 注意事项\n// - Perl 使用 $ @ % 前缀区分变量类型\n// - @_ 是子程序参数列表\n// - 正则表达式是核心特性\n// - 上下文决定行为 (列表/标量)\n// - use strict; use warnings; 推荐始终使用\n// - sigil 不随引用改变';}
+function clearAll(){editor.value='';outputContent.textContent='// 点击"模拟运行"查看输出';lineNumbers.innerHTML='1';document.getElementById('statusText').textContent='已清空';document.getElementById('templateSelect').value='';}
+function copyCode(){navigator.clipboard.writeText(editor.value).then(()=>{document.getElementById('statusText').textContent='已复制到剪贴板';});}
+updateLineNumbers();
+</script>
+</body>
+</html>

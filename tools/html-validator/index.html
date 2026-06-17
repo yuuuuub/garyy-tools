@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML验证器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#238636;--red:#da3633;--yellow:#9e6a03;--dim:#8b949e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding:20px}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--dim);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+textarea{width:100%;min-height:200px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'Fira Code',monospace;font-size:13px;resize:vertical}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:14px;cursor:pointer;font-weight:600;transition:opacity .2s}
+button:hover{opacity:.85}
+.btn-row{display:flex;gap:8px;margin-top:12px}
+.results{display:none;margin-top:16px}
+.result-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.result-item:last-child{border-bottom:none}
+.line-num{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:monospace;font-size:12px;color:var(--dim);white-space:nowrap;flex-shrink:0}
+.msg-error{color:var(--red)}
+.msg-warn{color:var(--yellow)}
+.msg-info{color:var(--accent)}
+.icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.summary{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.summary-item{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600}
+.s-error{background:#da363333;color:var(--red)}
+.s-warn{background:#9e6a0333;color:var(--yellow)}
+.s-info{background:#3b82f633;color:var(--accent)}
+.s-pass{background:#23863633;color:var(--green)}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:12px;overflow-x:auto;margin-top:8px;max-height:300px;overflow-y:auto}
+@media(max-width:600px){textarea{min-height:150px}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📋 HTML验证器</h1>
+<p class="subtitle">粘贴HTML代码，检查结构错误和问题</p>
+
+<div class="card">
+<textarea id="htmlInput" placeholder="在此粘贴 HTML 代码..."></textarea>
+<div class="btn-row">
+<button onclick="validate()">验证</button>
+<button onclick="loadExample()" style="background:var(--border)">示例</button>
+<button onclick="clearAll()" style="background:var(--border)">清空</button>
+</div>
+</div>
+
+<div class="results" id="results">
+<div class="card">
+<div class="summary" id="summary"></div>
+<div id="resultList"></div>
+</div>
+</div>
+</div>
+
+<script>
+const voidElements=['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr','!doctype','!DOCTYPE'];
+const deprecated=['acronym','applet','basefont','big','blink','center','dir','font','frame','frameset','isindex','marquee','strike','tt','xmp'];
+const requiredAttrs={'img':['alt'],'a':['href'],'input':['type','name'],'form':['action'],'script':['src'],'link':['href','rel']};
+const commonMistakes=[{re:/<(div|span|p|li|ul|ol|h[1-6]|table|tr|td|th|section|article|header|footer|nav|aside|main|figure|figcaption|details|summary|dialog)[^>]*>[^<]*$/gi,tag:1,issue:'可能是自闭合标签缺少结束标签'},{re:/&(?![a-zA-Z0-9#]+;)/g,issue:'未转义的 & 字符，应使用 &amp;'},{re:/<script[^>]*src=["'][^"']*["'][^>]*><\/script>/gi,issue:'建议将脚本放在 body 底部或使用 defer/async'}];
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function loadExample(){
+document.getElementById('htmlInput').value=`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>示例页面</title>
+</head>
+<body>
+<div class="container">
+<h1>标题</h1>
+<img src="photo.jpg">
+<a>链接</a>
+<p>段落 & 其他</p>
+<ul>
+<li>项目1
+<li>项目2
+</ul>
+<section>
+<h2>子标题</h2>
+<p>内容</p>
+</div>
+</body>
+</html>`;
+}
+function clearAll(){document.getElementById('htmlInput').value='';document.getElementById('results').style.display='none';}
+function validate(){
+const html=document.getElementById('htmlInput').value;
+if(!html.trim()){alert('请输入HTML代码');return;}
+const lines=html.split('\n');
+const issues=[];
+const tagStack=[];
+const tagCount={};
+lines.forEach((line,lineIdx)=>{
+const lineNum=lineIdx+1;
+let cleaned=line.replace(/<!--[\s\S]*?-->/g,'').replace(/"([^"]*)"/g,'""').replace(/'([^']*)'/g,"''");
+const openTags=cleaned.match(/<([a-zA-Z][a-zA-Z0-9]*)[\s>\/]/g)||[];
+const closeTags=cleaned.match(/<\/([a-zA-Z][a-zA-Z0-9]*)\s*>/g)||[];
+const selfClose=cleaned.match(/<[^>]*\/>/g)||[];
+openTags.forEach(m=>{
+const tag=m.match(/<([a-zA-Z][a-zA-Z0-9]*)/)[1].toLowerCase();
+if(voidElements.includes(tag))return;
+if(selfClose.some(s=>s.includes(`<${tag}`)))return;
+if(tagStack.length>0&&tagStack[tagStack.length-1]===tag){
+// 同行开启和关闭
+}else{
+tagStack.push(tag);
+tagCount[tag]=(tagCount[tag]||0)+1;
+}
+});
+closeTags.forEach(m=>{
+const tag=m.match(/<\/([a-zA-Z][a-zA-Z0-9]*)/)[1].toLowerCase();
+if(tagStack.length===0){
+issues.push({line:lineNum,type:'error',msg:`多余的结束标签 </${tag}>，没有对应的开始标签`});
+}else if(tagStack[tagStack.length-1]!==tag){
+const expected=tagStack[tagStack.length-1];
+issues.push({line:lineNum,type:'error',msg:`期望 </${expected}> 但发现 </${tag}>，标签未正确嵌套`});
+}else{
+tagStack.pop();
+}
+});
+deprecated.forEach(d=>{
+if(new RegExp(`<${d}[\\s>]`,'gi').test(cleaned)){
+issues.push({line:lineNum,type:'warn',msg:`使用了已废弃的 <${d}> 标签`});
+}
+});
+requiredAttrs&&Object.keys(requiredAttrs).forEach(tag=>{
+const re=new RegExp(`<${tag}([\\s>][^>]*)?>`,'gi');
+const match=cleaned.match(re);
+if(match){
+const required=requiredAttrs[tag];
+required.forEach(attr=>{
+if(!new RegExp(`${attr}\\s*=`,`i`).test(match[0])){
+issues.push({line:lineNum,type:'warn',msg:`<${tag}> 缺少必需属性 ${attr}`});
+}
+});
+}
+});
+commonMistakes.forEach(cm=>{
+if(cm.re.test(line)){
+issues.push({line:lineNum,type:'info',msg:cm.issue});
+}
+});
+const inlineElements=['a','span','strong','em','b','i','u','img','br','hr','input','code','small','sub','sup'];
+const blockParents=['p','div','li','td','th','li','h1','h2','h3','h4','h5','h6'];
+blockParents.forEach(bp=>{
+const re=new RegExp(`<${bp}[^>]*>([\\s\\S]*?)<(/${bp}|${inlineElements.join('|')})`,'gi');
+if(re.test(cleaned)){
+issues.push({line:lineNum,type:'info',msg:`块级元素 <${bp}> 内包含内联元素，注意语义`});
+}
+});
+});
+while(tagStack.length>0){
+const tag=tagStack.pop();
+issues.push({line:lines.length,type:'error',msg:`缺少结束标签 </${tag}>`});
+}
+if(!/<(!DOCTYPE|html)/i.test(html)){
+issues.push({line:1,type:'warn',msg:'缺少 DOCTYPE 声明或 html 根元素'});
+}
+if(!/<head[\s>]/i.test(html)){
+issues.push({line:1,type:'warn',msg:'缺少 <head> 标签'});
+}
+if(!/<body[\s>]/i.test(html)){
+issues.push({line:1,type:'warn',msg:'缺少 <body> 标签'});
+}
+const titleMatch=html.match(/<title>(.*?)<\/title>/i);
+if(!titleMatch||!titleMatch[1].trim()){
+issues.push({line:1,type:'info',msg:'建议添加有效的 <title> 标签'});
+}
+const descMatch=html.match(/name=["']description["']/i);
+if(!descMatch){
+issues.push({line:1,type:'info',msg:'建议添加 meta description 描述'});
+}
+const viewportMatch=html.match(/name=["']viewport["']/i);
+if(!viewportMatch){
+issues.push({line:1,type:'info',msg:'建议添加 viewport meta 标签以适配移动端'});
+}
+showResults(issues);
+}
+function showResults(issues){
+document.getElementById('results').style.display='block';
+const errors=issues.filter(i=>i.type==='error').length;
+const warns=issues.filter(i=>i.type==='warn').length;
+const infos=issues.filter(i=>i.type==='info').length;
+let summaryHtml='';
+if(errors===0&&warns===0)summaryHtml+=`<div class="summary-item s-pass">✅ 无错误</div>`;
+if(errors>0)summaryHtml+=`<div class="summary-item s-error">❌ ${errors} 个错误</div>`;
+if(warns>0)summaryHtml+=`<div class="summary-item s-warn">⚠️ ${warns} 个警告</div>`;
+if(infos>0)summaryHtml+=`<div class="summary-item s-info">💡 ${infos} 个建议</div>`;
+document.getElementById('summary').innerHTML=summaryHtml;
+let html='';
+if(issues.length===0){
+html='<div style="text-align:center;color:var(--green);padding:20px">🎉 未发现任何问题！HTML 结构看起来不错。</div>';
+}else{
+issues.forEach(i=>{
+const icon=i.type==='error'?'❌':i.type==='warn'?'⚠️':'💡';
+const cls=i.type==='error'?'msg-error':i.type==='warn'?'msg-warn':'msg-info';
+html+=`<div class="result-item"><span class="icon">${icon}</span><span class="line-num">行 ${i.line}</span><span class="${cls}">${escapeHtml(i.msg)}</span></div>`;
+});
+}
+document.getElementById('resultList').innerHTML=html;
+}
+</script>
+</body>
+</html>

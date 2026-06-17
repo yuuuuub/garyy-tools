@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表情复制</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent-hover:#2563eb}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin:20px 0 8px}
+.sub{color:#8b949e;margin-bottom:24px;font-size:0.95rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:800px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.emoji-btn{background:var(--bg);border:2px solid var(--border);border-radius:8px;font-size:1.6rem;padding:8px 0;cursor:pointer;transition:all .15s;text-align:center;user-select:none}
+.emoji-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+.emoji-btn.selected{border-color:var(--accent);background:rgba(59,130,246,0.15)}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center}
+button{padding:10px 20px;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer;font-weight:500;transition:background .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--border);color:var(--text)}.btn-secondary:hover{background:#444c56}
+.selected-bar{display:flex;flex-wrap:wrap;gap:6px;min-height:40px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:10px;align-items:center}
+.selected-bar:empty::before{content:"已选表情将显示在这里";color:#484f58;font-size:0.9rem}
+.sel-item{font-size:1.4rem;cursor:pointer;transition:transform .15s}
+.sel-item:hover{transform:scale(1.3)}
+.cats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.cat-btn{padding:5px 12px;border:1px solid var(--border);border-radius:16px;background:transparent;color:var(--text);cursor:pointer;font-size:0.8rem;transition:all .2s}
+.cat-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.count-info{color:#8b949e;font-size:0.85rem;margin-bottom:10px}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:10px 24px;border-radius:8px;font-size:0.9rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<h1>表情复制</h1>
+<p class="sub">点击单个复制，或勾选多个批量复制</p>
+<div class="card">
+<div class="cats" id="cats"></div>
+<div class="count-info" id="countInfo"></div>
+<div class="grid" id="grid"></div>
+</div>
+<div class="card">
+<div style="font-size:0.95rem;font-weight:500;margin-bottom:6px">已选表情</div>
+<div class="selected-bar" id="selectedBar"></div>
+<div class="btn-row">
+<button class="btn-primary" onclick="copySelected()">复制已选 (<span id="selCount">0</span>)</button>
+<button class="btn-secondary" onclick="clearSelected()">清空选择</button>
+</div>
+</div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+<script>
+const ALL_EMOJIS=[
+{e:'😀',n:'开心',c:'笑脸'},{e:'😃',n:'大笑',c:'笑脸'},{e:'😄',n:'眯眼笑',c:'笑脸'},{e:'😁',n:'露齿笑',c:'笑脸'},{e:'😆',n:'哈哈',c:'笑脸'},{e:'😅',n:'苦笑',c:'笑脸'},{e:'🤣',n:'笑翻',c:'笑脸'},{e:'😂',n:'笑哭',c:'笑脸'},{e:'🙂',n:'微笑',c:'笑脸'},{e:'😉',n:'眨眼',c:'笑脸'},{e:'😊',n:'害羞笑',c:'笑脸'},{e:'😇',n:'天使',c:'笑脸'},{e:'🥰',n:'喜爱',c:'笑脸'},{e:'😍',n:'爱心眼',c:'笑脸'},{e:'🤩',n:'星眼',c:'笑脸'},{e:'😘',n:'飞吻',c:'笑脸'},{e:'😋',n:'好吃',c:'笑脸'},{e:'😛',n:'吐舌',c:'笑脸'},{e:'😜',n:'俏皮',c:'笑脸'},{e:'🤪',n:'疯狂',c:'笑脸'},{e:'😝',n:'眯眼吐舌',c:'笑脸'},{e:'🤑',n:'钱眼',c:'笑脸'},{e:'🤗',n:'拥抱',c:'笑脸'},{e:'🤭',n:'捂嘴',c:'笑脸'},{e:'🤫',n:'嘘',c:'笑脸'},{e:'🤔',n:'思考',c:'笑脸'},{e:'😐',n:'面无表情',c:'笑脸'},{e:'😑',n:'无语',c:'笑脸'},{e:'😶',n:'无声',c:'笑脸'},{e:'😏',n:'得意',c:'笑脸'},{e:'😒',n:'不高兴',c:'笑脸'},{e:'🙄',n:'翻白眼',c:'笑脸'},{e:'😬',n:'龇牙',c:'笑脸'},{e:'🤥',n:'说谎',c:'笑脸'},{e:'😌',n:'放心',c:'笑脸'},{e:'😔',n:'难过',c:'笑脸'},{e:'😪',n:'困了',c:'笑脸'},{e:'🤤',n:'流口水',c:'笑脸'},{e:'😴',n:'睡着',c:'笑脸'},{e:'😷',n:'戴口罩',c:'笑脸'},{e:'🤒',n:'发烧',c:'笑脸'},{e:'🤕',n:'受伤',c:'笑脸'},{e:'🤢',n:'恶心',c:'笑脸'},{e:'🤮',n:'呕吐',c:'笑脸'},{e:'🥵',n:'热',c:'笑脸'},{e:'🥶',n:'冷',c:'笑脸'},{e:'🥴',n:'晕',c:'笑脸'},{e:'😵',n:'晕倒',c:'笑脸'},{e:'🤯',n:'爆炸',c:'笑脸'},{e:'🤠',n:'牛仔',c:'笑脸'},{e:'🥳',n:'派对',c:'笑脸'},{e:'😎',n:'墨镜酷',c:'笑脸'},{e:'🤓',n:'书呆子',c:'笑脸'},{e:'😕',n:'困惑',c:'笑脸'},{e:'😟',n:'担心',c:'笑脸'},{e:'🙁',n:'皱眉',c:'笑脸'},{e:'😮',n:'惊讶',c:'笑脸'},{e:'😯',n:'震惊',c:'笑脸'},{e:'😲',n:'呆住',c:'笑脸'},{e:'😳',n:'脸红',c:'笑脸'},{e:'🥺',n:'恳求',c:'笑脸'},{e:'😦',n:'啊',c:'笑脸'},{e:'😧',n:'苦恼',c:'笑脸'},{e:'😨',n:'害怕',c:'笑脸'},{e:'😰',n:'冷汗',c:'笑脸'},{e:'😥',n:'失望',c:'笑脸'},{e:'😢',n:'哭',c:'笑脸'},{e:'😭',n:'大哭',c:'笑脸'},{e:'😱',n:'尖叫',c:'笑脸'},{e:'😖',n:'纠结',c:'笑脸'},{e:'😣',n:'忍耐',c:'笑脸'},{e:'😞',n:'低落',c:'笑脸'},{e:'😓',n:'汗',c:'笑脸'},{e:'😩',n:'累',c:'笑脸'},{e:'😫',n:'筋疲力尽',c:'笑脸'},{e:'🥱',n:'打哈欠',c:'笑脸'},{e:'😤',n:'怒气',c:'笑脸'},{e:'😡',n:'愤怒',c:'笑脸'},{e:'😠',n:'生气',c:'笑脸'},{e:'🤬',n:'骂人',c:'笑脸'},{e:'😈',n:'恶魔笑',c:'笑脸'},{e:'👿',n:'小恶魔',c:'笑脸'},{e:'💀',n:'骷髅',c:'笑脸'},{e:'💩',n:'便便',c:'笑脸'},{e:'🤡',n:'小丑',c:'笑脸'},{e:'👻',n:'幽灵',c:'笑脸'},{e:'👽',n:'外星人',c:'笑脸'},{e:'👾',n:'小怪兽',c:'笑脸'},{e:'🤖',n:'机器人',c:'笑脸'},
+{e:'❤️',n:'红心',c:'爱心'},{e:'🧡',n:'橙心',c:'爱心'},{e:'💛',n:'黄心',c:'爱心'},{e:'💚',n:'绿心',c:'爱心'},{e:'💙',n:'蓝心',c:'爱心'},{e:'💜',n:'紫心',c:'爱心'},{e:'🖤',n:'黑心',c:'爱心'},{e:'🤍',n:'白心',c:'爱心'},{e:'🤎',n:'棕心',c:'爱心'},{e:'💔',n:'碎心',c:'爱心'},{e:'❣️',n:'心叹号',c:'爱心'},{e:'💕',n:'双心',c:'爱心'},{e:'💞',n:'旋转心',c:'爱心'},{e:'💓',n:'跳动心',c:'爱心'},{e:'💗',n:'渐大心',c:'爱心'},{e:'💖',n:'闪亮心',c:'爱心'},{e:'💘',n:'丘比特箭',c:'爱心'},{e:'💝',n:'礼物心',c:'爱心'},{e:'💟',n:'心装饰',c:'爱心'},
+{e:'👍',n:'大拇指',c:'手势'},{e:'👎',n:'倒拇指',c:'手势'},{e:'👌',n:'OK',c:'手势'},{e:'✌️',n:'胜利',c:'手势'},{e:'🤞',n:'交叉手指',c:'手势'},{e:'🤟',n:'我爱你',c:'手势'},{e:'🤘',n:'摇滚',c:'手势'},{e:'🤙',n:'打电话',c:'手势'},{e:'👈',n:'左指',c:'手势'},{e:'👉',n:'右指',c:'手势'},{e:'👆',n:'上指',c:'手势'},{e:'👇',n:'下指',c:'手势'},{e:'☝️',n:'食指上',c:'手势'},{e:'✋',n:'手掌',c:'手势'},{e:'🤚',n:'手背',c:'手势'},{e:'🖐️',n:'张开手',c:'手势'},{e:'🖖',n:'瓦肯',c:'手势'},{e:'🫱',n:'右手',c:'手势'},{e:'🫲',n:'左手',c:'手势'},{e:'🫳',n:'手下',c:'手势'},{e:'🫴',n:'手上',c:'手势'},{e:'🤌',n:'意大利',c:'手势'},{e:'🤏',n:'一点点',c:'手势'},{e:'🫰',n:'比心',c:'手势'},{e:'💪',n:'肌肉',c:'手势'},{e:'🙏',n:'祈祷',c:'手势'},
+{e:'🐶',n:'狗',c:'动物'},{e:'🐱',n:'猫',c:'动物'},{e:'🐭',n:'老鼠',c:'动物'},{e:'🐹',n:'仓鼠',c:'动物'},{e:'🐰',n:'兔子',c:'动物'},{e:'🦊',n:'狐狸',c:'动物'},{e:'🐻',n:'熊',c:'动物'},{e:'🐼',n:'熊猫',c:'动物'},{e:'🐨',n:'考拉',c:'动物'},{e:'🐯',n:'老虎',c:'动物'},{e:'🦁',n:'狮子',c:'动物'},{e:'🐮',n:'牛',c:'动物'},{e:'🐷',n:'猪',c:'动物'},{e:'🐸',n:'青蛙',c:'动物'},{e:'🐵',n:'猴子',c:'动物'},{e:'🙈',n:'捂眼猴',c:'动物'},{e:'🙉',n:'捂耳猴',c:'动物'},{e:'🙊',n:'捂嘴猴',c:'动物'},{e:'🐔',n:'鸡',c:'动物'},{e:'🐧',n:'企鹅',c:'动物'},{e:'🐦',n:'鸟',c:'动物'},{e:'🐤',n:'小鸡',c:'动物'},{e:'🦆',n:'鸭子',c:'动物'},{e:'🦅',n:'鹰',c:'动物'},{e:'🦉',n:'猫头鹰',c:'动物'},{e:'🦇',n:'蝙蝠',c:'动物'},{e:'🐺',n:'狼',c:'动物'},{e:'🐴',n:'马',c:'动物'},{e:'🦄',n:'独角兽',c:'动物'},{e:'🐝',n:'蜜蜂',c:'动物'},{e:'🐛',n:'毛毛虫',c:'动物'},{e:'🦋',n:'蝴蝶',c:'动物'},{e:'🐌',n:'蜗牛',c:'动物'},{e:'🐞',n:'瓢虫',c:'动物'},{e:'🐜',n:'蚂蚁',c:'动物'},{e:'🕷️',n:'蜘蛛',c:'动物'},{e:'🐢',n:'乌龟',c:'动物'},{e:'🐍',n:'蛇',c:'动物'},{e:'🦎',n:'蜥蜴',c:'动物'},{e:'🦖',n:'霸王龙',c:'动物'},{e:'🦕',n:'长颈恐龙',c:'动物'},{e:'🐙',n:'章鱼',c:'动物'},{e:'🦑',n:'鱿鱼',c:'动物'},{e:'🦐',n:'虾',c:'动物'},{e:'🦞',n:'龙虾',c:'动物'},{e:'🦀',n:'螃蟹',c:'动物'},{e:'🐡',n:'河豚',c:'动物'},{e:'🐠',n:'热带鱼',c:'动物'},{e:'🐟',n:'鱼',c:'动物'},{e:'🐬',n:'海豚',c:'动物'},{e:'🐳',n:'鲸鱼',c:'动物'},{e:'🦈',n:'鲨鱼',c:'动物'},{e:'🐊',n:'鳄鱼',c:'动物'},{e:'🐅',n:'老虎',c:'动物'},{e:'🐆',n:'花豹',c:'动物'},{e:'🦓',n:'斑马',c:'动物'},{e:'🦍',n:'大猩猩',c:'动物'},{e:'🐘',n:'大象',c:'动物'},{e:'🦛',n:'河马',c:'动物'},{e:'🦏',n:'犀牛',c:'动物'},{e:'🐪',n:'骆驼',c:'动物'},{e:'🦒',n:'长颈鹿',c:'动物'},{e:'🦘',n:'袋鼠',c:'动物'},{e:'🐾',n:'爪印',c:'动物'},
+{e:'🍎',n:'苹果',c:'食物'},{e:'🍐',n:'梨',c:'食物'},{e:'🍊',n:'橘子',c:'食物'},{e:'🍋',n:'柠檬',c:'食物'},{e:'🍌',n:'香蕉',c:'食物'},{e:'🍉',n:'西瓜',c:'食物'},{e:'🍇',n:'葡萄',c:'食物'},{e:'🍓',n:'草莓',c:'食物'},{e:'🫐',n:'蓝莓',c:'食物'},{e:'🍒',n:'樱桃',c:'食物'},{e:'🍑',n:'桃子',c:'食物'},{e:'🥭',n:'芒果',c:'食物'},{e:'🍍',n:'菠萝',c:'食物'},{e:'🥥',n:'椰子',c:'食物'},{e:'🥝',n:'猕猴桃',c:'食物'},{e:'🍅',n:'番茄',c:'食物'},{e:'🥑',n:'牛油果',c:'食物'},{e:'🍆',n:'茄子',c:'食物'},{e:'🥔',n:'土豆',c:'食物'},{e:'🥕',n:'胡萝卜',c:'食物'},{e:'🌽',n:'玉米',c:'食物'},{e:'🌶️',n:'辣椒',c:'食物'},{e:'🥒',n:'黄瓜',c:'食物'},{e:'🥦',n:'西兰花',c:'食物'},{e:'🍄',n:'蘑菇',c:'食物'},{e:'🍞',n:'面包',c:'食物'},{e:'🥐',n:'羊角面包',c:'食物'},{e:'🧀',n:'奶酪',c:'食物'},{e:'🍖',n:'肉骨',c:'食物'},{e:'🍗',n:'鸡腿',c:'食物'},{e:'🥩',n:'牛排',c:'食物'},{e:'🥓',n:'培根',c:'食物'},{e:'🍔',n:'汉堡',c:'食物'},{e:'🍟',n:'薯条',c:'食物'},{e:'🍕',n:'披萨',c:'食物'},{e:'🌭',n:'热狗',c:'食物'},{e:'🥪',n:'三明治',c:'食物'},{e:'🌮',n:'卷饼',c:'食物'},{e:'🥚',n:'鸡蛋',c:'食物'},{e:'🍳',n:'煎蛋',c:'食物'},{e:'🥞',n:'松饼',c:'食物'},{e:'🍜',n:'面条',c:'食物'},{e:'🍝',n:'意面',c:'食物'},{e:'🍣',n:'寿司',c:'食物'},{e:'🍤',n:'天妇罗',c:'食物'},{e:'🥟',n:'饺子',c:'食物'},{e:'🍦',n:'冰淇淋',c:'食物'},{e:'🍩',n:'甜甜圈',c:'食物'},{e:'🍪',n:'饼干',c:'食物'},{e:'🎂',n:'生日蛋糕',c:'食物'},{e:'🍰',n:'蛋糕',c:'食物'},{e:'🧁',n:'纸杯蛋糕',c:'食物'},{e:'🍫',n:'巧克力',c:'食物'},{e:'🍬',n:'糖果',c:'食物'},{e:'🍭',n:'棒棒糖',c:'食物'},{e:'🍯',n:'蜂蜜',c:'食物'},{e:'☕',n:'咖啡',c:'食物'},{e:'🍵',n:'绿茶',c:'食物'},{e:'🍶',n:'清酒',c:'食物'},{e:'🍾',n:'香槟',c:'食物'},{e:'🍷',n:'红酒',c:'食物'},{e:'🍸',n:'鸡尾酒',c:'食物'},{e:'🍹',n:'果汁',c:'食物'},
+{e:'✈️',n:'飞机',c:'旅行'},{e:'🚀',n:'火箭',c:'旅行'},{e:'⛵',n:'帆船',c:'旅行'},{e:'🚂',n:'火车',c:'旅行'},{e:'🚗',n:'汽车',c:'旅行'},{e:'🚕',n:'出租车',c:'旅行'},{e:'🚌',n:'公交车',c:'旅行'},{e:'🏎️',n:'赛车',c:'旅行'},{e:'🚓',n:'警车',c:'旅行'},{e:'🚑',n:'救护车',c:'旅行'},{e:'🚒',n:'消防车',c:'旅行'},{e:'🚐',n:'面包车',c:'旅行'},{e:'🚚',n:'卡车',c:'旅行'},{e:'🏍️',n:'摩托车',c:'旅行'},{e:'🚲',n:'自行车',c:'旅行'},{e:'🚁',n:'直升机',c:'旅行'},{e:'🛸',n:'飞碟',c:'旅行'},{e:'🏠',n:'房子',c:'旅行'},{e:'🏡',n:'花园房',c:'旅行'},{e:'🏢',n:'办公楼',c:'旅行'},{e:'🏥',n:'医院',c:'旅行'},{e:'🏦',n:'银行',c:'旅行'},{e:'🏨',n:'酒店',c:'旅行'},{e:'🏪',n:'便利店',c:'旅行'},{e:'🏫',n:'学校',c:'旅行'},{e:'🏰',n:'城堡',c:'旅行'},{e:'🗼',n:'铁塔',c:'旅行'},{e:'🗽',n:'自由女神',c:'旅行'},{e:'⛲',n:'喷泉',c:'旅行'},{e:'⛺',n:'帐篷',c:'旅行'},{e:'🌃',n:'夜景',c:'旅行'},{e:'🌅',n:'日落',c:'旅行'},{e:'🌄',n:'日出',c:'旅行'},{e:'🌌',n:'银河',c:'旅行'},{e:'⛰️',n:'山',c:'旅行'},{e:'🏔️',n:'雪山',c:'旅行'},{e:'🌋',n:'火山',c:'旅行'},{e:'🗻',n:'富士山',c:'旅行'},{e:'🏖️',n:'海滩',c:'旅行'},{e:'🏜️',n:'沙漠',c:'旅行'},{e:'🏝️',n:'小岛',c:'旅行'},
+{e:'⌚',n:'手表',c:'物品'},{e:'📱',n:'手机',c:'物品'},{e:'💻',n:'电脑',c:'物品'},{e:'⌨️',n:'键盘',c:'物品'},{e:'🖥️',n:'显示器',c:'物品'},{e:'🖨️',n:'打印机',c:'物品'},{e:'🖱️',n:'鼠标',c:'物品'},{e:'📷',n:'相机',c:'物品'},{e:'📹',n:'摄像机',c:'物品'},{e:'🎥',n:'摄影机',c:'物品'},{e:'🎬',n:'场记板',c:'物品'},{e:'📺',n:'电视',c:'物品'},{e:'📻',n:'收音机',c:'物品'},{e:'🎙️',n:'麦克风',c:'物品'},{e:'🧭',n:'指南针',c:'物品'},{e:'⏱️',n:'秒表',c:'物品'},{e:'⏰',n:'闹钟',c:'物品'},{e:'⏳',n:'沙漏',c:'物品'},{e:'🔋',n:'电池',c:'物品'},{e:'💡',n:'灯泡',c:'物品'},{e:'🔦',n:'手电筒',c:'物品'},{e:'🕯️',n:'蜡烛',c:'物品'},{e:'💰',n:'钱袋',c:'物品'},{e:'💳',n:'信用卡',c:'物品'},{e:'💎',n:'钻石',c:'物品'},{e:'🔧',n:'扳手',c:'物品'},{e:'🔨',n:'锤子',c:'物品'},{e:'⚙️',n:'齿轮',c:'物品'},{e:'🧪',n:'试管',c:'物品'},{e:'🔬',n:'显微镜',c:'物品'},{e:'🔭',n:'望远镜',c:'物品'},{e:'💊',n:'药丸',c:'物品'},{e:'💉',n:'注射器',c:'物品'},{e:'🎁',n:'礼物',c:'物品'},{e:'🎈',n:'气球',c:'物品'},{e:'🎉',n:'彩球',c:'物品'},{e:'🧧',n:'红包',c:'物品'},{e:'✉️',n:'信封',c:'物品'},{e:'📝',n:'备忘录',c:'物品'},{e:'✏️',n:'铅笔',c:'物品'},{e:'📚',n:'书',c:'物品'},{e:'📖',n:'打开的书',c:'物品'},{e:'📰',n:'报纸',c:'物品'},{e:'✂️',n:'剪刀',c:'物品'},
+{e:'⭐',n:'星星',c:'符号'},{e:'🌟',n:'闪亮星',c:'符号'},{e:'✨',n:'闪光',c:'符号'},{e:'⚡',n:'闪电',c:'符号'},{e:'🔥',n:'火焰',c:'符号'},{e:'💥',n:'爆炸',c:'符号'},{e:'☀️',n:'太阳',c:'符号'},{e:'🌈',n:'彩虹',c:'符号'},{e:'❄️',n:'雪花',c:'符号'},{e:'💧',n:'水滴',c:'符号'},{e:'🌊',n:'海浪',c:'符号'},{e:'✅',n:'勾',c:'符号'},{e:'❌',n:'叉',c:'符号'},{e:'⭕',n:'圆圈',c:'符号'},{e:'❓',n:'问号',c:'符号'},{e:'❗',n:'感叹号',c:'符号'},{e:'💯',n:'满分',c:'符号'},{e:'🔴',n:'红圆',c:'符号'},{e:'🟠',n:'橙圆',c:'符号'},{e:'🟡',n:'黄圆',c:'符号'},{e:'🟢',n:'绿圆',c:'符号'},{e:'🔵',n:'蓝圆',c:'符号'},{e:'🟣',n:'紫圆',c:'符号'},{e:'⚫',n:'黑圆',c:'符号'},{e:'⚪',n:'白圆',c:'符号'},{e:'🔺',n:'红三角',c:'符号'},{e:'🔻',n:'倒三角',c:'符号'},{e:'🔶',n:'橙菱形',c:'符号'},{e:'🔷',n:'蓝菱形',c:'符号'},{e:'♈',n:'白羊',c:'星座'},{e:'♉',n:'金牛',c:'星座'},{e:'♊',n:'双子',c:'星座'},{e:'♋',n:'巨蟹',c:'星座'},{e:'♌',n:'狮子',c:'星座'},{e:'♍',n:'处女',c:'星座'},{e:'♎',n:'天秤',c:'星座'},{e:'♏',n:'天蝎',c:'星座'},{e:'♐',n:'射手',c:'星座'},{e:'♑',n:'摩羯',c:'星座'},{e:'♒',n:'水瓶',c:'星座'},{e:'♓',n:'双鱼',c:'星座'}
+];
+const cats=['全部',...new Set(ALL_EMOJIS.map(e=>e.c))];
+let activeCat='全部';
+let selected=new Set();
+function init(){
+document.getElementById('cats').innerHTML=cats.map(c=>
+`<button class="cat-btn${c==='全部'?' active':''}" onclick="selectCat('${c}',this)">${c}</button>`
+).join('');
+render();
+}
+function selectCat(cat,el){
+activeCat=cat;
+document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+el.classList.add('active');
+render();
+}
+function render(){
+const list=activeCat==='全部'?ALL_EMOJIS:ALL_EMOJIS.filter(e=>e.c===activeCat);
+document.getElementById('countInfo').textContent=`${activeCat} · ${list.length} 个表情`;
+document.getElementById('grid').innerHTML=list.map(e=>
+`<div class="emoji-btn${selected.has(e.e)?' selected':''}" onclick="toggleEmoji('${e.e}')" title="${e.n}">${e.e}</div>`
+).join('');
+}
+function toggleEmoji(emoji){
+if(selected.has(emoji)){
+selected.delete(emoji);
+navigator.clipboard.writeText(emoji).then(()=>showToast('已复制'));
+}else{
+selected.add(emoji);
+}
+updateSelectedBar();
+render();
+}
+function updateSelectedBar(){
+const bar=document.getElementById('selectedBar');
+const arr=[...selected];
+document.getElementById('selCount').textContent=arr.length;
+if(arr.length===0){bar.innerHTML='';return;}
+bar.innerHTML=arr.map(e=>`<span class="sel-item" onclick="removeSelected('${e}')" title="点击移除">${e}</span>`).join('');
+}
+function removeSelected(emoji){selected.delete(emoji);updateSelectedBar();render();}
+function clearSelected(){selected.clear();updateSelectedBar();render();}
+function copySelected(){
+const arr=[...selected];
+if(arr.length===0)return;
+navigator.clipboard.writeText(arr.join('')).then(()=>showToast(`已复制 ${arr.length} 个表情`));
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+init();
+</script>
+</body>
+</html>

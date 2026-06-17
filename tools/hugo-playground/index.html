@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hugo 游乐场</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3;
+  --accent: #3b82f6; --accent2: #58a6ff; --success: #3fb950; --warning: #d29922; --error: #f85149;
+  --bg2: #21262d; --text2: #8b949e; --text3: #6e7681; --gold: #ff4081;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+.header { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; background: linear-gradient(135deg, var(--gold), #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
+.header a { color: var(--text2); text-decoration: none; font-size: 13px; }
+.header a:hover { color: var(--accent); }
+.main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.sidebar { width: 280px; min-width: 280px; background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; flex-shrink: 0; }
+.content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--card); flex-shrink: 0; }
+.tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; }
+.tab:hover { color: var(--text); background: var(--bg2); }
+.tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.editor-toolbar { display: flex; gap: 8px; padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); align-items: center; }
+.btn { padding: 6px 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 12px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+textarea { flex: 1; width: 100%; background: var(--bg); color: var(--text); border: none; padding: 16px; font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 13px; line-height: 1.6; resize: none; outline: none; tab-size: 2; }
+.template-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; }
+.template-item:hover { border-color: var(--gold); background: rgba(255,64,129,0.1); }
+.template-item.active { border-color: var(--gold); background: rgba(255,64,129,0.15); }
+.template-item h4 { font-size: 13px; color: var(--text); margin-bottom: 3px; }
+.template-item p { font-size: 11px; color: var(--text3); }
+.ref-section { margin-bottom: 12px; }
+.ref-section h3 { font-size: 12px; color: var(--gold); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.ref-item { font-size: 12px; padding: 6px 8px; background: var(--bg); border-radius: 4px; margin-bottom: 4px; font-family: monospace; color: var(--text2); cursor: pointer; word-break: break-all; }
+.ref-item:hover { background: var(--bg2); color: var(--text); }
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; z-index: 999; pointer-events: none; }
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+.panel { flex: 1; overflow-y: auto; padding: 16px; }
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; min-width: 0; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Hugo 游乐场</h1>
+  <a href="../index.html">← 返回工具列表</a>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <h3 style="font-size:13px;margin-bottom:10px;color:var(--gold)">📋 代码模板</h3>
+    <div id="templateList"></div>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" data-tab="editor">编辑器</div>
+      <div class="tab" data-tab="ref">语法参考</div>
+    </div>
+    <div id="editorPanel">
+      <div class="editor-toolbar">
+        <select id="templateSelect" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;"></select>
+        <button class="btn primary" onclick="copyCode()">📋 复制代码</button>
+        <button class="btn" onclick="clearCode()">🗑️ 清空</button>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="在此输入 Hugo 代码..."></textarea>
+    </div>
+    <div class="hidden" id="refPanel">
+      <div class="panel">
+        <div class="ref-section">
+          <h3>模板语法</h3>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Title }} — 输出变量</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ if .Condition }}...{{ end }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ range .Items }}...{{ end }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ partial "header.html" . }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ block "main" . }}{{ end }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ define "main" }}...{{ end }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ $var := "value" }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ with .Params.author }}...{{ end }}</div>
+        </div>
+        <div class="ref-section">
+          <h3>常用变量</h3>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Title }} — 页面标题</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Content }} — 页面内容</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Params.field }} — Front Matter字段</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Permalink }} — 页面完整URL</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .RelPermalink }} — 相对URL</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Date.Format "2006-01-02" }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Site.Title }} — 站点标题</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Site.BaseURL }}</div>
+        </div>
+        <div class="ref-section">
+          <h3>集合操作</h3>
+          <div class="ref-item" onclick="insertRef(this)">{{ range $index, $item := .Pages }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ where .Pages "Section" "posts" }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ first 5 .Pages }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Pages.Reverse }}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{ .Pages.GroupByDate "2006" }}</div>
+        </div>
+        <div class="ref-section">
+          <h3>短代码</h3>
+          <div class="ref-item" onclick="insertRef(this)">{{< figure src="image.png" >}}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{< highlight go >}}...{{< /highlight >}}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{< youtube id >}}</div>
+          <div class="ref-item" onclick="insertRef(this)">{{< param "key" >}}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const templates = [
+  { name: "config.toml", desc: "站点配置", code: `# config.toml\nbaseURL = "https://example.com/"\ntitle = "我的Hugo站点"\ntheme = "ananke"\nlanguageCode = "zh-cn"\ndraft = false\n\n[params]\n  author = "作者名"\n  description = "站点描述"\n  featured_image = "/images/featured.jpg"\n  show_reading_time = true\n\n[params.social]\n  github = "yuuuuub"\n  twitter = "yuuuuub"\n\n[menu]\n  [[menu.main]]\n    identifier = "posts"\n    name = "文章"\n    url = "/posts/"\n    weight = 1\n  [[menu.main]]\n    identifier = "about"\n    name = "关于"\n    url = "/about/"\n    weight = 2\n\n[markup]\n  [markup.goldmark]\n    [markup.goldmark.renderer]\n      unsafe = true\n\n[outputs]\n  home = ["HTML", "RSS", "JSON"]` },
+  { name: "基础布局", desc: "layouts/_default/baseof.html", code: `<!DOCTYPE html>\n<html lang="{{ .Site.LanguageCode }}">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>{{ if .Title }}{{ .Title }} - {{ end }}{{ .Site.Title }}</title>\n  <meta name=\"description\" content=\"{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}\">\n  {{ block \"head\" . }}{{ end }}\n</head>\n<body>\n  {{ partial \"header.html\" . }}\n  \n  <main class=\"container\">\n    {{ block \"main\" . }}{{ end }}\n  </main>\n  \n  {{ partial \"footer.html\" . }}\n</body>\n</html>\n\n\n<!-- layouts/partials/header.html -->\n<header class=\"site-header\">\n  <nav>\n    <a href=\"{{ .Site.BaseURL }}\">{{ .Site.Title }}</a>\n    <ul>\n      {{ range .Site.Menus.main }}\n        <li>\n          <a href=\"{{ .URL }}\" {{ if $.IsMenuCurrent \"main\" . }}class=\"active\"{{ end }}>\n            {{ .Name }}\n          </a>\n        </li>\n      {{ end }}\n    </ul>\n  </nav>\n</header>` },
+  { name: "文章列表", desc: "layouts/_default/list.html", code: `{{ define \"main\" }}\n<div class=\"post-list\">\n  <h1>{{ .Title }}</h1>\n  \n  {{ .Content }}\n  \n  {{ range .Pages }}\n    <article class=\"post-item\">\n      <h2>\n        <a href=\"{{ .RelPermalink }}\">{{ .Title }}</a>\n      </h2>\n      <time datetime=\"{{ .Date.Format \"2006-01-02\" }}\">\n        {{ .Date.Format \"2006年01月02日\" }}\n      </time>\n      {{ if .Params.tags }}\n        <div class=\"tags\">\n          {{ range .Params.tags }}\n            <a href=\"/tags/{{ . | urlize }}\" class=\"tag\">{{ . }}</a>\n          {{ end }}\n        </div>\n      {{ end }}\n      <p>{{ .Summary }}</p>\n    </article>\n  {{ end }}\n</div>\n\n{{ if gt .TotalPages 1 }}\n<nav class=\"pagination\">\n  {{ if .Prev }}\n    <a href=\"{{ .Prev.RelPermalink }}\">← 上一页</a>\n  {{ end }}\n  {{ if .Next }}\n    <a href=\"{{ .Next.RelPermalink }}\">下一页 →</a>\n  {{ end }}\n</nav>\n{{ end }}\n{{ end }}` },
+  { name: "文章模板", desc: "layouts/_default/single.html", code: `{{ define \"main\" }}\n<article class=\"post\" itemscope itemtype=\"http://schema.org/Article\">\n  <header>\n    <h1 itemprop=\"headline\">{{ .Title }}</h1>\n    \n    <div class=\"meta\">\n      <time datetime=\"{{ .Date.Format \"2006-01-02\" }}\">\n        {{ .Date.Format \"2006年01月02日\" }}\n      </time>\n      \n      {{ with .Params.author }}\n        <span class=\"author\">作者: {{ . }}</span>\n      {{ end }}\n      \n      {{ with .ReadingTime }}\n        <span class=\"reading-time\">阅读时间: {{ . }}分钟</span>\n      {{ end }}\n    </div>\n    \n    {{ if .Params.tags }}\n      <div class=\"tags\">\n        {{ range .Params.tags }}\n          <a href=\"/tags/{{ . | urlize }}\">{{ . }}</a>\n        {{ end }}\n      </div>\n    {{ end }}\n    \n    {{ if .Params.image }}\n      <img src=\"{{ .Params.image }}\" alt=\"{{ .Title }}\" class=\"featured-image\" />\n    {{ end }}\n  </header>\n  \n  <div class=\"content\" itemprop=\"articleBody\">\n    {{ .Content }}\n  </div>\n  \n  <footer>\n    {{ if .PrevInSection }}\n      <a href=\"{{ .PrevInSection.RelPermalink }}\">← {{ .PrevInSection.Title }}</a>\n    {{ end }}\n    {{ if .NextInSection }}\n      <a href=\"{{ .NextInSection.RelPermalink }}\">{{ .NextInSection.Title }} →</a>\n    {{ end }}\n  </footer>\n</article>\n{{ end }}` },
+  { name: "首页模板", desc: "layouts/index.html", code: `{{ define \"main\" }}\n<div class=\"home\">\n  <section class=\"hero\">\n    <h1>{{ .Site.Title }}</h1>\n    <p>{{ .Site.Params.description }}</p>\n  </section>\n  \n  <section class=\"latest-posts\">\n    <h2>最新文章</h2>\n    \n    {{ $posts := where .Site.RegularPages \"Section\" \"posts\" }}\n    {{ range first 5 $posts }}\n      <article class=\"post-card\">\n        <h3>\n          <a href=\"{{ .RelPermalink }}\">{{ .Title }}</a>\n        </h3>\n        <time>{{ .Date.Format \"2006-01-02\" }}</time>\n        <p>{{ .Summary }}</p>\n      </article>\n    {{ end }}\n  </section>\n  \n  {{ with .Site.Taxonomies.tags }}\n    <section class=\"tags-cloud\">\n      <h2>标签</h2>\n      <div class=\"tags\">\n        {{ range .Pages }}\n          <a href=\"{{ .RelPermalink }}\" class=\"tag\" style=\"font-size:{{ mul .Count 0.5 }}rem;\">\n            {{ .Title }} ({{ .Count }})\n          </a>\n        {{ end }}\n      </div>\n    </section>\n  {{ end }}\n</div>\n{{ end }}` }
+];
+
+const editor = document.getElementById('editor');
+const templateSelect = document.getElementById('templateSelect');
+const templateList = document.getElementById('templateList');
+
+templates.forEach((t, i) => {
+  templateSelect.innerHTML += `<option value="${i}">${t.name}</option>`;
+  templateList.innerHTML += `<div class="template-item" onclick="loadTemplate(${i})" data-idx="${i}"><h4>${t.name}</h4><p>${t.desc}</p></div>`;
+});
+
+function loadTemplate(idx) {
+  editor.value = templates[idx].code;
+  document.querySelectorAll('.template-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const isRef = tab.dataset.tab === 'ref';
+    document.getElementById('editorPanel').classList.toggle('hidden', isRef);
+    document.getElementById('refPanel').classList.toggle('hidden', !isRef);
+  });
+});
+
+function copyCode() { navigator.clipboard.writeText(editor.value).then(() => showToast('已复制到剪贴板')); }
+function clearCode() { editor.value = ''; }
+function insertRef(el) {
+  const text = el.textContent.split(' — ')[0];
+  editor.value += '\n' + text;
+  document.querySelectorAll('.tab')[0].click();
+  showToast('已插入代码片段');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+loadTemplate(0);
+</script>
+</body>
+</html>

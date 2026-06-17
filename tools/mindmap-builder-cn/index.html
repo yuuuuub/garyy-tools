@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文思维导图构建器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='🧠 中文思维导图构建器';
+
+const APP=document.getElementById('app');
+let maps=JSON.parse(localStorage.getItem('mbc_maps')||'[]');
+let curMap=null;
+
+function save(){localStorage.setItem('mbc_maps',JSON.stringify(maps))}
+function renderTree(node,depth=0){
+  let h=`<div style="margin-left:${depth*20}px;margin:4px 0"><span class="tag" style="cursor:pointer" onclick="editNode('${node.id}')">${node.text}</span> <button class="btn btn-sm" style="padding:2px 8px;font-size:.75rem" onclick="addChild('${node.id}')">+</button> <button class="btn btn-sm btn-danger" style="padding:2px 8px;font-size:.75rem" onclick="delNode('${node.id}')">x</button>`;
+  if(node.children) node.children.forEach(c=>{h+=renderTree(c,depth+1)});
+  h+=`</div>`;return h;
+}
+function findNode(nodes,id){for(let n of nodes){if(n.id===id)return n;let f=n.children&&findNode(n.children,id);if(f)return f}return null}
+function findParent(nodes,id,parent){for(let n of nodes){if(n.id===id)return parent;let f=n.children&&findParent(n.children,id,n);if(f)return f}return null}
+function render(){
+  let h=`<h1>🧠 中文思维导图构建器</h1><p class="subtitle">可视化思维结构</p>`;
+  if(curMap!==null){
+    let m=maps[curMap];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curMap=null;render()">← 返回</button><b>${m.title}</b><button class="btn btn-sm" onclick="addRoot()">+ 添加节点</button></div></div>`;
+    h+=`<div class="card" style="overflow-x:auto">`;
+    m.nodes.forEach(n=>{h+=renderTree(n)});
+    h+=`</div>`;
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">我的思维导图</span><button class="btn btn-sm" onclick="newMap()">+ 新建</button></div></div>`;
+    maps.forEach((m,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${m.title}</b><div class="flex"><button class="btn btn-sm" onclick="openMap(${i})">打开</button><button class="btn btn-sm btn-danger" onclick="delMap(${i})">删除</button></div></div></div>`;
+    });
+    if(!maps.length) h+=`<div class="empty">暂无思维导图</div>`;
+  }
+  APP.innerHTML=h;
+}
+function genId(){return 'n'+Date.now()+Math.random().toString(36).slice(2,6)}
+function newMap(){let t=prompt('思维导图标题：');if(t){maps.push({title:t,nodes:[{id:genId(),text:t,children:[]}]});save();render()}}
+function delMap(i){if(confirm('删除？')){maps.splice(i,1);curMap=null;save();render()}}
+function openMap(i){curMap=i;render()}
+function addRoot(){let t=prompt('节点文本：');if(t){maps[curMap].nodes.push({id:genId(),text:t,children:[]});save();render()}}
+function addChild(id){let t=prompt('子节点文本：');if(!t)return;let n=findNode(maps[curMap].nodes,id);if(n){if(!n.children)n.children=[];n.children.push({id:genId(),text:t,children:[]});save();render()}}
+function editNode(id){let n=findNode(maps[curMap].nodes,id);if(n){let t=prompt('修改文本：',n.text);if(t!==null){n.text=t;save();render()}}}
+function delNode(id){if(confirm('删除节点？')){let p=findParent(maps[curMap].nodes,id);if(p){p.children=p.children.filter(c=>c.id!==id)}else{maps[curMap].nodes=maps[curMap].nodes.filter(n=>n.id!==id)}save();render()}}
+render();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dart 游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.navbar{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+.navbar a{color:var(--accent2);text-decoration:none;font-size:14px}.navbar a:hover{text-decoration:underline}
+.navbar h1{font-size:18px;font-weight:600}
+.navbar .tag{background:#0175c2;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:320px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sidebar-header{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px}
+.sidebar-content{flex:1;overflow-y:auto;padding:8px}
+.syntax-section{margin-bottom:8px}
+.syntax-section h4{color:var(--accent2);font-size:13px;padding:8px 12px 4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.syntax-section h4::after{content:"▾"}.syntax-section.collapsed h4::after{content:"▸"}.syntax-section.collapsed .syntax-items{display:none}
+.syntax-item{padding:6px 12px;font-size:12px;border-radius:4px;margin:1px 0;cursor:pointer;transition:background .15s}
+.syntax-item:hover{background:var(--border)}
+.syntax-item code{color:var(--success);font-family:monospace;font-size:11px}
+.syntax-item .desc{color:#8b949e;font-size:11px;margin-top:2px}
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card)}
+.toolbar select,.toolbar button{font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+.toolbar .run-btn{background:var(--success);color:#000;border-color:var(--success);font-weight:600}
+.toolbar .clear-btn{background:transparent;color:var(--warning);border-color:var(--warning)}
+.editor-wrap{flex:1;display:flex;overflow:hidden}
+.line-numbers{width:48px;background:var(--card);border-right:1px solid var(--border);padding:12px 8px;font-family:monospace;font-size:13px;line-height:1.6;color:#484f58;text-align:right;overflow:hidden;user-select:none}
+#codeEditor{flex:1;background:#0d1117;color:var(--text);border:none;outline:none;resize:none;padding:12px 16px;font-family:monospace;font-size:13px;line-height:1.6;tab-size:2;white-space:pre;overflow:auto;width:100%}
+.output-panel{height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:var(--card)}
+.output-header{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.output-header .dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+.output-tabs{display:flex}
+.output-tabs button{padding:6px 14px;font-size:12px;border:none;background:transparent;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent}
+.output-tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+#outputContent{flex:1;overflow:auto;padding:12px 16px;font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.status-bar{padding:4px 12px;font-size:11px;color:#484f58;border-top:1px solid var(--border);background:var(--card);display:flex;justify-content:space-between}
+@media(max-width:700px){.main{flex-direction:column}.sidebar{width:100%;height:200px;border-right:none;border-bottom:1px solid var(--border)}.output-panel{height:160px}}
+</style>
+</head>
+<body>
+<nav class="navbar"><a href="../index.html">← 返回工具列表</a><h1>Dart 游乐场</h1><span class="tag">Dart</span></nav>
+<div class="main">
+<aside class="sidebar">
+<div class="sidebar-header">📖 语法参考</div>
+<div class="sidebar-content">
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">异步编程</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('Future<String> fetchData() async {\\n  await Future.delayed(Duration(seconds: 1));\\n  return \\"数据加载完成\\";\\n}')"><code>async / await</code><div class="desc">异步函数</div></div>
+<div class="syntax-item" onclick="insertSnippet('Future<int> fetchUser(int id) async {\\n  if (id < 0) throw Exception(\\"无效ID\\");\\n  return id * 100;\\n}')"><code>async * / yield*</code><div class="desc">异步生成器</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">Future</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('Future<int> future = Future.value(42);\\nfuture.then((v) => print(\\"值: \$v\\"));')"><code>Future.value / error</code><div class="desc">创建 Future</div></div>
+<div class="syntax-item" onclick="insertSnippet('try {\\n  var result = await fetchUser(1);\\n  print(result);\\n} catch (e) {\\n  print(\\"错误: \$e\\");\\n}')"><code>try / catch</code><div class="desc">错误处理</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">Stream</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('Stream<int> countStream() async* {\\n  for (int i = 1; i <= 5; i++) {\\n    await Future.delayed(Duration(milliseconds: 500));\\n    yield i;\\n  }\\n}')"><code>async* / yield</code><div class="desc">流生成器</div></div>
+<div class="syntax-item" onclick="insertSnippet('await for (var value in stream) {\\n  print(value);\\n}')"><code>await for</code><div class="desc">监听流</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">类</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('class User {\\n  final String name;\\n  final int age;\\n\\n  User(this.name, this.age);\\n}')"><code>class</code><div class="desc">类定义（简写构造函数）</div></div>
+<div class="syntax-item" onclick="insertSnippet('class Animal {\\n  String name;\\n  Animal({required this.name});\\n}\\n\\nclass Dog extends Animal {\\n  Dog({required String name}) : super(name: name);\\n}')"><code>extends / super</code><div class="desc">继承</div></div>
+<div class="syntax-item" onclick="insertSnippet('class Circle extends Shape {\\n  @override\\n  double get area => 3.14159 * radius * radius;\\n}')"><code>@override</code><div class="desc">方法重写</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">空安全与类型</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('String? nullable = null;\\nString nonNull = \\"Hello\\";\\nint value = nullable?.length ?? 0;')"><code>String? / ??</code><div class="desc">空安全</div></div>
+<div class="syntax-item" onclick="insertSnippet('List<int> numbers = [1, 2, 3, 4, 5];\\nMap<String, int> scores = {\\'Alice\\': 95, \\'Bob\\': 87};')"><code>List / Map</code><div class="desc">集合类型</div></div>
+<div class="syntax-item" onclick="insertSnippet('var x = 42;  // 类型推断\\ndynamic anything = \\"可以是任何类型\\";\\nfinal constant = \\"不可变\\";')"><code>var / dynamic / final</code><div class="desc">变量声明</div></div>
+</div></div>
+<div class="syntax-section"><h4 onclick="this.parentElement.classList.toggle('collapsed')">函数式特性</h4><div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('var doubled = [1,2,3,4,5].map((x) => x * 2);\\nvar evens = [1,2,3,4,5].where((x) => x % 2 == 0);\\nvar sum = [1,2,3,4,5].fold(0, (a, b) => a + b);')"><code>map / where / fold</code><div class="desc">集合操作</div></div>
+<div class="syntax-item" onclick="insertSnippet('int add(int a, int b) => a + b;\\nvar multiply = (int a, int b) => a * b;')"><code>() =></code><div class="desc">箭头函数</div></div>
+</div></div>
+</div>
+</aside>
+<div class="center">
+<div class="toolbar">
+<select id="templateSelect" onchange="loadTemplate(this.value)"><option value="">选择模板...</option><option value="async">异步编程</option><option value="future">Future</option><option value="stream">Stream</option><option value="class">类与继承</option><option value="functional">函数式编程</option></select>
+<button class="run-btn" onclick="simulateRun()">▶ 模拟运行</button>
+<button class="clear-btn" onclick="clearAll()">清空</button>
+<button onclick="copyCode()">复制代码</button>
+</div>
+<div class="editor-wrap">
+<div class="line-numbers" id="lineNumbers">1</div>
+<textarea id="codeEditor" spellcheck="false" placeholder="void main() {&#10;  print('Hello, World!');&#10;}"></textarea>
+</div>
+<div class="output-panel">
+<div class="output-header"><div class="dot"></div><span>输出</span></div>
+<div class="output-tabs"><button class="active" onclick="showTab('output',this)">运行输出</button><button onclick="showTab('notes',this)">注意事项</button></div>
+<div id="outputContent">// 点击"模拟运行"查看输出</div>
+</div>
+</div>
+</div>
+<div class="status-bar"><span id="statusText">就绪</span><span>Dart 游乐场 | 模拟环境</span></div>
+<script>
+const editor=document.getElementById('codeEditor'),lineNumbers=document.getElementById('lineNumbers'),outputContent=document.getElementById('outputContent');
+const templates={
+async:`// 异步编程示例
+
+import 'dart:async';
+
+void main() async {
+  print("=== 异步编程示例 ===");
+
+  // 基础 async/await
+  print("\\n--- async/await ---");
+  var result = await fetchData();
+  print(result);
+
+  // 错误处理
+  print("\\n--- 错误处理 ---");
+  try {
+    var data = await fetchUser(-1);
+    print("用户: \$data");
+  } catch (e) {
+    print("捕获错误: \$e");
+  }
+
+  // 并发执行
+  print("\\n--- 并发执行 ---");
+  var results = await Future.wait([
+    simulateNetworkCall("A", 2),
+    simulateNetworkCall("B", 1),
+    simulateNetworkCall("C", 3),
+  ]);
+  print("所有结果: \$results");
+}
+
+Future<String> fetchData() async {
+  await Future.delayed(Duration(seconds: 1));
+  return "数据加载完成";
+}
+
+Future<Map<String, dynamic>> fetchUser(int id) async {
+  await Future.delayed(Duration(milliseconds: 500));
+  if (id < 0) throw Exception("无效ID: \$id");
+  return {"id": id, "name": "用户\$id"};
+}
+
+Future<String> simulateNetworkCall(String label, int seconds) async {
+  await Future.delayed(Duration(seconds: seconds));
+  return "\$label 完成 (\${seconds}s)";
+}`,
+
+future:`// Future 示例
+
+void main() async {
+  // Future.value - 立即完成的 Future
+  var immediate = Future.value(42);
+  var value = await immediate;
+  print("立即值: \$value");
+
+  // Future.delayed - 延迟完成
+  var delayed = Future.delayed(
+    Duration(seconds: 1),
+    () => "延迟的结果",
+  );
+  print(await delayed);
+
+  // Future.error - 错误的 Future
+  var errorFuture = Future.error(Exception("出错了"));
+  try {
+    await errorFuture;
+  } catch (e) {
+    print("错误: \$e");
+  }
+
+  // Future.then 链式调用
+  print("\\n--- 链式调用 ---");
+  Future.value(10)
+    .then((v) {
+      print("第1步: \$v");
+      return v * 2;
+    })
+    .then((v) {
+      print("第2步: \$v");
+      return v + 5;
+    })
+    .then((v) {
+      print("第3步: \$v");
+    });
+
+  // Future.orTimeout
+  print("\\n--- 超时处理 ---");
+  try {
+    var result = await Future.delayed(Duration(seconds: 5))
+      .timeout(Duration(seconds: 2));
+    print(result);
+  } on TimeoutException {
+    print("操作超时!");
+  }
+}`,
+
+stream:`// Stream 示例
+
+void main() async {
+  // 基础 Stream
+  print("--- 基础 Stream ---");
+  var stream = countStream(5);
+  await for (var value in stream) {
+    print("收到: \$value");
+  }
+
+  // Stream 操作
+  print("\\n--- Stream 操作 ---");
+  var processed = countStream(10)
+    .where((x) => x % 2 == 0)
+    .map((x) => x * x);
+
+  await for (var value in processed) {
+    print("偶数的平方: \$value");
+  }
+
+  // Stream 转 List
+  print("\\n--- 收集结果 ---");
+  var results = await countStream(5).toList();
+  print("所有值: \$results");
+
+  // Stream 监听
+  print("\\n--- 监听事件 ---");
+  var controller = StreamController<String>();
+
+  controller.stream.listen(
+    (data) => print("收到: \$data"),
+    onError: (err) => print("错误: \$err"),
+    onDone: () => print("流已关闭"),
+  );
+
+  controller.add("事件1");
+  controller.add("事件2");
+  controller.add("事件3");
+  await controller.close();
+}
+
+Stream<int> countStream(int max) async* {
+  for (int i = 1; i <= max; i++) {
+    await Future.delayed(Duration(milliseconds: 200));
+    yield i;
+  }
+}`,
+
+class:`// 类与继承示例
+
+void main() {
+  // 基础类
+  var dog = Dog("旺财", "柴犬");
+  print(dog);
+  dog.speak();
+  dog.fetch("飞盘");
+
+  // 构造函数
+  print("\\n--- 构造函数 ---");
+  var p1 = Point(3, 4);
+  var p2 = Point.named(x: 5, y: 12);
+  print("距离: \${p1.distanceTo(p2).toStringAsFixed(2)}");
+
+  // Mixin
+  print("\\n--- Mixin ---");
+  var swimmer = Swimmer();
+  swimmer.swim();
+  (swimmer as Flyable).fly();
+}
+
+// 基础类
+class Animal {
+  String name;
+
+  Animal(this.name);
+
+  void speak() => print("\$name 说: ...");
+
+  @override
+  String toString() => "Animal(\$name)";
+}
+
+class Dog extends Animal {
+  String breed;
+
+  Dog(String name, this.breed) : super(name);
+
+  @override
+  void speak() => print("\$name 说: 汪汪!");
+
+  void fetch(String item) => print("\$name 捡回了 \$item");
+}
+
+// 命名构造函数
+class Point {
+  double x, y;
+
+  Point(this.x, this.y);
+  Point.named({required this.x, required this.y});
+
+  double distanceTo(Point other) {
+    var dx = x - other.x;
+    var dy = y - other.y;
+    return (dx * dx + dy * dy) * 0.5;
+  }
+}
+
+// Mixin
+mixin Swimmable {
+  void swim() => print("正在游泳...");
+}
+
+mixin Flyable {
+  void fly() => print("正在飞行...");
+}
+
+class Swimmer extends Animal with Swimmable, Flyable {
+  Swimmer() : super("天鹅");
+}`,
+
+functional:`// 函数式编程示例
+
+void main() {
+  var numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+  // map
+  var doubled = numbers.map((x) => x * 2).toList();
+  print("加倍: \$doubled");
+
+  // where (filter)
+  var evens = numbers.where((x) => x % 2 == 0).toList();
+  print("偶数: \$evens");
+
+  // fold (reduce)
+  var sum = numbers.fold(0, (a, b) => a + b);
+  print("总和: \$sum");
+
+  // 链式操作
+  var result = numbers
+    .where((x) => x > 3)
+    .map((x) => x * 10)
+    .fold(0, (a, b) => a + b);
+  print("管道结果: \$result");
+
+  // 扩展方法
+  print("\\n--- 扩展方法 ---");
+  var message = "hello dart";
+  print(message.capitalize);
+  print(message.wordCount);
+
+  // 高阶函数
+  print("\\n--- 高阶函数 ---");
+  var add = (int a) => (int b) => a + b;
+  print("add(3)(4) = \${add(3)(4)}");
+}
+
+// 扩展方法
+extension StringExtensions on String {
+  String get capitalize =>
+    split(' ').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+
+  int get wordCount => split(RegExp(r'\\s+')).length;
+}
+`
+};
+editor.addEventListener('input',updateLineNumbers);
+editor.addEventListener('scroll',()=>lineNumbers.scrollTop=editor.scrollTop);
+editor.addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const s=editor.selectionStart,end=editor.selectionEnd;editor.value=editor.value.substring(0,s)+'  '+editor.value.substring(end);editor.selectionStart=editor.selectionEnd=s+2;updateLineNumbers();}});
+function updateLineNumbers(){lineNumbers.innerHTML=Array.from({length:editor.value.split('\n').length},(_,i)=>i+1).join('\n');}
+function loadTemplate(k){if(templates[k]){editor.value=templates[k];updateLineNumbers();document.getElementById('statusText').textContent='已加载模板';}}
+function insertSnippet(c){const s=editor.selectionStart;editor.value=editor.value.substring(0,s)+c+editor.value.substring(editor.selectionEnd);editor.selectionStart=editor.selectionEnd=s+c.length;editor.focus();updateLineNumbers();}
+function simulateRun(){const code=editor.value;if(!code.trim()){outputContent.textContent='// 请先编写 Dart 代码';return;}let output='';code.split('\n').forEach(l=>{const t=l.trim();if(t.match(/^print\(/)){let m=t.match(/print\((.+)\)/);if(m){let v=m[1].replace(/'/g,'').replace(/\\$/g,'<值>');output+=v.replace(/\\n/g,'')+'\n';}}});outputContent.textContent=output||'// 模拟运行完成\n// 完整运行需要 Dart: dart run main.dart';document.getElementById('statusText').textContent='运行完成';}
+function showTab(t,b){document.querySelectorAll('.output-tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(t==='notes')outputContent.textContent='// 注意事项\n// - Dart 是强类型语言\n// - 空安全是默认开启的\n// - async/await 是异步核心\n// - Stream 用于流式数据\n// - 单继承 + Mixin\n// - 是 Flutter 的开发语言';}
+function clearAll(){editor.value='';outputContent.textContent='// 点击"模拟运行"查看输出';lineNumbers.innerHTML='1';document.getElementById('statusText').textContent='已清空';document.getElementById('templateSelect').value='';}
+function copyCode(){navigator.clipboard.writeText(editor.value).then(()=>{document.getElementById('statusText').textContent='已复制到剪贴板';});}
+updateLineNumbers();
+</script>
+</body>
+</html>

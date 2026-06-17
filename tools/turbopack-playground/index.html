@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turbopack 游乐场</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.navbar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px}
+.navbar a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.navbar h1{font-size:1.2rem;flex:1}
+.navbar .icon{font-size:1.4rem}
+.container{max-width:1200px;margin:0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:.85rem;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.editor-section{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.editor-section{grid-template-columns:1fr}}
+.editor-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.editor-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.editor-header span{font-size:.8rem;color:var(--muted)}
+textarea{width:100%;min-height:350px;padding:14px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.82rem;line-height:1.6;resize:vertical;outline:none;tab-size:2}
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.cmd-list{display:flex;flex-direction:column;gap:8px}
+.cmd-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:.2s}
+.cmd-item:hover{border-color:var(--accent)}
+.cmd-item .cmd{font-family:monospace;color:var(--accent);font-size:.85rem;margin-bottom:4px}
+.cmd-item .desc{font-size:.78rem;color:var(--muted)}
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ref-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;transition:.2s}
+.ref-card:hover{border-color:var(--accent)}
+.ref-card h3{font-size:.9rem;margin-bottom:8px;color:var(--accent)}
+.ref-card pre{background:var(--bg);padding:10px;border-radius:6px;font-size:.78rem;overflow-x:auto;color:var(--text);line-height:1.5}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--success);color:#fff;padding:8px 18px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="navbar">
+<a href="../index.html">← 返回</a>
+<span class="icon">🚀</span>
+<h1>Turbopack 游乐场</h1>
+</div>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab('editor',this)">配置编辑器</div>
+<div class="tab" onclick="switchTab('compare',this)">与 Webpack 对比</div>
+<div class="tab" onclick="switchTab('nextjs',this)">Next.js 集成</div>
+<div class="tab" onclick="switchTab('commands',this)">常用命令</div>
+</div>
+
+<div class="panel active" id="panel-editor">
+<div class="editor-section">
+<div class="editor-box">
+<div class="editor-header"><span>turborepo.json (monorepo)</span><button class="btn btn-outline" onclick="copyCode('configEditor')">复制</button></div>
+<div class="editor-body">
+<textarea id="configEditor">{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "globalEnv": ["NODE_ENV", "DEPLOYMENT"],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "outputMode": "new-only"
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**", "test/**"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}</textarea>
+</div>
+</div>
+<div class="editor-box">
+<div class="editor-header"><span>说明</span></div>
+<div class="editor-body">
+<textarea readonly>Turbopack - Vercel 推出的增量打包引擎。
+
+🚀 核心特性：
+• 增量编译 - 只重编译变化的部分
+• 极速 HMR - 10,000+ 模块秒级更新
+• Monorepo 优化 - 自动构建依赖图
+• Webpack 兼容 - 渐进式迁移
+
+📦 Turborepo (构建编排)：
+• Monorepo 任务调度
+• 智能缓存（本地+远程）
+• 并行执行优化
+• 依赖感知构建
+
+⚡ Turbopack (打包引擎)：
+• Next.js 13+ 默认打包器
+• Rust 编写，性能极高
+• 原生 ESM 支持
+• 无需配置文件
+
+💡 与 Webpack 对比：
+• 开发速度：Turbo 10x 更快
+• HMR：Turbo < 50ms
+• 缓存：Turbo 原生支持</textarea>
+</div>
+</div>
+</div>
+</div>
+
+<div class="panel" id="panel-compare">
+<div class="ref-grid">
+<div class="ref-card"><h3>开发速度</h3><pre>Webpack (1000 模块)：
+冷启动: ~30s
+HMR: ~500ms
+
+Turbopack (1000 模块)：
+冷启动: ~1.8s
+HMR: ~50ms
+
+结论：Turbopack 快 10x+</pre></div>
+<div class="ref-card"><h3>配置复杂度</h3><pre>Webpack:
+• 需要 webpack.config.js
+• 大量 loader/plugin 配置
+• 需手动配置模块解析
+
+Turbopack:
+• 零配置启动
+• 自动识别文件类型
+• 内置最优默认值
+• 仅需 next.config.js</pre></div>
+<div class="ref-card"><h3>缓存策略</h3><pre>Webpack:
+• cache: { type: 'filesystem' }
+• 需要手动配置
+• 本地缓存
+
+Turbopack:
+• 自动增量缓存
+• 远程缓存（Vercel）
+• 基于文件内容哈希</pre></div>
+<div class="ref-card"><h3>生态兼容性</h3><pre>Webpack:
+• 最完整的插件生态
+• 几乎所有框架支持
+• 成熟稳定
+
+Turbopack:
+• 目前仅 Next.js 集成
+• 正在扩展框架支持
+• 快速发展中</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-nextjs">
+<div class="ref-grid">
+<div class="ref-card"><h3>Next.js 14+ 启用</h3><pre>// next.config.js
+module.exports = {
+  turbo: {
+    loaders: {
+      '.svg': ['@svgr/webpack'],
+    },
+    rules: {
+      '*.md': {
+        loaders: ['raw-loader'],
+        as: '*.js',
+      },
+    },
+  },
+};</pre></div>
+<div class="ref-card"><h3>Monorepo 配置</h3><pre>{
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": { "outputs": [] },
+    "test": {
+      "dependsOn": ["build"]
+    }
+  }
+}</pre></div>
+<div class="ref-card"><h3>远程缓存</h3><pre># 启用 Vercel 远程缓存
+npx turbo login
+npx turbo link
+
+# 团队共享缓存
+# CI 中设置：
+VERCEL_TOKEN=xxx turbo run build</pre></div>
+<div class="ref-card"><h3>Turbopack API</h3><pre>// 程序化使用 Turbopack
+import { createServer } from 'turbo';
+
+const server = createServer({
+  dir: process.cwd(),
+  port: 3000,
+  hot: true,
+});
+
+server.listen();</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-commands">
+<div class="cmd-list">
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx turbo run build</div><div class="desc">执行所有包的 build 任务</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx turbo run build --filter=web</div><div class="desc">只构建 web 包</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx turbo run build --filter=./packages/*</div><div class="desc">构建所有 packages</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx turbo run test --parallel</div><div class="desc">并行运行测试</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx turbo run build --force</div><div class="desc">忽略缓存强制构建</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx turbo run build --dry</div><div class="desc">预览将要执行的任务</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npm install -g turbo</div><div class="desc">全局安装 Turborepo</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx next dev --turbo</div><div class="desc">Next.js 启用 Turbopack</div></div>
+</div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+function copyCode(id){const ta=document.getElementById(id);ta.select();document.execCommand('copy');showToast('已复制到剪贴板')}
+function copyCmd(el){navigator.clipboard.writeText(el.querySelector('.cmd').textContent).then(()=>showToast('命令已复制'))}
+</script>
+</body>
+</html>

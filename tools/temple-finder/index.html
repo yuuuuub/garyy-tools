@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寺庙查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--amber:#f59e0b;--red:#ef4444;--green:#22c55e;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.card-badge{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
+.badge-free{background:rgba(34,197,94,.2);color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.badge-paid{background:rgba(245,158,11,.2);color:var(--amber);border:1px solid rgba(245,158,11,.4)}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;border-radius:6px;font-size:.75rem}
+.tag-era{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a855f7}
+.tag-style{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--accent)}
+.tag-festival{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:var(--amber)}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){.results{grid-template-columns:1fr}.search-row{flex-direction:column}.filter-row{flex-direction:column;align-items:stretch}.filter-group select{min-width:auto;width:100%}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🛕 寺庙查找</h1>
+<p class="subtitle">探索世界著名寺庙的宗教文化</p>
+<div class="controls">
+<div class="search-row"><input type="text" class="search-input" id="searchInput" placeholder="搜索寺庙名称或国家..."></div>
+<div class="filter-row">
+<div class="filter-group"><label>宗教</label><select id="denomFilter"><option value="">全部</option><option value="佛教">佛教</option><option value="印度教">印度教</option><option value="道教">道教</option><option value="伊斯兰教">伊斯兰教</option><option value="基督教">基督教</option><option value="神道教">神道教</option></select></div>
+<div class="filter-group"><label>门票</label><select id="feeFilter"><option value="">全部</option><option value="免费">免费</option><option value="收费">收费</option></select></div>
+<div class="filter-group"><label>排序</label>
+<div class="sort-btns"><button class="sort-btn active" data-sort="rating">评分 ↓</button><button class="sort-btn" data-sort="year">建造年代</button><button class="sort-btn" data-sort="name">名称</button></div>
+</div></div></div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const temples=[
+{id:1,name:"少林寺",country:"中国河南登封",era:"南北朝",year:495,denom:"佛教",style:"中国禅宗",features:["武术表演","塔林","达摩洞","藏经阁"],famous:"少林武术发源地",festivals:"少林武术节",fee:"80元",rating:4.7,desc:"中国佛教禅宗祖庭，世界武术发源地，千年古刹传承少林文化。"},
+{id:2,name:"吴哥窟",country:"柬埔寨暹粒",era:"高棉帝国",year:1150,denom:"印度教",style:"高棉建筑",features:["浮雕回廊","中央塔","护城河","日出观赏"],famous:"世界最大宗教建筑",festivals:"柬埔寨新年",fee:"37美元",rating:4.9,desc:"世界七大奇迹之一，高棉帝国最宏伟的宗教建筑，浮雕精美绝伦。"},
+{id:3,name:"金阁寺",country:"日本京都",era:"室町时代",year:1397,denom:"佛教",style:"日本禅宗",features:["金箔外墙","镜湖池","茶道体验","苔庭"],famous:"金箔覆盖的三层楼阁",festivals:"节分撒豆",fee:"500日元",rating:4.8,desc:"京都标志性建筑，金箔覆盖的三层楼阁倒映在镜湖池中如梦似幻。"},
+{id:4,name:"婆罗浮屠",country:"印度尼西亚",era:"夏连特拉王朝",year:800,denom:"佛教",style:"爪哇佛塔",features:["佛塔群","浮雕故事","日出观赏","曼陀罗平台"],famous:"世界最大佛教建筑",festivals:"卫塞节",fee:"25美元",rating:4.8,desc:"世界最大佛教寺庙群，2672块浮雕讲述佛教故事，UNESCO世界遗产。"},
+{id:5,name:"布达拉宫",country:"中国西藏拉萨",era:"吐蕃王朝",year:637,denom:"佛教",style:"藏式宫殿",features:["红白宫殿","灵塔殿","壁画","金顶"],famous:"世界海拔最高宫殿",festivals:"雪顿节",fee:"200元",rating:4.9,desc:"世界海拔最高的宫殿，藏传佛教圣地，红白宫殿群雄伟壮观。"},
+{id:6,name:"仰光大金塔",country:"缅甸仰光",era:"古代",year:550,denom:"佛教",style:"缅甸佛塔",features:["金顶","宝石镶嵌","四入口","日落金光"],famous:"缅甸最神圣的佛塔",festivals:"泼水节",fee:"免费",rating:4.7,desc:"缅甸最神圣的佛教圣地，金顶镶嵌宝石，日落时分金光闪耀。"},
+{id=7,name:"泰姬陵",country:"印度阿格拉",era:"莫卧儿帝国",year:1648,denom:"伊斯兰教",style:"莫卧儿建筑",features:["白色大理石","对称花园","镶嵌宝石","月光夜景"],famous:"世界七大奇迹",festivals:"伊斯兰节日",fee:"1100卢比",rating:4.9,desc:"莫卧儿皇帝沙贾汗为爱妻建造的白色大理石陵墓，永恒爱情象征。"},
+{id=8,name:"清水寺",country:"日本京都",era:"平安时代",year:778,denom:"佛教",style:"日本佛教",features:["清水舞台","音羽瀑布","秋季红叶","清水烧"],famous:"悬空清水舞台",festivals:"祇园祭",fee:"400日元",rating:4.7,desc:"京都最古老的寺庙之一，悬空的清水舞台是日本建筑奇迹。"},
+{id=9,name:"龙虎山天师府",country:"中国江西",era:"东汉",year:142,denom:"道教",style:"中国道教",features:["天师居所","符箓文化","悬棺表演","道教音乐"],famous:"道教正一派祖庭",festivals:"龙虎山庙会",fee:"免费",rating:4.4,desc:"中国道教正一派祖庭，天师道传承六十余代，道教文化活化石。"},
+{id:10,name:"耶路撒冷圣殿山",country:"以色列耶路撒冷",era:"古代",year:-960,denom:"基督教/伊斯兰教",style:"古代建筑",features:["金顶清真寺","哭墙","岩石圆顶","宗教圣地"],famous:"三大宗教共同圣地",festivals:"多个宗教节日",fee:"免费",rating:4.8,desc:"犹太教、基督教、伊斯兰教共同的圣地，金顶清真寺和哭墙相邻。"}
+];
+let currentSort="rating";
+let filtered=[...temples];
+function render(){
+const s=document.getElementById("searchInput").value.toLowerCase();
+const denom=document.getElementById("denomFilter").value;
+const fee=document.getElementById("feeFilter").value;
+filtered=temples.filter(t=>{
+if(s&&!t.name.includes(s)&&!t.country.includes(s))return false;
+if(denom&&t.denom!==denom)return false;
+if(fee==="免费"&&t.fee!=="免费")return false;
+if(fee==="收费"&&t.fee==="免费")return false;
+return true;
+});
+if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+else if(currentSort==="year")filtered.sort((a,b)=>a.year-b.year);
+else if(currentSort==="name")filtered.sort((a,b)=>a.name.localeCompare(b.name,"zh"));
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 座寺庙`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results">没有找到匹配的寺庙</div>';return;}
+c.innerHTML=filtered.map(t=>`<div class="card">
+<div class="card-header"><span class="card-name">🛕 ${t.name}</span><span class="card-badge ${t.fee==="免费"?"badge-free":"badge-paid"}">${t.fee==="免费"?"免费":"🎫 "+t.fee}</span></div>
+<div class="card-location">📍 ${t.country} · ⭐ ${t.rating}</div>
+<div class="card-desc">${t.desc}</div>
+<div class="card-meta">
+<span class="meta-tag tag-era">📅 ${t.era} · ${t.year>0?t.year+"年":Math.abs(t.year)+"年前"}</span>
+<span class="meta-tag tag-style">🙏 ${t.denom}</span>
+<span class="meta-tag tag-style">🏛️ ${t.style}</span>
+<span class="meta-tag tag-festival">🎊 ${t.festivals}</span>
+</div>
+<ul class="card-features">${t.features.map(f=>`<li>${f}</li>`).join("")}</ul>
+<div style="margin-top:8px;font-size:.8rem;color:var(--amber)">✨ ${t.famous}</div>
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("denomFilter").addEventListener("change",render);
+document.getElementById("feeFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

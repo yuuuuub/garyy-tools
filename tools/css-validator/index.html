@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS验证器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#238636;--red:#da3633;--yellow:#9e6a03;--dim:#8b949e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding:20px}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--dim);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+textarea{width:100%;min-height:200px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'Fira Code',monospace;font-size:13px;resize:vertical}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:14px;cursor:pointer;font-weight:600;transition:opacity .2s}
+button:hover{opacity:.85}
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.results{display:none;margin-top:16px}
+.result-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.result-item:last-child{border-bottom:none}
+.line-num{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:monospace;font-size:12px;color:var(--dim);white-space:nowrap;flex-shrink:0}
+.msg-error{color:var(--red)}
+.msg-warn{color:var(--yellow)}
+.msg-info{color:var(--accent)}
+.icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.summary{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.summary-item{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600}
+.s-error{background:#da363333;color:var(--red)}
+.s-warn{background:#9e6a0333;color:var(--yellow)}
+.s-info{background:#3b82f633;color:var(--accent)}
+.s-pass{background:#23863633;color:var(--green)}
+@media(max-width:600px){textarea{min-height:150px}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🎨 CSS验证器</h1>
+<p class="subtitle">粘贴CSS代码，检查语法错误和兼容性问题</p>
+
+<div class="card">
+<textarea id="cssInput" placeholder="在此粘贴 CSS 代码..."></textarea>
+<div class="btn-row">
+<button onclick="validate()">验证</button>
+<button onclick="loadExample()" style="background:var(--border)">示例</button>
+<button onclick="clearAll()" style="background:var(--border)">清空</button>
+</div>
+</div>
+
+<div class="results" id="results">
+<div class="card">
+<div class="summary" id="summary"></div>
+<div id="resultList"></div>
+</div>
+</div>
+</div>
+
+<script>
+const deprecatedProps=[
+{prop:'display',val:'-webkit-box',msg:'display: -webkit-box 已废弃，请使用 Flexbox'},
+{prop:'overflow',val:'-webkit-scrolling',msg:'-webkit-overflow-scrolling 已弃用'},
+{prop:'text-size-adjust',val:null,msg:'请使用 -webkit-text-size-adjust'},
+{prop:'animation-timing-function',val:'steps-end',msg:'steps-end 可能需要验证浏览器支持'},
+{prop:'font',val:'caption',msg:'font: caption 已弃用'},
+{prop:'appearance',val:'-webkit-appearance',msg:'请直接使用 appearance'},
+{prop:'text-overflow',val:'-o-ellipsis',msg:'-o-ellipsis 已废弃'},
+{prop:'user-select',val:null,msg:'请添加 -webkit-user-select 前缀'},
+{prop:'object-fit',val:null,msg:'请添加 -o-object-fit 前缀'},
+];
+const vendorPrefixes={
+'align-items':['-webkit-box-align','-moz-box-align','-webkit-flex-align','-ms-flex-align'],
+'justify-content':['-webkit-box-pack','-moz-box-pack','-webkit-justify-content','-ms-flex-pack'],
+'display:flex':['-webkit-box','-webkit-flex','-ms-flexbox'],
+'position:sticky':['-webkit-sticky'],
+'clip-path':['-webkit-clip-path'],
+'transform':['-webkit-transform','-ms-transform'],
+'transition':['-webkit-transition','-moz-transition','-o-transition'],
+'animation':['-webkit-animation','-moz-animation','-o-animation'],
+'filter':['-webkit-filter'],
+};
+const criticalValues={
+'z-index':['9999','99999','999999','Infinity'],
+'font-size':['1px','0px','0'],
+'opacity':['0'],
+'width':['100vw','100vw !important'],
+};
+function validate(){
+const css=document.getElementById('cssInput').value;
+if(!css.trim()){alert('请输入CSS代码');return;}
+const lines=css.split('\n');
+const issues=[];
+let braceCount=0;
+let inComment=false;
+lines.forEach((line,lineIdx)=>{
+const lineNum=lineIdx+1;
+let trimmed=line.trim();
+if(trimmed.startsWith('/*'))inComment=true;
+if(inComment&&trimmed.includes('*/')){inComment=false;return;}
+if(inComment)return;
+if(trimmed.startsWith('//')){issues.push({line:lineNum,type:'warn',msg:'使用了 // 注释，CSS仅支持 /* */ 注释'});return;}
+if(!trimmed||trimmed.startsWith('/*')||trimmed.startsWith('*'))return;
+const opens=(line.match(/{/g)||[]).length;
+const closes=(line.match(/}/g)||[]).length;
+braceCount+=opens-closes;
+const semicolonCount=(line.match(/;/g)||[]).length;
+if(trimmed.includes(':')&&!trimmed.endsWith('{')&&!trimmed.endsWith('}')&&!trimmed.startsWith('@')&&!trimmed.endsWith(';')&&!trimmed.endsWith(',')&&!trimmed.includes('/*')&&!trimmed.endsWith('}')){
+issues.push({line:lineNum,type:'warn',msg:'属性声明缺少分号'});
+}
+if(trimmed.includes(':')){
+const colonIdx=trimmed.indexOf(':');
+const prop=trimmed.substring(0,colonIdx).trim();
+const val=trimmed.substring(colonIdx+1).replace(/;|{|}/g,'').trim();
+if(prop==='color'&&val==='inherit'){
+issues.push({line:lineNum,type:'info',msg:'color: inherit 可能导致意外的颜色继承'});
+}
+deprecatedProps.forEach(d=>{
+if((!d.prop||prop===d.prop)&&(!d.val||val.includes(d.val))){
+issues.push({line:lineNum,type:'warn',msg:d.msg});
+}
+});
+const propVal=prop+':'+val;
+Object.keys(vendorPrefixes).forEach(k=>{
+if(propVal.includes(k)||prop.startsWith(k)){
+const p=vendorPrefixes[k];
+issues.push({line:lineNum,type:'info',msg:`考虑添加前缀: ${p.join(', ')}`});
+}
+});
+}
+if(trimmed.startsWith('@media')||trimmed.startsWith('@supports')){
+if(!trimmed.includes('(')&&trimmed.includes('@supports')){
+issues.push({line:lineNum,type:'warn',msg:'@supports 查询缺少条件表达式'});
+}
+}
+if(trimmed.match(/^[\w.:#\[\]>*~+,\-]+\s*{/)){
+const selector=trimmed.replace(/\s*{.*$/,'');
+if(selector.includes('&')&&!selector.startsWith('@')){
+issues.push({line:lineNum,type:'warn',msg:'& 选择器仅在嵌套语法中有效'});
+}
+}
+Object.keys(criticalValues).forEach(prop=>{
+criticalValues[prop].forEach(val=>{
+if(line.includes(`${prop}: ${val}`)){
+issues.push({line:lineNum,type:'warn',msg:`${prop}: ${val} 可能是问题值`});
+}
+});
+});
+});
+if(braceCount>0){
+issues.push({line:lines.length,type:'error',msg:`缺少 ${braceCount} 个右花括号 }`});
+}else if(braceCount<0){
+issues.push({line:1,type:'error',msg:`多了 ${Math.abs(braceCount)} 个右花括号 }`});
+}
+if(!css.includes('/*')&&!css.includes('/*')){
+issues.push({line:1,type:'info',msg:'建议添加文件头注释说明用途'});
+}
+showResults(issues);
+}
+function showResults(issues){
+document.getElementById('results').style.display='block';
+const errors=issues.filter(i=>i.type==='error').length;
+const warns=issues.filter(i=>i.type==='warn').length;
+const infos=issues.filter(i=>i.type==='info').length;
+let summaryHtml='';
+if(errors===0&&warns===0)summaryHtml+=`<div class="summary-item s-pass">✅ 无错误</div>`;
+if(errors>0)summaryHtml+=`<div class="summary-item s-error">❌ ${errors} 个错误</div>`;
+if(warns>0)summaryHtml+=`<div class="summary-item s-warn">⚠️ ${warns} 个警告</div>`;
+if(infos>0)summaryHtml+=`<div class="summary-item s-info">💡 ${infos} 个建议</div>`;
+document.getElementById('summary').innerHTML=summaryHtml;
+let html='';
+if(issues.length===0){
+html='<div style="text-align:center;color:var(--green);padding:20px">🎉 未发现任何问题！CSS 看起来不错。</div>';
+}else{
+issues.forEach(i=>{
+const icon=i.type==='error'?'❌':i.type==='warn'?'⚠️':'💡';
+const cls=i.type==='error'?'msg-error':i.type==='warn'?'msg-warn':'msg-info';
+html+=`<div class="result-item"><span class="icon">${icon}</span><span class="line-num">行 ${i.line}</span><span class="${cls}">${esc(i.msg)}</span></div>`;
+});
+}
+document.getElementById('resultList').innerHTML=html;
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function loadExample(){
+document.getElementById('cssInput').value=`.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px
+}
+
+.card {
+  background: #fff;
+  border-radius: 8px
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: -webkit-box
+  display: flex;
+  padding: 20px
+}
+
+.title {
+  font-size: 0px
+  color: inherit
+  opacity: 0
+  text-size-adjust: none
+}
+
+@supports (display: grid) {
+  .grid {
+    display: grid
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 10px
+    z-index: 99999
+  }
+}`;
+}
+function clearAll(){document.getElementById('cssInput').value='';document.getElementById('results').style.display='none';}
+</script>
+</body>
+</html>

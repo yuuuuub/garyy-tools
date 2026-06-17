@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>山峰查找 - Mountain Finder</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --secondary: #8b949e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.1rem;
+        }
+        
+        .search-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr 200px 150px;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .search-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .filter-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .filter-label {
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+        
+        .results-count {
+            color: var(--secondary);
+        }
+        
+        .sort-select {
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .mountain-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .mountain-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mountain-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .mountain-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .mountain-type {
+            padding: 4px 10px;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .mountain-location {
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .mountain-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .stars {
+            color: var(--warning);
+            letter-spacing: 2px;
+        }
+        
+        .rating-value {
+            font-weight: 600;
+        }
+        
+        .rating-count {
+            color: var(--secondary);
+            font-size: 0.85rem;
+        }
+        
+        .mountain-description {
+            color: var(--secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .mountain-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            margin-top: 4px;
+        }
+        
+        .mountain-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .feature-tag {
+            padding: 4px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--secondary);
+        }
+        
+        .mountain-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .info-item {
+            font-size: 0.9rem;
+        }
+        
+        .info-label {
+            color: var(--secondary);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .altitude-warning {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: var(--danger);
+        }
+        
+        .book-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+        
+        .book-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary);
+        }
+        
+        .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>山峰查找</h1>
+            <p class="subtitle">探索中国名山，挑战自我极限</p>
+        </header>
+
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索山峰名称或位置...">
+                <select class="sort-select" id="sortSelect">
+                    <option value="rating">按评分排序</option>
+                    <option value="elevation-high">海拔从高到低</option>
+                    <option value="elevation-low">海拔从低到高</option>
+                    <option value="difficulty">按难度排序</option>
+                </select>
+            </div>
+            <div class="filter-section">
+                <span class="filter-label">难度：</span>
+                <button class="filter-btn active" data-difficulty="all">全部</button>
+                <button class="filter-btn" data-difficulty="easy">轻松</button>
+                <button class="filter-btn" data-difficulty="moderate">中等</button>
+                <button class="filter-btn" data-difficulty="hard">困难</button>
+                <button class="filter-btn" data-difficulty="extreme">极限</button>
+            </div>
+        </div>
+
+        <div class="results-header">
+            <span class="results-count" id="resultsCount">找到 10 座山峰</span>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Cards will be injected here -->
+        </div>
+
+        <div class="no-results" id="noResults" style="display: none;">
+            <div class="no-results-icon">⛰️</div>
+            <h3>未找到匹配的山峰</h3>
+            <p>请尝试调整搜索条件或筛选项</p>
+        </div>
+
+        <footer>
+            <p>© 2024 山峰查找 - 征服每一座高峰</p>
+        </footer>
+    </div>
+
+    <script>
+        const mountains = [
+            {
+                name: "珠穆朗玛峰",
+                difficulty: "extreme",
+                difficultyLabel: "极限",
+                location: "西藏自治区日喀则市",
+                rating: 4.9,
+                reviews: 5670,
+                description: "世界最高峰，海拔8848.86米，是登山者的终极目标，每年仅允许少量登山者攀登。",
+                elevation: 8848,
+                hikingTrails: 3,
+                scenicSpots: 5,
+                altitudeSickness: "极高风险，必须携带氧气设备",
+                bestSeason: "5月-6月, 9月-10月",
+                features: ["世界最高峰", "大本营", "冰川", "珠峰大本营"],
+                warning: "海拔8000米以上为死亡地带，必须专业登山经验"
+            },
+            {
+                name: "黄山",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "安徽省黄山市",
+                rating: 4.8,
+                reviews: 4890,
+                description: "中国最著名的山脉之一，以奇松、怪石、云海、温泉著称，被誉为"五岳归来不看山，黄山归来不看岳"。",
+                elevation: 1864,
+                hikingTrails: 15,
+                scenicSpots: 72,
+                altitudeSickness: "低风险，适合大多数登山者",
+                bestSeason: "3月-5月, 9月-11月",
+                features: ["奇松", "怪石", "云海", "温泉", "日出"],
+                warning: "部分路段较陡，需注意安全"
+            },
+            {
+                name: "泰山",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "山东省泰安市",
+                rating: 4.7,
+                reviews: 4560,
+                description: "五岳之首，中国历史上最著名的山峰，历代帝王封禅之地，文化底蕴深厚。",
+                elevation: 1532,
+                hikingTrails: 10,
+                scenicSpots: 45,
+                altitudeSickness: "低风险，适合各年龄段",
+                bestSeason: "4月-11月",
+                features: ["五岳之首", "日出", "云海", "石刻", "古建筑"],
+                warning: "台阶较多，建议穿着舒适的登山鞋"
+            },
+            {
+                name: "华山",
+                difficulty: "hard",
+                difficultyLabel: "困难",
+                location: "陕西省渭南市",
+                rating: 4.6,
+                reviews: 3890,
+                description: "五岳中最险峻的山峰，以"奇险天下第一山"著称，长空栈道、鹞子翻身等险道闻名于世。",
+                elevation: 2155,
+                hikingTrails: 8,
+                scenicSpots: 30,
+                altitudeSickness: "低风险，但需注意高空安全",
+                bestSeason: "4月-10月",
+                features: ["奇险", "长空栈道", "鹞子翻身", "日出", "云海"],
+                warning: "部分路段非常危险，恐高者慎入"
+            },
+            {
+                name: "峨眉山",
+                difficulty: "easy",
+                difficultyLabel: "轻松",
+                location: "四川省乐山市",
+                rating: 4.5,
+                reviews: 3450,
+                description: "中国四大佛教名山之一，以"峨眉天下秀"著称，金顶日出和云海令人叹为观止。",
+                elevation: 3099,
+                hikingTrails: 12,
+                scenicSpots: 60,
+                altitudeSickness: "低风险，适合家庭出游",
+                bestSeason: "3月-12月",
+                features: ["佛教名山", "金顶", "日出", "云海", "灵猴"],
+                warning: "注意山上的猴子，不要随意投喂"
+            },
+            {
+                name: "武当山",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "湖北省十堰市",
+                rating: 4.4,
+                reviews: 2890,
+                description: "道教圣地，武当武术的发源地，古建筑群被列入世界文化遗产。",
+                elevation: 1612,
+                hikingTrails: 9,
+                scenicSpots: 35,
+                altitudeSickness: "低风险，适合各年龄段",
+                bestSeason: "3月-11月",
+                features: ["道教圣地", "武当武术", "古建筑", "金殿", "日出"],
+                warning: "注意保护文物古迹"
+            },
+            {
+                name: "嵩山",
+                difficulty: "easy",
+                difficultyLabel: "轻松",
+                location: "河南省登封市",
+                rating: 4.3,
+                reviews: 2340,
+                description: "五岳之中岳，少林寺所在地，中国武术的发源地，文化底蕴深厚。",
+                elevation: 1491,
+                hikingTrails: 7,
+                scenicSpots: 25,
+                altitudeSickness: "低风险，适合各年龄段",
+                bestSeason: "3月-11月",
+                features: ["少林寺", "武术", "古建筑", "石刻", "日出"],
+                warning: "注意少林寺的表演时间"
+            },
+            {
+                name: "衡山",
+                difficulty: "easy",
+                difficultyLabel: "轻松",
+                location: "湖南省衡阳市",
+                rating: 4.2,
+                reviews: 2100,
+                description: "五岳之南岳，以"南岳独秀"著称，是中国著名的佛教和道教圣地。",
+                elevation: 1300,
+                hikingTrails: 8,
+                scenicSpots: 28,
+                altitudeSickness: "低风险，适合各年龄段",
+                bestSeason: "3月-11月",
+                features: ["南岳独秀", "佛教圣地", "道教圣地", "日出", "云海"],
+                warning: "注意山上天气变化"
+            },
+            {
+                name: "长白山",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "吉林省延边州",
+                rating: 4.7,
+                reviews: 3670,
+                description: "中国著名的火山山脉，天池是中国最大的火山湖，景色壮丽。",
+                elevation: 2691,
+                hikingTrails: 6,
+                scenicSpots: 20,
+                altitudeSickness: "低风险，但需注意高原反应",
+                bestSeason: "6月-9月",
+                features: ["天池", "火山地貌", "原始森林", "温泉", "滑雪"],
+                warning: "天池天气多变，需携带保暖衣物"
+            },
+            {
+                name: "贡嘎山",
+                difficulty: "extreme",
+                difficultyLabel: "极限",
+                location: "四川省甘孜州",
+                rating: 4.8,
+                reviews: 2560,
+                description: "蜀山之王，海拔7556米，是四川省最高峰，攀登难度极高。",
+                elevation: 7556,
+                hikingTrails: 4,
+                scenicSpots: 15,
+                altitudeSickness: "极高风险，必须专业登山经验",
+                bestSeason: "5月-6月, 9月-10月",
+                features: ["蜀山之王", "冰川", "高山湖泊", "原始森林"],
+                warning: "海拔极高，必须专业登山装备和经验"
+            }
+        ];
+
+        let currentDifficulty = 'all';
+        let currentSort = 'rating';
+        let searchQuery = '';
+
+        function createStars(rating) {
+            const fullStars = Math.floor(rating);
+            const hasHalf = rating % 1 >= 0.5;
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) {
+                stars += '★';
+            }
+            if (hasHalf) {
+                stars += '☆';
+            }
+            return stars;
+        }
+
+        function createMountainCard(mountain) {
+            return `
+                <div class="mountain-card">
+                    <div class="mountain-header">
+                        <h3 class="mountain-name">${mountain.name}</h3>
+                        <span class="mountain-type">${mountain.difficultyLabel}</span>
+                    </div>
+                    <div class="mountain-location">📍 ${mountain.location}</div>
+                    <div class="mountain-rating">
+                        <span class="stars">${createStars(mountain.rating)}</span>
+                        <span class="rating-value">${mountain.rating}</span>
+                        <span class="rating-count">(${mountain.reviews}条评价)</span>
+                    </div>
+                    <p class="mountain-description">${mountain.description}</p>
+                    <div class="mountain-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${mountain.elevation}m</div>
+                            <div class="stat-label">海拔高度</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${mountain.hikingTrails}</div>
+                            <div class="stat-label">徒步路线</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${mountain.scenicSpots}</div>
+                            <div class="stat-label">景点数量</div>
+                        </div>
+                    </div>
+                    <div class="mountain-features">
+                        ${mountain.features.map(f => `<span class="feature-tag">${f}</span>`).join('')}
+                    </div>
+                    <div class="mountain-info">
+                        <div class="info-item">
+                            <div class="info-label">最佳季节</div>
+                            <div class="info-value">${mountain.bestSeason}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">高反风险</div>
+                            <div class="info-value">${mountain.altitudeSickness}</div>
+                        </div>
+                    </div>
+                    <div class="altitude-warning">⚠️ 高反警告：${mountain.altitudeSickness}</div>
+                    <button class="book-btn">查看详情</button>
+                </div>
+            `;
+        }
+
+        function filterAndSort() {
+            let filtered = mountains;
+            
+            if (currentDifficulty !== 'all') {
+                filtered = filtered.filter(m => m.difficulty === currentDifficulty);
+            }
+            
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(m => 
+                    m.name.toLowerCase().includes(query) || 
+                    m.location.toLowerCase().includes(query)
+                );
+            }
+            
+            switch (currentSort) {
+                case 'rating':
+                    filtered.sort((a, b) => b.rating - a.rating);
+                    break;
+                case 'elevation-high':
+                    filtered.sort((a, b) => b.elevation - a.elevation);
+                    break;
+                case 'elevation-low':
+                    filtered.sort((a, b) => a.elevation - b.elevation);
+                    break;
+                case 'difficulty':
+                    const difficultyOrder = { 'extreme': 4, 'hard': 3, 'moderate': 2, 'easy': 1 };
+                    filtered.sort((a, b) => difficultyOrder[b.difficulty] - difficultyOrder[a.difficulty]);
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        function renderResults() {
+            const filtered = filterAndSort();
+            const grid = document.getElementById('resultsGrid');
+            const noResults = document.getElementById('noResults');
+            const count = document.getElementById('resultsCount');
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                count.textContent = '找到 0 座山峰';
+            } else {
+                noResults.style.display = 'none';
+                grid.innerHTML = filtered.map(createMountainCard).join('');
+                count.textContent = `找到 ${filtered.length} 座山峰`;
+            }
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDifficulty = btn.dataset.difficulty;
+                renderResults();
+            });
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderResults();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderResults();
+        });
+
+        renderResults();
+    </script>
+</body>
+</html>

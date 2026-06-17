@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表情艺术</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent-hover:#2563eb}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin:20px 0 8px}
+.sub{color:#8b949e;margin-bottom:24px;font-size:0.95rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:800px;margin-bottom:16px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.controls label{font-size:0.85rem;color:#8b949e}
+.controls select,.controls input[type=number]{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.9rem}
+.controls input[type=number]{width:60px}
+.brush-picker{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.brush-btn{background:var(--bg);border:2px solid var(--border);border-radius:6px;font-size:1.3rem;padding:4px 6px;cursor:pointer;transition:border-color .15s}
+.brush-btn.active{border-color:var(--accent)}
+.brush-btn:hover{border-color:var(--accent)}
+.canvas{display:inline-grid;gap:0;border:1px solid var(--border);background:var(--bg);user-select:none}
+.cell{width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;border:1px solid rgba(48,54,61,0.5);transition:background .1s}
+.cell:hover{background:rgba(59,130,246,0.1)}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+button{padding:10px 20px;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer;font-weight:500;transition:background .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--border);color:var(--text)}.btn-secondary:hover{background:#444c56}
+.output{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:1rem;line-height:1.4;white-space:pre;overflow-x:auto;max-height:300px;overflow-y:auto;margin-top:10px}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:10px 24px;border-radius:8px;font-size:0.9rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<h1>表情艺术</h1>
+<p class="sub">用表情创作像素画，点击格子绘制图案</p>
+<div class="card">
+<div class="controls">
+<label>画布大小：</label>
+<select id="sizeSelect" onchange="initCanvas()">
+<option value="8">8×8</option>
+<option value="10" selected>10×10</option>
+<option value="12">12×12</option>
+<option value="16">16×16</option>
+<option value="20">20×20</option>
+</select>
+<label>画笔：</label>
+<div class="brush-picker" id="brushPicker"></div>
+</div>
+<div id="canvasContainer"></div>
+<div class="btn-row">
+<button class="btn-primary" onclick="exportArt()">导出文本</button>
+<button class="btn-secondary" onclick="clearCanvas()">清空画布</button>
+<button class="btn-secondary" onclick="fillCanvas()">填充画布</button>
+</div>
+</div>
+<div class="card" id="outputCard" style="display:none">
+<div style="font-weight:500;margin-bottom:6px">导出结果</div>
+<div style="color:#8b949e;font-size:0.85rem;margin-bottom:4px">复制文本可发送到社交平台</div>
+<div class="output" id="output"></div>
+<div class="btn-row">
+<button class="btn-primary" onclick="copyOutput()">复制文本</button>
+</div>
+</div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+<script>
+const BRUSHES=['⬛','⬜','🔴','🟠','🟡','🟢','🔵','🟣','🟤','❤️','⭐','🔥','💧','🌸','🍀','☀️','🌙','💎','🎵','🎯'];
+let currentBrush='⬛';
+let gridSize=10;
+let grid=[];
+let painting=false;
+function init(){
+initBrushPicker();
+initCanvas();
+}
+function initBrushPicker(){
+document.getElementById('brushPicker').innerHTML=BRUSHES.map(b=>
+`<div class="brush-btn${b===currentBrush?' active':''}" onclick="setBrush('${b}',this)">${b}</div>`
+).join('');
+}
+function setBrush(brush,el){
+currentBrush=brush;
+document.querySelectorAll('.brush-btn').forEach(b=>b.classList.remove('active'));
+el.classList.add('active');
+}
+function initCanvas(){
+gridSize=parseInt(document.getElementById('sizeSelect').value);
+grid=Array(gridSize).fill(null).map(()=>Array(gridSize).fill(''));
+renderCanvas();
+}
+function renderCanvas(){
+const container=document.getElementById('canvasContainer');
+container.innerHTML='';
+const canvas=document.createElement('div');
+canvas.className='canvas';
+canvas.style.gridTemplateColumns=`repeat(${gridSize},36px)`;
+canvas.style.gridTemplateRows=`repeat(${gridSize},36px)`;
+for(let r=0;r<gridSize;r++){
+for(let c=0;c<gridSize;c++){
+const cell=document.createElement('div');
+cell.className='cell';
+cell.textContent=grid[r][c];
+cell.dataset.row=r;
+cell.dataset.col=c;
+cell.addEventListener('mousedown',(e)=>{painting=true;paintCell(r,c,e);});
+cell.addEventListener('mouseenter',(e)=>{if(painting)paintCell(r,c,e);});
+cell.addEventListener('touchstart',(e)=>{e.preventDefault();painting=true;paintCell(r,c,e);});
+cell.addEventListener('touchmove',(e)=>{e.preventDefault();const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.row!==undefined)paintCell(parseInt(el.dataset.row),parseInt(el.dataset.col),e);});
+cell.addEventListener('contextmenu',(e)=>{e.preventDefault();grid[r][c]='';cell.textContent='';});
+canvas.appendChild(cell);
+}
+document.addEventListener('mouseup',()=>painting=false);
+document.addEventListener('touchend',()=>painting=false);
+container.appendChild(canvas);
+}
+function paintCell(r,c,e){
+e.preventDefault();
+const clearMode=e.ctrlKey||e.metaKey;
+grid[r][c]=clearMode?'':currentBrush;
+const cell=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+if(cell)cell.textContent=grid[r][c];
+}
+function clearCanvas(){
+grid=grid.map(row=>row.map(()=>''));
+renderCanvas();
+}
+function fillCanvas(){
+grid=grid.map(row=>row.map(()=>currentBrush));
+renderCanvas();
+}
+function exportArt(){
+const text=grid.map(row=>row.map(c=>c||'⬜').join('')).join('\n');
+document.getElementById('output').textContent=text;
+document.getElementById('outputCard').style.display='block';
+}
+function copyOutput(){
+const text=document.getElementById('output').textContent;
+if(!text)return;
+navigator.clipboard.writeText(text).then(()=>showToast('已复制'));
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JS检查器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#238636;--red:#da3633;--yellow:#9e6a03;--dim:#8b949e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding:20px}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--dim);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+textarea{width:100%;min-height:200px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'Fira Code',monospace;font-size:13px;resize:vertical}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:14px;cursor:pointer;font-weight:600;transition:opacity .2s}
+button:hover{opacity:.85}
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.results{display:none;margin-top:16px}
+.result-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.result-item:last-child{border-bottom:none}
+.line-num{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:monospace;font-size:12px;color:var(--dim);white-space:nowrap;flex-shrink:0}
+.msg-error{color:var(--red)}
+.msg-warn{color:var(--yellow)}
+.msg-info{color:var(--accent)}
+.icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.summary{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.summary-item{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600}
+.s-error{background:#da363333;color:var(--red)}
+.s-warn{background:#9e6a0333;color:var(--yellow)}
+.s-info{background:#3b82f633;color:var(--accent)}
+.s-pass{background:#23863633;color:var(--green)}
+.suggestion{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px 12px;margin-top:4px;font-size:12px;color:var(--dim);font-family:monospace}
+@media(max-width:600px){textarea{min-height:150px}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔍 JS检查器</h1>
+<p class="subtitle">粘贴JavaScript代码，检查常见问题并给出建议</p>
+
+<div class="card">
+<textarea id="jsInput" placeholder="在此粘贴 JavaScript 代码..."></textarea>
+<div class="btn-row">
+<button onclick="lint()">检查</button>
+<button onclick="loadExample()" style="background:var(--border)">示例</button>
+<button onclick="clearAll()" style="background:var(--border)">清空</button>
+</div>
+</div>
+
+<div class="results" id="results">
+<div class="card">
+<div class="summary" id="summary"></div>
+<div id="resultList"></div>
+</div>
+</div>
+</div>
+
+<script>
+const reservedWords=['abstract','boolean','break','byte','case','catch','char','class','const','continue','debugger','default','delete','do','double','else','enum','export','extends','final','finally','float','for','function','goto','if','implements','import','in','instanceof','int','interface','long','native','new','package','private','protected','public','return','short','static','super','switch','synchronized','this','throw','throws','transient','try','typeof','var','void','volatile','while','with'];
+function lint(){
+const code=document.getElementById('jsInput').value;
+if(!code.trim()){alert('请输入JavaScript代码');return;}
+const lines=code.split('\n');
+const issues=[];
+const vars={};
+const usedVars={};
+lines.forEach((line,lineIdx)=>{
+const lineNum=lineIdx+1;
+const trimmed=line.trim();
+if(!trimmed||trimmed.startsWith('//')||trimmed.startsWith('/*'))return;
+if(trimmed.match(/==(?!=)/)){
+issues.push({line:lineNum,type:'warn',msg:'使用了 == 松散比较，建议使用 === 严格比较',fix:'将 == 改为 ==='});
+}
+if(trimmed.match(/!=(?!=)/)){
+issues.push({line:lineNum,type:'warn',msg:'使用了 != 松散比较，建议使用 !== 严格比较',fix:'将 != 改为 !=='});
+}
+if(trimmed.match(/console\.(log|warn|error|info|debug)\(/)){
+const method=trimmed.match(/console\.(log|warn|error|info|debug)\(/)[1];
+issues.push({line:lineNum,type:'warn',msg:`保留了 console.${method}() 调用，生产环境应移除`,fix:'删除或使用条件日志'});
+}
+if(trimmed.match(/debugger\s*;?/)){
+issues.push({line:lineNum,type:'error',msg:'保留了 debugger 语句',fix:'删除 debugger 语句'});
+}
+if(trimmed.match(/\beval\s*\(/)){
+issues.push({line:lineNum,type:'error',msg:'使用了 eval()，存在安全和性能风险',fix:'避免使用 eval，改用 JSON.parse 或其他安全方式'});
+}
+if(trimmed.match(/with\s*\(/)){
+issues.push({line:lineNum,type:'error',msg:'使用了 with 语句，已废弃且有安全隐患',fix:'删除 with 语句，使用变量引用'});
+}
+if(trimmed.match(/\bnew\s+Function\s*\(/)){
+issues.push({line:lineNum,type:'warn',msg:'使用了 new Function()，存在安全风险',fix:'避免使用 new Function'});
+}
+if(trimmed.match(/\balert\s*\(/)){
+issues.push({line:lineNum,type:'info',msg:'使用了 alert()，建议使用自定义 UI 组件',fix:'替换为 Toast 或 Modal 组件'});
+}
+if(trimmed.match(/\bconfirm\s*\(/)){
+issues.push({line:lineNum,type:'info',msg:'使用了 confirm()，建议使用自定义 UI 组件',fix:'替换为自定义确认对话框'});
+}
+if(trimmed.match(/\bdocument\.(getElementById|querySelector|getElementsByClassName)\(/)){
+issues.push({line:lineNum,type:'info',msg:'直接操作 DOM，考虑使用框架（如 React/Vue）',fix:'封装为组件或使用模板引擎'});
+}
+if(trimmed.match(/\bsetTimeout\s*\([^,]+,\s*(\d+)\s*\)/)){
+const delay=trimmed.match(/setTimeout\s*\([^,]+,\s*(\d+)\s*\)/)[1];
+if(parseInt(delay)>0){
+issues.push({line:lineNum,type:'info',msg:`setTimeout 延迟 ${delay}ms，考虑是否需要`,fix:'检查是否可以移除或使用 requestAnimationFrame'});
+}
+}
+if(trimmed.match(/===?\s*undefined/)){
+issues.push({line:lineNum,type:'info',msg:'建议使用 typeof 检查是否定义',fix:'使用 typeof var === "undefined"'});
+}
+if(trimmed.match(/\bvar\s+/)){
+const varDecl=trimmed.match(/\bvar\s+(\w+)/);
+if(varDecl){
+issues.push({line:lineNum,type:'info',msg:'使用 var 声明变量，建议使用 let 或 const',fix:`将 var ${varDecl[1]} 改为 let ${varDecl[1]} 或 const ${varDecl[1]}`});
+}
+}
+const varMatch=trimmed.match(/\b(const|let)\s+(\w+)\s*=/);
+if(varMatch){
+vars[varMatch[2]]=lineNum;
+}
+const useMatch=trimmed.match(/\b(\w+)\b/g);
+if(useMatch&&varMatch){
+useMatch.forEach(u=>{
+if(u!==varMatch[2]&&vars[u])usedVars[u]=vars[u];
+});
+}
+});
+Object.keys(vars).forEach(v=>{
+if(!usedVars[v]&&v!=='_'&&!v.startsWith('$')){
+issues.push({line:vars[v],type:'warn',msg:`变量 "${v}" 已声明但未使用`,fix:'删除未使用的变量或添加下划线前缀'});
+}
+});
+const openParens=(code.match(/\(/g)||[]).length;
+const closeParens=(code.match(/\)/g)||[]).length;
+if(openParens!==closeParens){
+issues.push({line:1,type:'error',msg:`括号不匹配: ${openParens} 个左括号, ${closeParens} 个右括号`});
+}
+const openBraces=(code.match(/{/g)||[]).length;
+const closeBraces=(code.match(/}/g)||[]).length;
+if(openBraces!==closeBraces){
+issues.push({line:1,type:'error',msg:`花括号不匹配: ${openBraces} 个左花括号, ${closeBraces} 个右花括号`});
+}
+showResults(issues);
+}
+function showResults(issues){
+document.getElementById('results').style.display='block';
+const errors=issues.filter(i=>i.type==='error').length;
+const warns=issues.filter(i=>i.type==='warn').length;
+const infos=issues.filter(i=>i.type==='info').length;
+let summaryHtml='';
+if(errors===0&&warns===0)summaryHtml+=`<div class="summary-item s-pass">✅ 无严重问题</div>`;
+if(errors>0)summaryHtml+=`<div class="summary-item s-error">❌ ${errors} 个错误</div>`;
+if(warns>0)summaryHtml+=`<div class="summary-item s-warn">⚠️ ${warns} 个警告</div>`;
+if(infos>0)summaryHtml+=`<div class="summary-item s-info">💡 ${infos} 个建议</div>`;
+document.getElementById('summary').innerHTML=summaryHtml;
+let html='';
+if(issues.length===0){
+html='<div style="text-align:center;color:var(--green);padding:20px">🎉 代码看起来不错！未发现常见问题。</div>';
+}else{
+issues.forEach(i=>{
+const icon=i.type==='error'?'❌':i.type==='warn'?'⚠️':'💡';
+const cls=i.type==='error'?'msg-error':i.type==='warn'?'msg-warn':'msg-info';
+html+=`<div class="result-item"><span class="icon">${icon}</span><span class="line-num">行 ${i.line}</span><span class="${cls}">${esc(i.msg)}${i.fix?`<div class="suggestion">💡 建议: ${esc(i.fix)}</div>`:''}</span></div>`;
+});
+}
+document.getElementById('resultList').innerHTML=html;
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function loadExample(){
+document.getElementById('jsInput').value=`var globalVar = "hello";
+const unused = "world";
+
+function fetchData() {
+  var data = null;
+  console.log("开始获取数据");
+  
+  if (data == null) {
+    debugger;
+    return eval("data = " + JSON.stringify({items: []}));
+  }
+  
+  with (data) {
+    alert("获取成功");
+  }
+  
+  document.getElementById("result").innerHTML = data;
+  console.log("完成", data);
+  
+  setTimeout(function() {
+    console.log("延迟执行");
+  }, 5000);
+}
+
+function processItems(items) {
+  var result = [];
+  for (var i = 0; i < items.length; i++) {
+    if (items[i] != null) {
+      result.push(items[i]);
+    }
+  }
+  return result;
+}`;
+}
+function clearAll(){document.getElementById('jsInput').value='';document.getElementById('results').style.display='none';}
+</script>
+</body>
+</html>

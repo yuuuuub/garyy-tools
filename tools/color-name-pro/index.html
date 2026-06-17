@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色名Pro - Color Name Pro</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{text-align:center;padding:2rem 1rem;border-bottom:1px solid var(--border)}
+.header h1{font-size:1.8rem;margin-bottom:.3rem}
+.header p{color:#8b949e;font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:1.5rem}
+.input-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin:1.5rem 0}
+.input-section h3{margin-bottom:1rem}
+.input-tabs{display:flex;gap:.4rem;margin-bottom:1rem}
+.input-tab{padding:.4rem .8rem;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:.8rem}
+.input-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.input-row{display:flex;gap:.8rem;align-items:center}
+.input-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.6rem;color:var(--text);font-family:monospace;font-size:1rem}
+.input-row input[type="color"]{width:60px;height:42px;border:none;border-radius:8px;cursor:pointer;flex:none}
+.result-section{margin:2rem 0}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;display:flex;gap:1.5rem;flex-wrap:wrap}
+.result-swatch{width:120px;height:120px;border-radius:12px;border:2px solid var(--border);flex-shrink:0}
+.result-info{flex:1;min-width:200px}
+.result-info h2{font-size:1.4rem;margin-bottom:.3rem}
+.result-info .cn-name{font-size:1.1rem;color:#8b949e;margin-bottom:.8rem}
+.result-info .hex{font-family:monospace;font-size:.9rem}
+.alternatives{margin-top:1rem}
+.alternatives h4{margin-bottom:.5rem;font-size:.9rem;color:var(--accent)}
+.alt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem}
+.alt-item{display:flex;align-items:center;gap:.5rem;padding:.4rem;background:var(--bg);border-radius:6px;cursor:pointer;transition:background .2s}
+.alt-item:hover{background:var(--card)}
+.alt-dot{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);flex-shrink:0}
+.alt-item span{font-size:.75rem;font-family:monospace}
+.all-colors{margin-top:2rem}
+.all-colors h2{margin-bottom:1rem;font-size:1.2rem}
+.search-box{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.6rem 1rem;color:var(--text);font-size:.9rem;margin-bottom:1rem}
+.color-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.6rem;max-height:500px;overflow-y:auto}
+.color-item{display:flex;align-items:center;gap:.5rem;padding:.5rem;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s}
+.color-item:hover{border-color:var(--accent)}
+.color-dot{width:32px;height:32px;border-radius:6px;border:1px solid var(--border);flex-shrink:0}
+.color-item-info{flex:1;min-width:0}
+.color-item-info .name{font-size:.8rem;font-weight:600}
+.color-item-info .hex{font-size:.65rem;color:#8b949e;font-family:monospace}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>🏷️ 色名Pro</h1>
+<p>查找颜色的CSS命名和中文名称</p>
+</div>
+<div class="container">
+<div class="input-section">
+<h3>输入颜色值</h3>
+<div class="input-tabs">
+<div class="input-tab active" data-type="hex">HEX</div>
+<div class="input-tab" data-type="rgb">RGB</div>
+<div class="input-tab" data-type="hsl">HSL</div>
+<div class="input-tab" data-type="picker">取色器</div>
+</div>
+<div class="input-row">
+<input type="text" id="colorInput" value="#3B82F6" placeholder="#3B82F6">
+<input type="color" id="colorPicker" value="#3b82f6" style="display:none">
+</div>
+</div>
+
+<div class="result-section" id="resultSection" style="display:none">
+<div class="result-card">
+<div class="result-swatch" id="resultSwatch"></div>
+<div class="result-info">
+<h2 id="resultName">—</h2>
+<div class="cn-name" id="resultCnName">—</div>
+<div class="hex" id="resultHex">—</div>
+<div class="alternatives">
+<h4>最接近的颜色</h4>
+<div class="alt-grid" id="altGrid"></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="all-colors">
+<h2>CSS 命名颜色</h2>
+<input type="text" class="search-box" id="searchBox" placeholder="搜索颜色名称...">
+<div class="color-list" id="colorList"></div>
+</div>
+</div>
+
+<script>
+const cssColors={
+'black':'#000000','silver':'#C0C0C0','gray':'#808080','white':'#FFFFFF','maroon':'#800000',
+'red':'#FF0000','purple':'#800080','fuchsia':'#FF00FF','green':'#008000','lime':'#00FF00',
+'olive':'#808000','yellow':'#FFFF00','navy':'#000080','blue':'#0000FF','teal':'#008080',
+'aqua':'#00FFFF','orange':'#FFA500','aliceblue':'#F0F8FF','antiquewhite':'#FAEBD7',
+'aqua':'#00FFFF','aquamarine':'#7FFFD4','azure':'#F0FFFF','beige':'#F5F5DC',
+'bisque':'#FFE4C4','blanchedalmond':'#FFEBCD','blueviolet':'#8A2BE2','brown':'#A52A2A',
+'burlywood':'#DEB887','cadetblue':'#5F9EA0','chartreuse':'#7FFF00','chocolate':'#D2691E',
+'coral':'#FF7F50','cornflowerblue':'#6495ED','cornsilk':'#FFF8DC','crimson':'#DC143C',
+'cyan':'#00FFFF','darkblue':'#00008B','darkcyan':'#008B8B','darkgoldenrod':'#B8860B',
+'darkgray':'#A9A9A9','darkgreen':'#006400','darkkhaki':'#BDB76B','darkmagenta':'#8B008B',
+'darkolivegreen':'#556B2F','darkorange':'#FF8C00','darkorchid':'#9932CC','darkred':'#8B0000',
+'darksalmon':'#E9967A','darkseagreen':'#8FBC8F','darkslateblue':'#483D8B','darkslategray':'#2F4F4F',
+'darkturquoise':'#00CED1','darkviolet':'#9400D3','deeppink':'#FF1493','deepskyblue':'#00BFFF',
+'dimgray':'#696969','dodgerblue':'#1E90FF','firebrick':'#B22222','floralwhite':'#FFFAF0',
+'forestgreen':'#228B22','gainsboro':'#DCDCDC','ghostwhite':'#F8F8FF','gold':'#FFD700',
+'goldenrod':'#DAA520','gray':'#808080','green':'#008000','greenyellow':'#ADFF2F',
+'honeydew':'#F0FFF0','hotpink':'#FF69B4','indianred':'#CD5C5C','indigo':'#4B0082',
+'ivory':'#FFFFF0','khaki':'#F0E68C','lavender':'#E6E6FA','lavenderblush':'#FFF0F5',
+'lawngreen':'#7CFC00','lemonchiffon':'#FFFACD','lightblue':'#ADD8E6','lightcoral':'#F08080',
+'lightcyan':'#E0FFFF','lightgoldenrodyellow':'#FAFAD2','lightgray':'#D3D3D3','lightgreen':'#90EE90',
+'lightpink':'#FFB6C1','lightsalmon':'#FFA07A','lightseagreen':'#20B2AA','lightskyblue':'#87CEFA',
+'lightslategray':'#778899','lightsteelblue':'#B0C4DE','lightyellow':'#FFFFE0','lime':'#00FF00',
+'limegreen':'#32CD32','linen':'#FAF0E6','magenta':'#FF00FF','maroon':'#800000',
+'mediumaquamarine':'#66CDAA','mediumblue':'#0000CD','mediumorchid':'#BA55D3','mediumpurple':'#9370DB',
+'mediumseagreen':'#3CB371','mediumslateblue':'#7B68EE','mediumspringgreen':'#00FA9A',
+'mediumturquoise':'#48D1CC','mediumvioletred':'#C71585','midnightblue':'#191970',
+'mintcream':'#F5FFFA','mistyrose':'#FFE4E1','moccasin':'#FFE4B5','navajowhite':'#FFDEAD',
+'navy':'#000080','oldlace':'#FDF5E6','olive':'#808000','olivedrab':'#6B8E23',
+'orange':'#FFA500','orangered':'#FF4500','orchid':'#DA70D6','palegoldenrod':'#EEE8AA',
+'palegreen':'#98FB98','paleturquoise':'#AFEEEE','palevioletred':'#DB7093','papayawhip':'#FFEFD5',
+'peachpuff':'#FFDAB9','peru':'#CD853F','pink':'#FFC0CB','plum':'#DDA0DD',
+'powderblue':'#B0E0E6','purple':'#800080','rebeccapurple':'#663399','red':'#FF0000',
+'rosybrown':'#BC8F8F','royalblue':'#4169E1','saddlebrown':'#8B4513','salmon':'#FA8072',
+'sandybrown':'#F4A460','seagreen':'#2E8B57','seashell':'#FFF5EE','sienna':'#A0522D',
+'silver':'#C0C0C0','skyblue':'#87CEEB','slateblue':'#6A5ACD','slategray':'#708090',
+'snow':'#FFFAFA','springgreen':'#00FF7F','steelblue':'#4682B4','tan':'#D2B48C',
+'teal':'#008080','thistle':'#D8BFD8','tomato':'#FF6347','turquoise':'#40E0D0',
+'violet':'#EE82EE','wheat':'#F5DEB3','white':'#FFFFFF','whitesmoke':'#F5F5F5',
+'yellow':'#FFFF00','yellowgreen':'#9ACD32'
+};
+
+const chineseNames={
+'#FF0000':'红色','#000000':'黑色','#FFFFFF':'白色','#0000FF':'蓝色','#00FF00':'绿色',
+'#FFFF00':'黄色','#FF00FF':'品红','#00FFFF':'青色','#800000':'栗色','#808080':'灰色',
+'#FFA500':'橙色','#FFC0CB':'粉色','#800080':'紫色','#008000':'绿色','#000080':'藏青',
+'#FFD700':'金色','#C0C0C0':'银色','#A52A2A':'棕色','#4169E1':'宝蓝色','#DC143C':'绯红',
+'#FF7F50':'珊瑚红','#4682B4':'钢蓝色','#2E8B57':'海绿色','#D2691E':'巧克力色',
+'#FF1493':'深粉色','#1E90FF':'道奇蓝','#228B22':'森林绿','#FF4500':'橙红色',
+'#DA70D6':'兰花紫','#F0E68C':'卡其色','#E6E6FA':'薰衣草','#4B0082':'靛蓝',
+'#FF69B4':'暖粉色','#00CED1':'深青色','#9370DB':'中紫色','#3CB371':'中海绿',
+'#BA55D3':'中兰花紫','#7B68EE':'中板岩蓝','#00FA9A':'中春绿','#48D1CC':'中绿松石',
+'#C71585':'中紫红','#191970':'午夜蓝','#FFE4E1':'薄雾玫瑰','#FFDEAD':'纳瓦霍白',
+'#FDF5E6':'老蕾丝','#6B8E23':'橄榄绿','#EE82EE':'紫罗兰','#F5DEB3':'小麦色'
+};
+
+function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
+function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('').toUpperCase()}
+function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const max=Math.max(r,g,b),min=Math.min(r,g,b);let h,s,l=(max+min)/2;if(max===min){h=s=0}else{const d=max-min;s=l>.5?d/(2-max-min):d/(max+min);switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)+4)/6;break}}return[Math.round(h*360),Math.round(s*100),Math.round(l*100)]}
+function colorDistance(hex1,hex2){
+const r1=hexToRgb(hex1),r2=hexToRgb(hex2);
+return Math.sqrt((r1[0]-r2[0])**2+(r1[1]-r2[1])**2+(r1[2]-r2[2])**2);
+}
+
+let currentInputType='hex';
+
+function findClosestName(hex){
+const entries=Object.entries(cssColors);
+entries.sort((a,b)=>colorDistance(hex,a[1])-colorDistance(hex,b[1]));
+return entries.slice(0,6).map(([name,h])=>({name,hex:h,distance:colorDistance(hex,h)}));
+}
+
+function updateResult(hex){
+const closest=findClosestName(hex);
+const best=closest[0];
+const cnName=chineseNames[hex]||chineseNames[best.hex]||'';
+document.getElementById('resultSwatch').style.background=hex;
+document.getElementById('resultName').textContent=best.name;
+document.getElementById('resultCnName').textContent=cnName||`最接近: ${best.name}`;
+document.getElementById('resultHex').textContent=`${hex}  色差: ${Math.round(best.distance)}`;
+const altGrid=document.getElementById('altGrid');
+altGrid.innerHTML=closest.map(c=>{
+const cn=chineseNames[c.hex]||'';
+return`<div class="alt-item" onclick="selectColor('${c.hex}')"><div class="alt-dot" style="background:${c.hex}"></div><span>${c.name}${cn?' ('+cn+')':''}</span></div>`;
+}).join('');
+document.getElementById('resultSection').style.display='block';
+}
+
+function selectColor(hex){
+document.getElementById('colorInput').value=hex;
+document.getElementById('colorPicker').value=hex;
+updateResult(hex);
+}
+
+function parseInput(){
+const input=document.getElementById('colorInput').value.trim();
+let hex='';
+if(currentInputType==='hex'){
+if(/^#[0-9a-fA-F]{3,8}$/.test(input)){
+hex=input.length===4?'#'+input[1]+input[1]+input[2]+input[2]+input[3]+input[3]:input.slice(0,7);
+}
+}else if(currentInputType==='rgb'){
+const m=input.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+if(m)hex=rgbToHex(+m[1],+m[2],+m[3]);
+}else if(currentInputType==='hsl'){
+const m=input.match(/(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)%?/);
+if(m){
+const h=+m[1],s=+m[2]/100,l=+m[3]/100;
+const a=s*Math.min(l,1-l);
+const f=n=>{const k=(n+h/30)%12;return l-a*Math.max(Math.min(k-3,9-k,1),-1)};
+hex=rgbToHex(Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255));
+}
+}
+if(hex)updateResult(hex);
+}
+
+document.querySelectorAll('.input-tab').forEach(tab=>{
+tab.addEventListener('click',()=>{
+document.querySelectorAll('.input-tab').forEach(t=>t.classList.remove('active'));
+tab.classList.add('active');currentInputType=tab.dataset.type;
+const input=document.getElementById('colorInput');
+const picker=document.getElementById('colorPicker');
+if(currentInputType==='picker'){input.style.display='none';picker.style.display='block';picker.addEventListener('input',e=>{input.value=e.target.value;parseInput()})}
+else{input.style.display='';picker.style.display='none'}
+const placeholders={hex:'#3B82F6',rgb:'59, 130, 246',hsl:'217, 84%, 60%'};
+input.placeholder=placeholders[currentInputType]||'';
+parseInput();
+});
+});
+
+document.getElementById('colorInput').addEventListener('input',parseInput);
+document.getElementById('colorPicker').addEventListener('input',e=>{document.getElementById('colorInput').value=e.target.value;parseInput()});
+
+// Render all colors
+const list=document.getElementById('colorList');
+function renderColorList(filter=''){
+const entries=Object.entries(cssColors).filter(([name,hex])=>!filter||name.toLowerCase().includes(filter.toLowerCase())||hex.toLowerCase().includes(filter));
+list.innerHTML=entries.map(([name,hex])=>{
+const cn=chineseNames[hex]||'';
+return`<div class="color-item" onclick="selectColor('${hex}')"><div class="color-dot" style="background:${hex}"></div><div class="color-item-info"><div class="name">${name}</div><div class="hex">${hex}${cn?' · '+cn:''}</div></div></div>`;
+}).join('');
+}
+document.getElementById('searchBox').addEventListener('input',e=>renderColorList(e.target.value));
+renderColorList();
+
+updateResult('#3B82F6');
+</script>
+</body>
+</html>

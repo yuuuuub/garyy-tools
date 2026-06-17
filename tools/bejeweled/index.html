@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宝石迷阵</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ui{display:flex;gap:16px;margin-bottom:12px;font-size:14px}
+.ui span{background:var(--card);padding:6px 14px;border-radius:6px;border:1px solid var(--border)}
+.board{display:grid;grid-template-columns:repeat(8,52px);gap:2px;background:var(--border);padding:2px;border-radius:8px}
+.cell{width:52px;height:52px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;transition:all .2s;user-select:none}
+.cell:hover{transform:scale(1.08);z-index:1}
+.cell.selected{outline:3px solid #fff;transform:scale(1.12)}
+.cell.matched{animation:gemPop .4s forwards}
+@keyframes gemPop{0%{transform:scale(1)}50%{transform:scale(1.4);opacity:.6}100%{transform:scale(0);opacity:0}}
+.g0{background:linear-gradient(135deg,#f85149,#da3633)}
+.g1{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.g2{background:linear-gradient(135deg,#2ea043,#1a7f37)}
+.g3{background:linear-gradient(135deg,#f0c000,#d29922)}
+.g4{background:linear-gradient(135deg,#a371f7,#8957e5)}
+.g5{background:linear-gradient(135deg,#f0883e,#db6d28)}
+.combo-text{position:fixed;font-size:32px;font-weight:bold;color:#f0c000;pointer-events:none;animation:comboFloat 1s forwards;z-index:100}
+@keyframes comboFloat{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-60px)}}
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:8px">宝石迷阵</h2>
+<div class="ui">
+<span id="scoreText">分数: 0</span>
+<span id="comboText">连击: 0</span>
+<span id="levelText">等级: 1</span>
+</div>
+<div class="board" id="board"></div>
+<p style="margin-top:10px;font-size:13px;color:#8b949e">点击宝石，再点击相邻宝石交换消除</p>
+<script>
+const R=8,C=8,TYPES=6;
+const GEM_EMOJI=['💎','🔵','💚','⭐','🔮','🔶'];
+let grid,selected,score,combo,maxCombo,level,animating=false;
+
+function init(){
+  grid=[];score=0;combo=0;maxCombo=0;level=1;selected=null;
+  for(let r=0;r<R;r++){
+    grid[r]=[];
+    for(let c=0;c<C;c++){
+      let t;
+      do{t=Math.floor(Math.random()*TYPES)}while(
+        (c>=2&&grid[r][c-1]===t&&grid[r][c-2]===t)||
+        (r>=2&&grid[r-1][c]===t&&grid[r-2][c]===t)
+      );
+      grid[r][c]=t;
+    }
+  }
+  render();
+}
+
+function render(){
+  const b=document.getElementById('board');
+  b.innerHTML='';
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      const d=document.createElement('div');
+      d.className='cell g'+grid[r][c];
+      if(selected&&selected.r===r&&selected.c===c)d.classList.add('selected');
+      d.textContent=GEM_EMOJI[grid[r][c]];
+      d.onclick=()=>click(r,c);
+      b.appendChild(d);
+    }
+  }
+  document.getElementById('scoreText').textContent='分数: '+score;
+  document.getElementById('comboText').textContent='连击: '+maxCombo;
+  document.getElementById('levelText').textContent='等级: '+level;
+}
+
+function click(r,c){
+  if(animating)return;
+  if(!selected){selected={r,c};render();return}
+  const dr=Math.abs(selected.r-r),dc=Math.abs(selected.c-c);
+  if((dr===1&&dc===0)||(dr===0&&dc===1)){
+    swap(selected.r,selected.c,r,c);
+    if(findMatches().length===0){swap(selected.r,selected.c,r,c);selected=null;render();return}
+    selected=null;animating=true;combo=0;process();
+  }else{selected={r,c};render()}
+}
+
+function swap(r1,c1,r2,c2){const t=grid[r1][c1];grid[r1][c1]=grid[r2][c2];grid[r2][c2]=t}
+
+function findMatches(){
+  const m=new Set();
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C-2;c++){
+      const t=grid[r][c];if(t<0)continue;
+      if(grid[r][c+1]===t&&grid[r][c+2]===t){
+        let e=c+2;while(e+1<C&&grid[r][e+1]===t)e++;
+        for(let i=c;i<=e;i++)m.add(r*C+i);
+      }
+    }
+  }
+  for(let c=0;c<C;c++){
+    for(let r=0;r<R-2;r++){
+      const t=grid[r][c];if(t<0)continue;
+      if(grid[r+1][c]===t&&grid[r+2][c]===t){
+        let e=r+2;while(e+1<R&&grid[e+1][c]===t)e++;
+        for(let i=r;i<=e;i++)m.add(i*C+c);
+      }
+    }
+  }
+  return[...m].map(i=>({r:Math.floor(i/C),c:i%C}));
+}
+
+function process(){
+  const matches=findMatches();
+  if(matches.length===0){animating=false;level=Math.floor(score/500)+1;render();return}
+  combo++;
+  if(combo>maxCombo)maxCombo=combo;
+  const pts=matches.length*10*combo*(1+level*0.2);
+  score+=Math.floor(pts);
+  showCombo(combo);
+  for(const m of matches)grid[m.r][m.c]=-1;
+  render();
+  setTimeout(()=>{drop();fill();render();setTimeout(()=>process(),200)},300);
+}
+
+function drop(){
+  for(let c=0;c<C;c++){
+    let e=R-1;
+    for(let r=R-1;r>=0;r--){if(grid[r][c]!==-1){grid[e][c]=grid[r][c];if(e!==r)grid[r][c]=-1;e--}}
+    for(let r=e;r>=0;r--)grid[r][c]=-1;
+  }
+}
+
+function fill(){
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(grid[r][c]===-1)grid[r][c]=Math.floor(Math.random()*TYPES);
+}
+
+function showCombo(n){
+  if(n<2)return;
+  const el=document.createElement('div');
+  el.className='combo-text';el.textContent=n+'连击! x'+n;
+  el.style.left='50%';el.style.top='50%';el.style.transform='translate(-50%,-50%)';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1000);
+}
+
+init();
+</script>
+</body>
+</html>

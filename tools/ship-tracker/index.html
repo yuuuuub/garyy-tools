@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>船舶追踪</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--cyan:#39d2c0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{font-size:20px;white-space:nowrap}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.controls input,.controls select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.controls input{width:200px}
+.main{display:grid;grid-template-columns:1fr 340px;height:calc(100vh - 64px)}
+.map-area{background:#0a0e14;position:relative;display:flex;align-items:center;justify-content:center}
+.sea-map{width:90%;height:80%;position:relative}
+.ship-dot{position:absolute;width:14px;height:14px;cursor:pointer;z-index:5}
+.ship-dot::before{content:'🚢';font-size:14px;position:absolute}
+.sidebar{background:var(--card);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.filter-tabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filter-tab{padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:none;background:transparent;color:#8b949e}
+.filter-tab.active{background:var(--accent);color:#fff}
+.ship-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin:8px;cursor:pointer;transition:border-color .2s}
+.ship-card:hover{border-color:var(--cyan)}
+.ship-card .name{font-size:16px;font-weight:700;color:var(--cyan)}
+.ship-card .type{font-size:12px;color:#8b949e;margin-top:2px}
+.ship-card .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:12px}
+.ship-card .info-grid div{padding:6px;background:var(--card);border-radius:6px}
+.ship-card .info-grid .label{color:#8b949e;font-size:11px}
+.ship-card .cargo{margin-top:8px;padding:6px 10px;background:rgba(57,210,192,.1);border-radius:6px;font-size:12px;color:var(--cyan)}
+.detail-panel{display:none;position:fixed;top:0;right:0;width:400px;height:100vh;background:var(--card);border-left:1px solid var(--border);z-index:100;overflow-y:auto;padding:20px}
+.detail-panel.show{display:block}
+.detail-close{position:absolute;top:12px;right:12px;background:var(--border);color:var(--text);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer}
+@media(max-width:768px){.main{grid-template-columns:1fr;grid-template-rows:40vh 1fr}.sidebar{border-left:none}.detail-panel{width:100%}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🚢</span> 船舶追踪</h1>
+<div class="controls">
+<input type="text" id="searchInput" placeholder="搜索船名/MMSI...">
+<select id="typeFilter">
+<option value="all">所有类型</option>
+<option value="cargo">货轮</option>
+<option value="tanker">油轮</option>
+<option value="container">集装箱船</option>
+<option value="bulk">散货船</option>
+<option value="fishing">渔船</option>
+</select>
+<button onclick="refreshData()">🔄 刷新</button>
+</div>
+</div>
+<div class="main">
+<div class="map-area"><div class="sea-map" id="seaMap"></div></div>
+<div class="sidebar">
+<div class="filter-tabs">
+<button class="filter-tab active" onclick="filterType('all',this)">全部</button>
+<button class="filter-tab" onclick="filterType('cargo',this)">货轮</button>
+<button class="filter-tab" onclick="filterType('tanker',this)">油轮</button>
+<button class="filter-tab" onclick="filterType('container',this)">集装箱</button>
+<button class="filter-tab" onclick="filterType('bulk',this)">散货</button>
+</div>
+<div id="shipList" style="flex:1;overflow-y:auto;padding:4px"></div>
+</div>
+</div>
+<div class="detail-panel" id="detailPanel"><button class="detail-close" onclick="closeDetail()">✕</button><div id="detailContent"></div></div>
+<script>
+let typeFilter='all';
+const ships=[
+{id:'MSC-001',name:'远望号',mmsi:'413456789',type:'container',flag:'🇨🇳',cargo:'电子产品·机械部件',capacity:'12000 TEU',speed:'22.5kn',course:'145°',lat:25.3,lon:121.5,departure:'上海港',arrival:'洛杉矶港',eta:'2026-06-25',owner:'中远海运',built:'2022',imo:'9876543'},
+{id:'MSC-002',name:'新金洋',mmsi:'412890123',type:'bulk',flag:'🇨🇳',cargo:'铁矿石',capacity:'180000 DWT',speed:'14.2kn',course:'210°',lat:18.5,lon:115.2,departure:'澳大利亚丹皮尔港',arrival:'宁波港',eta:'2026-06-28',owner:'招商轮船',built:'2021',imo:'9765432'},
+{id:'MSC-003',name:'Pacific Sun',mmsi:'538009876',type:'tanker',flag:'🇵🇦',cargo:'原油',capacity:'105000 DWT',speed:'15.8kn',course:'085°',lat:12.8,lon:98.5,departure:'波斯湾',arrival:'新加坡',eta:'2026-06-22',owner:'Pacific Tankers',built:'2020',imo:'9654321'},
+{id:'MSC-004',name:'长航润',mmsi:'414567890',type:'cargo',flag:'🇨🇳',cargo:'钢材·水泥',capacity:'35000 DWT',speed:'13.5kn',course:'320°',lat:32.1,lon:122.8,departure:'天津港',arrival:'青岛港',eta:'2026-06-18',owner:'长航凤凰',built:'2019',imo:'9543210'},
+{id:'MSC-005',name:'Nordic Star',mmsi:'219012345',type:'container',flag:'🇩🇰',cargo:'机械设备·汽车',capacity:'8500 TEU',speed:'21.0kn',course:'050°',lat:38.5,lon:120.2,departure:'汉堡港',arrival:'大连港',eta:'2026-06-27',owner:'Maersk Line',built:'2023',imo:'9432109'},
+{id:'MSC-006',name:'浙渔001',mmsi:'415678901',type:'fishing',flag:'🇨🇳',cargo:'海鲜捕捞',capacity:'500吨',speed:'8.2kn',course:'175°',lat:29.5,lon:123.8,departure:'舟山港',arrival:'舟山港',eta:'2026-06-18',owner:'舟山渔业',built:'2024',imo:'N/A'},
+{id:'MSC-007',name:'Global Voyager',mmsi:'636019876',type:'tanker',flag:'🇱🇷',cargo:'LNG',capacity:'174000m³',speed:'19.5kn',course:'280°',lat:8.2,lon:110.5,departure:'卡塔尔拉斯拉凡',arrival:'深圳大鹏湾',eta:'2026-06-24',owner:'Teekay',built:'2021',imo:'9321098'},
+{id:'MSC-008',name:'东方明珠',mmsi:'416789012',type:'bulk',flag:'🇨🇳',cargo:'煤炭',capacity:'200000 DWT',speed:'13.8kn',course:'190°',lat:20.5,lon:112.8,departure:'秦皇岛港',arrival:'广州港',eta:'2026-06-19',owner:'中国外运',built:'2020',imo:'9210987'},
+{id:'MSC-009',name:'Sakura Wave',mmsi:'431006789',type:'container',flag:'🇯🇵',cargo:'精密仪器·电子',capacity:'6800 TEU',speed:'20.2kn',course:'115°',lat:34.2,lon:126.5,departure:'釜山港',arrival:'上海港',eta:'2026-06-20',owner:'ONE Line',built:'2022',imo:'9109876'},
+{id:'MSC-010',name:'金海翔',mmsi:'413789456',type:'cargo',flag:'🇨🇳',cargo:'粮食',capacity:'28000 DWT',speed:'12.8kn',course:'035°',lat:36.8,lon:121.5,departure:'大连港',arrival:'连云港',eta:'2026-06-18',owner:'金海翔航运',built:'2023',imo:'9098765'}
+];
+const typeNames={cargo:'货轮',tanker:'油轮',container:'集装箱船',bulk:'散货船',fishing:'渔船'};
+const typeEmoji={cargo:'📦',tanker:'🛢️',container:'🔲',bulk:'⛰️',fishing:'🐟'};
+function renderShips(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+let list=ships.filter(s=>{
+if(typeFilter!=='all'&&s.type!==typeFilter)return false;
+if(search&&!s.name.toLowerCase().includes(search)&&!s.mmsi.includes(search))return false;
+return true;
+});
+document.getElementById('shipList').innerHTML=list.map(s=>`
+<div class="ship-card" onclick="showDetail('${s.id}')">
+<div class="name">${typeEmoji[s.type]} ${s.name}</div>
+<div class="type">${typeNames[s.type]} · ${s.flag} ${s.imo!=='N/A'?'IMO:'+s.imo:''}</div>
+<div class="info-grid">
+<div><div class="label">航速</div>${s.speed}</div>
+<div><div class="label">航向</div>${s.course}</div>
+<div><div class="label">出发</div>${s.departure}</div>
+<div><div class="label">目的</div>${s.arrival}</div>
+</div>
+<div class="cargo">📦 ${s.cargo} · ${s.capacity}</div>
+</div>`).join('');
+renderMap();
+}
+function renderMap(){
+const map=document.getElementById('seaMap');
+let html='<svg viewBox="0 0 100 80" width="100%" height="100%" style="opacity:.3">';
+for(let y=0;y<80;y+=10){html+=`<line x1="0" y1="${y}" x2="100" y2="${y}" stroke="#1a2332" stroke-width="0.1"/>`;}
+for(let x=0;x<100;x+=10){html+=`<line x1="${x}" y1="0" x2="${x}" y2="80" stroke="#1a2332" stroke-width="0.1"/>`;}
+html+='</svg>';
+ships.forEach(s=>{
+const x=(s.lon+30)/180*100;
+const y=(50-s.lat)/100*80;
+html+=`<div class="ship-dot" style="left:${x}%;top:${y}%" title="${s.name}: ${s.speed} ${s.course}" onclick="showDetail('${s.id}')"></div>`;
+});
+const ports=[{name:'上海',x:79,y:25},{name:'深圳',x:72,y:45},{name:'新加坡',x:60,y:60},{name:'洛杉矶',x:8,y:30},{name:'汉堡',x:48,y:15}];
+ports.forEach(p=>{html+=`<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);font-size:10px;color:#8b949e;text-align:center"><div style="width:8px;height:8px;background:var(--accent);border-radius:50%;margin:0 auto 2px"></div>${p.name}</div>`;});
+map.innerHTML=html;
+}
+function filterType(t,btn){typeFilter=t;document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderShips();}
+function showDetail(id){
+const s=ships.find(x=>x.id===id);if(!s)return;
+document.getElementById('detailContent').innerHTML=`
+<div style="text-align:center;margin-bottom:20px"><div style="font-size:40px">${typeEmoji[s.type]}</div><h2 style="color:var(--cyan)">${s.name}</h2><p style="color:#8b949e">${typeNames[s.type]} · ${s.flag}</p></div>
+<div style="display:grid;gap:8px">
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">MMSI</span><span>${s.mmsi}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">IMO</span><span>${s.imo}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">船东</span><span>${s.owner}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">建造年份</span><span>${s.built}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">货物</span><span>${s.cargo}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">载重</span><span>${s.capacity}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">航速/航向</span><span>${s.speed} / ${s.course}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">坐标</span><span>${s.lat.toFixed(2)}°N ${s.lon.toFixed(2)}°E</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">出发港</span><span>${s.departure}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">目的港</span><span>${s.arrival}</span></div>
+<div style="padding:10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between"><span style="color:#8b949e">预计到达</span><span style="color:var(--green)">${s.eta}</span></div>
+</div>`;
+document.getElementById('detailPanel').classList.add('show');
+}
+function closeDetail(){document.getElementById('detailPanel').classList.remove('show');}
+function refreshData(){renderShips();}
+document.getElementById('searchInput').addEventListener('input',renderShips);
+document.getElementById('typeFilter').addEventListener('change',renderShips);
+renderShips();
+</script>
+</body>
+</html>

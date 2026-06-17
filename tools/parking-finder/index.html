@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>停车场查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px}
+.header h1{font-size:20px;margin-bottom:12px}.header h1 span{font-size:24px}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.controls input,.controls select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.controls input{width:220px}
+.main{display:grid;grid-template-columns:1fr 380px;height:calc(100vh - 110px)}
+.map-area{background:#0a0e14;position:relative;display:flex;align-items:center;justify-content:center}
+.parking-map{width:90%;height:80%;position:relative}
+.park-dot{position:absolute;cursor:pointer;z-index:5;text-align:center}
+.park-dot .icon{width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;margin:0 auto}
+.park-dot .icon.available{background:var(--green)}
+.park-dot .icon.limited{background:var(--yellow)}
+.park-dot .icon.full{background:var(--red)}
+.park-dot .tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:11px;white-space:nowrap;z-index:10}
+.park-dot:hover .tip{display:block}
+.sidebar{background:var(--card);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.filter-bar{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filter-btn{padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:#8b949e}
+.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sort-bar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:12px}
+.sort-bar select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px}
+.park-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin:8px;cursor:pointer;transition:border-color .2s}
+.park-card:hover{border-color:var(--accent)}
+.park-card .name{font-size:16px;font-weight:700;margin-bottom:4px}
+.park-card .addr{font-size:12px;color:#8b949e;margin-bottom:8px}
+.park-card .info-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.park-card .tag{padding:2px 8px;border-radius:4px;font-size:11px;background:var(--card)}
+.park-card .tag.green{color:var(--green)}.park-card .tag.yellow{color:var(--yellow)}.park-card .tag.red{color:var(--red)}
+.park-card .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.park-card .stat{text-align:center;padding:6px;background:var(--card);border-radius:6px}
+.park-card .stat .val{font-size:16px;font-weight:700}
+.park-card .stat .lbl{font-size:10px;color:#8b949e}
+.park-card .rating{margin-top:8px;font-size:12px}
+.park-card .price{font-size:14px;font-weight:700;color:var(--accent);margin-top:4px}
+.no-result{text-align:center;padding:40px;color:#8b949e}
+@media(max-width:768px){.main{grid-template-columns:1fr;grid-template-rows:40vh 1fr}.sidebar{border-left:none;border-top:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🅿️</span> 停车场查找</h1>
+<div class="controls">
+<input type="text" id="searchInput" placeholder="搜索停车场/地点..." oninput="renderParks()">
+<select id="typeFilter" onchange="renderParks()">
+<option value="all">所有类型</option>
+<option value="indoor">室内</option>
+<option value="outdoor">室外</option>
+<option value="underground">地下</option>
+<option value="multi">立体车库</option>
+</select>
+<select id="priceFilter" onchange="renderParks()">
+<option value="all">所有价格</option>
+<option value="low">¥6以下/时</option>
+<option value="mid">¥6-12/时</option>
+<option value="high">¥12以上/时</option>
+</select>
+</div>
+</div>
+<div class="main">
+<div class="map-area"><div class="parking-map" id="parkingMap"></div></div>
+<div class="sidebar">
+<div class="filter-bar">
+<button class="filter-btn active" onclick="filterStatus('all',this)">全部</button>
+<button class="filter-btn" onclick="filterStatus('available',this)">有空位</button>
+<button class="filter-btn" onclick="filterStatus('limited',this)">即将满位</button>
+<button class="filter-btn" onclick="filterStatus('full',this)">已满</button>
+</div>
+<div class="sort-bar">
+<span>排序:</span>
+<select id="sortSelect" onchange="renderParks()">
+<option value="distance">距离最近</option>
+<option value="price-asc">价格最低</option>
+<option value="price-desc">价格最高</option>
+<option value="rating">评分最高</option>
+<option value="available">空位最多</option>
+</select>
+<span id="resultCount" style="margin-left:auto;color:#8b949e"></span>
+</div>
+<div id="parkList" style="flex:1;overflow-y:auto"></div>
+</div>
+</div>
+<script>
+let statusFilter='all';
+const parks=[
+{name:'国贸地下停车场',type:'underground',addr:'朝阳区建国门外大街1号',total:1200,available:235,price:12,rating:4.5,distance:0.5,lat:39.908,lon:116.46,features:['ETC','充电桩','无障碍','24小时'],openHours:'00:00-24:00',provider:'国贸物业'},
+{name:'西单大悦城停车场',type:'underground',addr:'西城区西单北大街131号',total:800,available:128,price:10,rating:4.3,distance:1.2,lat:39.912,lon:116.37,features:['ETC','无障碍','监控'],openHours:'07:00-23:00',provider:'大悦城物业'},
+{name:'朝阳公园露天停车场',type:'outdoor',addr:'朝阳区朝阳公园南路1号',total:500,available:312,price:6,rating:4.0,distance:2.1,lat:39.932,lon:116.47,features:['露天','遮阳棚'],openHours:'06:00-22:00',provider:'朝阳公园'},
+{name:'中关村广场地下车库',type:'underground',addr:'海淀区中关村大街15号',total:1500,available:0,price:8,rating:4.2,distance:3.5,lat:39.981,lon:116.32,features:['ETC','充电桩','无障碍'],openHours:'00:00-24:00',provider:'中关村广场'},
+{name:'三里屯SOHO停车场',type:'indoor',addr:'朝阳区工体北路甲2号',total:600,available:45,price:15,rating:4.6,distance:1.8,lat:39.933,lon:116.45,features:['ETC','充电桩','无障碍','代客泊车'],openHours:'00:00-24:00',provider:'SOHO物业'},
+{name:'望京万达广场停车场',type:'underground',addr:'朝阳区望京街9号',total:2000,available:580,price:8,rating:4.1,distance:4.2,lat:39.994,lon:116.48,features:['ETC','无障碍','反向寻车'],openHours:'08:00-22:00',provider:'万达商业'},
+{name:'北京南站P1停车场',type:'indoor',addr:'丰台区永外大街车站路12号',total:900,available:210,price:10,rating:4.4,distance:5.8,lat:39.865,lon:116.38,features:['ETC','无障碍','24小时','接驳车'],openHours:'00:00-24:00',provider:'北京南站'},
+{name:'鸟巢立体停车场',type:'multi',addr:'朝阳区国家体育场北路',total:3000,available:1200,price:6,rating:4.0,distance:6.1,lat:39.993,lon:116.40,features:['立体车库','ETC','无障碍'],openHours:'06:00-23:00',provider:'鸟巢运营'},
+{name:'天安门东侧地下车库',type:'underground',addr:'东城区东长安街',total:400,available:15,price:12,rating:4.7,distance:0.8,lat:39.906,lon:116.40,features:['ETC','无障碍','监控','安检'],openHours:'06:00-22:00',provider:'天安门管理处'},
+{name:'回龙观华联停车场',type:'outdoor',addr:'昌平区回龙观西大街',total:350,available:180,price:4,rating:3.8,distance:8.5,lat:40.071,lon:116.34,features:['露天','免费1小时'],openHours:'00:00-24:00',provider:'华联商厦'}
+];
+function getStatus(p){
+if(p.available===0)return{label:'已满',color:'var(--red)',cls:'full'};
+if(p.available/p.total<0.15)return{label:'即将满位',color:'var(--yellow)',cls:'limited'};
+return{label:'有空位',color:'var(--green)',cls:'available'};
+}
+function renderParks(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+const typeF=document.getElementById('typeFilter').value;
+const priceF=document.getElementById('priceFilter').value;
+let list=parks.filter(p=>{
+if(typeF!=='all'&&p.type!==typeF)return false;
+if(priceF==='low'&&p.price>=6)return false;
+if(priceF==='mid'&&(p.price<6||p.price>12))return false;
+if(priceF==='high'&&p.price<=12)return false;
+if(statusFilter!=='all'&&getStatus(p).cls!==statusFilter)return false;
+if(search&&!p.name.includes(search)&&!p.addr.includes(search))return false;
+return true;
+});
+const sort=document.getElementById('sortSelect').value;
+if(sort==='distance')list.sort((a,b)=>a.distance-b.distance);
+else if(sort==='price-asc')list.sort((a,b)=>a.price-b.price);
+else if(sort==='price-desc')list.sort((a,b)=>b.price-a.price);
+else if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);
+else if(sort==='available')list.sort((a,b)=>b.available-a.available);
+document.getElementById('resultCount').textContent=list.length+'个停车场';
+document.getElementById('parkList').innerHTML=list.length===0?'<div class="no-result">没有匹配的停车场</div>':list.map(p=>{
+const s=getStatus(p);
+const stars='★'.repeat(Math.floor(p.rating))+'☆'.repeat(5-Math.floor(p.rating));
+return`<div class="park-card">
+<div class="name">${p.name} <span class="tag ${s.cls==='available'?'green':s.cls==='limited'?'yellow':'red'}" style="float:right">${s.label}</span></div>
+<div class="addr">📍 ${p.addr} · 📏 ${p.distance}km</div>
+<div class="info-row">${p.features.map(f=>`<span class="tag">${f}</span>`).join('')}</div>
+<div class="stats">
+<div class="stat"><div class="val">${p.total}</div><div class="lbl">总车位</div></div>
+<div class="stat"><div class="val" style="color:${s.color}">${p.available}</div><div class="lbl">空位</div></div>
+<div class="stat"><div class="val">${p.openHours}</div><div class="lbl">营业</div></div>
+</div>
+<div class="rating"><span style="color:var(--yellow)">${stars}</span> ${p.rating} · ${p.provider}</div>
+<div class="price">¥${p.price}/小时</div>
+</div>`;
+}).join('');
+renderMap();
+}
+function renderMap(){
+const map=document.getElementById('parkingMap');
+let html='<svg viewBox="0 0 100 70" width="100%" height="100%" style="opacity:.15">';
+for(let y=0;y<70;y+=5){html+=`<line x1="0" y1="${y}" x2="100" y2="${y}" stroke="#1a2332" stroke-width="0.1"/>`;}
+for(let x=0;x<100;x+=5){html+=`<line x1="${x}" y1="0" x2="${x}" y2="70" stroke="#1a2332" stroke-width="0.1"/>`;}
+html+='</svg>';
+parks.forEach(p=>{
+const x=(p.lon-116.2)/0.4*80+5;
+const y=(40.1-p.lat)/0.25*60+5;
+const s=getStatus(p);
+html+=`<div class="park-dot" style="left:${x}%;top:${y}%"><div class="icon ${s.cls}">P</div><div class="tip">${p.name}<br>${s.label} · ${p.available}/${p.total}位<br>¥${p.price}/时</div></div>`;
+});
+map.innerHTML=html;
+}
+function filterStatus(s,btn){statusFilter=s;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderParks();}
+renderParks();
+</script>
+</body>
+</html>

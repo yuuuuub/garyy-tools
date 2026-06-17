@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狩猎模拟2 - 猎人传说</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #22c55e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-container {
+            max-width: 700px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .game-header {
+            background: linear-gradient(135deg, #65a30d, #4d7c0f);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .game-header h1 {
+            font-size: 1.3rem;
+        }
+        
+        .stats-bar {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .stat {
+            font-size: 0.9rem;
+        }
+        
+        .forest-area {
+            height: 350px;
+            background: linear-gradient(180deg, #1a1a2e, #16213e);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .trees {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .tree {
+            position: absolute;
+            bottom: 0;
+            font-size: 3rem;
+        }
+        
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(255,255,255,0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            transition: all 0.1s;
+        }
+        
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.8);
+        }
+        
+        .crosshair::before {
+            top: 50%;
+            left: -10px;
+            right: -10px;
+            height: 2px;
+            transform: translateY(-50%);
+        }
+        
+        .crosshair::after {
+            left: 50%;
+            top: -10px;
+            bottom: -10px;
+            width: 2px;
+            transform: translateX(-50%);
+        }
+        
+        .crosshair.hit {
+            border-color: #ef4444;
+        }
+        
+        .animal {
+            position: absolute;
+            font-size: 3rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            animation: moveAnimal 3s linear infinite;
+        }
+        
+        @keyframes moveAnimal {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(20px); }
+            100% { transform: translateX(0); }
+        }
+        
+        .animal:hover {
+            transform: scale(1.2);
+        }
+        
+        .animal.hit {
+            animation: hitAnim 0.5s;
+        }
+        
+        @keyframes hitAnim {
+            0%, 100% { transform: rotate(0); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+        }
+        
+        .animal.escape {
+            animation: escape 0.5s forwards;
+        }
+        
+        @keyframes escape {
+            0% { opacity: 1; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(100px); }
+        }
+        
+        .ammo-display {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .ammo-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .control-area {
+            padding: 20px;
+        }
+        
+        .weapon-select {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .weapon-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .weapon-btn:hover {
+            border-color: var(--accent);
+        }
+        
+        .weapon-btn.active {
+            border-color: var(--accent);
+            background: rgba(34, 197, 94, 0.2);
+        }
+        
+        .weapon-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .weapon-icon {
+            font-size: 2rem;
+        }
+        
+        .weapon-name {
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .weapon-info {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-top: 3px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .shoot-btn {
+            flex: 2;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            transition: transform 0.2s;
+        }
+        
+        .shoot-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+        }
+        
+        .shoot-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .reload-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            background: #6b7280;
+            color: white;
+        }
+        
+        .inventory-area {
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+        }
+        
+        .inventory-title {
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+        
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+        }
+        
+        .inventory-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .item-icon {
+            font-size: 1.5rem;
+        }
+        
+        .item-name {
+            font-size: 0.75rem;
+            margin-top: 5px;
+        }
+        
+        .item-count {
+            font-size: 0.7rem;
+            color: var(--accent);
+        }
+        
+        .result-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card);
+            border: 2px solid var(--accent);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            animation: popIn 0.3s;
+        }
+        
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        
+        .result-animal {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+        
+        .result-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .result-reward {
+            color: var(--accent);
+            margin-bottom: 20px;
+        }
+        
+        .result-btn {
+            padding: 10px 30px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 99;
+        }
+        
+        .message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card);
+            border: 1px solid var(--accent);
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        
+        .message.show {
+            opacity: 1;
+        }
+        
+        .hidden { display: none !important; }
+        
+        @media (max-width: 500px) {
+            .weapon-select {
+                flex-wrap: wrap;
+            }
+            .weapon-btn {
+                flex: 0 0 calc(33% - 7px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="message" id="message"></div>
+    
+    <div class="game-container">
+        <div class="game-header">
+            <h1>猎人传说</h1>
+            <div class="stats-bar">
+                <div class="stat">🎯 猎杀: <span id="kill-count">0</span></div>
+                <div class="stat">💰 金币: <span id="gold">0</span></div>
+            </div>
+        </div>
+        
+        <div class="forest-area" id="forest-area">
+            <div class="trees" id="trees"></div>
+            <div class="crosshair" id="crosshair"></div>
+            <div class="ammo-display">
+                <div class="ammo-item">🏹 <span id="arrow-count">10</span></div>
+                <div class="ammo-item">🔫 <span id="bullet-count">5</span></div>
+                <div class="ammo-item">🪤 <span id="trap-count">3</span></div>
+            </div>
+        </div>
+        
+        <div class="control-area">
+            <div class="weapon-select">
+                <button class="weapon-btn active" onclick="setWeapon('bow')">
+                    <div class="weapon-icon">🏹</div>
+                    <div class="weapon-name">弓箭</div>
+                    <div class="weapon-info">安静，适合小猎物</div>
+                </button>
+                <button class="weapon-btn" onclick="setWeapon('rifle')">
+                    <div class="weapon-icon">🔫</div>
+                    <div class="weapon-name">步枪</div>
+                    <div class="weapon-info">威力大，但会吓跑猎物</div>
+                </button>
+                <button class="weapon-btn" onclick="setWeapon('trap')">
+                    <div class="weapon-icon">🪤</div>
+                    <div class="weapon-name">陷阱</div>
+                    <div class="weapon-info">被动捕获，无需瞄准</div>
+                </button>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="shoot-btn" id="shoot-btn" onclick="shoot()">🎯 瞄准射击</button>
+                <button class="reload-btn" onclick="reload()">🔄 装填</button>
+            </div>
+        </div>
+        
+        <div class="inventory-area">
+            <div class="inventory-title">🎒 猎物仓库</div>
+            <div class="inventory-grid" id="inventory-grid"></div>
+        </div>
+    </div>
+    
+    <div class="overlay hidden" id="overlay"></div>
+    <div class="result-popup hidden" id="result-popup">
+        <div class="result-animal" id="result-animal"></div>
+        <div class="result-text" id="result-text"></div>
+        <div class="result-reward" id="result-reward"></div>
+        <button class="result-btn" onclick="closeResult()">继续狩猎</button>
+    </div>
+
+    <script>
+        const animals = [
+            { id: 'rabbit', name: '兔子', icon: '🐰', hp: 1, reward: 10, speed: 'fast', difficulty: 1 },
+            { id: 'deer', name: '鹿', icon: '🦌', hp: 2, reward: 25, speed: 'medium', difficulty: 2 },
+            { id: 'boar', name: '野猪', icon: '🐗', hp: 3, reward: 40, speed: 'slow', difficulty: 3 },
+            { id: 'wolf', name: '狼', icon: '🐺', hp: 3, reward: 50, speed: 'fast', difficulty: 4 },
+            { id: 'bear', name: '熊', icon: '🐻', hp: 5, reward: 100, speed: 'slow', difficulty: 5 }
+        ];
+
+        let gameState = {
+            weapon: 'bow',
+            ammo: { arrow: 10, bullet: 5, trap: 3 },
+            gold: 0,
+            kills: 0,
+            inventory: {},
+            currentAnimal: null,
+            animalHp: 0
+        };
+
+        function initForest() {
+            const trees = document.getElementById('trees');
+            trees.innerHTML = '';
+            
+            // 添加树木
+            for (let i = 0; i < 10; i++) {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.textContent = '🌲';
+                tree.style.left = Math.random() * 90 + '%';
+                tree.style.opacity = 0.3 + Math.random() * 0.4;
+                tree.style.fontSize = (2 + Math.random() * 2) + 'rem';
+                trees.appendChild(tree);
+            }
+            
+            spawnAnimal();
+        }
+
+        function spawnAnimal() {
+            const forest = document.getElementById('forest-area');
+            
+            // 移除现有动物
+            document.querySelectorAll('.animal').forEach(a => a.remove());
+            
+            // 随机选择动物
+            const animal = animals[Math.floor(Math.random() * animals.length)];
+            gameState.currentAnimal = animal;
+            gameState.animalHp = animal.hp;
+            
+            // 创建动物元素
+            const el = document.createElement('div');
+            el.className = 'animal';
+            el.id = 'current-animal';
+            el.textContent = animal.icon;
+            el.style.left = (20 + Math.random() * 60) + '%';
+            el.style.top = (30 + Math.random() * 40) + '%';
+            el.onclick = () => shootAnimal();
+            
+            forest.appendChild(el);
+        }
+
+        function setWeapon(weapon) {
+            gameState.weapon = weapon;
+            document.querySelectorAll('.weapon-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            updateAmmoDisplay();
+        }
+
+        function updateAmmoDisplay() {
+            document.getElementById('arrow-count').textContent = gameState.ammo.arrow;
+            document.getElementById('bullet-count').textContent = gameState.ammo.bullet;
+            document.getElementById('trap-count').textContent = gameState.ammo.trap;
+        }
+
+        function shoot() {
+            const animal = gameState.currentAnimal;
+            if (!animal) return;
+            
+            switch (gameState.weapon) {
+                case 'bow':
+                    if (gameState.ammo.arrow <= 0) {
+                        showMessage('弓箭用完了！');
+                        return;
+                    }
+                    gameState.ammo.arrow--;
+                    shootAnimal();
+                    break;
+                    
+                case 'rifle':
+                    if (gameState.ammo.bullet <= 0) {
+                        showMessage('子弹用完了！');
+                        return;
+                    }
+                    gameState.ammo.bullet--;
+                    shootAnimal(true);
+                    break;
+                    
+                case 'trap':
+                    if (gameState.ammo.trap <= 0) {
+                        showMessage('陷阱用完了！');
+                        return;
+                    }
+                    gameState.ammo.trap--;
+                    trapAnimal();
+                    break;
+            }
+            
+            updateAmmoDisplay();
+        }
+
+        function shootAnimal(isRifle = false) {
+            const animal = gameState.currentAnimal;
+            const el = document.getElementById('current-animal');
+            
+            if (!el) return;
+            
+            // 伤害计算
+            const damage = isRifle ? 2 : 1;
+            gameState.animalHp -= damage;
+            
+            // 命中动画
+            const crosshair = document.getElementById('crosshair');
+            crosshair.classList.add('hit');
+            setTimeout(() => crosshair.classList.remove('hit'), 200);
+            
+            el.classList.add('hit');
+            setTimeout(() => el.classList.remove('hit'), 500);
+            
+            if (gameState.animalHp <= 0) {
+                // 击杀
+                setTimeout(() => {
+                    el.classList.add('escape');
+                    setTimeout(() => {
+                        showResult(animal, true);
+                    }, 500);
+                }, 300);
+            } else {
+                // 步枪会吓跑猎物
+                if (isRifle && Math.random() > 0.3) {
+                    setTimeout(() => {
+                        el.classList.add('escape');
+                        setTimeout(() => {
+                            showMessage('猎物被枪声吓跑了！');
+                            spawnAnimal();
+                        }, 500);
+                    }, 500);
+                }
+            }
+        }
+
+        function trapAnimal() {
+            const animal = gameState.currentAnimal;
+            
+            // 陷阱成功率基于动物难度
+            const successRate = Math.max(0.3, 1 - animal.difficulty * 0.15);
+            
+            if (Math.random() < successRate) {
+                setTimeout(() => {
+                    showResult(animal, true);
+                }, 500);
+            } else {
+                setTimeout(() => {
+                    showMessage('陷阱没有捕到猎物...');
+                    spawnAnimal();
+                }, 1000);
+            }
+        }
+
+        function reload() {
+            switch (gameState.weapon) {
+                case 'bow':
+                    gameState.ammo.arrow += 5;
+                    showMessage('补充了5支弓箭');
+                    break;
+                case 'rifle':
+                    gameState.ammo.bullet += 3;
+                    showMessage('补充了3发子弹');
+                    break;
+                case 'trap':
+                    gameState.ammo.trap += 2;
+                    showMessage('补充了2个陷阱');
+                    break;
+            }
+            updateAmmoDisplay();
+        }
+
+        function showResult(animal, success) {
+            document.getElementById('overlay').classList.remove('hidden');
+            document.getElementById('result-popup').classList.remove('hidden');
+            
+            document.getElementById('result-animal').textContent = animal.icon;
+            
+            if (success) {
+                document.getElementById('result-text').textContent = `成功猎杀${animal.name}！`;
+                document.getElementById('result-reward').textContent = `+${animal.reward} 金币`;
+                
+                gameState.gold += animal.reward;
+                gameState.kills++;
+                gameState.inventory[animal.id] = (gameState.inventory[animal.id] || 0) + 1;
+                
+                document.getElementById('gold').textContent = gameState.gold;
+                document.getElementById('kill-count').textContent = gameState.kills;
+                
+                renderInventory();
+            } else {
+                document.getElementById('result-text').textContent = '猎物逃脱了...';
+                document.getElementById('result-reward').textContent = '';
+            }
+        }
+
+        function closeResult() {
+            document.getElementById('overlay').classList.add('hidden');
+            document.getElementById('result-popup').classList.add('hidden');
+            spawnAnimal();
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('inventory-grid');
+            grid.innerHTML = Object.entries(gameState.inventory).map(([id, count]) => {
+                const animal = animals.find(a => a.id === id);
+                return `<div class="inventory-item">
+                    <div class="item-icon">${animal.icon}</div>
+                    <div class="item-name">${animal.name}</div>
+                    <div class="item-count">x${count}</div>
+                </div>`;
+            }).join('') || '<div class="inventory-item"><div class="item-icon">📦</div><div class="item-name">空</div></div>';
+        }
+
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 2000);
+        }
+
+        // 更新准星位置
+        document.getElementById('forest-area').addEventListener('mousemove', (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const crosshair = document.getElementById('crosshair');
+            crosshair.style.left = x + 'px';
+            crosshair.style.top = y + 'px';
+        });
+
+        initForest();
+        renderInventory();
+    </script>
+</body>
+</html>

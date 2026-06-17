@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>森林查找 - Forest Finder</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --secondary: #8b949e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.1rem;
+        }
+        
+        .search-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr 200px 150px;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .search-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .filter-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .filter-label {
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+        
+        .results-count {
+            color: var(--secondary);
+        }
+        
+        .sort-select {
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .forest-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .forest-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .forest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .forest-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .forest-type {
+            padding: 4px 10px;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .forest-location {
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .forest-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .stars {
+            color: var(--warning);
+            letter-spacing: 2px;
+        }
+        
+        .rating-value {
+            font-weight: 600;
+        }
+        
+        .rating-count {
+            color: var(--secondary);
+            font-size: 0.85rem;
+        }
+        
+        .forest-description {
+            color: var(--secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .forest-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            margin-top: 4px;
+        }
+        
+        .forest-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .feature-tag {
+            padding: 4px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--secondary);
+        }
+        
+        .forest-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .info-item {
+            font-size: 0.9rem;
+        }
+        
+        .info-label {
+            color: var(--secondary);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .permit-warning {
+            background: rgba(210, 153, 34, 0.1);
+            border: 1px solid rgba(210, 153, 34, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: var(--warning);
+        }
+        
+        .book-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+        
+        .book-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary);
+        }
+        
+        .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>森林查找</h1>
+            <p class="subtitle">探索原始森林，感受大自然的呼吸</p>
+        </header>
+
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索森林名称或位置...">
+                <select class="sort-select" id="sortSelect">
+                    <option value="rating">按评分排序</option>
+                    <option value="area-large">面积从大到小</option>
+                    <option value="area-small">面积从小到大</option>
+                    <option value="trails">按步道数量排序</option>
+                </select>
+            </div>
+            <div class="filter-section">
+                <span class="filter-label">活动：</span>
+                <button class="filter-btn active" data-activity="all">全部</button>
+                <button class="filter-btn" data-activity="camping">露营</button>
+                <button class="filter-btn" data-activity="hiking">徒步</button>
+                <button class="filter-btn" data-activity="wildlife">观野生动物</button>
+                <button class="filter-btn" data-activity="photography">摄影</button>
+            </div>
+        </div>
+
+        <div class="results-header">
+            <span class="results-count" id="resultsCount">找到 10 片森林</span>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Cards will be injected here -->
+        </div>
+
+        <div class="no-results" id="noResults" style="display: none;">
+            <div class="no-results-icon">🌲</div>
+            <h3>未找到匹配的森林</h3>
+            <p>请尝试调整搜索条件或筛选项</p>
+        </div>
+
+        <footer>
+            <p>© 2024 森林查找 - 走进绿色世界</p>
+        </footer>
+    </div>
+
+    <script>
+        const forests = [
+            {
+                name: "西双版纳热带雨林",
+                activity: "wildlife",
+                activityLabel: "观野生动物",
+                location: "云南省西双版纳州",
+                rating: 4.9,
+                reviews: 4560,
+                description: "中国唯一的热带雨林，生物多样性极其丰富，被誉为"动植物王国"。",
+                treeTypes: 5000,
+                wildlife: ["亚洲象", "绿孔雀", "长臂猿", "蝴蝶"],
+                campingSpots: ["望天树景区", "野象谷", "基诺山寨"],
+                hikingTrails: 15,
+                permitRequired: "部分区域需要许可证",
+                bestSeason: "11月-次年4月",
+                features: ["热带雨林", "亚洲象", "傣族文化", "泼水节"]
+            },
+            {
+                name: "大兴安岭原始森林",
+                activity: "camping",
+                activityLabel: "露营",
+                location: "内蒙古自治区/黑龙江省",
+                rating: 4.8,
+                reviews: 3890,
+                description: "中国最大的原始森林，面积8.46万平方公里，是北方的绿色屏障。",
+                treeTypes: 300,
+                wildlife: ["驼鹿", "紫貂", "雪兔", "榛鸡"],
+                campingSpots: ["漠河北极村", "呼中国家森林公园", "加格达奇"],
+                hikingTrails: 10,
+                permitRequired: "需要进入许可证",
+                bestSeason: "6月-9月",
+                features: ["中国最大原始森林", "北极村", "极光", "冰雪"]
+            },
+            {
+                name: "神农架原始森林",
+                activity: "hiking",
+                activityLabel: "徒步",
+                location: "湖北省神农架林区",
+                rating: 4.7,
+                reviews: 3450,
+                description: "华中地区最大的原始森林，以"野人"传说闻名，生物多样性丰富。",
+                treeTypes: 2000,
+                wildlife: ["金丝猴", "白化动物", "黑熊", "野人传说"],
+                campingSpots: ["神农顶", "大九湖", "天燕景区"],
+                hikingTrails: 12,
+                permitRequired: "需要景区门票",
+                bestSeason: "4月-10月",
+                features: ["华中最大原始森林", "金丝猴", "野人传说", "大九湖"]
+            },
+            {
+                name: "长白山原始森林",
+                activity: "wildlife",
+                activityLabel: "观野生动物",
+                location: "吉林省延边州",
+                rating: 4.6,
+                reviews: 3230,
+                description: "东北亚地区最重要的原始森林，生物多样性极其丰富。",
+                treeTypes: 1500,
+                wildlife: ["东北虎", "梅花鹿", "紫貂", "黑熊"],
+                campingSpots: ["天池", "瀑布", "地下森林", "温泉"],
+                hikingTrails: 8,
+                permitRequired: "需要景区门票",
+                bestSeason: "6月-9月",
+                features: ["原始森林", "天池", "温泉", "东北虎"]
+            },
+            {
+                name: "张家界原始森林",
+                activity: "photography",
+                activityLabel: "摄影",
+                location: "湖南省张家界市",
+                rating: 4.5,
+                reviews: 2890,
+                description: "以独特的石英砂岩峰林地貌闻名，是电影《阿凡达》取景地。",
+                treeTypes: 800,
+                wildlife: ["猕猴", "大鲵", "红腹锦鸡", "穿山甲"],
+                campingSpots: ["天子山", "袁家界", "金鞭溪", "玻璃桥"],
+                hikingTrails: 20,
+                permitRequired: "需要景区门票",
+                bestSeason: "4月-10月",
+                features: ["石英砂岩峰林", "阿凡达取景地", "玻璃桥", "猕猴"]
+            },
+            {
+                name: "海南热带雨林",
+                activity: "camping",
+                activityLabel: "露营",
+                location: "海南省五指山市",
+                rating: 4.4,
+                reviews: 2340,
+                description: "中国第二大热带雨林，拥有丰富的热带植物和珍稀动物。",
+                treeTypes: 3000,
+                wildlife: ["海南长臂猿", "海南坡鹿", "穿山甲", "孔雀"],
+                campingSpots: ["五指山", "尖峰岭", "霸王岭", "吊罗山"],
+                hikingTrails: 10,
+                permitRequired: "需要进入许可证",
+                bestSeason: "11月-次年4月",
+                features: ["热带雨林", "海南长臂猿", "五指山", "黎族文化"]
+            },
+            {
+                name: "秦岭原始森林",
+                activity: "hiking",
+                activityLabel: "徒步",
+                location: "陕西省/甘肃省",
+                rating: 4.6,
+                reviews: 2560,
+                description: "中国南北分界线上的原始森林，是大熊猫的重要栖息地。",
+                treeTypes: 2500,
+                wildlife: ["大熊猫", "金丝猴", "羚牛", "朱鹮"],
+                campingSpots: ["太白山", "华山", "终南山", "佛坪"],
+                hikingTrails: 15,
+                permitRequired: "部分区域需要许可证",
+                bestSeason: "4月-10月",
+                features: ["南北分界线", "大熊猫", "金丝猴", "道教文化"]
+            },
+            {
+                name: "天山原始森林",
+                activity: "wildlife",
+                activityLabel: "观野生动物",
+                location: "新疆维吾尔自治区",
+                rating: 4.5,
+                reviews: 2100,
+                description: "天山山脉中的原始森林，以雪岭云杉为主，风景壮丽。",
+                treeTypes: 400,
+                wildlife: ["雪豹", "北山羊", "盘羊", "棕熊"],
+                campingSpots: ["天池", "喀纳斯", "那拉提", "巴音布鲁克"],
+                hikingTrails: 8,
+                permitRequired: "需要进入许可证",
+                bestSeason: "6月-9月",
+                features: ["雪岭云杉", "天池", "那拉提草原", "雪豹"]
+            },
+            {
+                name: "武夷山原始森林",
+                activity: "photography",
+                activityLabel: "摄影",
+                location: "福建省南平市",
+                rating: 4.4,
+                reviews: 1890,
+                description: "世界自然与文化双重遗产，以丹霞地貌和茶文化闻名。",
+                treeTypes: 1800,
+                wildlife: ["华南虎", "穿山甲", "白鹇", "眼镜蛇"],
+                campingSpots: ["天游峰", "九曲溪", "一线天", "大红袍景区"],
+                hikingTrails: 12,
+                permitRequired: "需要景区门票",
+                bestSeason: "4月-10月",
+                features: ["世界双遗产", "丹霞地貌", "大红袍", "九曲溪"]
+            },
+            {
+                name: "梵净山原始森林",
+                activity: "hiking",
+                activityLabel: "徒步",
+                location: "贵州省铜仁市",
+                rating: 4.7,
+                reviews: 2340,
+                description: "世界自然遗产，以独特的蘑菇石和云海闻名，是佛教名山。",
+                treeTypes: 2000,
+                wildlife: ["黔金丝猴", "大鲵", "红腹角雉", "白颈长尾雉"],
+                campingSpots: ["蘑菇石", "红云金顶", "月镜山", "万米睡佛"],
+                hikingTrails: 10,
+                permitRequired: "需要景区门票",
+                bestSeason: "4月-10月",
+                features: ["世界自然遗产", "蘑菇石", "云海", "黔金丝猴"]
+            }
+        ];
+
+        let currentActivity = 'all';
+        let currentSort = 'rating';
+        let searchQuery = '';
+
+        function createStars(rating) {
+            const fullStars = Math.floor(rating);
+            const hasHalf = rating % 1 >= 0.5;
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) {
+                stars += '★';
+            }
+            if (hasHalf) {
+                stars += '☆';
+            }
+            return stars;
+        }
+
+        function createForestCard(forest) {
+            return `
+                <div class="forest-card">
+                    <div class="forest-header">
+                        <h3 class="forest-name">${forest.name}</h3>
+                        <span class="forest-type">${forest.activityLabel}</span>
+                    </div>
+                    <div class="forest-location">📍 ${forest.location}</div>
+                    <div class="forest-rating">
+                        <span class="stars">${createStars(forest.rating)}</span>
+                        <span class="rating-value">${forest.rating}</span>
+                        <span class="rating-count">(${forest.reviews}条评价)</span>
+                    </div>
+                    <p class="forest-description">${forest.description}</p>
+                    <div class="forest-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${forest.treeTypes}</div>
+                            <div class="stat-label">树种数量</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${forest.hikingTrails}</div>
+                            <div class="stat-label">徒步步道</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${forest.campingSpots.length}</div>
+                            <div class="stat-label">露营地</div>
+                        </div>
+                    </div>
+                    <div class="forest-features">
+                        ${forest.features.map(f => `<span class="feature-tag">${f}</span>`).join('')}
+                    </div>
+                    <div class="forest-info">
+                        <div class="info-item">
+                            <div class="info-label">最佳季节</div>
+                            <div class="info-value">${forest.bestSeason}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">许可证要求</div>
+                            <div class="info-value">${forest.permitRequired}</div>
+                        </div>
+                    </div>
+                    <div class="permit-warning">⚠️ 许可证提醒：${forest.permitRequired}</div>
+                    <button class="book-btn">查看详情</button>
+                </div>
+            `;
+        }
+
+        function filterAndSort() {
+            let filtered = forests;
+            
+            if (currentActivity !== 'all') {
+                filtered = filtered.filter(f => f.activity === currentActivity);
+            }
+            
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(f => 
+                    f.name.toLowerCase().includes(query) || 
+                    f.location.toLowerCase().includes(query)
+                );
+            }
+            
+            switch (currentSort) {
+                case 'rating':
+                    filtered.sort((a, b) => b.rating - a.rating);
+                    break;
+                case 'area-large':
+                    filtered.sort((a, b) => b.treeTypes - a.treeTypes);
+                    break;
+                case 'area-small':
+                    filtered.sort((a, b) => a.treeTypes - b.treeTypes);
+                    break;
+                case 'trails':
+                    filtered.sort((a, b) => b.hikingTrails - a.hikingTrails);
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        function renderResults() {
+            const filtered = filterAndSort();
+            const grid = document.getElementById('resultsGrid');
+            const noResults = document.getElementById('noResults');
+            const count = document.getElementById('resultsCount');
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                count.textContent = '找到 0 片森林';
+            } else {
+                noResults.style.display = 'none';
+                grid.innerHTML = filtered.map(createForestCard).join('');
+                count.textContent = `找到 ${filtered.length} 片森林`;
+            }
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentActivity = btn.dataset.activity;
+                renderResults();
+            });
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderResults();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderResults();
+        });
+
+        renderResults();
+    </script>
+</body>
+</html>

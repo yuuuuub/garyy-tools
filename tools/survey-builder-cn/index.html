@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文调查构建器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='📊 中文调查构建器';
+
+const APP=document.getElementById('app');
+let surveys=JSON.parse(localStorage.getItem('sb_surveys')||'[]');
+let curSurvey=null;
+
+function save(){localStorage.setItem('sb_surveys',JSON.stringify(surveys))}
+function render(){
+  let h=`<h1>📊 中文调查构建器</h1><p class="subtitle">创建调查问卷并收集反馈</p>`;
+  if(curSurvey!==null){
+    let s=surveys[curSurvey];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curSurvey=null;render()">← 返回</button><b>${s.title}</b><button class="btn btn-sm" onclick="addQuestion()">+ 添加问题</button></div></div>`;
+    s.questions.forEach((q,i)=>{
+      let types={text:'简答',radio:'单选',checkbox:'多选',rating:'评分'};
+      h+=`<div class="card"><div class="flex-between"><b>Q${i+1}: ${q.text}</b><div class="flex"><span class="badge badge-blue">${types[q.type]||q.type}</span><button class="btn btn-sm" onclick="editQuestion(${i})">编辑</button><button class="btn btn-sm btn-danger" onclick="delQuestion(${i})">删除</button></div></div>`;
+      if(q.options) h+=`<p style="color:var(--text2);margin-top:4px">选项：${q.options.join('、')}</p>`;
+      h+=`</div>`;
+    });
+    h+=`<div class="card"><b>回复 (${(s.responses||[]).length})</b>`;
+    (s.responses||[]).forEach((r,ri)=>{
+      h+=`<div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:8px">`;
+      r.forEach((a,ai)=>{h+=`<p style="font-size:.85rem"><b>Q${ai+1}：</b>${a}</p>`});
+      h+=`<button class="btn btn-sm btn-danger" onclick="delResponse(${ri})" style="margin-top:4px">删除回复</button></div>`;
+    });
+    h+=`</div>`;
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">调查列表</span><button class="btn btn-sm" onclick="newSurvey()">+ 新建调查</button></div></div>`;
+    surveys.forEach((s,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${s.title}</b><div class="flex"><button class="btn btn-sm" onclick="openSurvey(${i})">编辑</button><button class="btn btn-sm btn-warning" onclick="takeSurvey(${i})">填写</button><button class="btn btn-sm btn-danger" onclick="delSurvey(${i})">删除</button></div></div><p style="color:var(--text2)">${s.questions.length} 问题, ${(s.responses||[]).length} 回复</p></div>`;
+    });
+    if(!surveys.length) h+=`<div class="empty">暂无调查</div>`;
+  }
+  APP.innerHTML=h;
+}
+let surveyAnswers=[];
+function newSurvey(){let t=prompt('调查标题：');if(t){surveys.push({title:t,questions:[],responses:[]});save();render()}}
+function delSurvey(i){if(confirm('删除？')){surveys.splice(i,1);curSurvey=null;save();render()}}
+function openSurvey(i){curSurvey=i;render()}
+function addQuestion(){
+  let t=prompt('问题文本：');if(!t)return;
+  let ty=prompt('类型(text/radio/checkbox/rating)：','radio');
+  let q={text:t,type:ty};
+  if(['radio','checkbox'].includes(ty)){let o=prompt('选项(逗号分隔)：');if(o)q.options=o.split(',').map(s=>s.trim())}
+  surveys[curSurvey].questions.push(q);save();render();
+}
+function editQuestion(i){let q=surveys[curSurvey].questions[i];let t=prompt('问题：',q.text);if(t!==null){q.text=t;save();render()}}
+function delQuestion(i){if(confirm('删除？')){surveys[curSurvey].questions.splice(i,1);save();render()}}
+function delResponse(i){if(confirm('删除回复？')){surveys[curSurvey].responses.splice(i,1);save();render()}}
+function takeSurvey(i){
+  let s=surveys[i];surveyAnswers=[];
+  let h=`<h1>📝 ${s.title}</h1><p class="subtitle">请填写以下问题</p><div class="card">`;
+  s.questions.forEach((q,qi)=>{
+    h+=`<label>Q${qi+1}: ${q.text}</label>`;
+    if(q.type==='text') h+=`<textarea id="ans${qi}" placeholder="请输入"></textarea>`;
+    else if(q.type==='rating') h+=`<div class="flex">${[1,2,3,4,5].map(n=>`<button class="btn btn-sm" onclick="surveyAnswers[${qi}]=${n};document.querySelectorAll('.rating').forEach((b,i)=>b.style.background=i<${n}?'var(--accent)':'var(--border)')">${n}⭐</button>`).join('')}</div>`;
+    else{(q.options||[]).forEach(o=>{h+=`<div style="margin:4px 0"><input type="${q.type}" name="q${qi}" onchange="surveyAnswers[${qi}]=this.value"> ${o}</div>`})}
+  });
+  h+=`<div class="flex"><button class="btn" onclick="submitSurvey(${i})">提交</button><button class="btn btn-sm" onclick="render()">取消</button></div></div>`;
+  APP.innerHTML=h;
+}
+function submitSurvey(i){
+  let s=surveys[i];let answers=[];
+  s.questions.forEach((q,qi)=>{
+    let el=document.getElementById('ans'+qi);
+    if(el) answers.push(el.value);
+    else answers.push(surveyAnswers[qi]||'');
+  });
+  if(!s.responses)s.responses=[];s.responses.push(answers);save();alert('提交成功！');
+  render();
+}
+render();
+
+</script>
+</body>
+</html>

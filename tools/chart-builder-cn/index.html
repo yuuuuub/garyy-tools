@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文图表构建器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='📉 中文图表构建器';
+
+const APP=document.getElementById('app');
+let charts=JSON.parse(localStorage.getItem('chb_charts')||'[]');
+let curChart=null;
+
+function save(){localStorage.setItem('chb_charts',JSON.stringify(charts))}
+function render(){
+  let h=`<h1>📉 中文图表构建器</h1><p class="subtitle">折线图与柱状图可视化</p>`;
+  if(curChart!==null){
+    let c=charts[curChart];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curChart=null;render()">← 返回</button><b>${c.title}</b><div class="flex"><select id="chartType" onchange="charts[${curChart}].type=this.value;save();render()" style="width:auto"><option value="bar" ${c.type==='bar'?'selected':''}>柱状图</option><option value="line" ${c.type==='line'?'selected':''}>折线图</option></select><button class="btn btn-sm" onclick="addData()">+ 添加数据</button></div></div></div>`;
+    let max=Math.max(...c.data.map(d=>d.value),1);
+    let cw=Math.min(600,window.innerWidth-80);
+    h+=`<div class="card" style="overflow-x:auto"><svg width="${cw}" height="300" viewBox="0 0 ${cw} 300">`;
+    c.data.forEach((d,i)=>{
+      let bh=d.value/max*240;
+      let bw=Math.max(20,cw/c.data.length-10);
+      let x=i*(cw/c.data.length)+10;
+      h+=`<rect x="${x}" y="${260-bh}" width="${bw}" height="${bh}" fill="var(--accent)" rx="4" opacity="0.85"/>`;
+      h+=`<text x="${x+bw/2}" y="${268}" fill="var(--text2)" font-size="11" text-anchor="middle">${d.label}</text>`;
+      h+=`<text x="${x+bw/2}" y="${255-bh}" fill="var(--text)" font-size="11" text-anchor="middle">${d.value}</text>`;
+    });
+    h+=`</svg></div>`;
+    h+=`<div class="card"><table class="table"><tr><th>标签</th><th>数值</th><th>操作</th></tr>`;
+    c.data.forEach((d,i)=>{
+      h+=`<tr><td>${d.label}</td><td>${d.value}</td><td><button class="btn btn-sm" onclick="editData(${i})">编辑</button> <button class="btn btn-sm btn-danger" onclick="delData(${i})">删除</button></td></tr>`;
+    });
+    h+=`</table></div>`;
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">图表列表</span><button class="btn btn-sm" onclick="newChart()">+ 新建</button></div></div>`;
+    charts.forEach((c,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${c.title}</b><div class="flex"><span class="badge badge-blue">${c.type==='line'?'折线':'柱状'}</span><button class="btn btn-sm" onclick="openChart(${i})">打开</button><button class="btn btn-sm btn-danger" onclick="delChart(${i})">删除</button></div></div></div>`;
+    });
+    if(!charts.length) h+=`<div class="empty">暂无图表</div>`;
+  }
+  APP.innerHTML=h;
+}
+function newChart(){let t=prompt('图表标题：');if(t){charts.push({title:t,type:'bar',data:[]});save();render()}}
+function delChart(i){if(confirm('删除？')){charts.splice(i,1);curChart=null;save();render()}}
+function openChart(i){curChart=i;render()}
+function addData(){let l=prompt('标签：');if(!l)return;let v=parseFloat(prompt('数值：'));if(isNaN(v))return;charts[curChart].data.push({label:l,value:v});save();render()}
+function editData(i){let d=charts[curChart].data[i];let l=prompt('标签：',d.label);if(l===null)return;let v=parseFloat(prompt('数值：',d.value));if(isNaN(v))return;charts[curChart].data[i]={label:l,value:v};save();render()}
+function delData(i){if(confirm('删除？')){charts[curChart].data.splice(i,1);save();render()}}
+render();
+
+</script>
+</body>
+</html>

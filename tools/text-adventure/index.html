@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字冒险 - 奇幻世界</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .game-header {
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .game-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .game-header .subtitle {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        
+        .story-area {
+            padding: 30px;
+            min-height: 300px;
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+        
+        .story-text {
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 25px;
+        }
+        
+        .choice-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .choice-btn:hover {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            padding: 15px 30px;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        
+        .stat-icon.health { background: #ef4444; }
+        .stat-icon.gold { background: #f59e0b; }
+        .stat-icon.power { background: #8b5cf6; }
+        
+        .restart-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+        
+        .restart-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .ending {
+            text-align: center;
+            padding: 40px 30px;
+        }
+        
+        .ending h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--accent);
+        }
+        
+        .ending-type {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .ending-type.good { background: #22c55e33; color: #22c55e; }
+        .ending-type.neutral { background: #f59e0b33; color: #f59e0b; }
+        .ending-type.bad { background: #ef444433; color: #ef4444; }
+        
+        @media (max-width: 600px) {
+            .game-header h1 { font-size: 1.4rem; }
+            .story-area { padding: 20px; }
+            .stats-bar { padding: 10px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>奇幻世界冒险</h1>
+            <div class="subtitle">你的选择将决定命运</div>
+        </div>
+        
+        <div id="game-content">
+            <div class="story-area" id="story-area"></div>
+        </div>
+        
+        <div class="stats-bar" id="stats-bar">
+            <div class="stat">
+                <div class="stat-icon health">❤</div>
+                <span>生命: <span id="health">100</span></span>
+            </div>
+            <div class="stat">
+                <div class="stat-icon gold">💰</div>
+                <span>金币: <span id="gold">50</span></span>
+            </div>
+            <div class="stat">
+                <div class="stat-icon power">⚔</div>
+                <span>力量: <span id="power">10</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameState = {
+            health: 100,
+            gold: 50,
+            power: 10,
+            flags: {}
+        };
+
+        const story = {
+            start: {
+                text: `你醒来发现自己躺在一片古老的森林中，阳光透过树叶洒下斑驳的光影。你完全不记得自己是谁，也不知道怎么来到这里。
+
+远处传来潺潺的溪水声，东边隐约可见一座古老神殿的轮廓，西边则飘来阵阵烤肉的香气。
+
+你决定怎么做？`,
+                choices: [
+                    { text: '走向溪边，也许能找到一些线索', next: 'stream' },
+                    { text: '探索神殿遗迹', next: 'temple' },
+                    { text: '跟随烤肉的香气', next: 'campfire' }
+                ]
+            },
+            stream: {
+                text: `你来到一条清澈的溪流边，水面倒映着蓝天白云。正当你蹲下想要取水时，你发现水底似乎有什么东西在闪闪发光。
+
+你伸手去捞，发现是一枚古老的金色徽章，上面刻着你从未见过的符文。当你触碰徽章时，一股温暖的力量流入你的体内。
+
+突然，一只巨大的水蛇从水中窜出！`,
+                choices: [
+                    { text: '用刚获得的力量与水蛇战斗', next: 'fight_water_snake', condition: () => gameState.power >= 15 },
+                    { text: '跳入水中逃跑', next: 'swim_escape' },
+                    { text: '举起金色徽章，试试它的力量', next: 'use_emblem' }
+                ]
+            },
+            fight_water_snake: {
+                text: `你感受到体内涌动的力量，握紧双拳与水蛇搏斗。你的力量增强了，每一击都带着金色的光芒。
+
+经过一场激烈的战斗，水蛇被你击败，化作一道光消失在水中。从它消失的地方，浮起一把古老的短剑。
+
+你获得了「符文短剑」！`,
+                action: () => { gameState.power += 20; gameState.flags.hasSword = true; },
+                choices: [
+                    { text: '返回森林继续探索', next: 'forest_junction' }
+                ]
+            },
+            swim_escape: {
+                text: `你纵身跳入冰冷的溪水中，水流将你冲向下游。虽然成功逃脱了水蛇，但你被冲到了一个陌生的地方。
+
+你浑身湿透地爬上岸，发现自己来到了一个繁华的集市。这里的人们穿着奇特的服装，叫卖着各种奇异的商品。`,
+                choices: [
+                    { text: '逛逛集市', next: 'market' },
+                    { text: '寻找干燥的地方休息', next: 'inn' }
+                ]
+            },
+            use_emblem: {
+                text: `你高举金色徽章，徽章发出耀眼的光芒。水蛇被光芒震慑，后退了几步。
+
+光芒中浮现出一个古老的精灵，她说道："勇敢的旅人，你唤醒了远古徽章。我是这片土地的守护者艾拉。告诉我，你为何来到这里？"
+
+你诚实地告诉她你不记得自己的过去。`,
+                choices: [
+                    { text: '请求她的帮助', next: 'seek_help' },
+                    { text: '询问这片土地的情况', next: 'learn_world' }
+                ]
+            },
+            seek_help: {
+                text: `艾拉沉思片刻后说："你的记忆被黑暗法师莫甘夺走了。他囚禁了王国的公主，整个大陆都笼罩在他的阴影之下。"
+
+"如果你能打败莫甘，解救公主，我就能恢复你的记忆。但首先，你需要变得更强。"
+
+她交给你一张地图，指向北方的训练场。`,
+                action: () => { gameState.flags.knowsQuest = true; },
+                choices: [
+                    { text: '前往训练场', next: 'training' },
+                    { text: '先去集市准备', next: 'market' }
+                ]
+            },
+            learn_world: {
+                text: `艾拉向你讲述这片大陆的历史：这里是艾尔达大陆，曾经和平繁荣，直到黑暗法师莫甘从深渊中崛起。
+
+"他夺取了远古神器，用来控制人们的意志。公主是唯一能阻止他的人，因为她拥有净化黑暗的力量。"
+
+"你一定与这场宿命有着某种联系。"艾拉意味深长地看着你。`,
+                action: () => { gameState.flags.knowsQuest = true; },
+                choices: [
+                    { text: '接受命运，前往挑战莫甘', next: 'final_battle_early' },
+                    { text: '先做好准备再说', next: 'forest_junction' }
+                ]
+            },
+            temple: {
+                text: `你来到神殿前，巨大的石柱上刻满了神秘的符文。神殿虽然古老，但依然散发着庄严的气息。
+
+入口处有一个石制祭坛，上面放着一本古老的书籍。你翻开书页，发现是一本关于治疗术的魔法书。
+
+但就在这时，你听到了神殿深处传来微弱的呼救声...`,
+                choices: [
+                    { text: '先学习治疗术', next: 'learn_healing' },
+                    { text: '立即去救人', next: 'rescue_quest' }
+                ]
+            },
+            learn_healing: {
+                text: `你仔细研读魔法书，渐渐地，你感受到了治愈的力量在你手中流动。这是一种简单但实用的治疗术。
+
+你学会了「初级治疗术」！可以恢复30点生命值。`,
+                action: () => { gameState.flags.hasHealing = true; },
+                choices: [
+                    { text: '现在去救人', next: 'rescue_quest' },
+                    { text: '继续探索神殿', next: 'temple_deep' }
+                ]
+            },
+            rescue_quest: {
+                text: `你循着声音深入神殿，在一个被锁住的房间前停下。透过门缝，你看到一个少女被魔法锁链束缚着。
+
+她看到你，眼中闪过一丝希望："求求你救我出去！我是被黑暗法师的手下抓来的！"
+
+门上有一道古老的封印，需要找到正确的符文组合才能打开。`,
+                choices: [
+                    { text: '尝试用力量砸开锁链', next: 'force_open' },
+                    { text: '仔细研究封印', next: 'solve_seal' }
+                ]
+            },
+            force_open: {
+                text: `你用尽全力撞击门锁，虽然有些效果，但也惊动了神殿中的守卫。
+
+两只石像鬼从暗处飞出，向你发起攻击！`,
+                choices: [
+                    { text: '战斗', next: 'fight_gargoyles' },
+                    { text: '带着少女逃跑', next: 'escape_with_girl' }
+                ]
+            },
+            fight_gargoyles: {
+                text: `你与两只石像鬼展开搏斗。它们坚硬的石头外壳让普通的攻击难以奏效。
+
+经过艰苦的战斗，你终于找到了它们的弱点——胸口的魔法核心。你集中力量攻击核心，将它们击碎。`,
+                action: () => { gameState.health -= 30; },
+                choices: [
+                    { text: '救出少女', next: 'rescue_success' }
+                ]
+            },
+            solve_seal: {
+                text: `你仔细观察封印上的符文，发现它们组成了一个谜题。你需要按照正确的顺序激活符文。
+
+经过一番思考，你找到了答案——按照星辰排列的顺序激活。封印缓缓打开。`,
+                action: () => { gameState.power += 10; },
+                choices: [
+                    { text: '进入房间救出少女', next: 'rescue_success' }
+                ]
+            },
+            rescue_success: {
+                text: `你成功救出了少女。她感激地说："谢谢你！我叫莉娜，是王国的公主。黑暗法师莫甘囚禁了我，想利用我的力量打开通往深渊的大门。"
+
+"如果你能送我回王宫，国王一定会重重奖赏你！"
+
+但她告诉你，莫甘的军队正在外面巡逻，需要小心行事。`,
+                action: () => { gameState.flags.savedPrincess = true; gameState.gold += 100; },
+                choices: [
+                    { text: '小心地护送公主回王宫', next: 'escort_princess' },
+                    { text: '先去集市准备再出发', next: 'market' }
+                ]
+            },
+            campfire: {
+                text: `你循着烤肉的香气来到一个小营地，几个穿着皮甲的冒险者正围坐在篝火旁。他们看起来很友善。
+
+"嘿，陌生人！过来一起吃点东西吧！"一个大胡子男人向你招手。
+
+你坐下来，他们递给你一块烤肉和一杯麦酒。聊天中，你得知他们是一个冒险者小队，正在寻找传说中的龙之宝藏。`,
+                choices: [
+                    { text: '加入他们的冒险', next: 'join_adventurers' },
+                    { text: '只吃饭不参与', next: 'eat_only' }
+                ]
+            },
+            eat_only: {
+                text: `你安静地吃完食物，冒险者们也不勉强你。临走时，大胡子男人给了你一些金币和一张地图。
+
+"这片森林很危险，希望这些能帮到你。有缘再见！"
+
+他们向北出发了。`,
+                action: () => { gameState.health += 20; gameState.gold += 30; },
+                choices: [
+                    { text: '查看地图', next: 'forest_junction' }
+                ]
+            },
+            join_adventurers: {
+                text: `你决定加入冒险者小队。队长弗兰克告诉你，他们需要找到隐藏在龙之巢穴中的宝藏，但路上有恶龙把守。
+
+"我们需要一个勇敢的伙伴。你看起来身手不凡，愿意和我们一起冒险吗？"`,
+                choices: [
+                    { text: '正式加入小队', next: 'dragon_quest' },
+                    { text: '问问有没有更安全的任务', next: 'market' }
+                ]
+            },
+            dragon_quest: {
+                text: `你跟随冒险者小队出发了。经过一天的跋涉，你们来到了龙之巢穴的入口。洞穴中传来恶龙的呼吸声和金币碰撞的声音。
+
+弗兰克制定了作战计划：你需要吸引恶龙的注意力，其他人从侧面包抄。`,
+                choices: [
+                    { text: '执行计划', next: 'fight_dragon' },
+                    { text: '偷偷溜进去拿宝藏', next: 'sneak_dragon' }
+                ]
+            },
+            fight_dragon: {
+                text: `你鼓起勇气冲向恶龙，它张开巨大的翅膀喷出火焰。你灵活地躲避着，将它引向队友的埋伏圈。
+
+经过一场惊心动魄的战斗，恶龙被击败了！你们获得了堆积如山的宝藏！
+
+你分到了大量金币和一把传说中的屠龙剑。`,
+                action: () => { gameState.gold += 200; gameState.power += 30; gameState.flags.hasDragonSword = true; },
+                choices: [
+                    { text: '带着宝藏回到森林', next: 'forest_junction' }
+                ]
+            },
+            sneak_dragon: {
+                text: `你趁队友与恶龙战斗时，偷偷溜进巢穴深处。你发现了一堆闪闪发光的金币和一件神秘的魔法斗篷。
+
+但恶龙似乎察觉到了什么，它愤怒地朝你扑来！`,
+                choices: [
+                    { text: '抢了斗篷就跑', next: 'steal_cloak' },
+                    { text: '帮助队友战斗', next: 'fight_dragon' }
+                ]
+            },
+            steal_cloak: {
+                text: `你抓起魔法斗篷，飞速逃离巢穴。恶龙的火焰在你身后燃烧，但斗篷散发出保护的光芒，挡住了火焰。
+
+你成功逃脱了！但队友们还在里面与恶龙搏斗...`,
+                action: () => { gameState.flags.hasCloak = true; gameState.flags.abandonedTeam = true; },
+                choices: [
+                    { text: '回去帮助队友', next: 'return_to_team' },
+                    { text: '独自离开', next: 'lone_wolf' }
+                ]
+            },
+            market: {
+                text: `你来到一个热闹的集市。摊位上摆满了各种商品：药水、武器、食物、地图...
+
+一个神秘的商人向你招手："年轻人，我有你需要的东西。来看看我的珍藏吧。"`,
+                choices: [
+                    { text: '购买治疗药水（20金币）', next: 'buy_potion', condition: () => gameState.gold >= 20 },
+                    { text: '购买力量卷轴（50金币）', next: 'buy_scroll', condition: () => gameState.gold >= 50 },
+                    { text: '与神秘商人交谈', next: 'talk_merchant' }
+                ]
+            },
+            buy_potion: {
+                text: `你购买了一瓶治疗药水，它可以恢复50点生命值。
+
+神秘商人说："聪明的选择，年轻人。旅途艰险，照顾好自己。"`,
+                action: () => { gameState.gold -= 20; gameState.flags.hasPotion = true; },
+                choices: [
+                    { text: '继续探索', next: 'forest_junction' }
+                ]
+            },
+            buy_scroll: {
+                text: `你购买了一卷力量卷轴，使用后可以永久增加20点力量。
+
+神秘商人说："这是从古老遗迹中发现的珍品。好好利用它的力量。"`,
+                action: () => { gameState.gold -= 50; gameState.power += 20; },
+                choices: [
+                    { text: '继续探索', next: 'forest_junction' }
+                ]
+            },
+            talk_merchant: {
+                text: `神秘商人低声说："我知道你是谁。你曾经是王国的骑士，被莫甘夺去了记忆。"
+
+"如果你能拿到远古神殿中的圣物，就能恢复你的记忆。但要小心，那里有强大的守护者。"
+
+他递给你一张通往神殿的地图。`,
+                action: () => { gameState.flags.knowsIdentity = true; },
+                choices: [
+                    { text: '前往神殿', next: 'temple' },
+                    { text: '先去其他地方', next: 'forest_junction' }
+                ]
+            },
+            inn: {
+                text: `你找到一家简陋但温馨的小旅馆。店主是个和蔼的老妇人，她给你安排了一间房间。
+
+夜晚，你做了一个奇怪的梦。梦中，你看到自己穿着银色铠甲，手持圣剑，站在一座城堡前...
+
+醒来后，你觉得这个梦似乎在暗示什么。`,
+                action: () => { gameState.health = Math.min(100, gameState.health + 30); },
+                choices: [
+                    { text: '去大厅看看', next: 'market' },
+                    { text: '继续休息', next: 'rest_more' }
+                ]
+            },
+            rest_more: {
+                text: `你决定继续休息。在半梦半醒之间，你又看到了一些模糊的记忆碎片：一个美丽的公主，一座雄伟的王国，还有一场可怕的战争...
+
+你感觉自己的力量有所恢复。`,
+                action: () => { gameState.power += 5; },
+                choices: [
+                    { text: '出发探索', next: 'forest_junction' }
+                ]
+            },
+            forest_junction: {
+                text: `你来到森林的一个岔路口。北边的路通向一座高山，山顶隐约可见一座城堡。东边的路通向一片迷雾笼罩的沼泽。南边的路则回到来时的方向。
+
+路边有一块石碑，上面刻着："勇者之路，只有真正的英雄才能走完。"`,
+                choices: [
+                    { text: '前往北方高山', next: 'final_battle' },
+                    { text: '探索迷雾沼泽', next: 'swamp' },
+                    { text: '整理装备休息一下', next: 'rest_point' }
+                ]
+            },
+            rest_point: {
+                text: `你在路边找了一个安全的地方休息。这里有清澈的泉水，你可以补充水分和恢复体力。
+
+你感觉自己变得更加强大了。`,
+                action: () => { gameState.health = Math.min(100, gameState.health + 20); },
+                choices: [
+                    { text: '继续前进', next: 'forest_junction' }
+                ]
+            },
+            swamp: {
+                text: `你走进迷雾笼罩的沼泽，空气中弥漫着腐败的气息。地面湿滑，每一步都很艰难。
+
+突然，你发现沼泽中央有一座小岛，岛上有一个奇怪的发光物体...`,
+                choices: [
+                    { text: '冒险涉水过去', next: 'swamp_island' },
+                    { text: '谨慎地绕路', next: 'forest_junction' }
+                ]
+            },
+            swamp_island: {
+                text: `你艰难地涉水来到小岛。发光的物体是一颗古老的魔力水晶，散发着纯净的光芒。
+
+当你触碰水晶时，你看到了一个幻象：黑暗法师莫甘的城堡，以及被囚禁的公主...你感到一股使命感涌上心头。`,
+                action: () => { gameState.power += 15; gameState.flags.hasCrystal = true; },
+                choices: [
+                    { text: '现在就去挑战莫甘', next: 'final_battle' },
+                    { text: '先回到安全的地方', next: 'forest_junction' }
+                ]
+            },
+            training: {
+                text: `你来到北方的训练场，这里有几个教官正在指导新兵训练。
+
+他们看到你，示意你过来。"你是新来的？先让我们看看你的身手。"
+
+经过一轮测试，你展现出了不错的战斗天赋。教官决定给你一些特殊训练。`,
+                choices: [
+                    { text: '接受战斗训练', next: 'combat_training' },
+                    { text: '学习魔法技能', next: 'magic_training' }
+                ]
+            },
+            combat_training: {
+                text: `你跟随教官学习了三天三夜，掌握了更精湛的战斗技巧。你的攻击更加凌厉，防御也更加稳固。
+
+"你很有天赋，"教官说，"现在你准备好面对真正的敌人了。"`,
+                action: () => { gameState.power += 25; },
+                choices: [
+                    { text: '出发前往挑战莫甘', next: 'final_battle' }
+                ]
+            },
+            magic_training: {
+                text: `你学习了古老的魔法知识，掌握了如何将魔力融入攻击中。虽然你的物理力量没有增加，但你的特殊攻击变得更加强大。
+
+"魔法是双刃剑，"教官告诫你，"用它来保护，而不是毁灭。"`,
+                action: () => { gameState.power += 15; gameState.flags.hasMagic = true; },
+                choices: [
+                    { text: '出发前往挑战莫甘', next: 'final_battle' }
+                ]
+            },
+            final_battle_early: {
+                text: `你决定不等准备充分就去挑战莫甘。这很危险，但也许是唯一的方法。
+
+你找到了莫甘的城堡，黑暗的塔楼直插云霄，周围环绕着不祥的黑雾。
+
+守卫城堡的是两个黑暗骑士，他们手持燃烧着紫色火焰的长剑挡住了你的去路。`,
+                choices: [
+                    { text: '硬冲过去', next: 'final_battle_weak' },
+                    { text: '暂时撤退，准备充分再来', next: 'forest_junction' }
+                ]
+            },
+            final_battle: {
+                text: `你终于来到了黑暗法师莫甘的城堡。高耸的黑色塔楼在闪电中若隐若现，空气中充满了压迫感。
+
+城堡的大门缓缓打开，莫甘的身影出现在门口。他穿着漆黑的长袍，手中握着一根散发着黑暗能量的法杖。
+
+"又一个送死的愚人，"莫甘冷笑道，"你以为你能打败我？"`,
+                choices: [
+                    { text: '直接冲向莫甘', next: 'attack_headon' },
+                    { text: '寻找他的弱点', next: 'find_weakness' }
+                ]
+            },
+            attack_headon: {
+                text: `你挥舞武器冲向莫甘，他却轻蔑地挥了挥法杖。一道黑暗能量将你击退，你重重地摔在地上。
+
+"太弱了，"莫甘说，"这就是王国最后的希望？可笑。"
+
+但你没有放弃，你挣扎着站起来...`,
+                action: () => { gameState.health -= 40; },
+                choices: [
+                    { text: '拼尽最后一击', next: 'last_stand' },
+                    { text: '使用所有能力', next: 'use_everything' }
+                ]
+            },
+            find_weakness: {
+                text: `你仔细观察莫甘，发现他的法杖上有一道裂痕。那是他的力量来源，也是他的弱点！
+
+你假装进攻，实际上瞄准了法杖。莫甘没有料到你会注意到这一点，脸上闪过一丝惊慌...`,
+                choices: [
+                    { text: '攻击法杖', next: 'break_staff' },
+                    { text: '继续攻击莫甘本人', next: 'attack_headon' }
+                ]
+            },
+            break_staff: {
+                text: `你的武器击中了法杖的裂痕，黑暗法杖应声碎裂！莫甘发出痛苦的尖叫，他的力量急剧下降。
+
+"不！这不可能！"莫甘怒吼着，但已经无力回天。`,
+                action: () => { gameState.flags.staffBroken = true; },
+                choices: [
+                    { text: '彻底击败他', next: 'victory' }
+                ]
+            },
+            last_stand: {
+                text: `你用尽最后一丝力气，发动了最强的攻击。奇迹发生了——你的武器发出耀眼的光芒，穿透了莫甘的黑暗护盾。
+
+莫甘倒下了，黑暗开始消散...`,
+                choices: [
+                    { text: '见证结局', next: 'victory' }
+                ]
+            },
+            use_everything: {
+                text: `你集中所有力量——你的武器、你学到的魔法、你收集的宝物，全部融合在一起。
+
+一道纯净的光芒从你身上爆发，驱散了周围的黑暗。莫甘在光芒中痛苦地挣扎...
+
+"这不可能...我是无敌的！"他绝望地喊道。`,
+                action: () => { gameState.health = Math.max(gameState.health, 50); },
+                choices: [
+                    { text: '结束这一切', next: 'victory' }
+                ]
+            },
+            final_battle_weak: {
+                text: `你没有做好准备就挑战莫甘，结果被轻松击败。莫甘将你关进了地牢。
+
+在黑暗的地牢中，你开始反思自己的决定...
+
+也许你应该先做好准备再来。`,
+                choices: [
+                    { text: '在地牢中寻找逃脱的方法', next: 'prison_escape' }
+                ]
+            },
+            prison_escape: {
+                text: `你在地牢中发现了前人留下的工具，花了三天时间挖出了一条逃路。
+
+你成功逃脱了！虽然这次失败了，但你获得了宝贵的经验。你决定先去训练和收集物资，然后再来挑战莫甘。`,
+                action: () => { gameState.health = 30; },
+                choices: [
+                    { text: '重新开始冒险', next: 'forest_junction' }
+                ]
+            },
+            victory: {
+                text: `莫甘倒下了，黑暗从这片土地上消散。阳光重新照耀大地，花朵开始绽放。
+
+被囚禁的公主被解救出来，王国恢复了和平。
+
+当你触碰到远古圣物时，你的记忆终于回来了——你曾经是王国最英勇的骑士，为了拯救公主和王国，你牺牲了自己的记忆换取了打败莫甘的力量。
+
+现在，你的使命完成了。`,
+                action: () => { gameState.flags.victory = true; },
+                choices: [
+                    { text: '查看结局', next: 'ending' }
+                ]
+            },
+            ending: {
+                text: '',
+                choices: [],
+                ending: true
+            }
+        };
+
+        function getEnding() {
+            if (gameState.flags.victory) {
+                if (gameState.flags.savedPrincess && gameState.flags.knowsIdentity) {
+                    return { title: '完美结局：英雄的回归', type: 'good', desc: '你不仅打败了莫甘，还找回了自己的身份，与公主一起重建了王国。你成为了传说中的英雄，被后世永远铭记。' };
+                } else if (gameState.flags.savedPrincess) {
+                    return { title: '美好结局：王国的守护者', type: 'good', desc: '你打败了莫甘，救出了公主。虽然你不记得自己的过去，但你决定留下来守护这片土地。' };
+                } else if (gameState.power >= 50) {
+                    return { title: '荣耀结局：传说的延续', type: 'good', desc: '你凭借强大的力量打败了莫甘，成为了新的传说。你的名字被刻在了英雄纪念碑上。' };
+                } else {
+                    return { title: '普通结局：新的开始', type: 'neutral', desc: '你打败了莫甘，但关于自己身世的谜团仍然没有解开。你决定踏上新的旅程，寻找自己的过去。' };
+                }
+            }
+            return { title: '未完的旅程', type: 'neutral', desc: '冒险仍在继续...也许有一天你会找到属于自己的答案。' };
+        }
+
+        function updateStats() {
+            document.getElementById('health').textContent = gameState.health;
+            document.getElementById('gold').textContent = gameState.gold;
+            document.getElementById('power').textContent = gameState.power;
+        }
+
+        function renderScene(sceneId) {
+            const scene = story[sceneId];
+            const storyArea = document.getElementById('story-area');
+            const statsBar = document.getElementById('stats-bar');
+            
+            if (scene.ending) {
+                const ending = getEnding();
+                storyArea.innerHTML = `
+                    <div class="ending">
+                        <h2>${ending.title}</h2>
+                        <span class="ending-type ${ending.type}">${ending.type === 'good' ? '好结局' : ending.type === 'bad' ? '坏结局' : '普通结局'}</span>
+                        <p style="margin: 20px 0; line-height: 1.8;">${ending.desc}</p>
+                        <p style="opacity: 0.7; margin-bottom: 20px;">最终状态 - 生命: ${gameState.health} | 金币: ${gameState.gold} | 力量: ${gameState.power}</p>
+                        <button class="restart-btn" onclick="restartGame()">重新开始</button>
+                    </div>
+                `;
+                statsBar.style.display = 'none';
+                return;
+            }
+
+            if (scene.action) {
+                scene.action();
+                updateStats();
+            }
+
+            const availableChoices = scene.choices.filter(c => !c.condition || c.condition());
+
+            storyArea.innerHTML = `
+                <div class="story-text">${scene.text.replace(/\n/g, '<br>')}</div>
+                <div class="choices">
+                    ${availableChoices.map((c, i) => `
+                        <button class="choice-btn" onclick="makeChoice('${c.next}')">${c.text}</button>
+                    `).join('')}
+                </div>
+            `;
+
+            if (gameState.health <= 0) {
+                storyArea.innerHTML = `
+                    <div class="ending">
+                        <h2>你的生命耗尽了...</h2>
+                        <span class="ending-type bad">游戏结束</span>
+                        <p style="margin: 20px 0;">黑暗吞噬了你，你的冒险到此结束。</p>
+                        <button class="restart-btn" onclick="restartGame()">重新开始</button>
+                    </div>
+                `;
+                statsBar.style.display = 'none';
+            }
+        }
+
+        function makeChoice(nextScene) {
+            renderScene(nextScene);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function restartGame() {
+            gameState.health = 100;
+            gameState.gold = 50;
+            gameState.power = 10;
+            gameState.flags = {};
+            updateStats();
+            document.getElementById('stats-bar').style.display = 'flex';
+            renderScene('start');
+        }
+
+        updateStats();
+        renderScene('start');
+    </script>
+</body>
+</html>

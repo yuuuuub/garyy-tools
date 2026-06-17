@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>19x19 填字游戏</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.5rem;margin-bottom:10px;color:var(--accent)}
+.controls{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;justify-content:center}
+.controls button{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.9rem}
+.controls button:hover,.controls button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.status{margin-bottom:10px;font-size:.95rem;color:#8b949e}
+.status span{color:var(--accent);font-weight:bold}
+.container{display:flex;gap:20px;max-width:1400px;width:100%;flex-wrap:wrap;justify-content:center}
+.grid-wrapper{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;flex-shrink:0;overflow-x:auto}
+table{border-collapse:collapse}
+td{width:22px;height:22px;text-align:center;vertical-align:middle;border:1px solid var(--border);position:relative;font-size:.65rem}
+td.black{background:#30363d}
+td.cell{background:#0d1117;cursor:pointer}
+td.cell.selected{background:#1a3a5c;outline:2px solid var(--accent)}
+td.cell.highlight{background:#1c2940}
+td.cell input{width:100%;height:100%;border:none;background:transparent;color:var(--text);text-align:center;font-size:.65rem;outline:none;text-transform:uppercase}
+td.cell .num{position:absolute;top:1px;left:1px;font-size:.3rem;color:#8b949e}
+.clues{flex:1;min-width:250px;max-height:500px;overflow-y:auto}
+.clues h3{color:var(--accent);margin-bottom:8px;font-size:1rem}
+.clues ul{list-style:none;margin-bottom:15px}
+.clues li{padding:4px 8px;cursor:pointer;border-radius:4px;font-size:.85rem;line-height:1.4}
+.clues li:hover{background:var(--card)}
+.clues li.selected{background:var(--accent);color:#fff}
+.clues li .num{font-weight:bold;margin-right:4px}
+.btn-check{margin-top:15px;background:var(--accent);border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-size:1rem}
+.btn-check:hover{opacity:.9}
+.toast{position:fixed;top:20px;right:20px;background:#238636;color:#fff;padding:12px 20px;border-radius:8px;display:none;z-index:999}
+.toast.show{display:block}
+@media(max-width:600px){td{width:18px;height:18px;font-size:.55rem}td.cell .num{font-size:.25rem}}
+</style>
+</head>
+<body>
+<h1>19x19 填字游戏</h1>
+<div class="controls" id="puzzleSelector"></div>
+<div class="status">已完成: <span id="progress">0</span> / <span id="total">0</span></div>
+<div class="container">
+  <div class="grid-wrapper"><table id="grid"></table></div>
+  <div class="clues">
+    <h3>横向提示</h3><ul id="acrossClues"></ul>
+    <h3>纵向提示</h3><ul id="downClues"></ul>
+  </div>
+</div>
+<button class="btn-check" onclick="checkAnswers()">检查答案</button>
+<div class="toast" id="toast">全部正确！恭喜！</div>
+<script>
+const SIZE=19,B='#';
+const PUZZLES=[
+{grid:[
+[1,0,0,0,2,0,3,0,4,0,5,0,6,0,7,0,0,0,8],
+[0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B],
+[9,0,0,0,10,0,0,0,11,0,0,0,12,0,0,0,13,0,0],
+[0,B,0,B,0,B,0,B,0,0,0,B,0,B,0,B,0,B,0],
+[14,0,0,0,0,0,15,0,0,0,16,0,0,0,17,0,0,0,0],
+[0,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,0],
+[18,0,0,0,19,0,0,0,20,0,0,0,21,0,0,0,0,0,0],
+[0,B,0,0,0,B,0,B,0,B,0,0,0,B,0,B,0,B,0],
+[22,0,0,0,23,0,0,0,24,0,0,0,25,0,0,0,26,0,0],
+[0,B,0,0,0,B,0,B,0,B,0,0,0,B,0,B,0,B,0],
+[27,0,0,0,28,0,0,0,29,0,0,0,30,0,0,0,31,0,0],
+[0,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,0],
+[32,0,0,0,0,0,33,0,0,0,34,0,0,0,35,0,0,0,0],
+[0,B,0,B,0,B,0,B,0,0,0,B,0,B,0,B,0,B,0],
+[36,0,0,0,37,0,0,0,38,0,0,0,39,0,0,0,40,0,0],
+[0,B,0,B,0,B,0,B,0,0,0,B,0,B,0,B,0,B,0],
+[41,0,0,0,42,0,43,0,44,0,45,0,0,0,0,0,0,0,0],
+[0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0,B,0],
+[46,0,0,0,47,0,48,0,49,0,50,0,51,0,0,0,0,0,52]
+],answers:{
+1:{dir:'across',word:'ASTRONOMY',row:0,col:0},
+2:{dir:'down',word:'ORCHID',row:0,col:4},
+3:{dir:'down',word:'TORNADO',row:0,col:6},
+4:{dir:'down',word:'ELEPHANT',row:0,col:8},
+5:{dir:'down',word:'SYMPHONY',row:0,col:10},
+6:{dir:'down',word:'METEOR',row:0,col:12},
+7:{dir:'down',word:'MAGNETIC',row:0,col:14},
+8:{dir:'down',word:'JUKEBOX',row:0,col:18},
+9:{dir:'across',word:'DINOSAUR',row:2,col:0},
+10:{dir:'across',word:'LIBERTY',row:2,col:4},
+11:{dir:'across',word:'CAPTAIN',row:2,col:8},
+12:{dir:'across',word:'SCARLET',row:2,col:12},
+13:{dir:'across',word:'SCARLET',row:2,col:16},
+14:{dir:'across',word:'HOSPITAL',row:4,col:0},
+15:{dir:'down',word:'PENGUIN',row:4,col:6},
+16:{dir:'across',word:'MERCURY',row:4,col:10},
+17:{dir:'across',word:'SCARLET',row:4,col:14},
+18:{dir:'across',word:'DOLPHIN',row:6,col:0},
+19:{dir:'across',word:'RAINBOW',row:6,col:4},
+20:{dir:'across',word:'CANNON',row:6,col:8},
+21:{dir:'across',word:'SCARLET',row:6,col:12},
+22:{dir:'across',word:'JUPITER',row:8,col:0},
+23:{dir:'across',word:'WHISKEY',row:8,col:4},
+24:{dir:'across',word:'PUMPKIN',row:8,col:8},
+25:{dir:'across',word:'SPHINX',row:8,col:12},
+26:{dir:'across',word:'SCARLET',row:8,col:16},
+27:{dir:'across',word:'DYNAMITE',row:10,col:0},
+28:{dir:'across',word:'OYSTER',row:10,col:4},
+29:{dir:'across',word:'TRUMPET',row:10,col:8},
+30:{dir:'across',word:'SCARLET',row:10,col:12},
+31:{dir:'across',word:'SCARLET',row:10,col:16},
+32:{dir:'across',word:'TREASURE',row:12,col:0},
+33:{dir:'across',word:'ORANGE',row:12,col:6},
+34:{dir:'across',word:'PENCIL',row:12,col:10},
+35:{dir:'across',word:'SCARLET',row:12,col:14},
+36:{dir:'across',word:'COMPASS',row:14,col:0},
+37:{dir:'across',word:'IVORY',row:14,col:4},
+38:{dir:'across',word:'PARROT',row:14,col:8},
+39:{dir:'across',word:'SCARLET',row:14,col:12},
+40:{dir:'across',word:'SCARLET',row:14,col:16},
+41:{dir:'across',word:'DYNAMITE',row:16,col:0},
+42:{dir:'across',word:'OYSTER',row:16,col:4},
+43:{dir:'across',word:'TRUMPET',row:16,col:6},
+44:{dir:'across',word:'SCARLET',row:16,col:8},
+45:{dir:'across',word:'SCARLET',row:16,col:10},
+46:{dir:'across',word:'DYNAMITE',row:18,col:0},
+47:{dir:'across',word:'OYSTER',row:18,col:4},
+48:{dir:'across',word:'TRUMPET',row:18,col:6},
+49:{dir:'across',word:'SCARLET',row:18,col:8},
+50:{dir:'across',word:'SCARLET',row:18,col:10},
+51:{dir:'across',word:'SCARLET',row:18,col:12},
+52:{dir:'across',word:'SCARLET',row:18,col:18}
+},across:{
+1:"天文学（英语）",9:"恐龙（英语）",10:"自由（英语）",11:"船长（英语）",12:"猩红（英语）",13:"猩红（英语）",
+14:"医院（英语）",16:"水星（英语）",17:"猩红（英语）",
+18:"海豚（英语）",19:"彩虹（英语）",20:"大炮（英语）",21:"猩红（英语）",
+22:"木星（英语）",23:"威士忌（英语）",24:"南瓜（英语）",25:"狮身人面像（英语）",26:"猩红（英语）",
+27:"炸药（英语）",28:"牡蛎（英语）",29:"小号（英语）",30:"猩红（英语）",31:"猩红（英语）",
+32:"宝藏（英语）",33:"橙子（英语）",34:"铅笔（英语）",35:"猩红（英语）",
+36:"指南针（英语）",37:"象牙（英语）",38:"鹦鹉（英语）",39:"猩红（英语）",40:"猩红（英语）",
+41:"炸药（英语）",42:"牡蛎（英语）",43:"小号（英语）",44:"猩红（英语）",45:"猩红（英语）",
+46:"炸药（英语）",47:"牡蛎（英语）",48:"小号（英语）",49:"猩红（英语）",50:"猩红（英语）",51:"猩红（英语）",52:"猩红（英语）"
+},down:{
+2:"兰花（英语）",3:"龙卷风（英语）",4:"大象（英语）",5:"交响乐（英语）",6:"流星（英语）",7:"磁性的（英语）",8:"点唱机（英语）",15:"企鹅（英语）"
+}},
+{grid:[
+[1,0,0,0,0,0,2],
+[0,B,0,0,0,B,0],
+[3,0,0,0,0,0,0],
+[0,0,B,0,0,0,0],
+[4,0,0,0,0,0,0],
+[0,B,0,0,0,B,0],
+[5,0,0,0,0,0,0]
+],answers:{
+1:{dir:'across',word:'RAINBOW',row:0,col:0},
+2:{dir:'down',word:'OYSTER',row:0,col:6},
+3:{dir:'across',word:'BRIDGE',row:2,col:0},
+4:{dir:'across',word:'CASTLE',row:4,col:0},
+5:{dir:'across',word:'FOREST',row:6,col:0}
+},across:{
+1:"彩虹（英语）",3:"桥梁（英语）",4:"城堡（英语）",5:"森林（英语）"
+},down:{
+2:"牡蛎（英语）"
+}},
+{grid:[
+[1,0,2,0,3],
+[0,B,0,B,0],
+[4,0,0,0,0],
+[0,B,0,B,0],
+[5,0,6,0,7]
+],answers:{
+1:{dir:'across',word:'PLANET',row:0,col:0},
+2:{dir:'down',word:'RABBIT',row:0,col:2},
+3:{dir:'down',word:'EAGLE',row:0,col:4},
+4:{dir:'across',word:'TIGER',row:2,col:0},
+5:{dir:'across',word:'OCEAN',row:4,col:0},
+6:{dir:'down',word:'CLOUD',row:4,col:2},
+7:{dir:'down',word:'LEMON',row:4,col:4}
+},across:{
+1:"行星（英语）",4:"老虎（英语）",5:"海洋（英语）"
+},down:{
+2:"兔子（英语）",3:"鹰（英语）",6:"云（英语）",7:"柠檬（英语）"
+}},
+{grid:[
+[1,0,2,0,3,0,4],
+[0,B,0,B,0,B,0],
+[5,0,0,0,0,0,0],
+[0,0,B,0,0,0,0],
+[6,0,0,0,0,0,0],
+[0,B,0,0,0,B,0],
+[7,0,0,0,0,0,0]
+],answers:{
+1:{dir:'across',word:'DRAGON',row:0,col:0},
+2:{dir:'down',word:'RABBIT',row:0,col:2},
+3:{dir:'down',word:'TIGER',row:0,col:4},
+4:{dir:'down',word:'EAGLE',row:0,col:6},
+5:{dir:'across',word:'FOREST',row:2,col:0},
+6:{dir:'across',word:'CASTLE',row:4,col:0},
+7:{dir:'across',word:'BRIDGE',row:6,col:0}
+},across:{
+1:"龙（英语）",5:"森林（英语）",6:"城堡（英语）",7:"桥梁（英语）"
+},down:{
+2:"兔子（英语）",3:"老虎（英语）",4:"鹰（英语）"
+}},
+{grid:[
+[1,0,2],
+[0,B,0],
+[3,0,4]
+],answers:{
+1:{dir:'across',word:'STONE',row:0,col:0},
+2:{dir:'down',word:'NEST',row:0,col:2},
+3:{dir:'across',word:'OCEAN',row:2,col:0},
+4:{dir:'down',word:'LAMP',row:2,col:2}
+},across:{
+1:"石头（英语）",3:"海洋（英语）"
+},down:{
+2:"巢（英语）",4:"灯（英语）"
+}}
+];
+let currentPuzzle=0,selectedCell=null,selectedDir=null,selectedNum=null;
+function init(){const s=document.getElementById('puzzleSelector');PUZZLES.forEach((p,i)=>{const b=document.createElement('button');b.textContent=`谜题 ${i+1}`;b.onclick=()=>loadPuzzle(i);if(i===0)b.classList.add('active');s.appendChild(b)});loadPuzzle(0)}
+function loadPuzzle(idx){currentPuzzle=idx;document.querySelectorAll('.controls button').forEach((b,i)=>b.classList.toggle('active',i===idx));
+const p=PUZZLES[idx],table=document.getElementById('grid');table.innerHTML='';let cc=0;
+for(let r=0;r<SIZE;r++){const tr=document.createElement('tr');for(let c=0;c<SIZE;c++){const td=document.createElement('td'),val=p.grid[r][c];
+if(val===B){td.className='black'}else{td.className='cell';td.dataset.row=r;td.dataset.col=c;if(typeof val==='number'){const ns=document.createElement('span');ns.className='num';ns.textContent=val;td.appendChild(ns)}
+const inp=document.createElement('input');inp.maxLength=1;inp.dataset.row=r;inp.dataset.col=c;inp.addEventListener('input',handleInput);inp.addEventListener('keydown',handleKeydown);inp.addEventListener('focus',()=>handleFocus(r,c));td.appendChild(inp);cc++;td.addEventListener('click',()=>handleClick(r,c))}
+tr.appendChild(td)}table.appendChild(tr)}
+document.getElementById('total').textContent=cc;document.getElementById('progress').textContent='0';
+const ac=document.getElementById('acrossClues'),dn=document.getElementById('downClues');ac.innerHTML='';dn.innerHTML='';
+Object.entries(p.across).forEach(([n,cl])=>{const li=document.createElement('li');li.innerHTML=`<span class="num">${n}.</span> ${cl}`;li.dataset.num=n;li.dataset.dir='across';li.onclick=()=>selectClue('across',parseInt(n));ac.appendChild(li)});
+Object.entries(p.down).forEach(([n,cl])=>{const li=document.createElement('li');li.innerHTML=`<span class="num">${n}.</span> ${cl}`;li.dataset.num=n;li.dataset.dir='down';li.onclick=()=>selectClue('down',parseInt(n));dn.appendChild(li)})}
+function getAnswer(r,c){const p=PUZZLES[currentPuzzle];for(const[n,i]of Object.entries(p.answers)){if(i.dir==='across'){if(r===i.row&&c>=i.col&&c<i.col+i.word.length)return i.word[c-i.col]}else{if(c===i.col&&r>=i.row&&r<i.row+i.word.length)return i.word[r-i.row]}}return null}
+function getWordCells(r,c,dir){const p=PUZZLES[currentPuzzle];for(const[n,i]of Object.entries(p.answers)){if(i.dir!==dir)continue;const l=i.word.length;if(dir==='across'){if(r===i.row&&c>=i.col&&c<i.col+l){const cells=[];for(let j=0;j<l;j++)cells.push([i.row,i.col+j]);return{cells,num:parseInt(n)}}}else{if(c===i.col&&r>=i.row&&r<i.row+l){const cells=[];for(let j=0;j<l;j++)cells.push([i.row+j,i.col]);return{cells,num:parseInt(n)}}}}return null}
+function highlightWord(cells){document.querySelectorAll('td.cell').forEach(td=>td.classList.remove('highlight'));if(!cells)return;cells.forEach(([r,c])=>{const td=document.querySelector(`td[data-row="${r}"][data-col="${c}"]`);if(td)td.classList.add('highlight')})}
+function selectClue(dir,num){const p=PUZZLES[currentPuzzle],info=p.answers[num];if(!info)return;selectedDir=dir;selectedNum=num;
+document.querySelectorAll('.clues li').forEach(li=>li.classList.remove('selected'));
+const li=document.querySelector(`.clues li[data-num="${num}"][data-dir="${dir}"]`);if(li){li.classList.add('selected');li.scrollIntoView({behavior:'smooth',block:'nearest'})}
+const cells=[];for(let j=0;j<info.word.length;j++)cells.push(dir==='across'?[info.row,info.col+j]:[info.row+j,info.col]);
+highlightWord(cells);const fi=document.querySelector(`input[data-row="${info.row}"][data-col="${info.col}"]`);if(fi)fi.focus()}
+function handleClick(r,c){if(selectedCell&&selectedCell[0]===r&&selectedCell[1]===c)selectedDir=selectedDir==='across'?'down':'across';else selectedDir='across';selectedCell=[r,c];
+const info=getWordCells(r,c,selectedDir);if(info){selectedNum=info.num;selectClue(selectedDir,info.num)}}
+function handleFocus(r,c){selectedCell=[r,c];const info=getWordCells(r,c,selectedDir||'across');if(info){selectedNum=info.num;highlightWord(info.cells);document.querySelectorAll('.clues li').forEach(li=>li.classList.remove('selected'));const li=document.querySelector(`.clues li[data-num="${info.num}"][data-dir="${info.dir}"]`);if(li){li.classList.add('selected');li.scrollIntoView({behavior:'smooth',block:'nearest'})}}}
+function handleInput(e){const v=e.target.value.toUpperCase();e.target.value=v;if(v&&selectedCell)moveToNext();updateProgress()}
+function handleKeydown(e){if(!selectedCell)return;const[r,c]=selectedCell;
+if(e.key==='Backspace'){if(!e.target.value)moveToPrev()}
+else if(e.key==='ArrowRight'){moveTo(r,c+1);e.preventDefault()}
+else if(e.key==='ArrowLeft'){moveTo(r,c-1);e.preventDefault()}
+else if(e.key==='ArrowDown'){moveTo(r+1,c);e.preventDefault()}
+else if(e.key==='ArrowUp'){moveTo(r-1,c);e.preventDefault()}
+else if(e.key==='Tab'){e.preventDefault();const p=PUZZLES[currentPuzzle],nums=Object.keys(p.answers).map(Number).sort((a,b)=>a-b),ci=nums.indexOf(selectedNum),ni=e.shiftKey?(ci-1+nums.length)%nums.length:(ci+1)%nums.length,nn=nums[ni],ni2=p.answers[nn];selectClue(ni2.dir,nn)}}
+function moveTo(r,c){if(r<0||r>=SIZE||c<0||c>=SIZE)return;const td=document.querySelector(`td[data-row="${r}"][data-col="${c}"]`);if(td){const inp=td.querySelector('input');if(inp){selectedCell=[r,c];inp.focus();handleFocus(r,c)}}}
+function moveToNext(){if(!selectedCell)return;const[r,c]=selectedCell;if(selectedDir==='across')moveTo(r,c+1);else moveTo(r+1,c)}
+function moveToPrev(){if(!selectedCell)return;const[r,c]=selectedCell;if(selectedDir==='across')moveTo(r,c-1);else moveTo(r-1,c)}
+function updateProgress(){let f=0;document.querySelectorAll('td.cell input').forEach(i=>{if(i.value)f++});document.getElementById('progress').textContent=f}
+function checkAnswers(){let ok=true;document.querySelectorAll('td.cell input').forEach(inp=>{const r=parseInt(inp.dataset.row),c=parseInt(inp.dataset.col),ans=getAnswer(r,c),td=inp.parentElement;if(ans){if(inp.value.toUpperCase()===ans)td.style.background='#1a3a1a';else if(inp.value){td.style.background='#3a1a1a';ok=false}}});
+if(ok){const t=document.getElementById('toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card h2{font-size:16px;margin-bottom:16px;color:var(--accent2)}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+select,input,textarea{width:100%;padding:10px;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit}
+textarea{min-height:120px;resize:vertical;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#2ea043}
+.btn-danger{background:var(--error);color:#fff}
+.btn-danger:hover{background:#da3633}
+.actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.log{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;max-height:300px;overflow-y:auto;line-height:1.6}
+.log-entry{padding:2px 0;border-bottom:1px solid var(--border)}
+.log-time{color:#8b949e;margin-right:8px}
+.log-info{color:var(--accent2)}
+.log-success{color:var(--success)}
+.log-error{color:var(--error)}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.tag-topic{background:#1f6feb33;color:var(--accent2)}
+.tag-partition{background:#3fb95033;color:var(--success)}
+.tag-consumer{background:#d2992233;color:var(--warning)}
+.partitions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.partition{flex:1;min-width:120px;padding:12px;background:#0d1117;border:2px solid var(--border);border-radius:6px;text-align:center;position:relative}
+.partition.active{border-color:var(--success)}
+.partition-bar{height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
+.partition-fill{height:100%;background:var(--success);transition:width .3s}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 12px;border:1px solid var(--border);text-align:left}
+th{background:#0d1117;color:var(--accent2)}
+.full-width{grid-column:1/-1}
+.offset-tracker{margin-top:12px;padding:12px;background:#0d1117;border-radius:6px}
+.offset-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+</style>
+</head>
+<body>
+<nav>
+<a href="../index.html">← 返回工具列表</a>
+<h1>Kafka游乐场</h1>
+</nav>
+<div class="container">
+<div class="grid">
+<div class="card">
+<h2>Topic 配置</h2>
+<label>Topic 名称</label>
+<input type="text" id="topicName" value="user-events" placeholder="输入Topic名称">
+<label style="margin-top:12px">分区数</label>
+<select id="partitionCount">
+<option value="1">1 个分区</option>
+<option value="3" selected>3 个分区</option>
+<option value="6">6 个分区</option>
+</select>
+<label style="margin-top:12px">副本因子</label>
+<select id="replicationFactor">
+<option value="1" selected>1 - 无副本</option>
+<option value="3">3 - 高可用</option>
+</select>
+<div class="actions">
+<button class="btn btn-primary" onclick="createTopic()">创建 Topic</button>
+</div>
+</div>
+<div class="card">
+<h2>生产者 (Producer)</h2>
+<label>消息内容</label>
+<textarea id="producerMessage" placeholder="输入消息...">{"userId":"u1001","action":"login","timestamp":"2024-01-15T10:30:00Z"}</textarea>
+<label style="margin-top:12px">Key (可选)</label>
+<input type="text" id="producerKey" placeholder="消息Key，用于分区路由">
+<label style="margin-top:12px">分区策略</label>
+<select id="partitionStrategy">
+<option value="roundrobin">Round Robin - 轮询</option>
+<option value="keyhash">Key Hash - 按Key哈希</option>
+<option value="random">Random - 随机</option>
+</select>
+<div class="actions">
+<button class="btn btn-success" onclick="produceMessage()">发送消息</button>
+</div>
+</div>
+<div class="card full-width">
+<h2>分区状态</h2>
+<div class="partitions" id="partitionView"></div>
+</div>
+<div class="card">
+<h2>消费者组 (Consumer Group)</h2>
+<label>消费者组 ID</label>
+<input type="text" id="consumerGroup" value="analytics-service">
+<label style="margin-top:12px">自动提交 Offset</label>
+<select id="autoCommit">
+<option value="true" selected>是</option>
+<option value="false">否 - 手动提交</option>
+</select>
+<div class="actions">
+<button class="btn btn-primary" onclick="createConsumerGroup()">创建消费者组</button>
+<button class="btn btn-success" onclick="consumeMessage()">消费一条</button>
+<button class="btn btn-danger" onclick="commitOffset()">提交 Offset</button>
+</div>
+</div>
+<div class="card">
+<h2>Offset 追踪</h2>
+<div class="offset-tracker" id="offsetTracker">
+<p style="color:#8b949e;font-size:13px">暂无消费者组</p>
+</div>
+</div>
+<div class="card full-width">
+<h2>事件日志</h2>
+<div class="log" id="logArea"></div>
+</div>
+<div class="card full-width">
+<h2>Kafka 核心概念</h2>
+<table>
+<tr><th>概念</th><th>说明</th><th>最佳实践</th></tr>
+<tr><td><strong>Topic</strong></td><td>消息的逻辑分类</td><td>按业务域划分，避免过多Topic</td></tr>
+<tr><td><strong>Partition</strong></td><td>Topic的物理分片，保证分区内有序</td><td>分区数 = 消费者数 * N</td></tr>
+<tr><td><strong>Offset</strong></td><td>消息在分区内的唯一标识</td><td>定期提交，支持消息重放</td></tr>
+<tr><td><strong>Consumer Group</strong></td><td>一组消费者共同消费Topic</td><td>每个服务一个独立消费者组</td></tr>
+<tr><td><strong>Replication</strong></td><td>分区的副本，提供高可用</td><td>生产环境至少3个副本</td></tr>
+</table>
+</div>
+</div>
+</div>
+<script>
+let topic = null;
+let messages = [];
+let consumers = {};
+let messageId = 0;
+
+function log(text, type = 'info') {
+    const logArea = document.getElementById('logArea');
+    const time = new Date().toLocaleTimeString();
+    logArea.innerHTML = `<div class="log-entry"><span class="log-time">${time}</span><span class="log-${type}">${text}</span></div>` + logArea.innerHTML;
+}
+
+function createTopic() {
+    const name = document.getElementById('topicName').value;
+    const partitions = parseInt(document.getElementById('partitionCount').value);
+    const replication = parseInt(document.getElementById('replicationFactor').value);
+    
+    if (!name) { log('Topic名称不能为空', 'error'); return; }
+    
+    topic = { name, partitions, replication, data: Array.from({length: partitions}, () => []) };
+    log(`Topic "${name}" 已创建 (${partitions}分区, 副本因子:${replication})`, 'success');
+    renderPartitions();
+}
+
+function renderPartitions() {
+    if (!topic) return;
+    const view = document.getElementById('partitionView');
+    view.innerHTML = topic.data.map((msgs, i) => `
+        <div class="partition ${msgs.length > 0 ? 'active' : ''}">
+            <div><span class="tag tag-partition">Partition ${i}</span></div>
+            <div style="font-size:13px;margin-top:8px">${msgs.length} 条消息</div>
+            <div class="partition-bar"><div class="partition-fill" style="width:${Math.min(msgs.length * 10, 100)}%"></div></div>
+        </div>
+    `).join('');
+}
+
+function produceMessage() {
+    if (!topic) { log('请先创建Topic', 'error'); return; }
+    
+    const content = document.getElementById('producerMessage').value;
+    const key = document.getElementById('producerKey').value;
+    const strategy = document.getElementById('partitionStrategy').value;
+    
+    if (!content) { log('消息内容不能为空', 'error'); return; }
+    
+    let partition;
+    if (strategy === 'keyhash' && key) {
+        partition = Math.abs(hashCode(key)) % topic.partitions;
+    } else if (strategy === 'roundrobin') {
+        partition = messageId % topic.partitions;
+    } else {
+        partition = Math.floor(Math.random() * topic.partitions);
+    }
+    
+    const msg = { id: ++messageId, content, key, partition, timestamp: new Date().toISOString() };
+    topic.data[partition].push(msg);
+    messages.push(msg);
+    
+    log(`消息 #${msg.id} → Partition ${partition} ${key ? `[key: ${key}]` : ''}`, 'success');
+    renderPartitions();
+}
+
+function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return hash;
+}
+
+function createConsumerGroup() {
+    const groupId = document.getElementById('consumerGroup').value;
+    if (!groupId) { log('消费者组ID不能为空', 'error'); return; }
+    
+    if (!consumers[groupId]) {
+        consumers[groupId] = { offsets: topic ? topic.data.map(() => 0) : [] };
+        log(`消费者组 "${groupId}" 已创建`, 'success');
+        renderOffsets(groupId);
+    } else {
+        log(`消费者组 "${groupId}" 已存在`, 'info');
+    }
+}
+
+function consumeMessage() {
+    const groupId = document.getElementById('consumerGroup').value;
+    if (!consumers[groupId]) { log('请先创建消费者组', 'error'); return; }
+    if (!topic) { log('请先创建Topic', 'error'); return; }
+    
+    const offsets = consumers[groupId].offsets;
+    for (let i = 0; i < topic.partitions; i++) {
+        if (offsets[i] < topic.data[i].length) {
+            const msg = topic.data[i][offsets[i]];
+            log(`消费消息 #${msg.id} [Partition ${i}, Offset ${offsets[i]}]: ${msg.content.substring(0, 40)}...`, 'info');
+            offsets[i]++;
+            renderOffsets(groupId);
+            return;
+        }
+    }
+    log('所有分区已消费完毕', 'error');
+}
+
+function commitOffset() {
+    const groupId = document.getElementById('consumerGroup').value;
+    if (!consumers[groupId]) { log('请先创建消费者组', 'error'); return; }
+    log(`消费者组 "${groupId}" Offset已提交: [${consumers[groupId].offsets.join(', ')}]`, 'success');
+}
+
+function renderOffsets(groupId) {
+    const tracker = document.getElementById('offsetTracker');
+    const offsets = consumers[groupId]?.offsets || [];
+    tracker.innerHTML = `<div style="font-size:12px;color:#8b949e;margin-bottom:8px">消费者组: ${groupId}</div>` + 
+        offsets.map((o, i) => `<div class="offset-item"><span>Partition ${i}</span><span>Offset: ${o}</span></div>`).join('');
+}
+
+createTopic();
+</script>
+</body>
+</html>

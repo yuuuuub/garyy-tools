@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>灯塔查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--yellow:#f59e0b;--red:#ef4444;--green:#22c55e;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.card-badge{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
+.badge-visit{background:rgba(34,197,94,.2);color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.badge-no{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;border-radius:6px;font-size:.75rem}
+.tag-height{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:var(--yellow)}
+.tag-range{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--accent)}
+.tag-year{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a855f7}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){.results{grid-template-columns:1fr}.search-row{flex-direction:column}.filter-row{flex-direction:column;align-items:stretch}.filter-group select{min-width:auto;width:100%}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🗼 灯塔查找</h1>
+<p class="subtitle">探索世界著名灯塔的历史与光芒</p>
+<div class="controls">
+<div class="search-row"><input type="text" class="search-input" id="searchInput" placeholder="搜索灯塔名称或国家..."></div>
+<div class="filter-row">
+<div class="filter-group"><label>游客访问</label><select id="visitFilter"><option value="">全部</option><option value="有">可参观</option><option value="无">不可参观</option></select></div>
+<div class="filter-group"><label>排序</label>
+<div class="sort-btns"><button class="sort-btn active" data-sort="height">高度 ↓</button><button class="sort-btn" data-sort="year">建造年份</button><button class="sort-btn" data-sort="rating">评分 ↓</button></div>
+</div></div></div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const lighthouses=[
+{id:1,name:"波士顿灯塔",country:"美国马萨诸塞",builtYear:1716,height:27,lightRange:17,style:"木石结构",visitor:"有",rating:4.7,desc:"北美最古老的灯塔，保罗·里维尔夜骑故事中的重要地标。",features:["历史博物馆","港口全景","独立战争故事","灯塔守护人住所"]},
+{id:2,name:"罗卡角灯塔",country:"葡萄牙",builtYear:1772,height:22,lightRange:15,style:"新古典主义",visitor:"有",rating:4.8,desc:"位于欧洲大陆最西端，'陆止于此，海始于斯'的浪漫之地。",features:["欧洲最西点","大西洋全景","纪念碑","日落观赏"]},
+{id:3,name:"阿特拉斯灯塔",country:"美国缅因州",builtYear:1857,height:41,lightRange:22,style:"花岗岩锥形",visitor:"有",rating:4.6,desc:"美国最高的花岗岩灯塔，矗立于岩石海岬上，是缅因州的象征。",features:["博物馆","悬崖步道","灯塔花园","捕鲸历史"]},
+{id:4,name:"三崎灯塔",country:"日本神奈川",builtYear:1872,height:16,lightRange:14,style:"西洋风石造",visitor:"有",rating:4.5,desc:"横须贺的百年灯塔，守护着东京湾入口，兼具历史与美景。",features:["三浦海岸","海鲜街","横须贺军港","观潮平台"]},
+{id:5,name:"布罗肯希尔灯塔",country:"澳大利亚",builtYear:1858,height:30,lightRange:18,style:"新古典主义",visitor:"有",rating:4.7,desc:"悉尼港入口的标志性灯塔，150年来指引着无数船只安全入港。",features:["悉尼港全景","花园","历史展","南角步道"]},
+{id:6,name:"朗格尔灯塔",country:"挪威",builtYear:1876,height:39,lightRange:20,style:"铸铁圆锥",visitor:"有",rating:4.4,desc:"北极圈内的灯塔，夏季午夜太阳下灯塔与极光的绝美组合。",features:["午夜太阳","北极光","北角风光","挪威渔村"]},
+{id=7,name:"好望角灯塔",country:"南非",builtYear:1860,height:30,lightRange:34,style:"石造圆形",visitor:"有",rating:4.8,desc:"非洲最著名的灯塔，屹立在好望角风暴角，照亮世界航运要道。",features:["好望角","海角自然保护区","企鹅滩","观鲸平台"]},
+{id:8,name:"花鸟岛灯塔",country:"中国浙江",builtYear:1923,height:19,lightRange:12,style:"白色圆形",visitor:"有",rating:4.5,desc:"东海上的白色灯塔，网红打卡地，蓝天碧海中的浪漫地标。",features:["蓝白村落","荧光海","东海第一哨","渔村文化"]},
+{id=9,name:"佩雷勒灯塔",country:"法国布列塔尼",builtYear:1884,height:55,lightRange:24,style:"石造八角",visitor:"无",rating:4.3,desc:"法国最高灯塔之一，矗立在布列塔尼险峻海岸，常有风暴景观。",features:["风暴海浪","布列塔尼海岸","海鸟栖息","灯塔摄影"]},
+{id:10,name:"灯塔角灯塔",country:"新西兰",builtYear:1900,height:23,lightRange:16,style:"白色圆柱",visitor:"有",rating:4.6,desc:"新西兰最南端的灯塔，南大洋的守护者，南极光的最佳观赏点。",features:["南极光","企鹅栖息","南岛风光","自然步道"]}
+];
+let currentSort="height";
+let filtered=[...lighthouses];
+function render(){
+const s=document.getElementById("searchInput").value.toLowerCase();
+const visit=document.getElementById("visitFilter").value;
+filtered=lighthouses.filter(l=>{
+if(s&&!l.name.includes(s)&&!l.country.includes(s))return false;
+if(visit&&l.visitor!==visit)return false;
+return true;
+});
+if(currentSort==="height")filtered.sort((a,b)=>b.height-a.height);
+else if(currentSort==="year")filtered.sort((a,b)=>a.builtYear-b.builtYear);
+else if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 座灯塔`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results">没有找到匹配的灯塔</div>';return;}
+c.innerHTML=filtered.map(l=>`<div class="card">
+<div class="card-header"><span class="card-name">🗼 ${l.name}</span><span class="card-badge ${l.visitor==="有"?"badge-visit":"badge-no"}">${l.visitor==="有"?"可参观":"不可参观"}</span></div>
+<div class="card-location">📍 ${l.country} · ⭐ ${l.rating}</div>
+<div class="card-desc">${l.desc}</div>
+<div class="card-meta">
+<span class="meta-tag tag-height">📏 高度 ${l.height}m</span>
+<span class="meta-tag tag-range">💡 射程 ${l.lightRange}海里</span>
+<span class="meta-tag tag-year">📅 ${l.builtYear}年建造</span>
+<span class="meta-tag tag-range">🏛️ ${l.style}</span>
+</div>
+<ul class="card-features">${l.features.map(f=>`<li>${f}</li>`).join("")}</ul>
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("visitFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

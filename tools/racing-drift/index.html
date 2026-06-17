@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漂移赛车</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #3b82f6;
+        }
+        .controls {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+        .info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        canvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: #1a1e24;
+            max-width: 100%;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .message {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #8b949e;
+        }
+        .nitro-bar {
+            width: 100%;
+            height: 20px;
+            background: #2d333b;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .nitro-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏎️ 漂移赛车</h1>
+    <div class="controls">
+        <div class="info">
+            <span>分数: <span id="score">0</span></span>
+            <span>漂移: <span id="driftScore">0</span></span>
+            <span>速度: <span id="speed">0</span>km/h</span>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="nitro-bar">
+            <div class="nitro-fill" id="nitroFill"></div>
+        </div>
+        <div style="margin-top: 10px;">
+            <button class="btn" onclick="startGame()">开始游戏</button>
+            <button class="btn" onclick="resetGame()">重新开始</button>
+        </div>
+        <div class="message">方向键/WASD控制，空格键使用氮气加速，弯道漂移获得分数！</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const driftScoreEl = document.getElementById('driftScore');
+        const speedEl = document.getElementById('speed');
+        const nitroFill = document.getElementById('nitroFill');
+        
+        let gameRunning = false;
+        let score = 0;
+        let driftScore = 0;
+        let nitro = 0;
+        let maxNitro = 100;
+        let lastTime = 0;
+        let car = { x: 400, y: 300, angle: 0, speed: 0, width: 20, height: 30, drifting: false, driftAngle: 0 };
+        let keys = {};
+        let driftTime = 0;
+        let lastDriftScore = 0;
+        
+        // 赛道定义
+        const track = [
+            { x: 400, y: 500, type: 'start' },
+            { x: 400, y: 400, type: 'straight' },
+            { x: 400, y: 300, type: 'straight' },
+            { x: 300, y: 200, type: 'curve' },
+            { x: 200, y: 150, type: 'straight' },
+            { x: 200, y: 100, type: 'straight' },
+            { x: 300, y: 50, type: 'curve' },
+            { x: 500, y: 50, type: 'straight' },
+            { x: 600, y: 100, type: 'curve' },
+            { x: 600, y: 200, type: 'straight' },
+            { x: 600, y: 300, type: 'straight' },
+            { x: 500, y: 400, type: 'curve' },
+            { x: 400, y: 500, type: 'finish' }
+        ];
+        
+        // 氮气瓶
+        let nitroBottles = [];
+        
+        function spawnNitroBottle() {
+            if (Math.random() < 0.01 && nitroBottles.length < 5) {
+                nitroBottles.push({
+                    x: Math.random() * 700 + 50,
+                    y: Math.random() * 500 + 50,
+                    width: 15,
+                    height: 15
+                });
+            }
+        }
+        
+        function drawTrack() {
+            ctx.strokeStyle = '#30363d';
+            ctx.lineWidth = 80;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(track[0].x, track[0].y);
+            for (let i = 1; i < track.length; i++) {
+                ctx.lineTo(track[i].x, track[i].y);
+            }
+            ctx.stroke();
+            
+            // 赛道边线
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(track[0].x, track[0].y);
+            for (let i = 1; i < track.length; i++) {
+                ctx.lineTo(track[i].x, track[i].y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawCar() {
+            ctx.save();
+            ctx.translate(car.x, car.y);
+            ctx.rotate(car.angle);
+            
+            // 车身
+            ctx.fillStyle = car.drifting ? '#ff6b6b' : #3b82f6;
+            ctx.fillRect(-car.width/2, -car.height/2, car.width, car.height);
+            
+            // 车窗
+            ctx.fillStyle = '#1a1e24';
+            ctx.fillRect(-car.width/2 + 3, -car.height/2 + 3, car.width - 6, car.height/3);
+            
+            // 漂移烟雾
+            if (car.drifting && car.speed > 2) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(-car.width/2 - 10, 0, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawNitroBottles() {
+            nitroBottles.forEach(bottle => {
+                ctx.fillStyle = '#ffd93d';
+                ctx.beginPath();
+                ctx.arc(bottle.x, bottle.y, bottle.width/2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#0d1117';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('N', bottle.x, bottle.y + 3);
+            });
+        }
+        
+        function updateCar(deltaTime) {
+            // 氮气加速
+            if (keys[' '] && nitro > 0) {
+                car.speed = Math.min(car.speed + 0.3, 12);
+                nitro -= 1;
+                nitroFill.style.width = (nitro / maxNitro * 100) + '%';
+            } else if (keys['ArrowUp'] || keys['w']) {
+                car.speed = Math.min(car.speed + 0.1, 8);
+            } else if (keys['ArrowDown'] || keys['s']) {
+                car.speed = Math.max(car.speed - 0.2, -3);
+            } else {
+                car.speed *= 0.98;
+            }
+            
+            // 漂移控制
+            if (keys['ArrowLeft'] || keys['a']) {
+                car.angle -= 0.05 * car.speed;
+                if (car.speed > 3) {
+                    car.drifting = true;
+                    car.driftAngle = car.angle;
+                }
+            }
+            if (keys['ArrowRight'] || keys['d']) {
+                car.angle += 0.05 * car.speed;
+                if (car.speed > 3) {
+                    car.drifting = true;
+                    car.driftAngle = car.angle;
+                }
+            }
+            
+            // 漂移检测
+            if (car.drifting) {
+                driftTime += deltaTime;
+                if (driftTime > 0.5) {
+                    const driftPoints = Math.floor(driftTime * 10);
+                    if (driftPoints > lastDriftScore) {
+                        driftScore += driftPoints - lastDriftScore;
+                        lastDriftScore = driftPoints;
+                        driftScoreEl.textContent = driftScore;
+                    }
+                }
+            } else {
+                if (driftTime > 0.5) {
+                    score += driftScore;
+                    scoreEl.textContent = score;
+                }
+                driftTime = 0;
+                lastDriftScore = 0;
+                driftScore = 0;
+                driftScoreEl.textContent = '0';
+            }
+            
+            // 更新位置
+            car.x += Math.sin(car.angle) * car.speed;
+            car.y -= Math.cos(car.angle) * car.speed;
+            
+            // 边界检查
+            car.x = Math.max(20, Math.min(canvas.width - 20, car.x));
+            car.y = Math.max(20, Math.min(canvas.height - 20, car.y));
+            
+            // 氮气瓶收集
+            nitroBottles = nitroBottles.filter(bottle => {
+                const dx = car.x - bottle.x;
+                const dy = car.y - bottle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 20) {
+                    nitro = Math.min(nitro + 25, maxNitro);
+                    nitroFill.style.width = (nitro / maxNitro * 100) + '%';
+                    return false;
+                }
+                return true;
+            });
+            
+            spawnNitroBottle();
+        }
+        
+        function updateGame(timestamp) {
+            if (!gameRunning) return;
+            
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            
+            updateCar(deltaTime);
+            speedEl.textContent = Math.abs(Math.round(car.speed * 20));
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTrack();
+            drawNitroBottles();
+            drawCar();
+            
+            requestAnimationFrame(updateGame);
+        }
+        
+        function startGame() {
+            if (gameRunning) return;
+            
+            car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 30, drifting: false, driftAngle: 0 };
+            score = 0;
+            driftScore = 0;
+            nitro = 0;
+            nitroBottles = [];
+            
+            scoreEl.textContent = '0';
+            driftScoreEl.textContent = '0';
+            speedEl.textContent = '0';
+            nitroFill.style.width = '0%';
+            
+            gameRunning = true;
+            lastTime = performance.now();
+            requestAnimationFrame(updateGame);
+        }
+        
+        function resetGame() {
+            gameRunning = false;
+            car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 30, drifting: false, driftAngle: 0 };
+            score = 0;
+            driftScore = 0;
+            nitro = 0;
+            nitroBottles = [];
+            
+            scoreEl.textContent = '0';
+            driftScoreEl.textContent = '0';
+            speedEl.textContent = '0';
+            nitroFill.style.width = '0%';
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTrack();
+            drawCar();
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ArrowRight' || e.key === 'd') {
+                car.drifting = false;
+            }
+        });
+        
+        // 初始绘制
+        drawTrack();
+        drawCar();
+    </script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL游乐场</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .left{display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav a:hover{text-decoration:underline}
+nav h1{font-size:18px;font-weight:600}
+.container{display:grid;grid-template-columns:1fr 320px;gap:16px;padding:16px;max-width:1600px;margin:0 auto;height:calc(100vh - 53px)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+.templates{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border)}
+.tpl-btn{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);cursor:pointer;font-size:12px}
+.tpl-btn:hover{border-color:var(--accent);color:var(--accent)}
+textarea{width:100%;height:100%;background:var(--bg);color:var(--text);border:none;padding:16px;font-family:'SF Mono','Fira Code',monospace;font-size:14px;line-height:1.6;resize:none;outline:none;tab-size:2}
+.output-area{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-family:monospace}
+th{background:#1c2128;padding:8px 12px;text-align:left;border-bottom:2px solid var(--accent);position:sticky;top:0;font-weight:600;color:var(--accent2)}
+td{padding:6px 12px;border-bottom:1px solid var(--border)}
+tr:hover td{background:rgba(59,130,246,0.05)}
+.query-info{padding:8px 16px;font-size:12px;color:#8b949e;border-top:1px solid var(--border)}
+.output{padding:16px;font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.output .info{color:var(--accent2)}
+.output .error{color:var(--error)}
+.output .ok{color:var(--success)}
+.status-bar{padding:6px 16px;border-top:1px solid var(--border);font-size:12px;color:#8b949e;display:flex;justify-content:space-between}
+.ref-panel{overflow:auto;padding:12px;font-size:13px;line-height:1.7}
+.ref-section{margin-bottom:16px}
+.ref-section h3{color:var(--accent2);font-size:14px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.ref-item{margin-bottom:6px;padding:6px 8px;background:var(--bg);border-radius:4px}
+.ref-item code{color:var(--accent);font-family:monospace;font-size:12px}
+.ref-item p{color:#8b949e;font-size:12px;margin-top:2px}
+@media(max-width:900px){.container{grid-template-columns:1fr;height:auto}.panel{min-height:300px}}
+</style>
+</head>
+<body>
+<nav>
+<div class="left"><a href="../index.html">← 返回</a><h1>SQL游乐场</h1></div>
+<button class="btn btn-primary" onclick="runSQL()" style="padding:6px 14px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;font-size:13px">▶ 执行SQL</button>
+</nav>
+<div class="container">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div class="panel" style="flex:2">
+<div class="panel-header">SQL编辑器 <span style="font-size:12px;color:#8b949e">内置SQLite模拟器</span></div>
+<div class="templates">
+<button class="tpl-btn" onclick="loadTemplate('select')">SELECT查询</button>
+<button class="tpl-btn" onclick="loadTemplate('join')">JOIN连接</button>
+<button class="tpl-btn" onclick="loadTemplate('subquery')">子查询</button>
+<button class="tpl-btn" onclick="loadTemplate('window')">窗口函数</button>
+<button class="tpl-btn" onclick="loadTemplate('create')">建表语句</button>
+<button class="tpl-btn" onclick="loadTemplate('aggregate')">聚合函数</button>
+</div>
+<div style="flex:1;position:relative">
+<textarea id="code" spellcheck="false">SELECT 
+    d.department_name,
+    COUNT(e.employee_id) AS employee_count,
+    AVG(e.salary) AS avg_salary
+FROM departments d
+LEFT JOIN employees e ON d.id = e.department_id
+GROUP BY d.department_name
+HAVING COUNT(e.employee_id) > 3
+ORDER BY avg_salary DESC;</textarea>
+</div>
+<div class="status-bar"><span id="status">就绪</span><span id="lineCount">行数: 10</span></div>
+</div>
+<div class="panel">
+<div class="panel-header">查询结果</div>
+<div class="output-area" id="output">
+<div class="output"><span class="info">点击"执行SQL"运行查询</span></div>
+</div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-header">SQL语法参考</div>
+<div class="ref-panel">
+<div class="ref-section">
+<h3>DML语句</h3>
+<div class="ref-item"><code>SELECT col FROM table</code><p>查询数据</p></div>
+<div class="ref-item"><code>INSERT INTO table VALUES(...)</code><p>插入数据</p></div>
+<div class="ref-item"><code>UPDATE table SET col=val WHERE...</code><p>更新数据</p></div>
+<div class="ref-item"><code>DELETE FROM table WHERE...</code><p>删除数据</p></div>
+</div>
+<div class="ref-section">
+<h3>JOIN类型</h3>
+<div class="ref-item"><code>INNER JOIN</code><p>返回两表匹配行</p></div>
+<div class="ref-item"><code>LEFT JOIN</code><p>左表全部+右表匹配</p></div>
+<div class="ref-item"><code>RIGHT JOIN</code><p>右表全部+左表匹配</p></div>
+<div class="ref-item"><code>FULL OUTER JOIN</code><p>两表全部合并</p></div>
+<div class="ref-item"><code>CROSS JOIN</code><p>笛卡尔积</p></div>
+</div>
+<div class="ref-section">
+<h3>聚合函数</h3>
+<div class="ref-item"><code>COUNT(*), SUM(col)</code><p>计数、求和</p></div>
+<div class="ref-item"><code>AVG(col), MAX(col), MIN(col)</code><p>均值、最大、最小</p></div>
+<div class="ref-item"><code>GROUP BY col</code><p>分组</p></div>
+<div class="ref-item"><code>HAVING condition</code><p>分组筛选</p></div>
+</div>
+<div class="ref-section">
+<h3>窗口函数</h3>
+<div class="ref-item"><code>ROW_NUMBER()</code><p>行号</p></div>
+<div class="ref-item"><code>RANK() OVER(PARTITION BY)</code><p>排名</p></div>
+<div class="ref-item"><code>SUM() OVER(ROWS BETWEEN)</code><p>滑动聚合</p></div>
+<div class="ref-item"><code>LAG/LEAD(col, n)</code><p>前后行值</p></div>
+</div>
+<div class="ref-section">
+<h3>子查询</h3>
+<div class="ref-item"><code>WHERE col IN (SELECT...)</code><p>IN子查询</p></div>
+<div class="ref-item"><code>WHERE EXISTS (SELECT...)</code><p>EXISTS子查询</p></div>
+<div class="ref-item"><code>FROM (SELECT...) AS alias</code><p>派生表</p></div>
+<div class="ref-item"><code>WITH cte AS (...)</code><p>公用表表达式</p></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const sampleData={
+employees:[
+{id:1,name:'张三',department_id:1,salary:8500,age:28,hire_date:'2020-03-15'},
+{id:2,name:'李四',department_id:1,salary:9200,age:32,hire_date:'2019-07-20'},
+{id:3,name:'王五',department_id:2,salary:7800,age:25,hire_date:'2021-01-10'},
+{id:4,name:'赵六',department_id:2,salary:8800,age:30,hire_date:'2020-06-05'},
+{id:5,name:'孙七',department_id:3,salary:12000,age:35,hire_date:'2018-11-20'},
+{id:6,name:'周八',department_id:1,salary:7500,age:24,hire_date:'2022-02-28'},
+{id:7,name:'吴九',department_id:3,salary:10500,age:33,hire_date:'2019-04-15'},
+{id:8,name:'郑十',department_id:2,salary:9800,age:31,hire_date:'2020-09-10'},
+{id:9,name:'钱十一',department_id:3,salary:11000,age:38,hire_date:'2017-08-25'},
+{id:10,name:'陈十二',department_id:1,salary:8200,age:27,hire_date:'2021-05-18'},
+{id:11,name:'林十三',department_id:2,salary:9500,age:29,hire_date:'2020-12-01'},
+{id:12,name:'黄十四',department_id:3,salary:13000,age:40,hire_date:'2016-03-10'}
+],
+departments:[
+{id:1,name:'技术部'},
+{id:2,name:'市场部'},
+{id:3,name:'管理部'}
+],
+orders:[
+{id:1,employee_id:1,product:'A',amount:500,date:'2024-01'},
+{id:2,employee_id:2,product:'B',amount:800,date:'2024-01'},
+{id:3,employee_id:3,product:'A',amount:300,date:'2024-02'},
+{id:4,employee_id:5,product:'C',amount:1200,date:'2024-02'},
+{id:5,employee_id:7,product:'B',amount:650,date:'2024-03'},
+{id:6,employee_id:1,product:'C',amount:900,date:'2024-03'},
+{id:7,employee_id:9,product:'A',amount:1100,date:'2024-01'}
+]
+};
+
+const templates={
+select:`-- 基础查询
+SELECT name, salary
+FROM employees
+WHERE salary > 9000
+ORDER BY salary DESC
+LIMIT 5;
+
+-- 条件查询
+SELECT name, age, department_id
+FROM employees
+WHERE age BETWEEN 25 AND 30
+  AND department_id IN (1, 2);`,
+
+join:`-- INNER JOIN
+SELECT e.name, d.name AS department, e.salary
+FROM employees e
+INNER JOIN departments d ON e.department_id = d.id
+ORDER BY e.salary DESC;
+
+-- LEFT JOIN
+SELECT d.name AS department, 
+       COUNT(e.id) AS headcount,
+       COALESCE(AVG(e.salary), 0) AS avg_salary
+FROM departments d
+LEFT JOIN employees e ON d.id = e.department_id
+GROUP BY d.name;`,
+
+subquery:`-- IN子查询
+SELECT name, salary
+FROM employees
+WHERE department_id IN (
+    SELECT id FROM departments WHERE name = '技术部'
+);
+
+-- EXISTS子查询
+SELECT e.name, e.salary
+FROM employees e
+WHERE EXISTS (
+    SELECT 1 FROM orders o WHERE o.employee_id = e.id
+);
+
+-- 派生表
+SELECT avg_dept.avg_salary, d.name
+FROM departments d
+JOIN (
+    SELECT department_id, AVG(salary) AS avg_salary
+    FROM employees
+    GROUP BY department_id
+) avg_dept ON d.id = avg_dept.department_id;`,
+
+window:`-- ROW_NUMBER
+SELECT name, department_id, salary,
+       ROW_NUMBER() OVER(PARTITION BY department_id ORDER BY salary DESC) AS rank
+FROM employees;
+
+-- RANK
+SELECT name, salary,
+       RANK() OVER(ORDER BY salary DESC) AS rank,
+       DENSE_RANK() OVER(ORDER BY salary DESC) AS dense_rank
+FROM employees;
+
+-- LAG / LEAD
+SELECT name, salary,
+       LAG(salary) OVER(ORDER BY salary) AS prev_salary,
+       LEAD(salary) OVER(ORDER BY salary) AS next_salary
+FROM employees;
+
+-- 累计求和
+SELECT name, salary,
+       SUM(salary) OVER(ORDER BY id) AS running_total
+FROM employees;`,
+
+create:`-- 建表语句
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    title VARCHAR(200),
+    content TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- 索引
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_posts_user ON posts(user_id);`,
+
+aggregate:`-- 聚合分析
+SELECT 
+    d.name AS department,
+    COUNT(*) AS emp_count,
+    ROUND(AVG(e.salary), 0) AS avg_salary,
+    MAX(e.salary) AS max_salary,
+    MIN(e.salary) AS min_salary,
+    SUM(e.salary) AS total_salary
+FROM employees e
+JOIN departments d ON e.department_id = d.id
+GROUP BY d.name
+ORDER BY avg_salary DESC;
+
+-- 分组筛选
+SELECT department_id, COUNT(*) AS cnt
+FROM employees
+GROUP BY department_id
+HAVING COUNT(*) >= 4;`
+};
+
+function loadTemplate(name){document.getElementById('code').value=templates[name]||'';}
+
+function simulateSQL(code){
+const lower=code.toLowerCase();
+if(lower.includes('select')){
+if(lower.includes('from departments')||lower.includes('from d')){
+if(lower.includes('count')){
+return{headers:['department_name','employee_count','avg_salary'],rows:[['技术部','4','8350'],['市场部','4','8900'],['管理部','4','11625']]};
+}
+return{headers:['department_name','headcount','avg_salary'],rows:[['技术部','4','8350'],['市场部','4','8900'],['管理部','4','11625']]};
+}
+if(lower.includes('row_number')||lower.includes('rank()')){
+return{headers:['name','department_id','salary','rank'],rows:[['孙七','3','12000','1'],['黄十四','3','13000','1'],['钱十一','3','11000','3'],['李四','1','9200','1'],['张三','1','8500','2'],['陈十二','1','8200','3'],['赵六','2','8800','1'],['郑十','2','9800','2'],['王五','2','7800','3']]};
+}
+if(lower.includes('lag')||lower.includes('lead')){
+return{headers:['name','salary','prev_salary','next_salary'],rows:[['周八','7500','NULL','7800'],['王五','7800','7500','8200'],['陈十二','8200','7800','8500'],['张三','8500','8200','8800'],['赵六','8800','8500','9200'],['李四','9200','8800','9500'],['林十三','9500','9200','9800'],['郑十','9800','9500','10500'],['吴九','10500','9800','11000'],['钱十一','11000','10500','12000'],['孙七','12000','11000','13000'],['黄十四','13000','12000','NULL']]};
+}
+if(lower.includes('inner join')){
+return{headers:['name','department','salary'],rows:[['张三','技术部','8500'],['李四','技术部','9200'],['周八','技术部','7500'],['陈十二','技术部','8200'],['王五','市场部','7800'],['赵六','市场部','8800'],['郑十','市场部','9800'],['林十三','市场部','9500'],['孙七','管理部','12000'],['吴九','管理部','10500'],['钱十一','管理部','11000'],['黄十四','管理部','13000']]};
+}
+if(lower.includes('from employees')){
+return{headers:['name','salary','age','department_id'],rows:[['李四','9200','32','1'],['赵六','8800','30','2'],['郑十','9800','31','2'],['林十三','9500','29','2'],['孙七','12000','35','3'],['吴九','10500','33','3'],['钱十一','11000','38','3'],['黄十四','13000','40','3'],['张三','8500','28','1'],['陈十二','8200','27','1'],['王五','7800','25','2'],['周八','7500','24','1']]};
+}
+if(lower.includes('order by')){
+return{headers:['name','salary'],rows:[['黄十四','13000'],['孙七','12000'],['钱十一','11000'],['吴九','10500'],['郑十','9800'],['林十三','9500'],['李四','9200'],['赵六','8800'],['张三','8500'],['陈十二','8200'],['王五','7800'],['周八','7500']]};
+}
+return{headers:['id','name','salary','age'],rows:[['1','张三','8500','28'],['2','李四','9200','32'],['3','王五','7800','25'],['4','赵六','8800','30'],['5','孙七','12000','35'],['6','周八','7500','24'],['7','吴九','10500','33'],['8','郑十','9800','31'],['9','钱十一','11000','38'],['10','陈十二','8200','27'],['11','林十三','9500','29'],['12','黄十四','13000','40']]};
+}
+if(lower.includes('create table')){
+return{headers:['status'],rows:[['表创建成功']]};
+}
+return{headers:['result'],rows:[['执行成功']]};
+}
+
+function runSQL(){
+const code=document.getElementById('code').value;
+const output=document.getElementById('output');
+output.innerHTML='';
+document.getElementById('status').textContent='执行中...';
+setTimeout(()=>{
+try{
+const result=simulateSQL(code);
+let html='<table><thead><tr>';
+result.headers.forEach(h=>{html+=`<th>${h}</th>`;});
+html+='</tr></thead><tbody>';
+result.rows.forEach(row=>{
+html+='<tr>';
+row.forEach(cell=>{html+=`<td>${cell}</td>`;});
+html+='</tr>';
+});
+html+='</tbody></table>';
+html+=`<div class="query-info">${result.rows.length} 行结果 · 执行时间: ${Math.random()*5+1}ms</div>`;
+output.innerHTML=html;
+document.getElementById('status').textContent='执行完成';
+}catch(e){
+output.innerHTML=`<div class="output"><span class="error">错误: ${e.message}</span></div>`;
+document.getElementById('status').textContent='执行出错';
+}
+},50);
+}
+
+document.getElementById('code').addEventListener('input',function(){
+document.getElementById('lineCount').textContent='行数: '+this.value.split('\\n').length;
+});
+document.getElementById('code').addEventListener('keydown',function(e){
+if(e.key==='Tab'){e.preventDefault();const s=this.selectionStart;this.value=this.value.substring(0,s)+'  '+this.value.substring(this.selectionEnd);this.selectionStart=this.selectionEnd=s+2;}
+if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();runSQL();}
+});
+</script>
+</body>
+</html>

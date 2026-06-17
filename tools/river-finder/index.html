@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>河流查找 - River Finder</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --secondary: #8b949e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.1rem;
+        }
+        
+        .search-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr 200px 150px;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .search-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .filter-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .filter-label {
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+        
+        .results-count {
+            color: var(--secondary);
+        }
+        
+        .sort-select {
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .river-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .river-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .river-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .river-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .river-type {
+            padding: 4px 10px;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .river-location {
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .river-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .stars {
+            color: var(--warning);
+            letter-spacing: 2px;
+        }
+        
+        .rating-value {
+            font-weight: 600;
+        }
+        
+        .rating-count {
+            color: var(--secondary);
+            font-size: 0.85rem;
+        }
+        
+        .river-description {
+            color: var(--secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .river-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            margin-top: 4px;
+        }
+        
+        .river-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .feature-tag {
+            padding: 4px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--secondary);
+        }
+        
+        .river-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .info-item {
+            font-size: 0.9rem;
+        }
+        
+        .info-label {
+            color: var(--secondary);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .book-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+        
+        .book-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary);
+        }
+        
+        .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>河流查找</h1>
+            <p class="subtitle">探索中国名江大河，感受母亲河的魅力</p>
+        </header>
+
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索河流名称或位置...">
+                <select class="sort-select" id="sortSelect">
+                    <option value="rating">按评分排序</option>
+                    <option value="length-long">长度从长到短</option>
+                    <option value="length-short">长度从短到长</option>
+                    <option value="difficulty">按漂流难度排序</option>
+                </select>
+            </div>
+            <div class="filter-section">
+                <span class="filter-label">漂流难度：</span>
+                <button class="filter-btn active" data-difficulty="all">全部</button>
+                <button class="filter-btn" data-difficulty="easy">轻松</button>
+                <button class="filter-btn" data-difficulty="moderate">中等</button>
+                <button class="filter-btn" data-difficulty="hard">困难</button>
+                <button class="filter-btn" data-difficulty="extreme">极限</button>
+            </div>
+        </div>
+
+        <div class="results-header">
+            <span class="results-count" id="resultsCount">找到 10 条河流</span>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Cards will be injected here -->
+        </div>
+
+        <div class="no-results" id="noResults" style="display: none;">
+            <div class="no-results-icon">🏞️</div>
+            <h3>未找到匹配的河流</h3>
+            <p>请尝试调整搜索条件或筛选项</p>
+        </div>
+
+        <footer>
+            <p>© 2024 河流查找 - 探索水的旅程</p>
+        </footer>
+    </div>
+
+    <script>
+        const rivers = [
+            {
+                name: "长江",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "发源于青藏高原，流经11个省市",
+                rating: 4.9,
+                reviews: 6780,
+                description: "中国第一长河，世界第三长河，全长6300公里，被誉为"母亲河"。",
+                length: 6300,
+                raftingDifficulty: "中等",
+                fishingSpots: ["三峡", "洞庭湖", "鄱阳湖", "长江三角洲"],
+                scenicCruise: ["三峡游轮", "长江夜游", "三峡大坝"],
+                bestSeason: "4月-10月",
+                features: ["中国第一长河", "三峡", "长江大桥", "白鳍豚"],
+                waterFlow: "极大"
+            },
+            {
+                name: "黄河",
+                difficulty: "hard",
+                difficultyLabel: "困难",
+                location: "发源于青藏高原，流经9个省区",
+                rating: 4.8,
+                reviews: 5670,
+                description: "中国第二长河，全长5464公里，以"黄河之水天上来"著称。",
+                length: 5464,
+                raftingDifficulty: "困难",
+                fishingSpots: ["壶口瀑布", "三门峡", "小浪底", "黄河三角洲"],
+                scenicCruise: ["黄河游轮", "羊皮筏子", "黄河夜景"],
+                bestSeason: "5月-10月",
+                features: ["母亲河", "壶口瀑布", "黄河大桥", "黄土高原"],
+                waterFlow: "大"
+            },
+            {
+                name: "珠江",
+                difficulty: "easy",
+                difficultyLabel: "轻松",
+                location: "发源于云南省，流经广东、广西",
+                rating: 4.6,
+                reviews: 4560,
+                description: "中国南方最长的河流，全长2214公里，流域经济发达。",
+                length: 2214,
+                raftingDifficulty: "轻松",
+                fishingSpots: ["西江", "北江", "东江", "珠江三角洲"],
+                scenicCruise: ["珠江夜游", "广州塔", "海心沙"],
+                bestSeason: "全年",
+                features: ["南方最长河流", "珠江夜游", "广州塔", "岭南文化"],
+                waterFlow: "大"
+            },
+            {
+                name: "松花江",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "发源于长白山，流经吉林、黑龙江",
+                rating: 4.5,
+                reviews: 3450,
+                description: "中国东北地区最长的河流，全长1927公里，以冰雪旅游著称。",
+                length: 1927,
+                raftingDifficulty: "中等",
+                fishingSpots: ["丰满水库", "松花湖", "三岔河口", "黑龙江汇合处"],
+                scenicCruise: ["松花江游船", "冰雪大世界", "太阳岛"],
+                bestSeason: "5月-10月, 12月-次年2月",
+                features: ["东北最长河流", "冰雪旅游", "松花湖", "雾凇"],
+                waterFlow: "中"
+            },
+            {
+                name: "雅鲁藏布江",
+                difficulty: "extreme",
+                difficultyLabel: "极限",
+                location: "发源于西藏，流经印度、孟加拉国",
+                rating: 4.7,
+                reviews: 2340,
+                description: "世界上海拔最高的大河，全长2057公里，大峡谷是世界最深峡谷。",
+                length: 2057,
+                raftingDifficulty: "极限",
+                fishingSpots: ["雅鲁藏布大峡谷", "米林", "派乡", "墨脱"],
+                scenicCruise: ["峡谷漂流", "高原探险", "雪山观光"],
+                bestSeason: "5月-10月",
+                features: ["世界最高大河", "大峡谷", "雅鲁藏布江大拐弯", "高原风光"],
+                waterFlow: "大"
+            },
+            {
+                name: "漓江",
+                difficulty: "easy",
+                difficultyLabel: "轻松",
+                location: "广西壮族自治区桂林市",
+                rating: 4.8,
+                reviews: 4890,
+                description: "世界著名的喀斯特地貌河流，以"桂林山水甲天下"著称。",
+                length: 164,
+                raftingDifficulty: "轻松",
+                fishingSpots: ["阳朔", "兴坪", "九马画山", "黄布倒影"],
+                scenicCruise: ["漓江游船", "竹筏漂流", "漓江夜景"],
+                bestSeason: "4月-10月",
+                features: ["桂林山水", "喀斯特地貌", "竹筏漂流", "20元人民币背景"],
+                waterFlow: "小"
+            },
+            {
+                name: "额尔齐斯河",
+                difficulty: "moderate",
+                difficultyLabel: "中等",
+                location: "发源于新疆阿尔泰山，流入俄罗斯",
+                rating: 4.4,
+                reviews: 2890,
+                description: "中国唯一流入北冰洋的河流，全长4248公里，沿途风景壮丽。",
+                length: 4248,
+                raftingDifficulty: "中等",
+                fishingSpots: ["布尔津", "可可托海", "五彩滩", "哈巴河"],
+                scenicCruise: ["河谷风光", "额尔齐斯大峡谷", "白桦林"],
+                bestSeason: "6月-9月",
+                features: ["唯一流入北冰洋", "可可托海", "五彩滩", "白桦林"],
+                waterFlow: "中"
+            },
+            {
+                name: "怒江",
+                difficulty: "hard",
+                difficultyLabel: "困难",
+                location: "发源于西藏，流入缅甸",
+                rating: 4.5,
+                reviews: 2340,
+                description: "中国西南地区的大河，全长3240公里，以峡谷和漂流著称。",
+                length: 3240,
+                raftingDifficulty: "困难",
+                fishingSpots: ["六库", "丙中洛", "福贡", "贡山"],
+                scenicCruise: ["峡谷漂流", "怒江第一湾", "石月亮"],
+                bestSeason: "4月-10月",
+                features: ["怒江大峡谷", "怒江第一湾", "独龙江", "傈僳族"],
+                waterFlow: "大"
+            },
+            {
+                name: "岷江",
+                difficulty: "easy",
+                difficultyLabel: "轻松",
+                location: "发源于四川岷山，流入长江",
+                rating: 4.3,
+                reviews: 2100,
+                description: "长江上游的重要支流，全长1279公里，以都江堰水利工程著称。",
+                length: 1279,
+                raftingDifficulty: "轻松",
+                fishingSpots: ["都江堰", "乐山大佛", "峨眉山", "成都平原"],
+                scenicCruise: ["都江堰水利工程", "乐山大佛", "峨眉山"],
+                bestSeason: "全年",
+                features: ["都江堰", "乐山大佛", "峨眉山", "成都平原"],
+                waterFlow: "中"
+            },
+            {
+                name: "塔里木河",
+                difficulty: "extreme",
+                difficultyLabel: "极限",
+                location: "新疆维吾尔自治区塔里木盆地",
+                rating: 4.6,
+                reviews: 1890,
+                description: "中国最长的内陆河，全长2179公里，流经塔克拉玛干沙漠。",
+                length: 2179,
+                raftingDifficulty: "极限",
+                fishingSpots: ["塔里木河大桥", "轮台胡杨林", "罗布泊", "楼兰古城"],
+                scenicCruise: ["沙漠漂流", "胡杨林观光", "罗布泊探险"],
+                bestSeason: "5月-10月",
+                features: ["中国最长内陆河", "胡杨林", "罗布泊", "楼兰古城"],
+                waterFlow: "季节性"
+            }
+        ];
+
+        let currentDifficulty = 'all';
+        let currentSort = 'rating';
+        let searchQuery = '';
+
+        function createStars(rating) {
+            const fullStars = Math.floor(rating);
+            const hasHalf = rating % 1 >= 0.5;
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) {
+                stars += '★';
+            }
+            if (hasHalf) {
+                stars += '☆';
+            }
+            return stars;
+        }
+
+        function createRiverCard(river) {
+            return `
+                <div class="river-card">
+                    <div class="river-header">
+                        <h3 class="river-name">${river.name}</h3>
+                        <span class="river-type">${river.difficultyLabel}</span>
+                    </div>
+                    <div class="river-location">📍 ${river.location}</div>
+                    <div class="river-rating">
+                        <span class="stars">${createStars(river.rating)}</span>
+                        <span class="rating-value">${river.rating}</span>
+                        <span class="rating-count">(${river.reviews}条评价)</span>
+                    </div>
+                    <p class="river-description">${river.description}</p>
+                    <div class="river-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${river.length}km</div>
+                            <div class="stat-label">河流长度</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${river.raftingDifficulty}</div>
+                            <div class="stat-label">漂流难度</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${river.fishingSpots.length}</div>
+                            <div class="stat-label">钓鱼点</div>
+                        </div>
+                    </div>
+                    <div class="river-features">
+                        ${river.features.map(f => `<span class="feature-tag">${f}</span>`).join('')}
+                    </div>
+                    <div class="river-info">
+                        <div class="info-item">
+                            <div class="info-label">最佳季节</div>
+                            <div class="info-value">${river.bestSeason}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">水量</div>
+                            <div class="info-value">${river.waterFlow}</div>
+                        </div>
+                    </div>
+                    <button class="book-btn">查看详情</button>
+                </div>
+            `;
+        }
+
+        function filterAndSort() {
+            let filtered = rivers;
+            
+            if (currentDifficulty !== 'all') {
+                filtered = filtered.filter(r => r.difficulty === currentDifficulty);
+            }
+            
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(r => 
+                    r.name.toLowerCase().includes(query) || 
+                    r.location.toLowerCase().includes(query)
+                );
+            }
+            
+            switch (currentSort) {
+                case 'rating':
+                    filtered.sort((a, b) => b.rating - a.rating);
+                    break;
+                case 'length-long':
+                    filtered.sort((a, b) => b.length - a.length);
+                    break;
+                case 'length-short':
+                    filtered.sort((a, b) => a.length - b.length);
+                    break;
+                case 'difficulty':
+                    const difficultyOrder = { 'extreme': 4, 'hard': 3, 'moderate': 2, 'easy': 1 };
+                    filtered.sort((a, b) => difficultyOrder[b.difficulty] - difficultyOrder[a.difficulty]);
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        function renderResults() {
+            const filtered = filterAndSort();
+            const grid = document.getElementById('resultsGrid');
+            const noResults = document.getElementById('noResults');
+            const count = document.getElementById('resultsCount');
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                count.textContent = '找到 0 条河流';
+            } else {
+                noResults.style.display = 'none';
+                grid.innerHTML = filtered.map(createRiverCard).join('');
+                count.textContent = `找到 ${filtered.length} 条河流`;
+            }
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDifficulty = btn.dataset.difficulty;
+                renderResults();
+            });
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderResults();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderResults();
+        });
+
+        renderResults();
+    </script>
+</body>
+</html>

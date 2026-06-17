@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>医院查找 - Hospital Finder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+header{text-align:center;padding:24px 0}
+header h1{font-size:1.8em;margin-bottom:4px}
+header p{color:var(--muted)}
+.filters{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.filter-group label{font-size:12px;color:var(--muted);font-weight:600}
+.filter-group input,.filter-group select{background:#0d1117;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;width:100%}
+.filter-group input:focus,.filter-group select:focus{outline:none;border-color:var(--accent)}
+.sort-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.sort-bar span{color:var(--muted);font-size:14px}
+.sort-options{display:flex;gap:8px}
+.sort-btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+.sort-btn.active{background:var(--accent);border-color:var(--accent)}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:transform .2s}
+.card:hover{transform:translateY(-2px)}
+.card h3{font-size:16px;margin-bottom:6px}
+.level-badge{font-size:11px;padding:3px 8px;border-radius:12px;font-weight:600;display:inline-block;margin-bottom:8px}
+.level-3a{background:rgba(239,68,68,.15);color:var(--red)}
+.level-2a{background:rgba(234,179,8,.15);color:var(--yellow)}
+.level-1{background:rgba(59,130,246,.15);color:var(--accent)}
+.card-info{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);margin-bottom:10px}
+.card-info span{display:flex;align-items:center;gap:6px}
+.depts{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.dept-tag{font-size:11px;background:rgba(59,130,246,.1);color:var(--accent);padding:2px 8px;border-radius:10px}
+.emergency{font-size:12px;color:var(--red);font-weight:600;margin-top:6px}
+.no-results{text-align:center;padding:60px 20px;color:var(--muted)}
+@media(max-width:640px){.results{grid-template-columns:1fr}.filters{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>🏥 医院查找</h1><p>查找附近医院，快速就医</p></header>
+<div class="filters">
+<div class="filter-group" style="flex:2"><label>搜索</label><input type="text" id="search" placeholder="输入医院名称或地址..."></div>
+<div class="filter-group"><label>等级</label><select id="levelFilter"><option value="">全部</option><option value="三甲">三甲</option><option value="二甲">二甲</option><option value="一级">一级</option></select></div>
+<div class="filter-group"><label>科室</label><select id="deptFilter"><option value="">全部</option><option value="内科">内科</option><option value="外科">外科</option><option value="儿科">儿科</option><option value="妇产科">妇产科</option><option value="口腔科">口腔科</option><option value="眼科">眼科</option></select></div>
+<div class="filter-group"><label>急诊</label><select id="emergencyFilter"><option value="">不限</option><option value="yes">有急诊</option></select></div>
+</div>
+<div class="sort-bar"><span id="resultCount"></span><div class="sort-options"><button class="sort-btn active" data-sort="rating">评分优先</button><button class="sort-btn" data-sort="name">名称排序</button></div></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const hospitals=[
+{id:1,name:"北京协和医院",address:"东城区帅府园1号",level:"三甲",rating:4.9,phone:"010-69156114",hours:"24小时",emergency:true,depts:["内科","外科","妇产科","儿科","眼科","口腔科"],description:"中国顶级综合医院，综合实力全国第一"},
+{id:2,name:"上海瑞金医院",address:"黄浦区瑞金二路197号",level:"三甲",rating:4.8,phone:"021-64370045",hours:"24小时",emergency:true,depts:["内科","外科","儿科","肿瘤科"],description:"上海交通大学附属，百年名院"},
+{id:3,name:"广州中山大学附属第一医院",address:"越秀区中山二路58号",level:"三甲",rating:4.7,phone:"020-28823388",hours:"24小时",emergency:true,depts:["内科","外科","妇产科","儿科"],description:"华南地区综合实力最强的医院之一"},
+{id:4,name:"成都华西医院",address:"武侯区国学巷37号",level:"三甲",rating:4.8,phone:"028-85422114",hours:"24小时",emergency:true,depts:["内科","外科","口腔科","眼科","儿科"],description:"西部地区医疗中心，科研实力雄厚"},
+{id:5,name:"杭州市第一人民医院",address:"上城区浣纱路261号",level:"三甲",rating:4.5,phone:"0571-87065701",hours:"24小时",emergency:true,depts:["内科","外科","妇产科","眼科"],description:"杭州地区综合实力领先的三甲医院"},
+{id:6,name:"深圳市人民医院",address:"罗湖区东门北路1017号",level:"三甲",rating:4.4,phone:"0755-25533018",hours:"24小时",emergency:true,depts:["内科","外科","儿科","口腔科"],description:"深圳市属大型综合医院"},
+{id:7,name:"武汉同济医院",address:"硚口区解放大道1095号",level:"三甲",rating:4.7,phone:"027-83662688",hours:"24小时",emergency:true,depts:["内科","外科","妇产科","肿瘤科"],description:"华中科技大学附属，百年老院"},
+{id:8,name:"南京鼓楼医院",address:"鼓楼区中山路321号",level:"三甲",rating:4.6,phone:"025-83106666",hours:"24小时",emergency:true,depts:["内科","外科","儿科","眼科"],description:"江苏省综合实力领先的三甲医院"},
+{id:9,name:"西安市第一医院",address:"碑林区南大街321号",level:"二甲",rating:4.1,phone:"029-87630013",hours:"08:00-17:30",emergency:false,depts:["内科","外科","口腔科"],description:"二级甲等综合医院，社区就医首选"},
+{id:10,name:"朝阳区社区卫生服务中心",address:"朝阳区三里屯路甲6号",level:"一级",rating:4.0,phone:"010-64162888",hours:"08:00-20:00",emergency:false,depts:["内科","儿科"],description:"基层社区卫生机构，提供基本医疗和公卫服务"}
+];
+let currentSort="rating";
+function render(){
+const q=document.getElementById("search").value.toLowerCase();
+const lf=document.getElementById("levelFilter").value;
+const df=document.getElementById("deptFilter").value;
+const ef=document.getElementById("emergencyFilter").value;
+let filtered=hospitals.filter(h=>{
+if(q&&!h.name.includes(q)&&!h.address.includes(q))return false;
+if(lf&&h.level!==lf)return false;
+if(df&&!h.depts.includes(df))return false;
+if(ef==="yes"&&!h.emergency)return false;
+return true;
+});
+filtered.sort({rating:(a,b)=>b.rating-a.rating,name:(a,b)=>a.name.localeCompare(b.name,"zh")}[currentSort]||(a,b)=>b.rating-a.rating);
+document.getElementById("resultCount").textContent=`找到 ${filtered.length} 家医院`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results"><p>未找到符合条件的医院</p></div>';return}
+const levelClass=h=>h.level==="三甲"?"level-3a":h.level==="二甲"?"level-2a":"level-1";
+c.innerHTML=filtered.map(h=>`<div class="card"><h3>${h.name}</h3><span class="level-badge ${levelClass(h)}">${h.level}</span><div class="card-info"><span>📍 ${h.address}</span><span>📞 ${h.phone}</span><span>🕐 ${h.hours}</span><span>⭐ ${h.rating}</span></div><p style="font-size:13px;color:var(--muted);margin-bottom:8px">${h.description}</p><div class="depts">${h.depts.map(d=>`<span class="dept-tag">${d}</span>`).join("")}</div>${h.emergency?'<div class="emergency">🚨 提供24小时急诊服务</div>':''}</div>`).join("")
+}
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("levelFilter").addEventListener("change",render);
+document.getElementById("deptFilter").addEventListener("change",render);
+document.getElementById("emergencyFilter").addEventListener("change",render);
+document.querySelectorAll(".sort-btn").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render()}));
+render();
+</script>
+</body>
+</html>

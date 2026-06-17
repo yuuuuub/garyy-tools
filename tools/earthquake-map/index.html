@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>地震地图 - 实时地震数据</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--orange:#db6d28;--red:#f85149}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{font-size:20px;white-space:nowrap}
+.header h1 span{color:var(--red);font-size:24px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.controls input,.controls select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.controls input{width:200px}
+.controls select{min-width:120px}
+.controls button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px}
+.controls button:hover{opacity:.9}
+.main{display:grid;grid-template-columns:1fr 320px;gap:0;height:calc(100vh - 64px)}
+.map-area{position:relative;background:#0a0e14;overflow:hidden}
+.map-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.world-map{width:90%;max-width:900px;aspect-ratio:2/1;position:relative}
+.dot{position:absolute;border-radius:50%;cursor:pointer;transition:transform .2s,box-shadow .2s;z-index:2}
+.dot:hover{transform:scale(2);z-index:10}
+.dot .tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;white-space:nowrap;font-size:12px;z-index:100;pointer-events:none}
+.dot:hover .tooltip{display:block}
+.sidebar{background:var(--card);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.stats-bar{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px;border-bottom:1px solid var(--border)}
+.stat{text-align:center;padding:8px;background:var(--bg);border-radius:8px}
+.stat .num{font-size:20px;font-weight:700}
+.stat .label{font-size:11px;color:#8b949e;margin-top:2px}
+.stat.red .num{color:var(--red)}
+.stat.orange .num{color:var(--orange)}
+.stat.yellow .num{color:var(--yellow)}
+.stat.green .num{color:var(--green)}
+.eq-list{flex:1;overflow-y:auto;padding:8px}
+.eq-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .2s}
+.eq-card:hover{border-color:var(--accent)}
+.eq-card .mag{display:inline-block;width:36px;height:36px;border-radius:50%;text-align:center;line-height:36px;font-weight:700;font-size:14px;color:#fff;margin-right:8px;float:left}
+.eq-card .info h3{font-size:14px;margin-bottom:4px}
+.eq-card .info p{font-size:12px;color:#8b949e}
+.eq-card .depth{font-size:11px;color:var(--accent);margin-top:4px}
+.loading{text-align:center;padding:40px;color:#8b949e}
+.sort-bar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:13px}
+.sort-bar select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:13px}
+@media(max-width:768px){.main{grid-template-columns:1fr;grid-template-rows:50vh 1fr}.sidebar{border-left:none;border-top:1px solid var(--border)}.header{padding:12px}.controls input{width:150px}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🌍</span> 地震地图</h1>
+<div class="controls">
+<input type="text" id="searchInput" placeholder="搜索地点...">
+<select id="magFilter">
+<option value="all">所有震级</option>
+<option value="minor">2.5+ 有感</option>
+<option value="moderate">4.5+ 中等</option>
+<option value="strong">5.5+ 强烈</option>
+<option value="major">6.5+ 重大</option>
+</select>
+<select id="sortSelect">
+<option value="time">按时间</option>
+<option value="magnitude">按震级</option>
+<option value="depth">按深度</option>
+</select>
+<button onclick="fetchData()">🔄 刷新</button>
+</div>
+</div>
+<div class="main">
+<div class="map-area">
+<div class="map-placeholder">
+<div class="world-map" id="worldMap"></div>
+</div>
+</div>
+<div class="sidebar">
+<div class="stats-bar">
+<div class="stat red"><div class="num" id="countStrong">0</div><div class="label">强震 5.5+</div></div>
+<div class="stat orange"><div class="num" id="countModerate">0</div><div class="label">中等 4.5+</div></div>
+<div class="stat yellow"><div class="num" id="countMinor">0</div><div class="label">有感 2.5+</div></div>
+<div class="stat green"><div class="num" id="countTotal">0</div><div class="label">总计</div></div>
+</div>
+<div class="sort-bar">
+<span>排序：</span>
+<select id="listSort" onchange="renderList()">
+<option value="time-desc">最新优先</option>
+<option value="time-asc">最早优先</option>
+<option value="mag-desc">震级从大到小</option>
+<option value="mag-asc">震级从小到大</option>
+<option value="depth-asc">深度从浅到深</option>
+</select>
+<span id="resultCount" style="margin-left:auto;color:#8b949e"></span>
+</div>
+<div class="eq-list" id="eqList">
+<div class="loading">正在加载地震数据...</div>
+</div>
+</div>
+</div>
+<script>
+let earthquakes=[];
+async function fetchData(){
+document.getElementById('eqList').innerHTML='<div class="loading">正在加载地震数据...</div>';
+try{
+const res=await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson');
+const data=await res.json();
+earthquakes=data.features.map(f=>({
+id:f.id,place:f.properties.place,mag:f.properties.mag,
+time:new Date(f.properties.time),depth:f.geometry.coordinates[2],
+lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],
+type:f.properties.type,tsunami:f.properties.tsunami,url:f.properties.url
+})).filter(e=>e.mag!==null);
+updateStats();renderMap();renderList();
+}catch(e){
+document.getElementById('eqList').innerHTML='<div class="loading">⚠️ 加载失败，使用模拟数据<br><button onclick="loadMock()" style="margin-top:12px;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer">加载模拟数据</button></div>';
+}
+}
+function loadMock(){
+earthquakes=[
+{place:"四川省雅安市芦山县",mag:6.1,time:new Date(Date.now()-3600000),depth:12,lat:30.1,lon:102.9,type:"earthquake"},
+{place:"台湾花莲县海域",mag:5.8,time:new Date(Date.now()-7200000),depth:25,lat:24.0,lon:121.5,type:"earthquake"},
+{place:"日本本州东海岸",mag:5.2,time:new Date(Date.now()-14400000),depth:40,lat:38.5,lon:142.8,type:"earthquake"},
+{place:"阿拉斯加半岛",mag:4.9,time:new Date(Date.now()-21600000),depth:35,lat:56.2,lon:-154.5,type:"earthquake"},
+{place:"印度尼西亚苏门答腊",mag:5.5,time:new Date(Date.now()-28800000),depth:20,lat:-2.5,lon:99.8,type:"earthquake"},
+{place:"智利中部海岸",mag:4.7,time:new Date(Date.now()-36000000),depth:60,lat:-33.4,lon:-71.7,type:"earthquake"},
+{place:"土耳其安塔利亚省",mag:4.3,time:new Date(Date.now()-43200000),depth:15,lat:36.9,lon:30.7,type:"earthquake"},
+{place:"尼泊尔加德满都",mag:3.8,time:new Date(Date.now()-50400000),depth:10,lat:27.7,lon:85.3,type:"earthquake"},
+{place:"新西兰北岛",mag:4.1,time:new Date(Date.now()-57600000),depth:30,lat:-38.5,lon:176.2,type:"earthquake"},
+{place:"墨西哥瓦哈卡州",mag:5.0,time:new Date(Date.now()-64800000),depth:22,lat:16.5,lon:-96.8,type:"earthquake"},
+{place:"菲律宾棉兰老岛",mag:3.5,time:new Date(Date.now()-72000000),depth:8,lat:7.1,lon:125.5,type:"earthquake"},
+{place:"伊朗-伊拉克边境",mag:4.6,time:new Date(Date.now()-79200000),depth:18,lat:34.8,lon:46.2,type:"earthquake"}
+];
+updateStats();renderMap();renderList();
+}
+function getMagColor(m){
+if(m>=6)return'#f85149';if(m>=5)return'#db6d28';if(m>=4)return'#d29922';return'#3fb950';
+}
+function getMagSize(m){return Math.max(6,Math.min(30,m*4));}
+function latLonToXY(lat,lon){
+const x=(lon+180)/360*100;
+const y=(90-lat)/180*100;
+return{x,y};
+}
+function renderMap(){
+const map=document.getElementById('worldMap');
+map.innerHTML='';
+const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+svg.setAttribute('viewBox','0 0 100 100');
+svg.setAttribute('width','100%');
+svg.setAttribute('height','100%');
+const gridG=document.createElementNS('http://www.w3.org/2000/svg','g');
+gridG.setAttribute('stroke','#1a2332');
+gridG.setAttribute('stroke-width','0.1');
+for(let lat=-60;lat<=80;lat+=30){const y=(90-lat)/180*100;const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('x1','0');line.setAttribute('y1',y);line.setAttribute('x2','100');line.setAttribute('y2',y);gridG.appendChild(line);}
+for(let lon=-180;lon<=180;lon+=60){const x=(lon+180)/360*100;const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('x1',x);line.setAttribute('y1','0');line.setAttribute('x2',x);line.setAttribute('y2','100');gridG.appendChild(line);}
+svg.appendChild(gridG);
+const filtered=getFiltered();
+filtered.forEach(eq=>{
+const pos=latLonToXY(eq.lat,eq.lon);
+const r=getMagSize(eq.mag)/20;
+const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+circle.setAttribute('cx',pos.x);
+circle.setAttribute('cy',pos.y);
+circle.setAttribute('r',r);
+circle.setAttribute('fill',getMagColor(eq.mag));
+circle.setAttribute('opacity','0.8');
+circle.setAttribute('style','cursor:pointer');
+circle.addEventListener('click',()=>showDetail(eq));
+svg.appendChild(circle);
+const pulse=document.createElementNS('http://www.w3.org/2000/svg','circle');
+pulse.setAttribute('cx',pos.x);
+pulse.setAttribute('cy',pos.y);
+pulse.setAttribute('r',r);
+pulse.setAttribute('fill','none');
+pulse.setAttribute('stroke',getMagColor(eq.mag));
+pulse.setAttribute('stroke-width','0.15');
+pulse.setAttribute('opacity','0.5');
+svg.appendChild(pulse);
+});
+map.appendChild(svg);
+}
+function getFiltered(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+const magF=document.getElementById('magFilter').value;
+return earthquakes.filter(e=>{
+if(search&&!e.place.toLowerCase().includes(search))return false;
+if(magF==='minor'&&e.mag<2.5)return false;
+if(magF==='moderate'&&e.mag<4.5)return false;
+if(magF==='strong'&&e.mag<5.5)return false;
+if(magF==='major'&&e.mag<6.5)return false;
+return true;
+});
+}
+function updateStats(){
+const strong=earthquakes.filter(e=>e.mag>=5.5).length;
+const moderate=earthquakes.filter(e=>e.mag>=4.5&&e.mag<5.5).length;
+const minor=earthquakes.filter(e=>e.mag>=2.5&&e.mag<4.5).length;
+document.getElementById('countStrong').textContent=strong;
+document.getElementById('countModerate').textContent=moderate;
+document.getElementById('countMinor').textContent=minor;
+document.getElementById('countTotal').textContent=earthquakes.length;
+}
+function renderList(){
+let list=getFiltered();
+const sort=document.getElementById('listSort').value;
+if(sort==='time-desc')list.sort((a,b)=>b.time-a.time);
+else if(sort==='time-asc')list.sort((a,b)=>a.time-b.time);
+else if(sort==='mag-desc')list.sort((a,b)=>b.mag-a.mag);
+else if(sort==='mag-asc')list.sort((a,b)=>a.mag-b.mag);
+else if(sort==='depth-asc')list.sort((a,b)=>a.depth-b.depth);
+document.getElementById('resultCount').textContent=list.length+'条结果';
+const el=document.getElementById('eqList');
+if(list.length===0){el.innerHTML='<div class="loading">没有匹配的结果</div>';return;}
+el.innerHTML=list.map(e=>`
+<div class="eq-card" onclick="showDetail(earthquakes.find(x=>x.id==='${e.id}'))">
+<div class="mag" style="background:${getMagColor(e.mag)}">${e.mag.toFixed(1)}</div>
+<div class="info">
+<h3>${e.place}</h3>
+<p>${formatTime(e.time)} · 震源深度 ${e.depth.toFixed(1)}km</p>
+</div>
+<div class="depth">📍 ${e.lat.toFixed(2)}°, ${e.lon.toFixed(2)}°${e.tsunami?' · 🌊 海啸预警':''}</div>
+</div>`).join('');
+}
+function formatTime(d){
+const now=Date.now();
+const diff=now-d.getTime();
+if(diff<3600000)return Math.round(diff/60000)+'分钟前';
+if(diff<86400000)return Math.round(diff/3600000)+'小时前';
+return Math.round(diff/86400000)+'天前';
+}
+function showDetail(eq){
+const list=document.getElementById('eqList');
+list.innerHTML=`
+<div class="eq-card" style="border-color:${getMagColor(eq.mag)}">
+<div class="mag" style="background:${getMagColor(eq.mag)};width:48px;height:48px;line-height:48px;font-size:18px;float:none;margin:0 auto 12px">${eq.mag.toFixed(1)}</div>
+<div class="info" style="text-align:center">
+<h3 style="font-size:16px">${eq.place}</h3>
+<p>震源深度: ${eq.depth.toFixed(1)} km</p>
+<p>时间: ${eq.time.toLocaleString('zh-CN')}</p>
+<p>坐标: ${eq.lat.toFixed(4)}°, ${eq.lon.toFixed(4)}°</p>
+${eq.tsunami?'<p style="color:var(--orange)">⚠️ 海啸预警</p>':''}
+<p style="margin-top:8px"><a href="${eq.url}" target="_blank" style="color:var(--accent)">查看USGS详情 →</a></p>
+</div>
+</div>
+<button onclick="renderList()" style="width:100%;background:var(--border);color:var(--text);border:none;border-radius:8px;padding:10px;cursor:pointer;margin-bottom:8px">← 返回列表</button>`;
+}
+document.getElementById('searchInput').addEventListener('input',()=>{renderMap();renderList();});
+document.getElementById('magFilter').addEventListener('change',()=>{renderMap();renderList();});
+document.getElementById('sortSelect').addEventListener('change',renderList);
+fetchData();
+</script>
+</body>
+</html>

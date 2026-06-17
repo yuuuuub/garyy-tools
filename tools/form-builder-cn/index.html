@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文表单构建器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='📝 中文表单构建器';
+
+const APP=document.getElementById('app');
+let forms=JSON.parse(localStorage.getItem('fb_forms')||'[]');
+let curForm=null;
+
+function save(){localStorage.setItem('fb_forms',JSON.stringify(forms))}
+function render(){
+  let h=`<h1>📝 中文表单构建器</h1><p class="subtitle">创建自定义表单</p>`;
+  if(curForm!==null){
+    let f=forms[curForm];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curForm=null;render()">← 返回</button><b>${f.title}</b><div class="flex"><button class="btn btn-sm" onclick="addField()">+ 添加字段</button><button class="btn btn-sm btn-success" onclick="previewForm()">预览</button></div></div></div>`;
+    f.fields.forEach((fd,i)=>{
+      let types={text:'文本',number:'数字',textarea:'多行文本',select:'下拉选择',radio:'单选',checkbox:'多选',date:'日期'};
+      h+=`<div class="card"><div class="flex-between"><b>${fd.label}</b><div class="flex"><span class="badge badge-blue">${types[fd.type]||fd.type}</span><button class="btn btn-sm" onclick="editField(${i})">编辑</button><button class="btn btn-sm btn-danger" onclick="delField(${i})">删除</button></div></div>`;
+      if(fd.options) h+=`<p style="color:var(--text2);margin-top:4px">选项：${fd.options.join('、')}</p>`;
+      h+=`</div>`;
+    });
+    if(!f.fields.length) h+=`<div class="empty">暂无字段</div>`;
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">表单列表</span><button class="btn btn-sm" onclick="newForm()">+ 新建表单</button></div></div>`;
+    forms.forEach((f,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${f.title}</b><div class="flex"><button class="btn btn-sm" onclick="openForm(${i})">编辑</button><button class="btn btn-sm btn-danger" onclick="delForm(${i})">删除</button></div></div><p style="color:var(--text2)">${f.fields.length} 个字段</p></div>`;
+    });
+    if(!forms.length) h+=`<div class="empty">暂无表单</div>`;
+  }
+  APP.innerHTML=h;
+}
+function newForm(){let t=prompt('表单标题：');if(t){forms.push({title:t,fields:[]});save();render()}}
+function delForm(i){if(confirm('删除？')){forms.splice(i,1);curForm=null;save();render()}}
+function openForm(i){curForm=i;render()}
+function addField(){
+  let l=prompt('字段名称：');if(!l)return;
+  let t=prompt('字段类型(text/number/textarea/select/radio/checkbox/date)：','text');if(!t)return;
+  let field={label:l,type:t};
+  if(['select','radio','checkbox'].includes(t)){
+    let o=prompt('选项(逗号分隔)：');if(o)field.options=o.split(',').map(s=>s.trim());
+  }
+  forms[curForm].fields.push(field);save();render();
+}
+function editField(i){
+  let fd=forms[curForm].fields[i];let l=prompt('字段名称：',fd.label);if(l===null)return;fd.label=l;
+  if(fd.options){let o=prompt('选项(逗号分隔)：',fd.options.join(','));if(o!==null)fd.options=o.split(',').map(s=>s.trim())}
+  save();render();
+}
+function delField(i){if(confirm('删除？')){forms[curForm].fields.splice(i,1);save();render()}}
+function previewForm(){
+  let f=forms[curForm];let h=`<h1>📝 ${f.title}</h1><p class="subtitle">表单预览</p><div class="card">`;
+  f.fields.forEach(fd=>{
+    h+=`<label>${fd.label}</label>`;
+    if(fd.type==='textarea') h+=`<textarea placeholder="请输入${fd.label}" disabled></textarea>`;
+    else if(fd.type==='select') h+=`<select disabled><option>${(fd.options||[]).join('</option><option>')}</option></select>`;
+    else if(fd.type==='radio'||fd.type==='checkbox'){
+      (fd.options||[]).forEach(o=>{h+=`<div style="margin:4px 0"><input type="${fd.type}" disabled> ${o}</div>`});
+    } else h+=`<input type="${fd.type}" placeholder="请输入${fd.label}" disabled>`;
+  });
+  h+=`<button class="btn" onclick="render()">返回编辑</button></div>`;
+  APP.innerHTML=h;
+}
+render();
+
+</script>
+</body>
+</html>

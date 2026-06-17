@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>解谜任务</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.battle{display:flex;gap:30px;margin-bottom:12px;align-items:center}
+.player-info,.enemy-info{text-align:center;background:var(--card);padding:12px 20px;border-radius:8px;border:1px solid var(--border)}
+.hp-bar{width:120px;height:12px;background:#21262d;border-radius:6px;margin:6px auto;overflow:hidden}
+.hp-fill{height:100%;border-radius:6px;transition:width .3s}
+.hp-player{background:#2ea043}.hp-enemy{background:#f85149}
+.stats{display:flex;gap:8px;margin-top:6px;font-size:12px}
+.stats span{padding:2px 6px;border-radius:4px;background:#21262d}
+.board{display:grid;grid-template-columns:repeat(8,44px);gap:2px;background:var(--border);padding:2px;border-radius:8px}
+.cell{width:44px;height:44px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .15s;user-select:none}
+.cell:hover{transform:scale(1.1)}
+.cell.selected{outline:3px solid #fff;transform:scale(1.15)}
+.gem-0{background:#f85149}.gem-1{background:#3b82f6}.gem-2{background:#2ea043}
+.gem-3{background:#f0c000}.gem-4{background:#a371f7}
+.log{font-size:12px;color:#8b949e;margin-top:8px;height:40px;text-align:center}
+</style>
+</head>
+<body>
+<div class="battle">
+<div class="player-info">
+<div>🛡️ 勇士</div>
+<div class="hp-bar"><div class="hp-fill hp-player" id="playerHp" style="width:100%"></div></div>
+<div style="font-size:13px" id="playerHpText">HP: 100/100</div>
+<div class="stats">
+<span id="atkStat">⚔️ 5</span>
+<span id="defStat">🛡️ 3</span>
+<span id="magStat">✨ 0</span>
+</div>
+</div>
+<div style="font-size:28px">⚔️</div>
+<div class="enemy-info">
+<div>👹 <span id="enemyName">哥布林</span></div>
+<div class="hp-bar"><div class="hp-fill hp-enemy" id="enemyHp" style="width:100%"></div></div>
+<div style="font-size:13px" id="enemyHpText">HP: 40/40</div>
+</div>
+</div>
+<div class="board" id="board"></div>
+<div class="log" id="log">选择宝石消除，获得攻击/防御/魔法！</div>
+<script>
+const R=8,C=8,GEMS=5;
+const GEM_ICON=['⚔️','🛡️','💚','⭐','🔥'];
+const ENEMIES=[
+  {name:'哥布林',hp:40,atk:8,def:1},
+  {name:'骷髅兵',hp:60,atk:10,def:3},
+  {name:'暗影狼',hp:80,atk:12,def:4},
+  {name:'石像鬼',hp:100,atk:14,def:6},
+  {name:'巨龙',hp:150,atk:18,def:8},
+];
+let grid,selected,playerHp,maxHp,playerAtk,playerDef,magic,enemy,enemyIdx,animating=false;
+
+function init(){
+  enemyIdx=0;enemy={...ENEMIES[0],hp:ENEMIES[0].hp};
+  playerHp=100;maxHp=100;playerAtk=5;playerDef=3;magic=0;
+  genBoard();render();
+}
+
+function genBoard(){
+  grid=[];
+  for(let r=0;r<R;r++){
+    grid[r]=[];
+    for(let c=0;c<C;c++){
+      let t;
+      do{t=Math.floor(Math.random()*GEMS)}while(
+        (c>=2&&grid[r][c-1]===t&&grid[r][c-2]===t)||
+        (r>=2&&grid[r-1][c]===t&&grid[r-2][c]===t)
+      );
+      grid[r][c]=t;
+    }
+  }
+}
+
+function render(){
+  const b=document.getElementById('board');b.innerHTML='';
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      const d=document.createElement('div');
+      d.className='cell gem-'+grid[r][c];
+      if(selected&&selected.r===r&&selected.c===c)d.classList.add('selected');
+      d.textContent=GEM_ICON[grid[r][c]];
+      d.onclick=()=>click(r,c);
+      b.appendChild(d);
+    }
+  }
+  document.getElementById('playerHp').style.width=(playerHp/maxHp*100)+'%';
+  document.getElementById('playerHpText').textContent='HP: '+playerHp+'/'+maxHp;
+  document.getElementById('atkStat').textContent='⚔️ '+playerAtk;
+  document.getElementById('defStat').textContent='🛡️ '+playerDef;
+  document.getElementById('magStat').textContent='✨ '+magic;
+  const eHpPct=Math.max(0,enemy.hp/ENEMIES[Math.min(enemyIdx,ENEMIES.length-1)].hp*100);
+  document.getElementById('enemyHp').style.width=eHpPct+'%';
+  document.getElementById('enemyHpText').textContent='HP: '+Math.max(0,enemy.hp)+'/'+ENEMIES[Math.min(enemyIdx,ENEMIES.length-1)].hp;
+  document.getElementById('enemyName').textContent=enemy.name;
+}
+
+function click(r,c){
+  if(animating)return;
+  if(!selected){selected={r,c};render();return}
+  const dr=Math.abs(selected.r-r),dc=Math.abs(selected.c-c);
+  if((dr===1&&dc===0)||(dr===0&&dc===1)){
+    swap(selected.r,selected.c,r,c);
+    if(findMatches().length===0){swap(selected.r,selected.c,r,c);selected=null;render();return}
+    selected=null;animating=true;
+    setTimeout(()=>process(),100);
+  }else{selected={r,c};render()}
+}
+
+function swap(r1,c1,r2,c2){const t=grid[r1][c1];grid[r1][c1]=grid[r2][c2];grid[r2][c2]=t}
+
+function findMatches(){
+  const m=new Set();
+  for(let r=0;r<R;r++)for(let c=0;c<C-2;c++){
+    const t=grid[r][c];if(t<0)continue;
+    if(grid[r][c+1]===t&&grid[r][c+2]===t){let e=c+2;while(e+1<C&&grid[r][e+1]===t)e++;for(let i=c;i<=e;i++)m.add(r*C+i)}
+  }
+  for(let c=0;c<C;c++)for(let r=0;r<R-2;r++){
+    const t=grid[r][c];if(t<0)continue;
+    if(grid[r+1][c]===t&&grid[r+2][c]===t){let e=r+2;while(e+1<R&&grid[e+1][c]===t)e++;for(let i=r;i<=e;i++)m.add(i*C+c)}
+  }
+  return[...m].map(i=>({r:Math.floor(i/C),c:i%C}));
+}
+
+function process(){
+  const matches=findMatches();
+  if(matches.length===0){
+    enemyTurn();
+    if(playerHp<=0){setLog('💀 你被击败了！');setTimeout(()=>{init();setLog('重新开始！')},1500)}
+    else if(enemy.hp<=0){
+      enemyIdx++;
+      if(enemyIdx>=ENEMIES.length){setLog('🎉 你征服了所有怪物！');setTimeout(()=>{enemyIdx=0;playerHp=maxHp;init();setLog('新轮回开始！')},2000)}
+      else{enemy={...ENEMIES[enemyIdx],hp:ENEMIES[enemyIdx].hp};setLog('✨ 击败了'+ENEMIES[enemyIdx-1].name+'！下一位: '+enemy.name);setTimeout(()=>{animating=false;render()},800)}
+    }else{animating=false;render()}
+    return;
+  }
+  // apply gem effects
+  const counts=[0,0,0,0,0];
+  for(const m of matches)counts[grid[m.r][m.c]]++;
+  const atkGain=counts[0]*playerAtk;
+  const defGain=counts[1]*2;
+  const heal=counts[2]*5;
+  const starGain=counts[3]*10;
+  const dmg=counts[4]*8;
+  // deal damage
+  const totalDmg=Math.max(1,atkGain+dmg-enemy.def);
+  enemy.hp-=totalDmg;
+  playerDef+=defGain;
+  playerHp=Math.min(maxHp,playerHp+heal);
+  magic+=starGain;
+  let logMsg='消除'+matches.length+'个: ';
+  if(atkGain>0)logMsg+='⚔️-'+totalDmg+' ';
+  if(defGain>0)logMsg+='🛡️+'+defGain+' ';
+  if(heal>0)logMsg+='💚+'+heal+' ';
+  if(starGain>0)logMsg+='✨+'+starGain+' ';
+  setLog(logMsg);
+  for(const m of matches)grid[m.r][m.c]=-1;
+  render();
+  setTimeout(()=>{drop();fill();render();setTimeout(()=>process(),200)},250);
+}
+
+function enemyTurn(){
+  if(enemy.hp<=0)return;
+  const dmg=Math.max(1,enemy.atk-playerDef);
+  playerHp-=dmg;
+  setLog('👹 '+enemy.name+' 攻击你-'+dmg+'HP');
+}
+
+function drop(){
+  for(let c=0;c<C;c++){let e=R-1;for(let r=R-1;r>=0;r--){if(grid[r][c]!==-1){grid[e][c]=grid[r][c];if(e!==r)grid[r][c]=-1;e--}}for(let r=e;r>=0;r--)grid[r][c]=-1}
+}
+function fill(){for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(grid[r][c]===-1)grid[r][c]=Math.floor(Math.random()*GEMS)}
+function setLog(t){document.getElementById('log').textContent=t}
+
+init();
+</script>
+</body>
+</html>

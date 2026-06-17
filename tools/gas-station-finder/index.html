@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加油站查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149;--orange:#db6d28}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 20px}
+.header h1{font-size:20px;margin-bottom:12px}.header h1 span{font-size:24px}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.controls input,.controls select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.main{display:grid;grid-template-columns:1fr 380px;height:calc(100vh - 110px)}
+.map-area{background:#0a0e14;position:relative;display:flex;align-items:center;justify-content:center}
+.gas-map{width:90%;height:80%;position:relative}
+.station-dot{position:absolute;cursor:pointer;z-index:5;text-align:center}
+.station-dot .icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;margin:0 auto}
+.station-dot .tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:11px;white-space:nowrap;z-index:10}
+.station-dot:hover .tip{display:block}
+.sidebar{background:var(--card);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.brand-tabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.brand-tab{padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:#8b949e}
+.brand-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sort-bar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:12px}
+.sort-bar select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px}
+.gas-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin:8px;cursor:pointer;transition:border-color .2s}
+.gas-card:hover{border-color:var(--accent)}
+.gas-card .top{display:flex;justify-content:space-between;align-items:flex-start}
+.gas-card .name{font-size:16px;font-weight:700}
+.gas-card .brand{font-size:12px;color:#8b949e;margin-top:2px}
+.gas-card .distance{font-size:12px;color:var(--accent)}
+.gas-card .addr{font-size:12px;color:#8b949e;margin:6px 0}
+.gas-card .prices{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.gas-card .price-item{text-align:center;padding:8px;background:var(--card);border-radius:6px}
+.gas-card .price-item .fuel{font-size:11px;color:#8b949e}
+.gas-card .price-item .val{font-size:16px;font-weight:700;color:var(--green)}
+.gas-card .price-item .val.high{color:var(--orange)}
+.gas-card .amenities{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.gas-card .amenity{padding:3px 8px;background:var(--card);border-radius:4px;font-size:11px;color:#8b949e}
+.gas-card .promo{margin-top:8px;padding:6px 10px;background:rgba(63,185,80,.1);border-radius:6px;font-size:12px;color:var(--green)}
+.no-result{text-align:center;padding:40px;color:#8b949e}
+@media(max-width:768px){.main{grid-template-columns:1fr;grid-template-rows:40vh 1fr}.sidebar{border-left:none;border-top:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>⛽</span> 加油站查找</h1>
+<div class="controls">
+<input type="text" id="searchInput" placeholder="搜索加油站..." oninput="renderStations()">
+<select id="fuelFilter" onchange="renderStations()">
+<option value="all">所有油品</option>
+<option value="92">92号汽油</option>
+<option value="95">95号汽油</option>
+<option value="98">98号汽油</option>
+<option value="0">0号柴油</option>
+</select>
+<select id="sortSelect" onchange="renderStations()">
+<option value="distance">距离最近</option>
+<option value="price-asc">价格最低</option>
+<option value="price-desc">价格最高</option>
+<option value="rating">评分最高</option>
+</select>
+</div>
+</div>
+<div class="main">
+<div class="map-area"><div class="gas-map" id="gasMap"></div></div>
+<div class="sidebar">
+<div class="brand-tabs">
+<button class="brand-tab active" onclick="filterBrand('all',this)">全部</button>
+<button class="brand-tab" onclick="filterBrand('中石化',this)">中石化</button>
+<button class="brand-tab" onclick="filterBrand('中石油',this)">中石油</button>
+<button class="brand-tab" onclick="filterBrand('壳牌',this)">壳牌</button>
+<button class="brand-tab" onclick="filterBrand('中海油',this)">中海油</button>
+<button class="brand-tab" onclick="filterBrand('BP',this)">BP</button>
+</div>
+<div id="stationList" style="flex:1;overflow-y:auto"></div>
+</div>
+</div>
+<script>
+let brandFilter='all';
+const stations=[
+{name:'中国石化朝阳路加油站',brand:'中石化',addr:'朝阳区朝阳路128号',distance:0.8,lat:39.922,lon:116.47,prices:{'92':7.82,'95':8.32,'98':9.31,'0':7.65},rating:4.5,amenities:['便利店','洗车','充电桩','卫生间'],promo:'周二会员日92号立减0.3元/升'},
+{name:'中国石油国贸加油站',brand:'中石油',addr:'朝阳区建国门外大街甲6号',distance:1.2,lat:39.908,lon:116.46,prices:{'92':7.85,'95':8.35,'98':9.35,'0':7.68},rating:4.3,amenities:['便利店','卫生间','ETC'],promo:''},
+{name:'壳牌三里屯加油站',brand:'壳牌',addr:'朝阳区三里屯路19号',distance:1.5,lat:39.933,lon:116.45,prices:{'92':7.92,'95':8.42,'98':9.45,'0':7.75},rating:4.7,amenities:['便利店','洗车','V-Power','卫生间'],promo:'壳牌V-Power会员积分翻倍'},
+{name:'中国石化西单加油站',brand:'中石化',addr:'西城区西单北大街68号',distance:2.1,lat:39.912,lon:116.37,prices:{'92':7.82,'95':8.32,'98':9.31,'0':7.65},rating:4.2,amenities:['便利店','卫生间'],promo:''},
+{name:'中海油望京加油站',brand:'中海油',addr:'朝阳区望京西路8号',distance:3.8,lat:39.994,lon:116.48,prices:{'92':7.75,'95':8.25,'98':9.20,'0':7.58},rating:4.4,amenities:['便利店','洗车','充电桩','卫生间'],promo:'中海油会员日全场0.5元优惠'},
+{name:'BP亮马桥加油站',brand:'BP',addr:'朝阳区亮马桥路5号',distance:2.3,lat:39.949,lon:116.46,prices:{'92':7.95,'95':8.45,'98':9.50,'0':7.78},rating:4.6,amenities:['便利店','洗车','Ultimate燃油','卫生间'],promo:'BP会员每周五95号立减0.2元'},
+{name:'中国石油海淀加油站',brand:'中石油',addr:'海淀区中关村南大街2号',distance:4.2,lat:39.960,lon:116.32,prices:{'92':7.85,'95':8.35,'98':9.35,'0':7.68},rating:4.1,amenities:['便利店','卫生间','ETC'],promo:''},
+{name:'中国石化丰台加油站',brand:'中石化',addr:'丰台区马家堡东路12号',distance:3.5,lat:39.860,lon:116.38,prices:{'92':7.82,'95':8.32,'98':9.31,'0':7.65},rating:4.0,amenities:['便利店','洗车','卫生间'],promo:''},
+{name:'壳牌东直门加油站',brand:'壳牌',addr:'东城区东直门外大街48号',distance:2.8,lat:39.940,lon:116.43,prices:{'92':7.92,'95':8.42,'98':9.45,'0':7.75},rating:4.5,amenities:['便利店','V-Power','卫生间'],promo:''},
+{name:'中国石化通州加油站',brand:'中石化',addr:'通州区新华大街88号',distance:12.5,lat:39.902,lon:116.66,prices:{'92':7.80,'95':8.30,'98':9.28,'0':7.62},rating:3.9,amenities:['便利店','洗车','卫生间','ETC'],promo:'通州站充值满500送30'}
+];
+function renderStations(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+const fuelF=document.getElementById('fuelFilter').value;
+const sortF=document.getElementById('sortSelect').value;
+let list=stations.filter(s=>{
+if(brandFilter!=='all'&&s.brand!==brandFilter)return false;
+if(search&&!s.name.includes(search)&&!s.addr.includes(search))return false;
+return true;
+});
+if(sortF==='distance')list.sort((a,b)=>a.distance-b.distance);
+else if(sortF==='price-asc')list.sort((a,b)=>a.prices['92']-b.prices['92']);
+else if(sortF==='price-desc')list.sort((a,b)=>b.prices['92']-a.prices['92']);
+else if(sortF==='rating')list.sort((a,b)=>b.rating-a.rating);
+document.getElementById('stationList').innerHTML=list.length===0?'<div class="no-result">没有匹配的加油站</div>':list.map(s=>{
+const stars='★'.repeat(Math.floor(s.rating))+'☆'.repeat(5-Math.floor(s.rating));
+const highPrice=s.prices['98']>9.4;
+return`<div class="gas-card">
+<div class="top"><div><div class="name">${s.name}</div><div class="brand">${s.brand} · ${s.amenities.length>3?'综合站':'普通站'}</div></div><div class="distance">📍 ${s.distance}km</div></div>
+<div class="addr">📍 ${s.addr}</div>
+<div class="prices">
+<div class="price-item"><div class="fuel">92号</div><div class="val">¥${s.prices['92']}</div></div>
+<div class="price-item"><div class="fuel">95号</div><div class="val">¥${s.prices['95']}</div></div>
+<div class="price-item"><div class="fuel">98号</div><div class="val ${highPrice?'high':''}">¥${s.prices['98']}</div></div>
+</div>
+<div class="amenities">${s.amenities.map(a=>`<span class="amenity">${a}</span>`).join('')}</div>
+${s.promo?`<div class="promo">🏷️ ${s.promo}</div>`:''}
+<div style="margin-top:6px;font-size:12px"><span style="color:var(--yellow)">${stars}</span> ${s.rating}</div>
+</div>`;
+}).join('');
+renderMap();
+}
+function renderMap(){
+const map=document.getElementById('gasMap');
+let html='<svg viewBox="0 0 100 70" width="100%" height="100%" style="opacity:.15">';
+for(let y=0;y<70;y+=5){html+=`<line x1="0" y1="${y}" x2="100" y2="${y}" stroke="#1a2332" stroke-width="0.1"/>`;}
+for(let x=0;x<100;x+=5){html+=`<line x1="${x}" y1="0" x2="${x}" y2="70" stroke="#1a2332" stroke-width="0.1"/>`;}
+html+='</svg>';
+const brandColors={中石化:'#e4002b',中石油:'#cc0000',壳牌:'#fbce07',中海油:'#005eb8',BP:'#009b3a'};
+stations.forEach(s=>{
+const x=(s.lon-116.2)/0.6*80+5;
+const y=(40.1-s.lat)/0.2*60+5;
+const color=brandColors[s.brand]||'var(--accent)';
+html+=`<div class="station-dot" style="left:${x}%;top:${y}%"><div class="icon" style="background:${color};color:${s.brand==='壳牌'?'#000':'#fff'}">⛽</div><div class="tip">${s.name}<br>92:¥${s.prices['92']} 95:¥${s.prices['95']}<br>${s.distance}km</div></div>`;
+});
+map.innerHTML=html;
+}
+function filterBrand(b,btn){brandFilter=b;document.querySelectorAll('.brand-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderStations();}
+renderStations();
+</script>
+</body>
+</html>

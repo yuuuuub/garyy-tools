@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>街头赛车</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #3b82f6;
+        }
+        .controls {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+        .info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        canvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: #1a1e24;
+            max-width: 100%;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .message {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏙️ 街头赛车</h1>
+    <div class="controls">
+        <div class="info">
+            <span>分数: <span id="score">0</span></span>
+            <span>超车: <span id="overtakes">0</span></span>
+            <span>速度: <span id="speed">0</span>km/h</span>
+        </div>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div style="margin-top: 10px;">
+            <button class="btn" onclick="startGame()">开始游戏</button>
+            <button class="btn" onclick="resetGame()">重新开始</button>
+        </div>
+        <div class="message">使用方向键或A/D键左右移动，超车获得分数！</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const overtakesEl = document.getElementById('overtakes');
+        const speedEl = document.getElementById('speed');
+        
+        let gameRunning = false;
+        let score = 0;
+        let overtakes = 0;
+        let speed = 5;
+        let lastTime = 0;
+        let player = { x: 200, y: 500, width: 30, height: 50, lane: 1 };
+        let traffic = [];
+        let buildings = [];
+        let keys = {};
+        let spawnTimer = 0;
+        
+        // 初始化建筑物
+        function initBuildings() {
+            buildings = [];
+            for (let i = 0; i < 10; i++) {
+                buildings.push({
+                    x: Math.random() < 0.5 ? 0 : 350,
+                    y: i * 70,
+                    width: 40 + Math.random() * 30,
+                    height: 60 + Math.random() * 40,
+                    color: ['#2d333b', '#373e47', '#444c56'][Math.floor(Math.random() * 3)]
+                });
+            }
+        }
+        
+        function spawnTraffic() {
+            if (Math.random() < 0.02 && traffic.length < 8) {
+                const lane = Math.floor(Math.random() * 3);
+                const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff922b'];
+                traffic.push({
+                    x: 50 + lane * 120,
+                    y: -50,
+                    width: 30,
+                    height: 50,
+                    speed: speed * 0.3 + Math.random() * speed * 0.4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    overtaken: false
+                });
+            }
+        }
+        
+        function drawCity() {
+            // 路面
+            ctx.fillStyle = '#2d333b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 建筑物
+            buildings.forEach(building => {
+                ctx.fillStyle = building.color;
+                ctx.fillRect(building.x, building.y, building.width, building.height);
+                
+                // 窗户
+                ctx.fillStyle = '#ffd93d';
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 2; j++) {
+                        ctx.fillRect(building.x + 5 + i * 12, building.y + 5 + j * 15, 8, 10);
+                    }
+                }
+            });
+            
+            // 车道线
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([20, 20]);
+            
+            for (let i = 1; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * 120 + 30, 0);
+                ctx.lineTo(i * 120 + 30, canvas.height);
+                ctx.stroke();
+            }
+            
+            ctx.setLineDash([]);
+        }
+        
+        function drawPlayer() {
+            ctx.fillStyle = #3b82f6;
+            ctx.fillRect(player.x - player.width/2, player.y - player.height/2, player.width, player.height);
+            
+            // 车窗
+            ctx.fillStyle = '#1a1e24';
+            ctx.fillRect(player.x - player.width/2 + 3, player.y - player.height/2 + 3, player.width - 6, player.height/3);
+        }
+        
+        function drawTraffic() {
+            traffic.forEach(car => {
+                ctx.fillStyle = car.color;
+                ctx.fillRect(car.x - car.width/2, car.y - car.height/2, car.width, car.height);
+                
+                // 车窗
+                ctx.fillStyle = '#1a1e24';
+                ctx.fillRect(car.x - car.width/2 + 3, car.y + car.height/2 - car.height/3 - 3, car.width - 6, car.height/3);
+            });
+        }
+        
+        function updateGame(timestamp) {
+            if (!gameRunning) return;
+            
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            
+            // 更新玩家位置
+            if (keys['ArrowLeft'] || keys['a']) {
+                player.x = Math.max(50, player.x - 5);
+            }
+            if (keys['ArrowRight'] || keys['d']) {
+                player.x = Math.min(350, player.x + 5);
+            }
+            
+            // 更新车流
+            traffic.forEach(car => {
+                car.y += car.speed;
+                
+                // 超车检测
+                if (!car.overtaken && car.y > player.y + 50) {
+                    car.overtaken = true;
+                    overtakes++;
+                    overtakesEl.textContent = overtakes;
+                    score += 50;
+                    scoreEl.textContent = score;
+                }
+            });
+            
+            // 移除出界的车辆
+            traffic = traffic.filter(car => car.y < canvas.height + 50);
+            
+            // 更新建筑物
+            buildings.forEach(building => {
+                building.y += speed;
+                if (building.y > canvas.height) {
+                    building.y = -building.height;
+                }
+            });
+            
+            // 生成新的车流
+            spawnTraffic();
+            
+            // 碰撞检测
+            const playerRect = { x: player.x - player.width/2, y: player.y - player.height/2, width: player.width, height: player.height };
+            for (let car of traffic) {
+                const carRect = { x: car.x - car.width/2, y: car.y - car.height/2, width: car.width, height: car.height };
+                if (playerRect.x < carRect.x + carRect.width &&
+                    playerRect.x + playerRect.width > carRect.x &&
+                    playerRect.y < carRect.y + carRect.height &&
+                    playerRect.y + playerRect.height > carRect.y) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // 增加速度
+            speed += 0.001;
+            speedEl.textContent = Math.round(speed * 20);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawCity();
+            drawTraffic();
+            drawPlayer();
+            
+            requestAnimationFrame(updateGame);
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            alert('游戏结束！分数: ' + score + '\n超车: ' + overtakes);
+        }
+        
+        function startGame() {
+            if (gameRunning) return;
+            
+            player = { x: 200, y: 500, width: 30, height: 50, lane: 1 };
+            traffic = [];
+            score = 0;
+            overtakes = 0;
+            speed = 5;
+            spawnTimer = 0;
+            
+            initBuildings();
+            
+            scoreEl.textContent = '0';
+            overtakesEl.textContent = '0';
+            speedEl.textContent = '100';
+            
+            gameRunning = true;
+            lastTime = performance.now();
+            requestAnimationFrame(updateGame);
+        }
+        
+        function resetGame() {
+            gameRunning = false;
+            player = { x: 200, y: 500, width: 30, height: 50, lane: 1 };
+            traffic = [];
+            score = 0;
+            overtakes = 0;
+            speed = 5;
+            
+            initBuildings();
+            
+            scoreEl.textContent = '0';
+            overtakesEl.textContent = '0';
+            speedEl.textContent = '100';
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawCity();
+            drawPlayer();
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // 初始绘制
+        initBuildings();
+        drawCity();
+        drawPlayer();
+    </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>景点查找 - Attraction Finder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#22c55e;--yellow:#eab308;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+header{text-align:center;padding:24px 0}
+header h1{font-size:1.8em;margin-bottom:4px}
+header p{color:var(--muted)}
+.filters{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.filter-group label{font-size:12px;color:var(--muted);font-weight:600}
+.filter-group input,.filter-group select{background:#0d1117;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;width:100%}
+.filter-group input:focus,.filter-group select:focus{outline:none;border-color:var(--accent)}
+.cat-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.cat-tab{background:#0d1117;border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .2s}
+.cat-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.sort-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.sort-bar span{color:var(--muted);font-size:14px}
+.sort-options{display:flex;gap:8px}
+.sort-btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+.sort-btn.active{background:var(--accent);border-color:var(--accent)}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:transform .2s}
+.card:hover{transform:translateY(-2px)}
+.card h3{font-size:16px;margin-bottom:6px}
+.card-cat{font-size:11px;padding:3px 8px;border-radius:12px;display:inline-block;margin-bottom:8px}
+.cat-historical{background:rgba(168,85,247,.15);color:#a855f7}
+.cat-natural{background:rgba(34,197,94,.15);color:var(--green)}
+.cat-entertainment{background:rgba(251,146,60,.15);color:#fb923c}
+.cat-cultural{background:rgba(59,130,246,.15);color:var(--accent)}
+.card-info{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);margin-bottom:10px}
+.card-info span{display:flex;align-items:center;gap:6px}
+.card-footer{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border)}
+.price{font-size:18px;font-weight:700;color:var(--accent)}
+.price small{font-size:12px;color:var(--muted);font-weight:400}
+.rating{color:var(--yellow);font-weight:600}
+.desc{font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.5}
+.no-results{text-align:center;padding:60px 20px;color:var(--muted)}
+@media(max-width:640px){.results{grid-template-columns:1fr}.filters{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+<header><h1>🏞️ 景点查找</h1><p>发现精彩景点，规划完美旅程</p></header>
+<div class="filters">
+<div class="filter-group" style="flex:2"><label>搜索</label><input type="text" id="search" placeholder="输入景点名称或地址..."></div>
+<div class="filter-group"><label>价格范围</label><select id="priceFilter"><option value="">不限</option><option value="free">免费</option><option value="0-50">¥50以下</option><option value="50-100">¥50-100</option><option value="100-9999">¥100以上</option></select></div>
+</div>
+<div style="margin-bottom:16px">
+<div class="cat-tabs"><button class="cat-tab active" data-cat="">全部</button><button class="cat-tab" data-cat="historical">🏛️ 历史古迹</button><button class="cat-tab" data-cat="natural">🌿 自然风光</button><button class="cat-tab" data-cat="entertainment">🎢 娱乐休闲</button><button class="cat-tab" data-cat="cultural">🎭 人文艺术</button></div>
+</div>
+<div class="sort-bar"><span id="resultCount"></span><div class="sort-options"><button class="sort-btn active" data-sort="rating">评分优先</button><button class="sort-btn" data-sort="price">价格优先</button><button class="sort-btn" data-sort="name">名称排序</button></div></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const attractions=[
+{id:1,name:"故宫博物院",address:"东城区景山前街4号",category:"historical",ticket:60,rating:4.9,phone:"010-65131892",hours:"08:30-17:00(周一闭馆)",description:"世界文化遗产，中国最大的古代宫殿建筑群，珍藏百万件文物"},
+{id:2,name:"西湖风景区",address:"西湖区西湖风景名胜区",category:"natural",ticket:0,rating:4.8,phone:"0571-87977767",hours:"全天开放",description:"世界文化遗产，'上有天堂下有苏杭'的绝佳体现"},
+{id:3,name:"迪士尼乐园",address:"浦东新区川沙镇川沙新镇",category:"entertainment",ticket:475,rating:4.7,phone:"021-31068888",hours:"08:30-21:30",description:"中国大陆首座迪士尼主题乐园，梦幻童话王国"},
+{id:4,name:"莫高窟",address:"酒泉市敦煌市东南25公里",category:"cultural",ticket:238,rating:4.9,phone:"0937-8869060",hours:"08:00-18:00",description:"世界文化遗产，千年佛教艺术宝库"},
+{id:5,name:"黄山风景区",address:"黄山市黄山区汤口镇",category:"natural",ticket:190,rating:4.8,phone:"0559-5561111",hours:"06:00-16:30",description:"天下第一奇山，以奇松、怪石、云海、温泉著称"},
+{id:6,name:"长城(八达岭)",address:"延庆区八达岭镇",category:"historical",ticket:40,rating:4.7,phone:"010-69121422",hours:"06:30-19:00",description:"世界中古七大奇迹之一，中华民族的象征"},
+{id:7,name:"上海博物馆",address:"黄浦区人民大道201号",category:"cultural",ticket:0,rating:4.6,phone:"021-63723500",hours:"09:00-17:00(周一闭馆)",description:"中国大型古代艺术博物馆，馆藏文物12万件"},
+{id:8,name:"欢乐谷",address:"朝阳区东四环小武基北路",category:"entertainment",ticket:260,rating:4.5,phone:"010-67383333",hours:"09:00-22:00",description:"大型主题游乐园，适合家庭出游"},
+{id:9,name:"九寨沟",address:"阿坝藏族羌族自治州九寨沟县",category:"natural",ticket:169,rating:4.9,phone:"0837-7764114",hours:"07:00-18:00",description:"世界自然遗产，'九寨归来不看水'"},
+{id:10,name:"平遥古城",address:"晋中市平遥县古陶镇",category:"historical",ticket:125,rating:4.6,phone:"0354-5683858",hours:"08:00-18:00",description:"世界文化遗产，保存最完好的明清古城"}
+];
+let currentCat="",currentSort="rating";
+const catLabels={historical:"历史古迹",natural:"自然风光",entertainment:"娱乐休闲",cultural:"人文艺术"};
+function render(){
+const q=document.getElementById("search").value.toLowerCase();
+const pf=document.getElementById("priceFilter").value;
+let filtered=attractions.filter(a=>{
+if(q&&!a.name.includes(q)&&!a.address.includes(q))return false;
+if(currentCat&&a.category!==currentCat)return false;
+if(pf==="free"){if(a.ticket!==0)return false}
+else if(pf){const[mn,mx]=pf.split("-").map(Number);if(a.ticket<mn||a.ticket>mx)return false}
+return true;
+});
+filtered.sort({rating:(a,b)=>b.rating-a.rating,price:(a,b)=>a.ticket-b.ticket,name:(a,b)=>a.name.localeCompare(b.name,"zh")}[currentSort]||((a,b)=>b.rating-a.rating));
+document.getElementById("resultCount").textContent=`找到 ${filtered.length} 个景点`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results"><p>未找到符合条件的景点</p></div>';return}
+c.innerHTML=filtered.map(a=>`<div class="card"><h3>${a.name}</h3><span class="card-cat cat-${a.category}">${catLabels[a.category]}</span><div class="card-info"><span>📍 ${a.address}</span><span>📞 ${a.phone}</span><span>🕐 ${a.hours}</span><span class="rating">⭐ ${a.rating}</span></div><p class="desc">${a.description}</p><div class="card-footer"><span class="price">${a.ticket===0?"免费":"¥"+a.ticket}</span></div></div>`).join("")
+}
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("priceFilter").addEventListener("change",render);
+document.querySelectorAll(".cat-tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".cat-tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentCat=b.dataset.cat;render()}));
+document.querySelectorAll(".sort-btn").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render()}));
+render();
+</script>
+</body>
+</html>

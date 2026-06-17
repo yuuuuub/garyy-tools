@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>超级俄罗斯方块</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:monospace;display:flex;justify-content:center;align-items:center;min-height:100vh}
+#wrap{display:flex;gap:20px;align-items:flex-start}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+canvas{display:block;border:1px solid var(--border);background:#000}
+.info{min-width:140px}
+.info h2{font-size:16px;color:var(--accent);margin-bottom:8px}
+.info .stat{font-size:13px;margin:4px 0;color:#8b949e}
+.info .stat b{color:var(--accent)}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100}
+#overlay h1{font-size:36px;color:var(--accent);margin-bottom:10px}
+#overlay p{font-size:14px;color:#8b949e;margin-bottom:20px}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 28px;font-size:15px;border-radius:6px;cursor:pointer;font-family:monospace}
+.btn:hover{filter:brightness(1.2)}
+.timer-bar{width:100%;height:8px;background:var(--border);border-radius:4px;margin:8px 0}
+.timer-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.timer-fill.low{background:#ef4444}
+</style>
+</head>
+<body>
+<div id="overlay">
+<h1>超级俄罗斯方块</h1>
+<p>2分钟限时模式 — 消行得分，时间到即结束！</p>
+<p style="font-size:12px;margin-top:-10px">单行100分，双行300分，三行500分，四行800分</p>
+<button class="btn" onclick="startGame()">开始挑战</button>
+</div>
+<div id="wrap">
+<div class="panel info">
+<h2>下一个</h2>
+<canvas id="nextC" width="80" height="80"></canvas>
+<div style="margin-top:12px">
+<div class="stat">剩余时间</div>
+<div class="timer-bar"><div class="timer-fill" id="timerBar" style="width:100%"></div></div>
+<div class="stat"><b id="time" style="font-size:20px">2:00</b></div>
+<div class="stat" style="margin-top:8px">分数: <b id="score">0</b></div>
+<div class="stat">消行: <b id="lines">0</b></div>
+<div class="stat">连消: <b id="combo">0</b>x</div>
+</div>
+</div>
+<div class="panel">
+<canvas id="gameC" width="300" height="600"></canvas>
+</div>
+</div>
+<script>
+const COLS=10,ROWS=20,BW=30,BH=30;
+const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
+const COLORS=['#00f0f0','#f0f000','#a000f0','#f0a000','#0000f0','#f00000','#00f000'];
+const gc=document.getElementById('gameC'),gx=gc.getContext('2d');
+const nc=document.getElementById('nextC'),nx=nc.getContext('2d');
+let board,curPiece,nextPiece,curX,curY,score,lines,combo,lastCombo,gameOn,timer,lastDrop,dropInterval,endTime;
+
+function initBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(0))}
+function randPiece(){const i=Math.floor(Math.random()*7);return{shape:SHAPES[i],color:COLORS[i]}}
+function rotate(s){const r=s.length,c=s[0].length,n=Array.from({length:c},()=>Array(r).fill(0));for(let i=0;i<r;i++)for(let j=0;j<c;j++)n[j][r-1-i]=s[i][j];return n}
+function collide(b,p,px,py){return p.shape.some((row,dr)=>row.some((v,dc)=>{if(!v)return false;const nx=px+dc,ny=py+dr;return nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&b[ny][nx])}))}
+
+function lock(){
+curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v&&curY+dr>=0)board[curY+dr][curX+dc]=curPiece.color}));
+let cleared=0;
+for(let r=ROWS-1;r>=0;r--){if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(0));cleared++;r++}}
+if(cleared>0){
+combo++;
+const pts=[0,100,300,500,800][cleared]*combo;
+score+=pts;
+lines+=cleared;
+}else{combo=0}
+spawn();
+}
+
+function spawn(){
+curPiece=nextPiece||randPiece();nextPiece=randPiece();
+curX=Math.floor((COLS-curPiece.shape[0].length)/2);curY=0;
+if(collide(board,curPiece,curX,curY))gameEnd();
+drawNext();
+}
+
+function drawNext(){
+nx.fillStyle='#000';nx.fillRect(0,0,nc.width,nc.height);
+if(!nextPiece)return;const s=18;
+nextPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v){nx.fillStyle=nextPiece.color;nx.fillRect(dc*s+2,dr*s+2,s-1,s-1)}}));
+}
+
+function draw(){
+gx.fillStyle='#000';gx.fillRect(0,0,gc.width,gc.height);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c]){gx.fillStyle=board[r][c];gx.fillRect(c*BW,r*BH,BW-1,BH-1)}
+if(curPiece)curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v){gx.fillStyle=curPiece.color;gx.fillRect((curX+dc)*BW,(curY+dr)*BH,BW-1,BH-1)}}));
+}
+
+function updateHUD(){
+const remaining=Math.max(0,endTime-Date.now());
+const s=Math.ceil(remaining/1000);
+const m=Math.floor(s/60);
+document.getElementById('time').textContent=`${m}:${(s%60).toString().padStart(2,'0')}`;
+const pct=remaining/120000*100;
+const bar=document.getElementById('timerBar');
+bar.style.width=pct+'%';
+if(pct<20)bar.classList.add('low');else bar.classList.remove('low');
+document.getElementById('score').textContent=score;
+document.getElementById('lines').textContent=lines;
+document.getElementById('combo').textContent=combo;
+}
+
+function gameLoop(){
+if(!gameOn)return;
+const now=Date.now();
+if(now-lastDrop>=dropInterval){
+if(!collide(board,curPiece,curX,curY+1))curY++;
+else lock();
+lastDrop=now;
+}
+draw();updateHUD();
+if(Date.now()>=endTime){gameEnd();return}
+timer=requestAnimationFrame(gameLoop);
+}
+
+function startGame(){
+document.getElementById('overlay').style.display='none';
+board=initBoard();score=0;lines=0;combo=0;gameOn=true;
+dropInterval=800;lastDrop=Date.now();endTime=Date.now()+120000;
+spawn();gameLoop();
+}
+
+function gameEnd(){
+gameOn=false;
+const ov=document.getElementById('overlay');ov.style.display='flex';
+ov.innerHTML=`<h1>时间到！</h1><p>最终分数: ${score}</p><p>消除: ${lines} 行 | 最大连消: ${combo}x</p><button class="btn" onclick="startGame()">再来挑战</button>`;
+}
+
+document.addEventListener('keydown',e=>{
+if(!gameOn||!curPiece)return;
+if(e.key==='ArrowLeft'&&!collide(board,curPiece,curX-1,curY))curX--;
+else if(e.key==='ArrowRight'&&!collide(board,curPiece,curX+1,curY))curX++;
+else if(e.key==='ArrowDown'){if(!collide(board,curPiece,curX,curY+1)){curY++;score++}}
+else if(e.key==='ArrowUp'){const r=rotate(curPiece.shape);if(!collide(board,{shape:r},curX,curY))curPiece.shape=r}
+else if(e.key===' '){while(!collide(board,curPiece,curX,curY+1)){curY++;score+=2}lock()}
+});
+</script>
+</body>
+</html>

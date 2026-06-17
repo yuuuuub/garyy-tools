@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Angular 游乐场</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3;
+  --accent: #3b82f6; --accent2: #58a6ff; --success: #3fb950; --warning: #d29922; --error: #f85149;
+  --bg2: #21262d; --text2: #8b949e; --text3: #6e7681; --pink: #f778ba;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+.header { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; background: linear-gradient(135deg, var(--error), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
+.header a { color: var(--text2); text-decoration: none; font-size: 13px; }
+.header a:hover { color: var(--accent); }
+.main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.sidebar { width: 280px; min-width: 280px; background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; flex-shrink: 0; }
+.content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--card); flex-shrink: 0; }
+.tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; transition: all 0.2s; }
+.tab:hover { color: var(--text); background: var(--bg2); }
+.tab.active { color: var(--error); border-bottom-color: var(--error); }
+.editor-toolbar { display: flex; gap: 8px; padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); align-items: center; }
+.btn { padding: 6px 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+textarea { flex: 1; width: 100%; background: var(--bg); color: var(--text); border: none; padding: 16px; font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 13px; line-height: 1.6; resize: none; outline: none; tab-size: 2; }
+.template-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.template-item:hover { border-color: var(--error); background: rgba(248,81,73,0.1); }
+.template-item.active { border-color: var(--error); background: rgba(248,81,73,0.15); }
+.template-item h4 { font-size: 13px; color: var(--text); margin-bottom: 3px; }
+.template-item p { font-size: 11px; color: var(--text3); }
+.ref-section { margin-bottom: 12px; }
+.ref-section h3 { font-size: 12px; color: var(--pink); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.ref-item { font-size: 12px; padding: 6px 8px; background: var(--bg); border-radius: 4px; margin-bottom: 4px; font-family: monospace; color: var(--text2); cursor: pointer; word-break: break-all; }
+.ref-item:hover { background: var(--bg2); color: var(--text); }
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; z-index: 999; pointer-events: none; }
+.toast.show { opacity: 1; }
+.hidden { display: none !important; }
+.panel { flex: 1; overflow-y: auto; padding: 16px; }
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; min-width: 0; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Angular 游乐场</h1>
+  <a href="../index.html">← 返回工具列表</a>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <h3 style="font-size:13px;margin-bottom:10px;color:var(--pink)">📋 代码模板</h3>
+    <div id="templateList"></div>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" data-tab="editor">编辑器</div>
+      <div class="tab" data-tab="ref">语法参考</div>
+    </div>
+    <div id="editorPanel">
+      <div class="editor-toolbar">
+        <select id="templateSelect" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;"></select>
+        <button class="btn primary" onclick="copyCode()">📋 复制代码</button>
+        <button class="btn" onclick="clearCode()">🗑️ 清空</button>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="在此输入 Angular 代码..."></textarea>
+    </div>
+    <div class="hidden" id="refPanel">
+      <div class="panel">
+        <div class="ref-section">
+          <h3>组件装饰器</h3>
+          <div class="ref-item" onclick="insertRef(this)">@Component({ selector, templateUrl, styleUrls })</div>
+          <div class="ref-item" onclick="insertRef(this)">@Directive({ selector })</div>
+          <div class="ref-item" onclick="insertRef(this)">@Pipe({ name, pure })</div>
+          <div class="ref-item" onclick="insertRef(this)">@Injectable({ providedIn: 'root' })</div>
+        </div>
+        <div class="ref-section">
+          <h3>模板语法</h3>
+          <div class="ref-item" onclick="insertRef(this)">{{ property }} — 插值</div>
+          <div class="ref-item" onclick="insertRef(this)">[property]="expression" — 属性绑定</div>
+          <div class="ref-item" onclick="insertRef(this)">(event)="handler()" — 事件绑定</div>
+          <div class="ref-item" onclick="insertRef(this)"][(ngModel)]="property" — 双向绑定</div>
+          <div class="ref-item" onclick="insertRef(this)">@if (condition) { ... } @else { ... }</div>
+          <div class="ref-item" onclick="insertRef(this)">@for (item of list; track item.id) { ... }</div>
+          <div class="ref-item" onclick="insertRef(this)">@switch (value) { @case (1) { ... } }</div>
+          <div class="ref-item" onclick="insertRef(this)"><ng-content></ng-content> — 内容投影</div>
+          <div class="ref-item" onclick="insertRef(this)"><ng-template #name>...</ng-template></div>
+        </div>
+        <div class="ref-section">
+          <h3>依赖注入</h3>
+          <div class="ref-item" onclick="insertRef(this)">constructor(private svc: Service) {}</div>
+          <div class="ref-item" onclick="insertRef(this)">inject(Service) — 函数式注入</div>
+          <div class="ref-item" onclick="insertRef(this)">@Input() / @Output() — 输入输出</div>
+          <div class="ref-item" onclick="insertRef(this)">@ViewChild('ref') — 获取子组件</div>
+          <div class="ref-item" onclick="insertRef(this)">@ViewChildren — 获取多个子组件</div>
+          <div class="ref-item" onclick="insertRef(this)">@ContentChild — 获取投影内容</div>
+        </div>
+        <div class="ref-section">
+          <h3>生命周期</h3>
+          <div class="ref-item" onclick="insertRef(this)">ngOnInit() — 初始化</div>
+          <div class="ref-item" onclick="insertRef(this)">ngOnChanges(changes) — 输入变化</div>
+          <div class="ref-item" onclick="insertRef(this)">ngAfterViewInit() — 视图就绪</div>
+          <div class="ref-item" onclick="insertRef(this)">ngOnDestroy() — 销毁清理</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const templates = [
+  { name: "Angular 组件", desc: "Component基本结构", code: `import { Component, OnInit } from '@angular/core';\n\n@Component({\n  selector: 'app-hello',\n  template: \`\n    <div class=\"container\">\n      <h1>{{ title }}</h1>\n      <p>欢迎, {{ name }}!</p>\n      \n      @if (isLoggedIn) {\n        <button (click)=\"logout()\">退出登录</button>\n      } @else {\n        <button (click)=\"login()\">登录</button>\n      }\n      \n      <ul>\n        @for (item of items; track item.id) {\n          <li>{{ item.name }}</li>\n        }\n      </ul>\n    </div>\n  \`,\n  styles: [\n    \`\n    .container { padding: 20px; }\n    button { margin: 5px; }\n    \`\n  ]\n})\nexport class HelloComponent implements OnInit {\n  title = 'Angular 项目';\n  name = '用户';\n  isLoggedIn = false;\n  items = [\n    { id: 1, name: '项目一' },\n    { id: 2, name: '项目二' }\n  ];\n\n  ngOnInit() {\n    console.log('组件初始化');\n  }\n\n  login() { this.isLoggedIn = true; }\n  logout() { this.isLoggedIn = false; }\n}` },
+  { name: "Service服务", desc: "依赖注入与HTTP", code: `import { Injectable, inject } from '@angular/core';\nimport { HttpClient } from '@angular/common/http';\nimport { Observable, BehaviorSubject } from 'rxjs';\nimport { map, catchError, tap } from 'rxjs/operators';\n\nexport interface User {\n  id: number;\n  name: string;\n  email: string;\n}\n\n@Injectable({ providedIn: 'root' })\nexport class UserService {\n  private http = inject(HttpClient);\n  private apiUrl = '/api/users';\n  \n  private usersSubject = new BehaviorSubject<User[]>([]);\n  users$ = this.usersSubject.asObservable();\n\n  getUsers(): Observable<User[]> {\n    return this.http.get<User[]>(this.apiUrl).pipe(\n      tap(users => this.usersSubject.next(users)),\n      catchError(this.handleError)\n    );\n  }\n\n  getUser(id: number): Observable<User> {\n    return this.http.get<User>(\`\${this.apiUrl}/\${id}\`);\n  }\n\n  createUser(user: Partial<User>): Observable<User> {\n    return this.http.post<User>(this.apiUrl, user);\n  }\n\n  updateUser(id: number, user: Partial<User>): Observable<User> {\n    return this.http.put<User>(\`\${this.apiUrl}/\${id}\`, user);\n  }\n\n  deleteUser(id: number): Observable<void> {\n    return this.http.delete<void>(\`\${this.apiUrl}/\${id}\`);\n  }\n\n  private handleError(error: any) {\n    console.error('API错误:', error);\n    throw error;\n  }\n}\n\n// 在组件中使用\n// constructor(private userService: UserService) {}\n// this.userService.getUsers().subscribe(users => this.users = users);` },
+  { name: "路由配置", desc: "Routes与导航", code: `// app.routes.ts\nimport { Routes } from '@angular/router';\n\nexport const routes: Routes = [\n  {\n    path: '',\n    redirectTo: 'home',\n    pathMatch: 'full'\n  },\n  {\n    path: 'home',\n    loadComponent: () => import('./home/home.component')\n      .then(m => m.HomeComponent)\n  },\n  {\n    path: 'users',\n    loadComponent: () => import('./users/users.component')\n      .then(m => m.UsersComponent),\n    children: [\n      {\n        path: ':id',\n        loadComponent: () => import('./users/user-detail.component')\n          .then(m => m.UserDetailComponent)\n      }\n    ]\n  },\n  {\n    path: '**',\n    loadComponent: () => import('./not-found.component')\n      .then(m => m.NotFoundComponent)\n  }\n];\n\n// app.component.ts\n@Component({\n  template: \`\n    <nav>\n      <a routerLink=\"/home\" routerLinkActive=\"active\">首页</a>\n      <a routerLink=\"/users\" routerLinkActive=\"active\">用户</a>\n    </nav>\n    <router-outlet></router-outlet>\n  \`\n})\nexport class AppComponent {}\n\n// 组件内导航\nconstructor(private router: Router, private route: ActivatedRoute) {}\n\nnavigateTo(id: number) {\n  this.router.navigate(['/users', id]);\n}\n\n// 获取路由参数\nthis.route.params.subscribe(params => {\n  this.userId = params['id'];\n});` },
+  { name: "响应式表单", desc: "FormBuilder验证", code: `import { Component, inject } from '@angular/core';\nimport { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';\n\n@Component({\n  selector: 'app-register',\n  standalone: true,\n  imports: [ReactiveFormsModule],\n  template: \`\n    <form [formGroup]=\"registerForm\" (ngSubmit)=\"onSubmit()\">\n      <div>\n        <label>用户名</label>\n        <input formControlName=\"username\" />\n        @if (registerForm.get('username')?.invalid && registerForm.get('username')?.touched) {\n          <span class=\"error\">用户名至少3个字符</span>\n        }\n      </div>\n      <div>\n        <label>邮箱</label>\n        <input formControlName=\"email\" type=\"email\" />\n        @if (registerForm.get('email')?.errors?.['required']) {\n          <span class=\"error\">邮箱必填</span>\n        }\n      </div>\n      <div>\n        <label>密码</label>\n        <input formControlName=\"password\" type=\"password\" />\n      </div>\n      <div formGroupName=\"address\">\n        <input formControlName=\"city\" placeholder=\"城市\" />\n        <input formControlName=\"street\" placeholder=\"街道\" />\n      </div>\n      <button type=\"submit\" [disabled]=\"registerForm.invalid\">注册</button>\n    </form>\n  \`\n})\nexport class RegisterComponent {\n  private fb = inject(FormBuilder);\n\n  registerForm = this.fb.group({\n    username: ['', [Validators.required, Validators.minLength(3)]],\n    email: ['', [Validators.required, Validators.email]],\n    password: ['', [Validators.required, Validators.minLength(6)]],\n    address: this.fb.group({\n      city: [''],\n      street: ['']\n    })\n  });\n\n  onSubmit() {\n    if (this.registerForm.valid) {\n      console.log(this.registerForm.value);\n    }\n  }\n}` },
+  { name: "Pipe管道", desc: "自定义管道", code: `import { Pipe, PipeTransform } from '@angular/core';\n\n@Pipe({\n  name: 'truncate',\n  pure: true\n})\nexport class TruncatePipe implements PipeTransform {\n  transform(value: string, limit: number = 50, trail: string = '...'): string {\n    if (!value) return '';\n    return value.length > limit ? value.substring(0, limit) + trail : value;\n  }\n}\n\n@Pipe({ name: 'filterBy' })\nexport class FilterByPipe implements PipeTransform {\n  transform(items: any[], field: string, value: any): any[] {\n    if (!items || !field) return items;\n    return items.filter(item => item[field] === value);\n  }\n}\n\n// 使用\n// {{ longText | truncate:100 }}\n// {{ users | filterBy:'role':'admin' }}` },
+  { name: "Guard路由守卫", desc: "CanActivate等", code: `import { inject } from '@angular/core';\nimport { CanActivateFn, Router } from '@angular/router';\nimport { AuthService } from './auth.service';\n\nexport const authGuard: CanActivateFn = (route, state) => {\n  const authService = inject(AuthService);\n  const router = inject(Router);\n\n  if (authService.isAuthenticated()) {\n    return true;\n  }\n\n  router.navigate(['/login'], {\n    queryParams: { returnUrl: state.url }\n  });\n  return false;\n};\n\nexport const adminGuard: CanActivateFn = () => {\n  const authService = inject(AuthService);\n  return authService.isAdmin();\n};\n\n// 使用\nconst routes: Routes = [\n  {\n    path: 'dashboard',\n    canActivate: [authGuard],\n    loadComponent: () => import('./dashboard.component')\n  },\n  {\n    path: 'admin',\n    canActivate: [authGuard, adminGuard],\n    loadComponent: () => import('./admin.component')\n  }\n];` }
+];
+
+const editor = document.getElementById('editor');
+const templateSelect = document.getElementById('templateSelect');
+const templateList = document.getElementById('templateList');
+
+templates.forEach((t, i) => {
+  templateSelect.innerHTML += `<option value="${i}">${t.name}</option>`;
+  templateList.innerHTML += `<div class="template-item" onclick="loadTemplate(${i})" data-idx="${i}"><h4>${t.name}</h4><p>${t.desc}</p></div>`;
+});
+
+function loadTemplate(idx) {
+  editor.value = templates[idx].code;
+  document.querySelectorAll('.template-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const isRef = tab.dataset.tab === 'ref';
+    document.getElementById('editorPanel').classList.toggle('hidden', isRef);
+    document.getElementById('refPanel').classList.toggle('hidden', !isRef);
+  });
+});
+
+function copyCode() { navigator.clipboard.writeText(editor.value).then(() => showToast('已复制到剪贴板')); }
+function clearCode() { editor.value = ''; }
+function insertRef(el) {
+  const text = el.textContent.split(' — ')[0];
+  editor.value += '\n' + text;
+  document.querySelectorAll('.tab')[0].click();
+  showToast('已插入代码片段');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+loadTemplate(0);
+</script>
+</body>
+</html>

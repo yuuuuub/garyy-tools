@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>点击解谜</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .stats {
+            display: flex;
+            gap: 25px;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+        .stats span { color: var(--accent); font-weight: bold; }
+        #gameCanvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            max-width: 100%;
+            cursor: pointer;
+        }
+        .info { margin-top: 10px; color: #8b949e; text-align: center; max-width: 600px; }
+        #message {
+            margin-top: 15px;
+            padding: 15px 25px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            min-height: 60px;
+            max-width: 600px;
+            text-align: center;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        .inventory {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .inv-item {
+            padding: 8px 16px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .inv-item:hover { border-color: var(--accent); }
+        .inv-item.selected { border-color: var(--accent); background: rgba(59,130,246,0.2); }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .overlay.show { display: flex; }
+        .overlay h2 { color: #22c55e; font-size: 2rem; margin-bottom: 15px; }
+        .overlay button {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 密室逃脱</h1>
+    <div class="stats">
+        线索：<span id="clues">0</span>/5
+        尝试：<span id="tries">0</span>
+    </div>
+    <canvas id="gameCanvas" width="700" height="450"></canvas>
+    <div class="info">点击场景中的物品寻找线索，收集5条线索解开谜题逃出房间</div>
+    <div id="message">你被困在一个神秘的房间里...仔细观察四周，寻找逃脱的方法。</div>
+    <div class="inventory" id="inventory"></div>
+    <div class="overlay" id="winOverlay">
+        <h2>🎉 逃脱成功！</h2>
+        <p>你成功破解了所有谜题，逃出了密室！</p>
+        <button onclick="initGame()">再玩一次</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 700, H = 450;
+
+        let inventory = [], clues = 0, tries = 0, selectedItem = null;
+        let messageEl = document.getElementById('message');
+
+        const items = [
+            {id:'bookshelf', x:30, y:50, w:120, h:200, name:'书架', color:'#8b4513',
+             msg:'书架上有一本奇怪的日记...你发现了一个数字线索：3',
+             clue:true, clueId:'diary'},
+            {id:'painting', x:200, y:30, w:150, h:120, name:'画框', color:'#4a3728',
+             msg:'画框后面藏着一张纸条：密码的第二位是7',
+             clue:true, clueId:'paper'},
+            {id:'clock', x:420, y:40, w:80, h:80, name:'时钟', color:'#2d3748',
+             msg:'时钟停在了9:15...这可能是线索？时针指向3',
+             clue:true, clueId:'clock'},
+            {id:'desk', x:450, y:250, w:180, h:120, name:'书桌', color:'#5d4037',
+             msg:'抽屉里有一封信："最终密码是4位数"',
+             clue:true, clueId:'letter'},
+            {id:'carpet', x:200, y:320, w:200, h:100, name:'地毯', color:'#6b4423',
+             msg:'掀开地毯，地板上刻着：密码第三位是1',
+             clue:true, clueId:'floor'},
+            {id:'vase', x:620, y:200, w:50, h:80, name:'花瓶', color:'#2e7d32',
+             msg:'花瓶里有一把钥匙！但似乎不是大门的钥匙...'},
+            {id:'door', x:0, y:100, w:60, h:250, name:'门', color:'#3e2723',
+             msg:'门上有一个密码锁，需要输入4位密码...', useClues:true},
+            {id:'window', x:250, y:50, w:100, h:80, name:'窗户', color:'#1565c0',
+             msg:'窗户被铁栏封住了，从这里出不去。'},
+            {id:'lamp', x:600, y:80, w:40, h:120, name:'台灯', color:'#f9a825',
+             msg:'台灯下面压着一张照片，背面写着："开始的数字是2"'},
+            {id:'safe', x:550, y:350, w:60, h:60, name:'保险箱', color:'#546e7a',
+             msg:'保险箱需要密码才能打开...'}
+        ];
+
+        const password = '2371';
+
+        function initGame() {
+            document.getElementById('winOverlay').classList.remove('show');
+            inventory = [];
+            clues = 0;
+            tries = 0;
+            selectedItem = null;
+            messageEl.textContent = '你被困在一个神秘的房间里...仔细观察四周，寻找逃脱的方法。';
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('clues').textContent = clues;
+            document.getElementById('tries').textContent = tries;
+            const invEl = document.getElementById('inventory');
+            invEl.innerHTML = inventory.map(item =>
+                `<div class="inv-item ${selectedItem===item.id?'selected':''}" onclick="selectItem('${item.id}')">${item.name}</div>`
+            ).join('');
+        }
+
+        function selectItem(id) {
+            selectedItem = selectedItem === id ? null : id;
+            updateUI();
+        }
+
+        function showMessage(msg) {
+            messageEl.textContent = msg;
+        }
+
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * (W / rect.width);
+            const my = (e.clientY - rect.top) * (H / rect.height);
+
+            for (const item of items) {
+                if (mx >= item.x && mx <= item.x + item.w && my >= item.y && my <= item.y + item.h) {
+                    tries++;
+
+                    if (item.id === 'door' && item.useClues) {
+                        if (clues >= 5) {
+                            showMessage('你输入了密码：' + password + '...门锁打开了！你成功逃脱了！');
+                            setTimeout(() => {
+                                document.getElementById('winOverlay').classList.add('show');
+                            }, 1000);
+                        } else {
+                            showMessage(`门上有一个密码锁...你需要收集更多线索（当前${clues}/5）`);
+                        }
+                        updateUI();
+                        return;
+                    }
+
+                    showMessage(item.msg);
+
+                    if (item.clue && !inventory.find(i => i.id === item.id)) {
+                        inventory.push({id: item.id, name: item.name, clueId: item.clueId});
+                        clues++;
+                        updateUI();
+                    }
+                    return;
+                }
+            }
+        });
+
+        function draw() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = '#2d2d44';
+            ctx.fillRect(0, 0, W, 30);
+            ctx.fillRect(0, H-20, W, 20);
+
+            items.forEach(item => {
+                ctx.fillStyle = item.color;
+                if (item.id === 'door') {
+                    ctx.fillRect(item.x, item.y, item.w, item.h);
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.fillRect(item.x+5, item.y+5, item.w-10, item.h-10);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.arc(item.x+item.w-15, item.y+item.h/2, 5, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (item.id === 'bookshelf') {
+                    ctx.fillRect(item.x, item.y, item.w, item.h);
+                    for (let i = 0; i < 4; i++) {
+                        ctx.fillStyle = ['#c62828','#1565c0','#2e7d32','#f57f17'][i];
+                        ctx.fillRect(item.x+10, item.y+10+i*48, item.w-20, 40);
+                    }
+                } else if (item.id === 'painting') {
+                    ctx.fillRect(item.x, item.y, item.w, item.h);
+                    ctx.fillStyle = '#87ceeb';
+                    ctx.fillRect(item.x+10, item.y+10, item.w-20, item.h-20);
+                    ctx.fillStyle = '#228b22';
+                    ctx.fillRect(item.x+20, item.y+item.h-40, item.w-40, 30);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.arc(item.x+item.w/2, item.y+30, 15, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (item.id === 'clock') {
+                    ctx.fillStyle = item.color;
+                    ctx.beginPath();
+                    ctx.arc(item.x+40, item.y+40, 35, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(item.x+40, item.y+40, 30, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(item.x+40, item.y+40);
+                    ctx.lineTo(item.x+40, item.y+20);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(item.x+40, item.y+40);
+                    ctx.lineTo(item.x+55, item.y+40);
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                } else if (item.id === 'window') {
+                    ctx.fillStyle = '#87ceeb';
+                    ctx.fillRect(item.x, item.y, item.w, item.h);
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(item.x, item.y, item.w, item.h);
+                    ctx.beginPath();
+                    ctx.moveTo(item.x+item.w/2, item.y);
+                    ctx.lineTo(item.x+item.w/2, item.y+item.h);
+                    ctx.moveTo(item.x, item.y+item.h/2);
+                    ctx.lineTo(item.x+item.w, item.y+item.h/2);
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                } else if (item.id === 'lamp') {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.moveTo(item.x+20, item.y);
+                    ctx.lineTo(item.x, item.y+40);
+                    ctx.lineTo(item.x+40, item.y+40);
+                    ctx.fill();
+                    ctx.fillStyle = '#666';
+                    ctx.fillRect(item.x+15, item.y+40, 10, 80);
+                    ctx.fillStyle = '#fff';
+                    ctx.globalAlpha = 0.3;
+                    ctx.beginPath();
+                    ctx.arc(item.x+20, item.y+20, 50, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                } else if (item.id === 'vase') {
+                    ctx.fillStyle = item.color;
+                    ctx.beginPath();
+                    ctx.ellipse(item.x+25, item.y+60, 20, 20, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillRect(item.x+15, item.y+20, 20, 40);
+                    ctx.fillStyle = '#e91e63';
+                    ctx.beginPath();
+                    ctx.arc(item.x+25, item.y+15, 8, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (item.id === 'safe') {
+                    ctx.fillStyle = item.color;
+                    ctx.fillRect(item.x, item.y, item.w, item.h);
+                    ctx.fillStyle = '#333';
+                    ctx.beginPath();
+                    ctx.arc(item.x+30, item.y+30, 15, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#666';
+                    ctx.beginPath();
+                    ctx.arc(item.x+30, item.y+30, 8, 0, Math.PI*2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(item.x, item.y, item.w, item.h);
+                }
+            });
+
+            ctx.fillStyle = '#ef4444';
+            ctx.font = '14px sans-serif';
+            ctx.fillText('EXIT', 5, 95);
+        }
+
+        function gameLoop() {
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>

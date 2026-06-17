@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文SQL编辑器</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar button{background:var(--border);color:var(--text);border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:background .2s}
+.toolbar button:hover{background:var(--accent)}
+.toolbar button.success{background:var(--success)}
+.toolbar .spacer{flex:1}
+.editor-container{flex:1;display:flex;position:relative}
+#editor{width:100%;height:calc(100vh - 130px);background:var(--bg);color:var(--text);border:none;padding:16px;font-size:14px;line-height:1.6;font-family:"SF Mono",Monaco,Consolas,monospace;resize:none;outline:none;tab-size:2;white-space:pre}
+.templates{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:none;gap:8px;flex-wrap:wrap}
+.templates.show{display:flex}
+.templates button{background:var(--bg);color:var(--accent2);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:all .2s}
+.templates button:hover{border-color:var(--accent);background:rgba(59,130,246,0.1)}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--success);color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
+.toast.show{opacity:1}
+.highlight-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;font-size:14px;line-height:1.6;font-family:"SF Mono",Monaco,Consolas,monospace;padding:16px;white-space:pre;overflow:auto;color:transparent}
+.kw{color:var(--accent)}
+.fn{color:var(--warning)}
+.str{color:var(--success)}
+.num{color:#f0883e}
+.cmt{color:#8b949e;font-style:italic}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html">← 返回</a>
+  <h1>中文SQL编辑器</h1>
+</nav>
+<div class="toolbar">
+  <button onclick="formatSQL()" title="格式化SQL">🔧 格式化</button>
+  <button onclick="copyCode()">📋 复制代码</button>
+  <button onclick="toggleTemplates()">📄 SQL模板</button>
+  <button onclick="clearEditor()" class="danger">🗑 清空</button>
+  <span class="spacer"></span>
+  <span style="font-size:13px;color:#8b949e" id="stats">字数: 0 | 行数: 1</span>
+</div>
+<div class="templates" id="templates">
+  <button onclick="insertTemplate('select')">SELECT 查询</button>
+  <button onclick="insertTemplate('insert')">INSERT 插入</button>
+  <button onclick="insertTemplate('update')">UPDATE 更新</button>
+  <button onclick="insertTemplate('delete')">DELETE 删除</button>
+  <button onclick="insertTemplate('create')">CREATE TABLE</button>
+  <button onclick="insertTemplate('join')">JOIN 联表</button>
+  <button onclick="insertTemplate('group')">GROUP BY 分组</button>
+  <button onclick="insertTemplate('index')">CREATE INDEX</button>
+</div>
+<div class="editor-container">
+  <textarea id="editor" spellcheck="false" placeholder="在这里输入SQL代码..."></textarea>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const editor = document.getElementById('editor');
+const stats = document.getElementById('stats');
+const templates = document.getElementById('templates');
+
+const sqlTemplates = {
+  select: `-- SELECT 查询
+SELECT
+    id,
+    name,
+    email,
+    created_at
+FROM users
+WHERE status = 'active'
+ORDER BY created_at DESC
+LIMIT 10;`,
+
+  insert: `-- INSERT 插入
+INSERT INTO users (name, email, password, created_at)
+VALUES
+    ('张三', 'zhangsan@example.com', 'hashed_pwd', NOW()),
+    ('李四', 'lisi@example.com', 'hashed_pwd', NOW());`,
+
+  update: `-- UPDATE 更新
+UPDATE users
+SET
+    name = '新名字',
+    updated_at = NOW()
+WHERE id = 1
+  AND status = 'active';`,
+
+  delete: `-- DELETE 删除
+DELETE FROM users
+WHERE id = 1
+  AND created_at < '2024-01-01';`,
+
+  create: `-- CREATE TABLE 建表
+CREATE TABLE users (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name        VARCHAR(100) NOT NULL,
+    email       VARCHAR(255) UNIQUE NOT NULL,
+    password    VARCHAR(255) NOT NULL,
+    status      ENUM('active', 'inactive', 'banned') DEFAULT 'active',
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+  join: `-- JOIN 联表查询
+SELECT
+    u.id,
+    u.name,
+    o.id AS order_id,
+    o.total_amount,
+    o.created_at AS order_date
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+WHERE o.status = 'paid'
+ORDER BY o.created_at DESC;`,
+
+  group: `-- GROUP BY 分组统计
+SELECT
+    category,
+    COUNT(*) AS product_count,
+    AVG(price) AS avg_price,
+    SUM(stock) AS total_stock
+FROM products
+WHERE status = 'active'
+GROUP BY category
+HAVING COUNT(*) > 5
+ORDER BY total_stock DESC;`,
+
+  index: `-- CREATE INDEX 创建索引
+CREATE INDEX idx_users_email_status
+ON users (email, status);
+
+-- 创建唯一索引
+CREATE UNIQUE INDEX idx_users_phone
+ON users (phone);`
+};
+
+function updateStats() {
+  const text = editor.value;
+  stats.textContent = `字数: ${text.length} | 行数: ${text ? text.split('\n').length : 1}`;
+}
+
+editor.addEventListener('input', updateStats);
+
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, s) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = s + 2;
+    updateStats();
+  }
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    formatSQL();
+  }
+});
+
+function formatSQL() {
+  let sql = editor.value.trim();
+  if (!sql) return;
+
+  const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY', 'HAVING',
+    'LIMIT', 'OFFSET', 'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM',
+    'CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'INNER JOIN', 'LEFT JOIN',
+    'RIGHT JOIN', 'FULL JOIN', 'ON', 'AS', 'IN', 'NOT', 'NULL', 'IS',
+    'BETWEEN', 'LIKE', 'EXISTS', 'UNION', 'DISTINCT', 'COUNT', 'SUM', 'AVG',
+    'MAX', 'MIN', 'ASC', 'DESC', 'PRIMARY KEY', 'FOREIGN KEY', 'REFERENCES',
+    'CONSTRAINT', 'DEFAULT', 'NOT NULL', 'UNIQUE', 'INDEX', 'ENGINE'];
+
+  // 大写化关键字
+  let formatted = sql;
+  keywords.forEach(kw => {
+    const regex = new RegExp('\\b' + kw.replace(/ /g, '\\s+') + '\\b', 'gi');
+    formatted = formatted.replace(regex, kw);
+  });
+
+  // 换行格式化
+  const majorKeywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'GROUP BY',
+    'HAVING', 'LIMIT', 'VALUES', 'SET', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN',
+    'FULL JOIN', 'ON', 'UNION'];
+
+  majorKeywords.forEach(kw => {
+    const regex = new RegExp('\\s+' + kw.replace(/ /g, '\\s+') + '\\b', 'gi');
+    formatted = formatted.replace(regex, '\n' + kw);
+  });
+
+  editor.value = formatted.trim();
+  updateStats();
+  showToast('SQL 已格式化');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(editor.value).then(() => showToast('已复制SQL代码'));
+}
+
+function toggleTemplates() {
+  templates.classList.toggle('show');
+}
+
+function insertTemplate(type) {
+  editor.value = sqlTemplates[type] || '';
+  updateStats();
+  templates.classList.remove('show');
+  showToast('已插入模板');
+}
+
+function clearEditor() {
+  if (!editor.value.trim() || confirm('确定要清空所有内容吗？')) {
+    editor.value = '';
+    updateStats();
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// 加载默认示例
+editor.value = sqlTemplates.select;
+updateStats();
+</script>
+</body>
+</html>

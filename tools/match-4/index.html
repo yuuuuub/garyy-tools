@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四消游戏</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ui{display:flex;gap:16px;margin-bottom:12px;font-size:14px}
+.ui span{background:var(--card);padding:6px 14px;border-radius:6px;border:1px solid var(--border)}
+.board{display:grid;grid-template-columns:repeat(8,52px);gap:3px;background:var(--border);padding:3px;border-radius:8px}
+.cell{width:52px;height:52px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;transition:all .2s;user-select:none}
+.cell:hover{transform:scale(1.08)}
+.cell.selected{outline:3px solid #fff;transform:scale(1.12)}
+.cell.removing{animation:remove .35s forwards}
+@keyframes remove{0%{transform:scale(1);opacity:1}100%{transform:scale(0);opacity:0}}
+.c0{background:linear-gradient(135deg,#f85149,#b62324)}
+.c1{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+.c2{background:linear-gradient(135deg,#2ea043,#15803d)}
+.c3{background:linear-gradient(135deg,#f0c000,#a16207)}
+.c4{background:linear-gradient(135deg,#a371f7,#7c3aed)}
+.c5{background:linear-gradient(135deg,#f0883e,#c2410c)}
+.score-popup{position:fixed;font-size:24px;font-weight:bold;color:#f0c000;pointer-events:none;animation:popUp .8s forwards;z-index:100}
+@keyframes popUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-50px) scale(1.5)}}
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:8px">四消游戏</h2>
+<div class="ui">
+<span id="scoreText">分数: 0</span>
+<span id="movesText">步数: 30</span>
+<span id="comboText">最高连击: 0</span>
+</div>
+<div class="board" id="board"></div>
+<p style="margin-top:10px;font-size:13px;color:#8b949e">匹配4个或更多同色宝石消除，下落式玩法</p>
+<script>
+const R=8,C=8,TYPES=6;
+const GEM=['🔴','🔵','🟢','🟡','🟣','🟠'];
+let grid,selected,score,moves,maxCombo,combo,animating=false;
+
+function init(){
+  grid=[];score=0;moves=30;maxCombo=0;combo=0;selected=null;
+  for(let r=0;r<R;r++){
+    grid[r]=[];
+    for(let c=0;c<C;c++){
+      let t;
+      do{t=Math.floor(Math.random()*TYPES)}while(
+        (c>=3&&grid[r][c-1]===t&&grid[r][c-2]===t&&grid[r][c-3]===t)||
+        (r>=3&&grid[r-1][c]===t&&grid[r-2][c]===t&&grid[r-3][c]===t)
+      );
+      grid[r][c]=t;
+    }
+  }
+  render();
+}
+
+function render(){
+  const b=document.getElementById('board');b.innerHTML='';
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      const d=document.createElement('div');
+      d.className='cell c'+grid[r][c];
+      if(selected&&selected.r===r&&selected.c===c)d.classList.add('selected');
+      d.textContent=GEM[grid[r][c]];
+      d.onclick=()=>click(r,c);
+      b.appendChild(d);
+    }
+  }
+  document.getElementById('scoreText').textContent='分数: '+score;
+  document.getElementById('movesText').textContent='步数: '+moves;
+  document.getElementById('comboText').textContent='最高连击: '+maxCombo;
+}
+
+function click(r,c){
+  if(animating||moves<=0)return;
+  if(!selected){selected={r,c};render();return}
+  const dr=Math.abs(selected.r-r),dc=Math.abs(selected.c-c);
+  if((dr===1&&dc===0)||(dr===0&&dc===1)){
+    swap(selected.r,selected.c,r,c);
+    if(findMatches().length===0){swap(selected.r,selected.c,r,c);selected=null;render();return}
+    moves--;selected=null;animating=true;combo=0;
+    process();
+  }else{selected={r,c};render()}
+}
+
+function swap(r1,c1,r2,c2){const t=grid[r1][c1];grid[r1][c1]=grid[r2][c2];grid[r2][c2]=t}
+
+function findMatches(){
+  const m=new Set();
+  // horizontal 4+
+  for(let r=0;r<R;r++){
+    for(let c=0;c<=C-4;c++){
+      const t=grid[r][c];if(t<0)continue;
+      let len=1;while(c+len<C&&grid[r][c+len]===t)len++;
+      if(len>=4){for(let i=0;i<len;i++)m.add(r*C+c+i)}
+      c+=len-1;
+    }
+  }
+  // vertical 4+
+  for(let c=0;c<C;c++){
+    for(let r=0;r<=R-4;r++){
+      const t=grid[r][c];if(t<0)continue;
+      let len=1;while(r+len<R&&grid[r+len][c]===t)len++;
+      if(len>=4){for(let i=0;i<len;i++)m.add((r+i)*C+c)}
+      r+=len-1;
+    }
+  }
+  return[...m].map(i=>({r:Math.floor(i/C),c:i%C}));
+}
+
+function process(){
+  const matches=findMatches();
+  if(matches.length===0){
+    if(moves<=0)setLog('游戏结束！最终分数: '+score);
+    animating=false;render();return;
+  }
+  combo++;
+  if(combo>maxCombo)maxCombo=combo;
+  const pts=matches.length*15*combo;
+  score+=pts;
+  showPopup(matches.length,pts);
+  for(const m of matches)grid[m.r][m.c]=-1;
+  render();
+  setTimeout(()=>{drop();fill();render();setTimeout(()=>process(),200)},300);
+}
+
+function drop(){
+  for(let c=0;c<C;c++){
+    let e=R-1;
+    for(let r=R-1;r>=0;r--){
+      if(grid[r][c]!==-1){grid[e][c]=grid[r][c];if(e!==r)grid[r][c]=-1;e--}
+    }
+    for(let r=e;r>=0;r--)grid[r][c]=-1;
+  }
+}
+
+function fill(){
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      if(grid[r][c]===-1){
+        let t;
+        do{t=Math.floor(Math.random()*TYPES)}while(
+          (c>=3&&grid[r][c-1]===t&&grid[r][c-2]===t&&grid[r][c-3]===t)
+        );
+        grid[r][c]=t;
+      }
+    }
+  }
+}
+
+function showPopup(count,pts){
+  const el=document.createElement('div');
+  el.className='score-popup';
+  el.textContent='+'+pts+' ('+count+'消)';
+  el.style.left='50%';el.style.top='45%';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),800);
+}
+
+function setLog(t){document.querySelector('p').textContent=t}
+
+init();
+</script>
+</body>
+</html>

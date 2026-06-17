@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烹饪模拟 - 美味厨房</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #f97316;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-container {
+            max-width: 700px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .game-header {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            padding: 15px 20px;
+            text-align: center;
+        }
+        
+        .game-header h1 {
+            font-size: 1.4rem;
+        }
+        
+        .kitchen-area {
+            height: 250px;
+            background: linear-gradient(180deg, #78350f, #451a03);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .pot {
+            width: 180px;
+            height: 120px;
+            background: linear-gradient(180deg, #525252, #262626);
+            border-radius: 0 0 50% 50%;
+            position: relative;
+        }
+        
+        .pot-rim {
+            position: absolute;
+            top: -10px;
+            left: -15px;
+            right: -15px;
+            height: 20px;
+            background: linear-gradient(180deg, #737373, #525252);
+            border-radius: 10px;
+        }
+        
+        .pot-handle {
+            position: absolute;
+            top: -5px;
+            width: 40px;
+            height: 15px;
+            background: #525252;
+            border-radius: 5px;
+        }
+        
+        .handle-left { left: -50px; }
+        .handle-right { right: -50px; }
+        
+        .pot-contents {
+            position: absolute;
+            top: 20px;
+            left: 15px;
+            right: 15px;
+            bottom: 15px;
+            border-radius: 0 0 40% 40%;
+            overflow: hidden;
+            transition: background 0.5s;
+        }
+        
+        .bubble {
+            position: absolute;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            animation: bubble 1s infinite;
+        }
+        
+        @keyframes bubble {
+            0% { transform: translateY(0) scale(1); opacity: 0.6; }
+            100% { transform: translateY(-30px) scale(0.5); opacity: 0; }
+        }
+        
+        .fire {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+        }
+        
+        .flame {
+            width: 20px;
+            height: 30px;
+            background: linear-gradient(180deg, #fbbf24, #ef4444);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            animation: flicker 0.3s infinite alternate;
+        }
+        
+        .flame.off {
+            background: #374151;
+            animation: none;
+        }
+        
+        @keyframes flicker {
+            0% { transform: scaleY(1) rotate(-3deg); }
+            100% { transform: scaleY(1.1) rotate(3deg); }
+        }
+        
+        .steam {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        
+        .steam-particle {
+            width: 10px;
+            height: 10px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            animation: steam 1.5s infinite;
+        }
+        
+        @keyframes steam {
+            0% { transform: translateY(0) scale(1); opacity: 0.5; }
+            100% { transform: translateY(-40px) scale(2); opacity: 0; }
+        }
+        
+        .control-area {
+            padding: 20px;
+        }
+        
+        .recipe-name {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--accent);
+        }
+        
+        .step-info {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .step-number {
+            color: var(--accent);
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .step-text {
+            line-height: 1.6;
+        }
+        
+        .ingredients-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .ingredient-btn {
+            padding: 12px 8px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .ingredient-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            transform: scale(1.05);
+        }
+        
+        .ingredient-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .ingredient-btn.used {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .ingredient-icon {
+            font-size: 1.5rem;
+        }
+        
+        .ingredient-name {
+            font-size: 0.75rem;
+            margin-top: 5px;
+        }
+        
+        .heat-control {
+            margin-bottom: 15px;
+        }
+        
+        .heat-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .heat-slider {
+            width: 100%;
+            height: 10px;
+            -webkit-appearance: none;
+            background: linear-gradient(90deg, #3b82f6, #f97316, #ef4444);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .heat-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .action-btn:hover {
+            transform: scale(1.02);
+        }
+        
+        .cook-btn {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .done-btn {
+            background: #f97316;
+            color: white;
+        }
+        
+        .reset-btn {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .score-area {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .score-high {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+        
+        .score-mid {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .score-low {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .score-text {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        
+        .score-detail {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .new-recipe-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .recipe-select {
+            padding: 30px;
+        }
+        
+        .recipe-select h3 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .recipe-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .recipe-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+        }
+        
+        .recipe-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        .recipe-title {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        
+        .recipe-diff {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        
+        .hidden { display: none !important; }
+        
+        @media (max-width: 500px) {
+            .ingredients-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>美味厨房</h1>
+        </div>
+        
+        <div class="kitchen-area">
+            <div class="pot">
+                <div class="pot-rim"></div>
+                <div class="pot-handle handle-left"></div>
+                <div class="pot-handle handle-right"></div>
+                <div class="pot-contents" id="pot-contents"></div>
+                <div class="steam" id="steam"></div>
+            </div>
+            <div class="fire" id="fire">
+                <div class="flame off"></div>
+                <div class="flame off"></div>
+                <div class="flame off"></div>
+                <div class="flame off"></div>
+            </div>
+        </div>
+        
+        <div class="control-area" id="control-area">
+            <div class="recipe-name" id="recipe-name"></div>
+            <div class="step-info">
+                <div class="step-number" id="step-number">步骤 1/4</div>
+                <div class="step-text" id="step-text"></div>
+            </div>
+            <div class="ingredients-grid" id="ingredients-grid"></div>
+            <div class="heat-control">
+                <div class="heat-label">
+                    <span>🔥 火候控制</span>
+                    <span id="heat-value">中火</span>
+                </div>
+                <input type="range" class="heat-slider" id="heat-slider" min="1" max="3" value="2">
+            </div>
+            <div class="action-buttons">
+                <button class="action-btn cook-btn" onclick="addIngredient()">添加食材</button>
+                <button class="action-btn done-btn" onclick="completeStep()">完成步骤</button>
+            </div>
+        </div>
+        
+        <div class="recipe-select" id="recipe-select">
+            <h3>选择要做的菜</h3>
+            <div class="recipe-grid" id="recipe-grid"></div>
+        </div>
+        
+        <div class="score-area hidden" id="score-area"></div>
+    </div>
+
+    <script>
+        const recipes = [
+            {
+                name: '番茄炒蛋',
+                icon: '🍳',
+                difficulty: '简单',
+                steps: [
+                    { text: '将鸡蛋打散，加少许盐搅拌均匀', ingredient: 'egg', heat: 2 },
+                    { text: '番茄切块备用', ingredient: 'tomato', heat: 0 },
+                    { text: '热锅下油，倒入蛋液炒至凝固', ingredient: 'oil', heat: 3 },
+                    { text: '加入番茄翻炒，调味出锅', ingredient: 'salt', heat: 2 }
+                ],
+                ingredients: [
+                    { id: 'egg', name: '鸡蛋', icon: '🥚' },
+                    { id: 'tomato', name: '番茄', icon: '🍅' },
+                    { id: 'oil', name: '食用油', icon: '🫒' },
+                    { id: 'salt', name: '盐', icon: '🧂' }
+                ]
+            },
+            {
+                name: '红烧肉',
+                icon: '🥩',
+                difficulty: '中等',
+                steps: [
+                    { text: '五花肉切块，冷水下锅焯水', ingredient: 'pork', heat: 3 },
+                    { text: '锅中放糖，小火炒出糖色', ingredient: 'sugar', heat: 1 },
+                    { text: '加入肉块翻炒上色', ingredient: 'pork', heat: 2 },
+                    { text: '加水、酱油、料酒，大火烧开转小火炖', ingredient: 'soy', heat: 1 }
+                ],
+                ingredients: [
+                    { id: 'pork', name: '五花肉', icon: '🥩' },
+                    { id: 'sugar', name: '冰糖', icon: '🍬' },
+                    { id: 'soy', name: '酱油', icon: '🫙' },
+                    { id: 'wine', name: '料酒', icon: '🍶' }
+                ]
+            },
+            {
+                name: '清炒时蔬',
+                icon: '🥬',
+                difficulty: '简单',
+                steps: [
+                    { text: '青菜洗净，沥干水分', ingredient: 'veg', heat: 0 },
+                    { text: '锅中热油，放入蒜末爆香', ingredient: 'garlic', heat: 3 },
+                    { text: '加入青菜大火快炒', ingredient: 'veg', heat: 3 },
+                    { text: '加盐调味，出锅装盘', ingredient: 'salt', heat: 2 }
+                ],
+                ingredients: [
+                    { id: 'veg', name: '青菜', icon: '🥬' },
+                    { id: 'garlic', name: '蒜末', icon: '🧄' },
+                    { id: 'oil', name: '食用油', icon: '🫒' },
+                    { id: 'salt', name: '盐', icon: '🧂' }
+                ]
+            },
+            {
+                name: '麻婆豆腐',
+                icon: '🫕',
+                difficulty: '困难',
+                steps: [
+                    { text: '豆腐切块，用盐水浸泡', ingredient: 'tofu', heat: 1 },
+                    { text: '锅中热油，炒香肉末', ingredient: 'meat', heat: 3 },
+                    { text: '加入豆瓣酱炒出红油', ingredient: 'bean', heat: 2 },
+                    { text: '加水烧开，放入豆腐炖煮', ingredient: 'tofu', heat: 1 }
+                ],
+                ingredients: [
+                    { id: 'tofu', name: '豆腐', icon: '🧈' },
+                    { id: 'meat', name: '肉末', icon: '🥩' },
+                    { id: 'bean', name: '豆瓣酱', icon: '🫙' },
+                    { id: 'pepper', name: '花椒', icon: '🌶️' }
+                ]
+            }
+        ];
+
+        let currentRecipe = null;
+        let currentStep = 0;
+        let usedIngredients = new Set();
+        let scores = { timing: 0, heat: 0, ingredients: 0 };
+
+        function initRecipeGrid() {
+            const grid = document.getElementById('recipe-grid');
+            grid.innerHTML = recipes.map((r, i) => `
+                <div class="recipe-card" onclick="selectRecipe(${i})">
+                    <div class="recipe-icon">${r.icon}</div>
+                    <div class="recipe-title">${r.name}</div>
+                    <div class="recipe-diff">${r.difficulty}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectRecipe(index) {
+            currentRecipe = recipes[index];
+            currentStep = 0;
+            usedIngredients = new Set();
+            scores = { timing: 0, heat: 0, ingredients: 0 };
+            
+            document.getElementById('recipe-select').classList.add('hidden');
+            document.getElementById('control-area').classList.remove('hidden');
+            document.getElementById('recipe-name').textContent = currentRecipe.name;
+            
+            renderIngredients();
+            renderStep();
+            updatePot();
+        }
+
+        function renderIngredients() {
+            const grid = document.getElementById('ingredients-grid');
+            grid.innerHTML = currentRecipe.ingredients.map(ing => `
+                <div class="ingredient-btn ${usedIngredients.has(ing.id) ? 'used' : ''}" 
+                     id="ing-${ing.id}">
+                    <div class="ingredient-icon">${ing.icon}</div>
+                    <div class="ingredient-name">${ing.name}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderStep() {
+            const step = currentRecipe.steps[currentStep];
+            document.getElementById('step-number').textContent = `步骤 ${currentStep + 1}/${currentRecipe.steps.length}`;
+            document.getElementById('step-text').textContent = step.text;
+            document.getElementById('heat-slider').value = 2;
+            updateHeat();
+        }
+
+        function updateHeat() {
+            const value = document.getElementById('heat-slider').value;
+            const labels = ['小火', '中火', '大火'];
+            document.getElementById('heat-value').textContent = labels[value - 1];
+            
+            // 更新火焰
+            const flames = document.querySelectorAll('.flame');
+            flames.forEach(f => {
+                f.classList.remove('off');
+                if (value == 1) f.style.height = '15px';
+                else if (value == 2) f.style.height = '25px';
+                else f.style.height = '35px';
+            });
+        }
+
+        function updatePot() {
+            const contents = document.getElementById('pot-contents');
+            const steam = document.getElementById('steam');
+            
+            // 更新锅内颜色
+            const colors = ['#fde68a', '#fca5a5', '#86efac', '#93c5fd'];
+            contents.style.background = colors[currentStep % colors.length];
+            
+            // 添加气泡
+            if (currentStep > 0) {
+                contents.innerHTML = '';
+                for (let i = 0; i < 5; i++) {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'bubble';
+                    bubble.style.left = Math.random() * 80 + 10 + '%';
+                    bubble.style.bottom = '10%';
+                    bubble.style.width = Math.random() * 10 + 5 + 'px';
+                    bubble.style.height = bubble.style.width;
+                    bubble.style.animationDelay = Math.random() * 1 + 's';
+                    contents.appendChild(bubble);
+                }
+            }
+            
+            // 添加蒸汽
+            steam.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const p = document.createElement('div');
+                p.className = 'steam-particle';
+                p.style.animationDelay = Math.random() * 1 + 's';
+                steam.appendChild(p);
+            }
+        }
+
+        function addIngredient() {
+            const step = currentRecipe.steps[currentStep];
+            const heat = document.getElementById('heat-slider').value;
+            
+            usedIngredients.add(step.ingredient);
+            renderIngredients();
+            
+            scores.ingredients += 10;
+            
+            // 火候评分
+            if (heat == step.heat) {
+                scores.heat += 10;
+            } else {
+                scores.heat += Math.max(0, 10 - Math.abs(heat - step.heat) * 5);
+            }
+            
+            // 时间评分
+            scores.timing += 10;
+            
+            updatePot();
+        }
+
+        function completeStep() {
+            currentStep++;
+            
+            if (currentStep >= currentRecipe.steps.length) {
+                showScore();
+            } else {
+                renderStep();
+                updatePot();
+            }
+        }
+
+        function showScore() {
+            document.getElementById('control-area').classList.add('hidden');
+            
+            const totalScore = Math.round((scores.timing + scores.heat + scores.ingredients) / 3);
+            const scoreClass = totalScore >= 80 ? 'score-high' : totalScore >= 50 ? 'score-mid' : 'score-low';
+            const scoreText = totalScore >= 80 ? '完美！大厨水准！' : totalScore >= 50 ? '不错，继续加油！' : '还需要多练习~';
+            
+            document.getElementById('score-area').innerHTML = `
+                <div class="score-circle ${scoreClass}">${totalScore}</div>
+                <div class="score-text">${scoreText}</div>
+                <div class="score-detail">
+                    <div class="score-item"><span>⏱️ 时间控制</span><span>${scores.timing}分</span></div>
+                    <div class="score-item"><span>🔥 火候掌握</span><span>${scores.heat}分</span></div>
+                    <div class="score-item"><span>🥗 食材搭配</span><span>${scores.ingredients}分</span></div>
+                </div>
+                <button class="new-recipe-btn" onclick="backToMenu()">再做一道菜</button>
+            `;
+            
+            document.getElementById('score-area').classList.remove('hidden');
+        }
+
+        function backToMenu() {
+            document.getElementById('score-area').classList.add('hidden');
+            document.getElementById('control-area').classList.add('hidden');
+            document.getElementById('recipe-select').classList.remove('hidden');
+            
+            // 重置火焰
+            document.querySelectorAll('.flame').forEach(f => f.classList.add('off'));
+            document.getElementById('pot-contents').innerHTML = '';
+            document.getElementById('steam').innerHTML = '';
+        }
+
+        document.getElementById('heat-slider').addEventListener('input', updateHeat);
+
+        initRecipeGrid();
+    </script>
+</body>
+</html>

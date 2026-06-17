@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>峡谷查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--amber:#f59e0b;--green:#22c55e;--red:#ef4444;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.diff-badge{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
+.diff-easy{background:rgba(34,197,94,.2);color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.diff-medium{background:rgba(245,158,11,.2);color:var(--amber);border:1px solid rgba(245,158,11,.4)}
+.diff-hard{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;border-radius:6px;font-size:.75rem}
+.tag-depth{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.tag-length{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--accent)}
+.tag-river{background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);color:#06b6d4}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){.results{grid-template-columns:1fr}.search-row{flex-direction:column}.filter-row{flex-direction:column;align-items:stretch}.filter-group select{min-width:auto;width:100%}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🏜️ 峡谷查找</h1>
+<p class="subtitle">探索地球的裂痕，感受大自然的鬼斧神工</p>
+<div class="controls">
+<div class="search-row"><input type="text" class="search-input" id="searchInput" placeholder="搜索峡谷名称或国家..."></div>
+<div class="filter-row">
+<div class="filter-group"><label>难度</label><select id="diffFilter"><option value="">全部</option><option value="简单">简单</option><option value="中等">中等</option><option value="困难">困难</option><option value="专业">专业</option></select></div>
+<div class="filter-group"><label>河流活动</label><select id="riverFilter"><option value="">全部</option><option value="有">有河流活动</option><option value="无">无</option></select></div>
+<div class="filter-group"><label>排序</label>
+<div class="sort-btns"><button class="sort-btn active" data-sort="depth">深度 ↓</button><button class="sort-btn" data-sort="length">长度 ↓</button><button class="sort-btn" data-sort="rating">评分 ↓</button></div>
+</div></div></div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const canyons=[
+{id:1,name:"大峡谷",country:"美国亚利桑那",depth:1857,length:446,difficulty:"中等",river:"科罗拉多河漂流",viewpoints:["南缘观景台","马瑟观景点","沙漠瞭望塔","Yavapai点"],hikeTrails:["光明天使步道","南凯巴布步道","北凯巴布步道"],rating:4.9,desc:"世界自然奇观之一，18亿年地质历史的露天博物馆，色彩斑斓的岩层令人叹为观止。"},
+{id:2,name:"虎跳峡",country:"中国云南",depth:3900,length:16,difficulty:"困难",river:"金沙江漂流",viewpoints:["上虎跳观景台","中虎跳天梯","下虎跳渡口","28拐"],hikeTrails:["高路徒步","中虎跳天梯","低路栈道"],rating:4.7,desc:"金沙江劈开玉龙雪山与哈巴雪山形成的峡谷，是世界上最深的峡谷之一。"},
+{id:3,name:"布莱德峡谷",country:"美国犹他",depth:300,length:24,difficulty:"中等",river:"无",viewpoints:["日出观景点","日落观景点","主峡谷栈道","瞭望塔"],hikeTrails:["纳瓦霍步道","仙境步道","主峡谷环线"],rating:4.6,desc:"以红色岩壁闻名的狭缝型峡谷，日出时阳光穿透峡谷如梦似幻。"},
+{id:4,name:"鱼河峡谷",country:"纳米比亚",depth:550,length:160,difficulty:"专业",river:"无",viewpoints:["月亮谷","箭袋树森林","沙漠观景台","热气球观光"],hikeTrails:["鱼河峡谷徒步(4-5天)","荒漠穿越"],rating:4.8,desc:"非洲第二大峡谷，荒漠中的壮丽景观，需4-5天完成全程徒步。"},
+{id:5,name:"雅鲁藏布大峡谷",country:"中国西藏",depth:6009,length:504,difficulty:"专业",river:"雅鲁藏布江漂流",viewpoints:["南迦巴瓦峰观景台","直白村","大拐弯","加拉村"],hikeTrails:["派镇至墨脱","扎曲徒步","加拉白垒转山"],rating:4.8,desc:"世界最深峡谷，雅鲁藏布江在此形成壮观大拐弯，直面南迦巴瓦峰。"},
+{id:6,name:"锡安峡谷",country:"美国犹他",depth:914,length:24,difficulty:"中等",river:"无",viewpoints:["天使降临观景点","大弯曲观景台","科洛布峡谷","锡安之眼"],hikeTrails:["天使降临步道"," Narrows","潘达甘茨"],rating:4.7,desc:"锡安国家公园核心景区，红色砂岩与清澈溪流构成壮丽画卷。"},
+{id=7,name:"科罗拉多大峡谷",country:"墨西哥",depth:1800,length:216,difficulty:"困难",river:"无",viewpoints:["库西瓦拉观景点","太阳神殿","蝴蝶谷","矿工通道"],hikeTrails:["库西瓦拉步道","铜峡谷铁路","乌里克步道"],rating:4.5,desc:"比美国大峡谷更深的峡谷群，铜峡谷铁路穿越其中，是原住民塔拉乌马拉人的家园。"},
+{id:8,name:"科廷峡谷",country:"美国犹他",depth:240,length:16,difficulty:"简单",river:"无",viewpoints:["双拱门","景观拱门","北窗","南窗"],hikeTrails:["景观拱门步道","双拱门步道","魔鬼花园步道"],rating:4.6,desc:"拱门国家公园内的狭缝峡谷，以密集的天然石拱门闻名。"},
+{id:9,name:"瓦迪拉姆峡谷",country:"约旦",depth:1750,length:250,difficulty:"中等",river:"无",viewpoints:["红沙漠","劳伦斯之泉","月亮谷","贝都因营地"],hikeTrails:["沙漠徒步","骆驼穿越","吉普车探险"],rating:4.7,desc:"又称月亮谷，火星般的红色砂岩地貌，电影《火星救援》取景地。"},
+{id:10,name:"韦尔纳峡谷",country:"德国",depth:120,length:12,difficulty:"简单",river:"韦尔纳溪漂流",viewpoints:["玻璃桥","瀑布观景台","铁路桥","悬索桥"],hikeTrails:["瀑布步道","玻璃桥步道","溪谷环线"],rating:4.4,desc:"德国黑森林中的幽深峡谷，玻璃步行桥和多处瀑布构成独特景观。"}
+];
+let currentSort="depth";
+let filtered=[...canyons];
+function render(){
+const s=document.getElementById("searchInput").value.toLowerCase();
+const diff=document.getElementById("diffFilter").value;
+const river=document.getElementById("riverFilter").value;
+filtered=canyons.filter(c=>{
+if(s&&!c.name.includes(s)&&!c.country.includes(s))return false;
+if(diff&&c.difficulty!==diff)return false;
+if(river&&((river==="有"&&!c.river)||(river==="无"&&c.river)))return false;
+return true;
+});
+if(currentSort==="depth")filtered.sort((a,b)=>b.depth-a.depth);
+else if(currentSort==="length")filtered.sort((a,b)=>b.length-a.length);
+else if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 条峡谷`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results">没有找到匹配的峡谷</div>';return;}
+c.innerHTML=filtered.map(c=>`<div class="card">
+<div class="card-header"><span class="card-name">🏔️ ${c.name}</span><span class="diff-badge diff-${c.difficulty==="简单"?"easy":c.difficulty==="中等"?"medium":c.difficulty==="困难"?"hard":"hard"}">${c.difficulty}</span></div>
+<div class="card-location">📍 ${c.country} · ⭐ ${c.rating}</div>
+<div class="card-desc">${c.desc}</div>
+<div class="card-meta">
+<span class="meta-tag tag-depth">📐 深度 ${c.depth.toLocaleString()}m</span>
+<span class="meta-tag tag-length">📏 长度 ${c.length}km</span>
+${c.river?`<span class="meta-tag tag-river">🌊 ${c.river}</span>`:""}
+</div>
+<ul class="card-features">${c.hikeTrails.map(t=>`<li>🥾 ${t}</li>`).join("")}</ul>
+<div style="margin-top:8px"><span style="font-size:.8rem;color:var(--muted)">🏔️ 观景点: </span><span style="font-size:.83rem;color:var(--accent)">${c.viewpoints.join("、")}</span></div>
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("diffFilter").addEventListener("change",render);
+document.getElementById("riverFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>自定义俄罗斯方块</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:monospace;display:flex;justify-content:center;align-items:center;min-height:100vh}
+#wrap{display:flex;gap:20px;align-items:flex-start}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+canvas{display:block;border:1px solid var(--border);background:#000}
+.info{min-width:160px}
+.info h2{font-size:16px;color:var(--accent);margin-bottom:8px}
+.info .stat{font-size:13px;margin:4px 0;color:#8b949e}
+.info .stat b{color:var(--accent)}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100}
+#overlay h1{font-size:36px;color:var(--accent);margin-bottom:10px}
+#overlay p{font-size:14px;color:#8b949e;margin-bottom:20px}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 28px;font-size:15px;border-radius:6px;cursor:pointer;font-family:monospace}
+.btn:hover{filter:brightness(1.2)}
+.settings{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;width:320px;text-align:left}
+.settings h3{color:var(--accent);margin-bottom:12px;font-size:15px}
+.field{margin:10px 0;display:flex;justify-content:space-between;align-items:center}
+.field label{font-size:13px;color:#8b949e}
+.field select,.field input[type=range]{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;font-family:monospace}
+.field select{min-width:100px}
+.field .val{color:var(--accent);font-size:12px;min-width:30px;text-align:right}
+.colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.colors span{width:28px;height:28px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:border-color .2s}
+.colors span.active{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="overlay">
+<h1>自定义俄罗斯方块</h1>
+<p>自定义你的游戏规则</p>
+<div class="settings">
+<h3>游戏设置</h3>
+<div class="field">
+<label>起始等级</label>
+<div><input type="range" id="startLevel" min="1" max="15" value="1" oninput="document.getElementById('lvlVal').textContent=this.value"><span class="val" id="lvlVal">1</span></div>
+</div>
+<div class="field">
+<label>预览数量</label>
+<div><input type="range" id="previewCount" min="0" max="5" value="1" oninput="document.getElementById('prevVal').textContent=this.value"><span class="val" id="prevVal">1</span></div>
+</div>
+<div class="field">
+<label>锁定延迟</label>
+<div><input type="range" id="lockDelay" min="0" max="500" step="50" value="100" oninput="document.getElementById('lockVal').textContent=this.value+'ms'"><span class="val" id="lockVal">100ms</span></div>
+</div>
+<div class="field">
+<label>Ghost方块</label>
+<select id="ghostMode"><option value="on">显示</option><option value="off">隐藏</option></select>
+</div>
+<div class="field">
+<label>背景颜色</label>
+<div class="colors" id="bgColors">
+<span style="background:#0d1117" class="active" data-bg="#0d1117"></span>
+<span style="background:#1a1a2e" data-bg="#1a1a2e"></span>
+<span style="background:#0f3460" data-bg="#0f3460"></span>
+<span style="background:#1b1b2f" data-bg="#1b1b2f"></span>
+<span style="background:#2d132c" data-bg="#2d132c"></span>
+<span style="background:#162447" data-bg="#162447"></span>
+</div>
+</div>
+<div class="field">
+<label>游戏模式</label>
+<select id="gameMode">
+<option value="classic">经典</option>
+<option value="sprint">冲刺40行</option>
+<option value="ultra">限时2分钟</option>
+<option value="marathon">马拉松</option>
+</select>
+</div>
+<div style="text-align:center;margin-top:16px">
+<button class="btn" onclick="startGame()">开始游戏</button>
+</div>
+</div>
+</div>
+<div id="wrap">
+<div class="panel info">
+<h2>预览</h2>
+<canvas id="nextC" width="80" height="200"></canvas>
+<div style="margin-top:12px">
+<div class="stat">分数: <b id="score">0</b></div>
+<div class="stat">消行: <b id="lines">0</b></div>
+<div class="stat">等级: <b id="level">1</b></div>
+<div class="stat" id="modeInfo" style="display:none">时间: <b id="time">--</b></div>
+</div>
+</div>
+<div class="panel">
+<canvas id="gameC" width="300" height="600"></canvas>
+</div>
+</div>
+<script>
+const COLS=10,ROWS=20,BW=30,BH=30;
+const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
+const COLORS=['#00f0f0','#f0f000','#a000f0','#f0a000','#0000f0','#f00000','#00f000'];
+const gc=document.getElementById('gameC'),gx=gc.getContext('2d');
+const nc=document.getElementById('nextC'),nx=nc.getContext('2d');
+let board,curPiece,nextPieces,curX,curY,score,lines,level,gameOn,timer,lastDrop,dropInterval,settings,endTime,lockTimer;
+
+function initBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(0))}
+function randPiece(){const i=Math.floor(Math.random()*7);return{shape:SHAPES[i],color:COLORS[i],type:i}}
+function rotate(s){const r=s.length,c=s[0].length,n=Array.from({length:c},()=>Array(r).fill(0));for(let i=0;i<r;i++)for(let j=0;j<c;j++)n[j][r-1-i]=s[i][j];return n}
+function collide(b,p,px,py){return p.shape.some((row,dr)=>row.some((v,dc)=>{if(!v)return false;const nx=px+dc,ny=py+dr;return nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&b[ny][nx])}))}
+function getSpeed(lvl){const s=[800,720,630,550,470,380,300,220,150,100,80,60,50,40,30,25];return s[Math.min(lvl-1,s.length-1)]}
+
+document.querySelectorAll('#bgColors span').forEach(el=>{
+el.onclick=()=>{document.querySelectorAll('#bgColors span').forEach(e=>e.classList.remove('active'));el.classList.add('active')}
+});
+
+function readSettings(){
+settings={
+level:parseInt(document.getElementById('startLevel').value),
+previews:parseInt(document.getElementById('previewCount').value),
+lockDelay:parseInt(document.getElementById('lockDelay').value),
+ghost:document.getElementById('ghostMode').value==='on',
+bg:document.querySelector('#bgColors .active')?.dataset.bg||'#0d1117',
+mode:document.getElementById('gameMode').value
+};
+}
+
+function lock(){
+curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v&&curY+dr>=0)board[curY+dr][curX+dc]=curPiece.color}));
+let cleared=0;
+for(let r=ROWS-1;r>=0;r--){if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(0));cleared++;r++}}
+lines+=cleared;
+score+=[0,100,300,500,800][cleared]*level;
+if(settings.mode==='classic'||settings.mode==='marathon'){
+const nl=Math.floor(lines/10)+1;
+if(nl>level){level=nl;dropInterval=getSpeed(level)}
+}
+spawn();
+}
+
+function spawn(){
+if(nextPieces.length>0)curPiece=nextPieces.shift();
+else curPiece=randPiece();
+while(nextPieces.length<settings.previews)nextPieces.push(randPiece());
+curX=Math.floor((COLS-curPiece.shape[0].length)/2);curY=0;
+if(collide(board,curPiece,curX,curY))gameOver();
+drawNext();
+}
+
+function drawNext(){
+nx.fillStyle='#000';nx.fillRect(0,0,nc.width,nc.height);
+const s=16;let y=4;
+nextPieces.forEach(p=>{
+p.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v){nx.fillStyle=p.color;nx.fillRect(dc*s+4,y+dr*s,s-1,s-1)}}));
+y+=p.shape.length*s+8;
+});
+}
+
+function draw(){
+gx.fillStyle=settings.bg;gx.fillRect(0,0,gc.width,gc.height);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c]){gx.fillStyle=board[r][c];gx.fillRect(c*BW,r*BH,BW-1,BH-1)}
+if(!curPiece)return;
+if(settings.ghost){
+let gy=curY;
+while(!collide(board,curPiece,curX,gy+1))gy++;
+curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v&&gy+dr>=0){gx.fillStyle='rgba(255,255,255,0.15)';gx.fillRect((curX+dc)*BW,(gy+dr)*BH,BW-1,BH-1)}}));
+}
+curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v){gx.fillStyle=curPiece.color;gx.fillRect((curX+dc)*BW,(curY+dr)*BH,BW-1,BH-1)}}));
+}
+
+function updateHUD(){
+document.getElementById('score').textContent=score;
+document.getElementById('lines').textContent=lines;
+document.getElementById('level').textContent=level;
+if(settings.mode==='sprint'){
+document.getElementById('modeInfo').style.display='';
+document.getElementById('time').textContent='消除'+lines+'/40行';
+}else if(settings.mode==='ultra'){
+document.getElementById('modeInfo').style.display='';
+const rem=Math.max(0,Math.ceil((endTime-Date.now())/1000));
+document.getElementById('time').textContent=rem+'s';
+}else{document.getElementById('modeInfo').style.display='none'}
+}
+
+function gameLoop(){
+if(!gameOn)return;
+const now=Date.now();
+if(now-lastDrop>=dropInterval){
+if(!collide(board,curPiece,curX,curY+1))curY++;
+else{lockTimer++;if(lockTimer*16>=settings.lockDelay)lock()}
+lastDrop=now;
+}
+draw();updateHUD();
+if(settings.mode==='ultra'&&now>=endTime)gameOver();
+if(settings.mode==='sprint'&&lines>=40)win();
+timer=requestAnimationFrame(gameLoop);
+}
+
+function startGame(){
+readSettings();
+document.getElementById('overlay').style.display='none';
+board=initBoard();score=0;lines=0;level=settings.level;gameOn=true;nextPieces=[];
+dropInterval=getSpeed(level);lastDrop=Date.now();lockTimer=0;
+if(settings.mode==='ultra')endTime=Date.now()+120000;
+gc.style.background=settings.bg;
+spawn();gameLoop();
+}
+
+function gameOver(){
+gameOn=false;
+const ov=document.getElementById('overlay');ov.style.display='flex';
+ov.innerHTML=`<h1>游戏结束</h1><p>分数: ${score} | 消除: ${lines}行 | 等级: ${level}</p><button class="btn" onclick="startGame()">重新开始</button>`;
+}
+function win(){
+gameOn=false;
+const ov=document.getElementById('overlay');ov.style.display='flex';
+ov.innerHTML=`<h1>冲刺完成！</h1><p>分数: ${score} | 等级: ${level}</p><button class="btn" onclick="startGame()">再来一次</button>`;
+}
+
+document.addEventListener('keydown',e=>{
+if(!gameOn||!curPiece)return;
+if(e.key==='ArrowLeft'&&!collide(board,curPiece,curX-1,curY))curX--;
+else if(e.key==='ArrowRight'&&!collide(board,curPiece,curX+1,curY))curX++;
+else if(e.key==='ArrowDown'){if(!collide(board,curPiece,curX,curY+1)){curY++;score++}else lockTimer=0}
+else if(e.key==='ArrowUp'){const r=rotate(curPiece.shape);if(!collide(board,{shape:r},curX,curY))curPiece.shape=r;lockTimer=0}
+else if(e.key===' '){while(!collide(board,curPiece,curX,curY+1)){curY++;score+=2}lock()}
+});
+</script>
+</body>
+</html>

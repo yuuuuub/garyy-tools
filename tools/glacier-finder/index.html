@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冰川查找</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--cyan:#06b6d4;--blue:#6366f1;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:24px;font-size:.9rem}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.search-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.filter-group select{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none;min-width:120px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s}
+.sort-btn.active,.sort-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.results-info{margin-bottom:16px;color:var(--muted);font-size:.85rem}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:1.15rem;font-weight:600}
+.card-badge{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600;white-space:nowrap}
+.badge-tour{background:rgba(6,182,212,.2);color:var(--cyan);border:1px solid rgba(6,182,212,.4)}
+.badge-no{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.card-location{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+.card-desc{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.card-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.meta-tag{padding:4px 10px;border-radius:6px;font-size:.75rem}
+.tag-area{background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:var(--blue)}
+.tag-season{background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);color:var(--cyan)}
+.tag-warn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.card-features{list-style:none;padding:0}
+.card-features li{padding:3px 0;font-size:.83rem;color:var(--muted)}
+.card-features li::before{content:"• ";color:var(--accent)}
+.warn-banner{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:.8rem;color:#fca5a5}
+.no-results{text-align:center;color:var(--muted);padding:60px 20px;font-size:1.1rem}
+@media(max-width:600px){.results{grid-template-columns:1fr}.search-row{flex-direction:column}.filter-row{flex-direction:column;align-items:stretch}.filter-group select{min-width:auto;width:100%}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🏔️ 冰川查找</h1>
+<p class="subtitle">探索壮丽冰川，见证大自然的冰雕杰作</p>
+<div class="controls">
+<div class="search-row"><input type="text" class="search-input" id="searchInput" placeholder="搜索冰川名称或国家..."></div>
+<div class="filter-row">
+<div class="filter-group"><label>类型</label><select id="typeFilter"><option value="">全部</option><option value="山谷冰川">山谷冰川</option><option value="悬冰川">悬冰川</option><option value="冰帽">冰帽</option><option value="冰盖">冰盖</option><option value="山麓冰川">山麓冰川</option></select></div>
+<div class="filter-group"><label>地区</label><select id="regionFilter"><option value="">全部地区</option><option value="亚洲">亚洲</option><option value="欧洲">欧洲</option><option value="北美洲">北美洲</option><option value="南美洲">南美洲</option><option value="大洋洲">大洋洲</option><option value="南极洲">南极洲</option></select></div>
+<div class="filter-group"><label>导览</label><select id="tourFilter"><option value="">全部</option><option value="有">有导览</option><option value="无">无导览</option></select></div>
+<div class="filter-group"><label>排序</label>
+<div class="sort-btns"><button class="sort-btn active" data-sort="area">面积 ↓</button><button class="sort-btn" data-sort="rating">评分 ↓</button><button class="sort-btn" data-sort="name">名称</button></div>
+</div></div></div>
+<div class="results-info" id="resultsInfo"></div>
+<div class="results" id="results"></div>
+</div>
+<script>
+const glaciers=[
+{id:1,name:"瓦特纳冰川",country:"冰岛",region:"欧洲",type:"冰盖",area:8100,access:"徒步/超级吉普",bestSeason:"夏",guideTour:"有",rating:4.8,warning:"全球变暖加速消融",desc:"欧洲最大冰川，面积约8100km²，覆盖了冰岛约11%的国土面积。",features:["冰洞探险","冰川徒步","杰古沙龙冰河湖","钻石沙滩"]},
+{id:2,name:"弗朗兹·约瑟夫冰川",country:"新西兰",region:"大洋洲",type:"山谷冰川",area:32,access:"直升机+徒步",bestSeason:"冬",guideTour:"有",rating:4.7,warning:"近百年已退缩2.5公里",desc:"从南阿尔卑斯山直降入温带雨林的罕见冰川，以弗朗兹·约瑟夫命名。",features:["冰川行走","直升机观光","雨林步道","温泉池"]},
+{id:3,name:"佩里托·莫雷诺冰川",country:"阿根廷",region:"南美洲",type:"山麓冰川",area:250,access:"游船+栈道",bestSeason:"春",guideTour:"有",rating:4.9,warning:"周期性崩塌壮观但需保持距离",desc:"世界第三大淡水资源，冰墙高达70米，以壮观的冰崩闻名。",features:["冰桥崩塌","游船近距离","栈道观景","冰川公园"]},
+{id:4,name:"海螺沟冰川",country:"中国",region:"亚洲",type:"山谷冰川",area:16,access:"缆车+徒步",bestSeason:"秋",guideTour:"有",rating:4.5,warning:"后退速度加快，部分区域限入",desc:"贡嘎山东坡冰川，中国最美冰川之一，冰川末端深入原始森林。",features:["冰瀑布","温泉","红石滩","贡嘎山观景"]},
+{id:5,name:"巴塔哥尼亚冰原",country:"阿根廷/智利",region:"南美洲",type:"冰盖",area:16800,access:"直升机/冰原探险车",bestSeason:"夏",guideTour:"有",rating:4.8,warning:"冰川退缩速度达每年50米",desc:"南半球最大冰原，世界第三大冰体，孕育了多条壮观冰川。",features:["冰原探险车","冰川徒步","百内国家公园","蓝冰洞穴"]},
+{id:6,name:"莫尔纳冰川",country:"挪威",region:"欧洲",type:"山谷冰川",area:8,access:"游船",bestSeason:"夏",guideTour:"有",rating:4.6,warning:"退缩明显但仍有壮观冰崩",desc:"峡湾尽头的壮观冰川，冰舌直入海湾，可乘游船近距离观赏。",features:["冰崩观赏","峡湾游船","松恩峡湾","弗洛姆铁路"]},
+{id:7,name:"阿莱奇冰川",country:"瑞士",region:"欧洲",type:"山谷冰川",area:81.7,access:"徒步+缆车",bestSeason:"夏",guideTour:"有",rating:4.7,warning:"预计2100年前完全消失",desc:"阿尔卑斯山最大冰川，联合国世界遗产，2001年入选名录。",features:["冰川观景台","阿莱奇冰川步道","少女峰铁路","劳特布鲁嫩谷"]},
+{id:8,name:"门登霍尔冰川",country:"美国",region:"北美洲",type:"山谷冰川",area:88,access:"游船/皮划艇",bestSeason:"夏",guideTour:"有",rating:4.6,warning:"每年退缩约25米",desc:"朱诺附近的热门冰川，蓝冰洞穴和黑熊出没使其独具魅力。",features:["蓝冰洞穴","黑熊观察","皮划艇","鲑鱼孵化场"]},
+{id:9,name:"罗利冰川",country:"尼泊尔",region:"亚洲",type:"山谷冰川",area:20,access:"徒步",bestSeason:"秋",guideTour:"无",rating:4.3,warning:"冰川湖溃决风险",desc:"珠峰地区著名冰川，徒步者可近距离感受喜马拉雅冰川的壮阔。",features:["珠峰大本营路线","冰塔林","高山湖泊","夏尔巴向导"]},
+{id:10,name:"福克斯冰川",country:"新西兰",region:"大洋洲",type:"山谷冰川",area:32,access:"直升机+徒步",bestSeason:"冬",guideTour:"有",rating:4.5,warning:"冰川步道因退缩而改变",desc:"新西兰西海岸著名冰川，终年积雪从南阿尔卑斯直降至雨林。",features:["冰川攀冰","直升机观光","雨林生态","马瑟森湖"]}
+];
+let currentSort="area";
+let filtered=[...glaciers];
+function render(){
+const s=document.getElementById("searchInput").value.toLowerCase();
+const type=document.getElementById("typeFilter").value;
+const region=document.getElementById("regionFilter").value;
+const tour=document.getElementById("tourFilter").value;
+filtered=glaciers.filter(g=>{
+if(s&&!g.name.includes(s)&&!g.country.includes(s))return false;
+if(type&&g.type!==type)return false;
+if(region&&g.region!==region)return false;
+if(tour&&g.guideTour!==tour)return false;
+return true;
+});
+if(currentSort==="area")filtered.sort((a,b)=>b.area-a.area);
+else if(currentSort==="rating")filtered.sort((a,b)=>b.rating-a.rating);
+else if(currentSort==="name")filtered.sort((a,b)=>a.name.localeCompare(b.name,"zh"));
+document.getElementById("resultsInfo").textContent=`找到 ${filtered.length} 条冰川`;
+const c=document.getElementById("results");
+if(!filtered.length){c.innerHTML='<div class="no-results">没有找到匹配的冰川</div>';return;}
+c.innerHTML=filtered.map(g=>`<div class="card">
+<div class="card-header"><span class="card-name">❄️ ${g.name}</span><span class="card-badge ${g.guideTour==="有"?"badge-tour":"badge-no"}">${g.guideTour==="有"?"有导览":"无导览"}</span></div>
+<div class="card-location">📍 ${g.country} · ${g.type} · ⭐ ${g.rating}</div>
+<div class="card-desc">${g.desc}</div>
+<div class="card-meta">
+<span class="meta-tag tag-area">📐 面积 ${g.area.toLocaleString()} km²</span>
+<span class="meta-tag tag-season">🗓️ 最佳季节: ${g.bestSeason}</span>
+<span class="meta-tag tag-season">🚶 交通: ${g.access}</span>
+</div>
+<ul class="card-features">${g.features.map(f=>`<li>${f}</li>`).join("")}</ul>
+<div class="warn-banner">⚠️ 气候警告: ${g.warning}</div>
+</div>`).join("");
+}
+document.querySelectorAll(".sort-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentSort=b.dataset.sort;render();})});
+document.getElementById("searchInput").addEventListener("input",render);
+document.getElementById("typeFilter").addEventListener("change",render);
+document.getElementById("regionFilter").addEventListener("change",render);
+document.getElementById("tourFilter").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

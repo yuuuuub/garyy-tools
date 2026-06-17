@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文番茄钟Pro</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='🍅 中文番茄钟Pro';
+
+const APP=document.getElementById('app');
+let settings=JSON.parse(localStorage.getItem('pp_settings')||'{"work":25,"break":5,"long":15,"rounds":4}');
+let mode='work', timeLeft=settings.work*60, round=1, isRunning=false, interval=null;
+
+function save(){localStorage.setItem('pp_settings',JSON.stringify(settings))}
+function formatTime(s){let m=Math.floor(s/60),sec=s%60;return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`}
+function render(){
+  let colors={work:'var(--red)',break:'var(--green)',long:'var(--accent)'};
+  let labels={work:'🍅 工作时间',break:'☕ 短休息',long:'🌴 长休息'};
+  let h=`<h1>🍅 中文番茄钟Pro</h1><p class="subtitle">高效工作，专注休息</p>`;
+  h+=`<div class="card" style="text-align:center"><p style="color:${colors[mode]};font-size:1.1rem">${labels[mode]}</p><div style="font-size:4rem;font-weight:700;margin:20px 0;color:${colors[mode]}">${formatTime(timeLeft)}</div><p style="color:var(--text2)">第 ${round}/${settings.rounds} 轮</p><div class="flex" style="justify-content:center;margin-top:16px"><button class="btn" onclick="toggleTimer()">${isRunning?'⏸ 暂停':'▶ 开始'}</button><button class="btn btn-sm btn-danger" onclick="resetTimer()">↻ 重置</button></div></div>`;
+  h+=`<div class="card"><b>设置</b><div class="grid" style="grid-template-columns:repeat(2,1fr);margin-top:8px"><div><label>工作时长(分)</label><input type="number" value="${settings.work}" onchange="settings.work=parseInt(this.value)||25;save()"></div><div><label>短休息(分)</label><input type="number" value="${settings.break}" onchange="settings.break=parseInt(this.value)||5;save()"></div><div><label>长休息(分)</label><input type="number" value="${settings.long}" onchange="settings.long=parseInt(this.value)||15;save()"></div><div><label>轮数</label><input type="number" value="${settings.rounds}" onchange="settings.rounds=parseInt(this.value)||4;save()"></div></div></div>`;
+  APP.innerHTML=h;
+}
+function toggleTimer(){
+  if(isRunning){clearInterval(interval);isRunning=false}
+  else{isRunning=true;interval=setInterval(()=>{
+    timeLeft--;
+    if(timeLeft<=0){
+      if(mode==='work'){
+        if(round>=settings.rounds){mode='long';timeLeft=settings.long*60}
+        else{mode='break';timeLeft=settings.break*60}
+      } else {
+        if(mode==='long'){round=1;mode='work';timeLeft=settings.work*60}
+        else{round++;mode='work';timeLeft=settings.work*60}
+      }
+      try{new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ==').play()}catch(e){}
+    }
+    render();
+  },1000)}
+  render();
+}
+function resetTimer(){clearInterval(interval);isRunning=false;mode='work';timeLeft=settings.work*60;round=1;render()}
+render();
+
+</script>
+</body>
+</html>

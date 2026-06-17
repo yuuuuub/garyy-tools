@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DynamoDB游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav h1{font-size:18px;font-weight:600}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card h2{font-size:16px;margin-bottom:16px;color:var(--accent2)}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+input,textarea,select{width:100%;padding:10px;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit}
+textarea{min-height:150px;resize:vertical;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#2ea043}
+.btn-danger{background:var(--error);color:#fff}
+.actions{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.result{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;max-height:400px;overflow-y:auto;line-height:1.5}
+.result-success{border-color:var(--success)}
+.result-error{border-color:var(--error)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;background:#0d1117;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.template-card{padding:12px;background:#0d1117;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .2s}
+.template-card:hover{border-color:var(--accent)}
+.template-card h4{font-size:13px;color:var(--accent2);margin-bottom:4px}
+.template-card p{font-size:12px;color:#8b949e}
+.ref-section{margin-top:12px}
+.ref-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.ref-item{padding:10px 12px;background:#0d1117;border-radius:4px;margin-bottom:6px;font-size:13px;cursor:pointer;transition:background .2s}
+.ref-item:hover{background:#1c2128}
+.ref-item code{color:var(--warning);font-family:'SF Mono',Monaco,Consolas,monospace}
+.key-schema{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.key-badge{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.key-pk{background:#f8514933;color:var(--error)}
+.key-sk{background:#3b82f633;color:var(--accent)}
+.key-gsi{background:#d2992233;color:var(--warning)}
+.full-width{grid-column:1/-1}
+.table-info{display:flex;gap:12px;margin-bottom:12px;font-size:13px;flex-wrap:wrap}
+.info-item{padding:6px 12px;background:#0d1117;border-radius:4px}
+.info-label{color:#8b949e}
+.info-value{color:var(--success);font-weight:500}
+</style>
+</head>
+<body>
+<nav>
+<a href="../index.html">← 返回工具列表</a>
+<h1>DynamoDB游乐场</h1>
+</nav>
+<div class="container">
+<div class="grid">
+<div class="card">
+<h2>表配置</h2>
+<label>表名</label>
+<input type="text" id="tableName" value="Users" placeholder="输入表名">
+<label style="margin-top:12px">分区键 (Partition Key)</label>
+<div style="display:flex;gap:8px">
+<input type="text" id="partitionKey" value="userId" placeholder="分区键名">
+<select id="pkType" style="width:100px">
+<option value="S">String</option>
+<option value="N">Number</option>
+</select>
+</div>
+<label style="margin-top:12px">排序键 (Sort Key) - 可选</label>
+<div style="display:flex;gap:8px">
+<input type="text" id="sortKey" placeholder="排序键名">
+<select id="skType" style="width:100px">
+<option value="S">String</option>
+<option value="N">Number</option>
+</select>
+</div>
+<div class="actions">
+<button class="btn btn-primary" onclick="createTable()">创建表</button>
+<button class="btn btn-success" onclick="loadSampleData()">加载示例数据</button>
+</div>
+</div>
+<div class="card">
+<h2>操作构建器</h2>
+<label>操作类型</label>
+<div class="tabs" style="margin-top:8px">
+<div class="tab active" onclick="switchOp('put',this)">PutItem</div>
+<div class="tab" onclick="switchOp('get',this)">GetItem</div>
+<div class="tab" onclick="switchOp('update',this)">UpdateItem</div>
+<div class="tab" onclick="switchOp('delete',this)">DeleteItem</div>
+<div class="tab" onclick="switchOp('query',this)">Query</div>
+<div class="tab" onclick="switchOp('scan',this)">Scan</div>
+</div>
+<label>操作参数 (JSON)</label>
+<textarea id="operationInput">{
+  "Item": {
+    "userId": "user_101",
+    "name": "张三",
+    "age": 28,
+    "email": "zhangsan@example.com",
+    "status": "active",
+    "createdAt": "2024-01-15"
+  }
+}</textarea>
+<div class="actions">
+<button class="btn btn-primary" onclick="executeOp()">执行操作</button>
+<button class="btn" onclick="showCode()">查看 SDK 代码</button>
+</div>
+</div>
+<div class="card full-width">
+<h2>查询/扫描结果</h2>
+<div class="table-info" id="tableInfo" style="display:none">
+<span class="info-item"><span class="info-label">表: </span><span class="info-value" id="infoTableName">-</span></span>
+<span class="info-item"><span class="info-label">项目数: </span><span class="info-value" id="infoItemCount">0</span></span>
+<span class="info-item"><span class="info-label">大小: </span><span class="info-value" id="infoSize">0 B</span></span>
+</div>
+<div class="result" id="resultArea" style="min-height:200px">等待操作...</div>
+</div>
+<div class="card">
+<h2>查询模板</h2>
+<div class="template-card" onclick="useTemplate('put')">
+<h4>➕ PutItem</h4>
+<p>插入或替换整个项目</p>
+</div>
+<div class="template-card" onclick="useTemplate('get')">
+<h4>🔍 GetItem</h4>
+<p>按主键精确获取</p>
+</div>
+<div class="template-card" onclick="useTemplate('query')">
+<h4>📊 Query</h4>
+<p>分区键 + 可选排序键范围</p>
+</div>
+<div class="template-card" onclick="useTemplate('scan')">
+<h4>🔎 Scan</h4>
+<p>全表扫描（慎用）</p>
+</div>
+<div class="template-card" onclick="useTemplate('batch')">
+<h4>📦 BatchWrite</h4>
+<p>批量写入最多25项</p>
+</div>
+<div class="template-card" onclick="useTemplate('conditional')">
+<h4>⚡ 条件写入</h4>
+<p>ConditionExpression 限制</p>
+</div>
+</div>
+<div class="card">
+<h2>语法参考</h2>
+<div class="ref-section">
+<h3>数据类型</h3>
+<div class="ref-item"><code>S</code> - String 字符串</div>
+<div class="ref-item"><code>N</code> - Number 数值</div>
+<div class="ref-item"><code>B</code> - Binary 二进制</div>
+<div class="ref-item"><code>SS/NS/BS</code> - String/Number/Binary Set</div>
+<div class="ref-item"><code>L</code> - List 列表</div>
+<div class="ref-item"><code>M</code> - Map 映射</div>
+<div class="ref-item"><code>BOOL</code> - Boolean 布尔值</div>
+<div class="ref-item"><code>NULL</code> - 空值</div>
+</div>
+<div class="ref-section">
+<h3>表达式语法</h3>
+<div class="ref-item"><code>KeyConditionExpression</code> - 主键条件</div>
+<div class="ref-item"><code>FilterExpression</code> - 过滤表达式</div>
+<div class="ref-item"><code>ProjectionExpression</code> - 字段投影</div>
+<div class="ref-item"><code>ConditionExpression</code> - 写入条件</div>
+<div class="ref-item"><code>UpdateExpression</code> - 更新表达式</div>
+</div>
+</div>
+<div class="card full-width">
+<h2>设计模式参考</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+<div class="ref-section">
+<h3>单表设计</h3>
+<div class="ref-item"><code>PK: USER#userId</code> <code>SK: PROFILE</code> 用户资料</div>
+<div class="ref-item"><code>PK: USER#userId</code> <code>SK: ORDER#orderId</code> 用户订单</div>
+<div class="ref-item"><code>PK: ORDER#orderId</code> <code>SK: ITEM#itemId</code> 订单商品</div>
+</div>
+<div class="ref-section">
+<h3>GSI 模式</h3>
+<div class="ref-item">GSI1PK: status | GSI1SK: createdAt - 按状态查询</div>
+<div class="ref-item">GSI2PK: email - 按邮箱查找用户</div>
+<div class="ref-item">GSI3PK: category | GSI3SK: price - 按类别和价格</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+let currentOp = 'put';
+let table = null;
+let items = {};
+
+function switchOp(op, el) {
+    currentOp = op;
+    document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function createTable() {
+    table = {
+        name: document.getElementById('tableName').value,
+        pk: document.getElementById('partitionKey').value,
+        pkType: document.getElementById('pkType').value,
+        sk: document.getElementById('sortKey').value || null,
+        skType: document.getElementById('skType').value
+    };
+    items = {};
+    document.getElementById('tableInfo').style.display = 'flex';
+    document.getElementById('infoTableName').textContent = table.name;
+    document.getElementById('infoItemCount').textContent = '0';
+    showResult(`表 "${table.name}" 创建成功\n分区键: ${table.pk} (${table.pkType})\n${table.sk ? '排序键: ' + table.sk + ' (' + table.skType + ')' : '无排序键'}`, true);
+}
+
+function loadSampleData() {
+    if (!table) createTable();
+    
+    const sampleItems = [
+        {userId:'user_001', name:'张三', age:28, email:'zhang@test.com', status:'active', createdAt:'2024-01-15'},
+        {userId:'user_002', name:'李四', age:35, email:'li@test.com', status:'active', createdAt:'2024-02-20'},
+        {userId:'user_003', name:'王五', age:22, email:'wang@test.com', status:'inactive', createdAt:'2024-03-10'},
+        {userId:'user_004', name:'赵六', age:42, email:'zhao@test.com', status:'active', createdAt:'2024-04-05'},
+        {userId:'user_005', name:'孙七', age:19, email:'sun@test.com', status:'pending', createdAt:'2024-05-18'}
+    ];
+    
+    sampleItems.forEach(item => { items[item.userId] = item; });
+    updateInfo();
+    showResult(`已加载 ${sampleItems.length} 条示例数据`, true);
+}
+
+function executeOp() {
+    if (!table) { showResult('请先创建表', false); return; }
+    
+    let params;
+    try {
+        params = JSON.parse(document.getElementById('operationInput').value);
+    } catch(e) {
+        showResult(`JSON解析错误: ${e.message}`, false);
+        return;
+    }
+    
+    let result;
+    switch(currentOp) {
+        case 'put':
+            const item = params.Item;
+            items[item[table.pk]] = item;
+            updateInfo();
+            showResult(`PutItem 成功\n已写入: ${JSON.stringify(item, null, 2)}`, true);
+            break;
+        case 'get':
+            const key = params.Key[table.pk];
+            const found = items[key];
+            showResult(found ? `GetItem 成功:\n${JSON.stringify(found, null, 2)}` : '未找到项目', !!found);
+            break;
+        case 'query':
+            const pkValue = params.KeyConditionExpression?.split('=')[1]?.trim().replace(/"/g, '') || Object.values(params.ExpressionAttributeValues || {})[0];
+            let queryResults = Object.values(items);
+            if (pkValue) queryResults = queryResults.filter(i => i[table.pk] === pkValue);
+            showResult(`Query 结果 (${queryResults.length} 项):\n${JSON.stringify(queryResults, null, 2)}`, true);
+            break;
+        case 'scan':
+            const scanResults = Object.values(items);
+            showResult(`Scan 结果 (${scanResults.length} 项):\n${JSON.stringify(scanResults, null, 2)}`, true);
+            break;
+        case 'update':
+            const updateKey = params.Key[table.pk];
+            if (items[updateKey]) {
+                const updates = params.UpdateExpression?.match(/SET\s+(.+)/i)?.[1];
+                Object.assign(items[updateKey], params.ExpressionAttributeValues);
+                showResult(`UpdateItem 成功:\n${JSON.stringify(items[updateKey], null, 2)}`, true);
+            } else {
+                showResult('未找到项目', false);
+            }
+            break;
+        case 'delete':
+            const deleteKey = params.Key[table.pk];
+            if (items[deleteKey]) {
+                delete items[deleteKey];
+                updateInfo();
+                showResult(`DeleteItem 成功\n已删除: ${deleteKey}`, true);
+            } else {
+                showResult('未找到项目', false);
+            }
+            break;
+    }
+}
+
+function useTemplate(type) {
+    const templates = {
+        put: `{\n  "Item": {\n    "userId": "user_101",\n    "name": "新用户",\n    "age": 25,\n    "status": "active",\n    "createdAt": "${new Date().toISOString().split('T')[0]}"\n  }\n}`,
+        get: `{\n  "Key": {\n    "userId": "user_001"\n  }\n}`,
+        query: `{\n  "KeyConditionExpression": "userId = :pk",\n  "ExpressionAttributeValues": {\n    ":pk": "user_001"\n  }\n}`,
+        scan: `{\n  "FilterExpression": "age >= :minAge",\n  "ExpressionAttributeValues": {\n    ":minAge": 25\n  }\n}`,
+        batch: `{\n  "RequestItems": {\n    "${table?.name || 'Users'}": [\n      {"PutRequest": {"Item": {"userId": "u1", "name": "用户1"}}},\n      {"PutRequest": {"Item": {"userId": "u2", "name": "用户2"}}},\n      {"DeleteRequest": {"Key": {"userId": "user_003"}}}\n    ]\n  }\n}`,
+        conditional: `{\n  "Item": {\n    "userId": "user_101",\n    "name": "新用户"\n  },\n  "ConditionExpression": "attribute_not_exists(userId)",\n  "ExpressionAttributeValues": {\n    ":pk": "user_101"\n  }\n}`
+    };
+    document.getElementById('operationInput').value = templates[type] || '{}';
+}
+
+function showCode() {
+    showResult(`// AWS SDK v3 - DynamoDB Client
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { 
+  DynamoDBDocumentClient, 
+  PutCommand, 
+  GetCommand,
+  QueryCommand,
+  ScanCommand 
+} from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({ region: "us-east-1" });
+const docClient = DynamoDBDocumentClient.from(client);
+
+// PutItem
+await docClient.send(new PutCommand({
+  TableName: "${table?.name || 'Users'}",
+  Item: {
+    userId: "user_101",
+    name: "张三",
+    age: 28
+  }
+}));
+
+// GetItem
+const result = await docClient.send(new GetCommand({
+  TableName: "${table?.name || 'Users'}",
+  Key: { userId: "user_001" }
+}));
+console.log(result.Item);
+
+// Query
+const queryResult = await docClient.send(new QueryCommand({
+  TableName: "${table?.name || 'Users'}",
+  KeyConditionExpression: "userId = :pk",
+  ExpressionAttributeValues: { ":pk": "user_001" }
+}));`, true);
+}
+
+function updateInfo() {
+    const count = Object.keys(items).length;
+    document.getElementById('infoItemCount').textContent = count;
+    document.getElementById('infoSize').textContent = (JSON.stringify(items).length / 1024).toFixed(1) + ' KB';
+}
+
+function showResult(text, success) {
+    const area = document.getElementById('resultArea');
+    area.textContent = text;
+    area.className = 'result ' + (success ? 'result-success' : 'result-error');
+}
+
+createTable();
+</script>
+</body>
+</html>

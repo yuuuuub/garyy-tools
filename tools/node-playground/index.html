@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node.js 游乐场</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.navbar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px}
+.navbar a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.navbar h1{font-size:1.2rem;flex:1}
+.navbar .icon{font-size:1.4rem}
+.container{max-width:1200px;margin:0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:.85rem;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.editor-section{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.editor-section{grid-template-columns:1fr}}
+.editor-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.editor-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.editor-header span{font-size:.8rem;color:var(--muted)}
+textarea{width:100%;min-height:350px;padding:14px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.82rem;line-height:1.6;resize:vertical;outline:none;tab-size:2}
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.cmd-list{display:flex;flex-direction:column;gap:8px}
+.cmd-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:.2s}
+.cmd-item:hover{border-color:var(--accent)}
+.cmd-item .cmd{font-family:monospace;color:var(--accent);font-size:.85rem;margin-bottom:4px}
+.cmd-item .desc{font-size:.78rem;color:var(--muted)}
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ref-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;transition:.2s}
+.ref-card:hover{border-color:var(--accent)}
+.ref-card h3{font-size:.9rem;margin-bottom:8px;color:var(--accent)}
+.ref-card pre{background:var(--bg);padding:10px;border-radius:6px;font-size:.78rem;overflow-x:auto;color:var(--text);line-height:1.5}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--success);color:#fff;padding:8px 18px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="navbar">
+<a href="../index.html">← 返回</a>
+<span class="icon">💚</span>
+<h1>Node.js 游乐场</h1>
+</div>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab('editor',this)">代码编辑器</div>
+<div class="tab" onclick="switchTab('fs',this)">fs 模块</div>
+<div class="tab" onclick="switchTab('http',this)">http 模块</div>
+<div class="tab" onclick="switchTab('path',this)">path 模块</div>
+<div class="tab" onclick="switchTab('templates',this)">代码模板</div>
+<div class="tab" onclick="switchTab('commands',this)">常用命令</div>
+</div>
+
+<div class="panel active" id="panel-editor">
+<div class="editor-section">
+<div class="editor-box">
+<div class="editor-header"><span>server.js</span><button class="btn btn-outline" onclick="copyCode('codeEditor')">复制</button></div>
+<div class="editor-body">
+<textarea id="codeEditor">const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const PORT = 3000;
+
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+};
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+
+  // 静态文件服务
+  if (url.pathname.startsWith('/static')) {
+    const filePath = path.join(__dirname, url.pathname);
+    const ext = path.extname(filePath);
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not Found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
+    });
+    return;
+  }
+
+  // JSON API
+  if (url.pathname === '/api/time') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ time: new Date().toISOString() }));
+    return;
+  }
+
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Hello from Node.js!');
+});
+
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});</textarea>
+</div>
+</div>
+<div class="editor-box">
+<div class="editor-header"><span>说明</span></div>
+<div class="editor-body">
+<textarea readonly>Node.js - 基于 V8 引擎的 JavaScript 运行时。
+
+📦 核心模块：
+• fs - 文件系统操作
+• http/https - HTTP 服务器和客户端
+• path - 路径处理
+• os - 操作系统信息
+• crypto - 加密模块
+• events - 事件发射器
+• stream - 流式处理
+• child_process - 子进程
+
+🔧 常用 API：
+• fs.readFile/writeFile - 文件读写
+• http.createServer - HTTP 服务器
+• path.join/resolve - 路径拼接
+• process.env - 环境变量
+• Buffer - 二进制数据处理
+
+💡 版本特性：
+• Node 18+ 内置 fetch
+• Node 20+ 原生测试运行器
+• Node 22+ require(esm)</textarea>
+</div>
+</div>
+</div>
+</div>
+
+<div class="panel" id="panel-fs">
+<div class="ref-grid">
+<div class="ref-card"><h3>读取文件</h3><pre>const fs = require('fs').promises;
+
+// 异步读取
+const data = await fs.readFile('./file.txt', 'utf-8');
+console.log(data);
+
+// 同步读取
+const sync = fs.readFileSync('./file.txt', 'utf-8');
+
+// 流式读取
+const stream = fs.createReadStream('./large.txt');
+stream.on('data', chunk => process.stdout.write(chunk));</pre></div>
+<div class="ref-card"><h3>写入文件</h3><pre>const fs = require('fs').promises;
+
+// 写入（覆盖）
+await fs.writeFile('./output.txt', 'Hello');
+
+// 追加写入
+await fs.appendFile('./log.txt', 'new line\\n');
+
+// 流式写入
+const ws = fs.createWriteStream('./out.txt');
+ws.write('chunk 1');
+ws.write('chunk 2');
+ws.end();</pre></div>
+<div class="ref-card"><h3>目录操作</h3><pre>const fs = require('fs').promises;
+
+// 创建目录
+await fs.mkdir('./dist', { recursive: true });
+
+// 读取目录
+const files = await fs.readdir('./src');
+
+// 获取文件信息
+const stat = await fs.stat('./file.txt');
+console.log(stat.size, stat.mtime);
+
+// 删除
+await fs.rm('./temp', { recursive: true });</pre></div>
+<div class="ref-card"><h3>文件监控</h3><pre>const fs = require('fs');
+
+// 监控文件变化
+fs.watch('./src', { recursive: true }, (event, filename) => {
+  console.log(event, filename);
+});
+
+// 更可靠的方案
+const watcher = fs.watchFile('./config.json', (curr, prev) => {
+  console.log('文件已修改');
+});</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-http">
+<div class="ref-grid">
+<div class="ref-card"><h3>基础 HTTP 服务器</h3><pre>const http = require('http');
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    method: req.method,
+    url: req.url,
+    headers: req.headers
+  }));
+});
+
+server.listen(3000);</pre></div>
+<div class="ref-card"><h3>HTTP 客户端</h3><pre>const https = require('https');
+
+// GET 请求
+https.get('https://api.example.com/data', (res) => {
+  let data = '';
+  res.on('data', chunk => data += chunk);
+  res.on('end', () => console.log(JSON.parse(data)));
+});
+
+// Node 18+ 使用 fetch
+const res = await fetch('https://api.example.com/data');
+const json = await res.json();</pre></div>
+<div class="ref-card"><h3>Express 框架</h3><pre>const express = require('express');
+const app = express();
+
+app.use(express.json());
+
+app.get('/api/users', (req, res) => {
+  res.json([{ id: 1, name: '张三' }]);
+});
+
+app.post('/api/users', (req, res) => {
+  const user = { id: Date.now(), ...req.body };
+  res.status(201).json(user);
+});
+
+app.listen(3000);</pre></div>
+<div class="ref-card"><h3>路由处理</h3><pre>const http = require('http');
+
+const routes = {
+  'GET /': '首页',
+  'GET /api/users': JSON.stringify([]),
+  'POST /api/users': '创建成功',
+};
+
+const server = http.createServer((req, res) => {
+  const key = \`\${req.method} \${req.url.split('?')[0]}\`;
+  const handler = routes[key];
+  if (handler) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(handler);
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
+});</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-path">
+<div class="ref-grid">
+<div class="ref-card"><h3>路径拼接</h3><pre>const path = require('path');
+
+// 路径拼接
+console.log(path.join('src', 'utils', 'index.js'));
+// src/utils/index.js
+
+// 绝对路径解析
+console.log(path.resolve('src', 'index.js'));
+// /abs/path/to/src/index.js
+
+// 跨平台路径
+console.log(path.posix.join('src', 'file.txt')); // src/file.txt</pre></div>
+<div class="ref-card"><h3>路径解析</h3><pre>const path = require('path');
+const filePath = '/home/user/project/src/index.ts';
+
+console.log(path.basename(filePath));   // index.ts
+console.log(path.extname(filePath));    // .ts
+console.log(path.dirname(filePath));    // /home/user/project/src
+console.log(path.parse(filePath));
+// { root: '/', dir: '.../src', base: 'index.ts',
+//   ext: '.ts', name: 'index' }</pre></div>
+<div class="ref-card"><h3>路径判断</h3><pre>const path = require('path');
+
+// 判断是否绝对路径
+console.log(path.isAbsolute('./file'));  // false
+console.log(path.isAbsolute('/file'));   // true
+
+// 相对路径
+console.log(path.relative('/a/b/c', '/a/d/e'));
+// ../../d/e
+
+// 规范化
+console.log(path.normalize('/a/b/../c'));
+// /a/c</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-templates">
+<div class="ref-grid">
+<div class="ref-card"><h3>文件复制工具</h3><pre>const fs = require('fs').promises;
+const path = require('path');
+
+async function copyDir(src, dest) {
+  await fs.mkdir(dest, { recursive: true });
+  const entries = await fs.readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await fs.copyFile(srcPath, destPath);
+    }
+  }
+}
+
+copyDir('./src', './dist');</pre></div>
+<div class="ref-card"><h3>命令行参数解析</h3><pre>const args = process.argv.slice(2);
+
+function parseArgs(args) {
+  const parsed = { _: [] };
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith('--')) {
+      const key = args[i].slice(2);
+      const value = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : true;
+      parsed[key] = value;
+    } else {
+      parsed._.push(args[i]);
+    }
+  }
+  return parsed;
+}
+
+const opts = parseArgs(['--port', '3000', '--verbose']);
+console.log(opts); // { _: [], port: '3000', verbose: true }</pre></div>
+<div class="ref-card"><h3>简单任务队列</h3><pre>class TaskQueue {
+  constructor(concurrency = 3) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+  }
+
+  async add(fn) {
+    if (this.running >= this.concurrency) {
+      await new Promise(resolve => this.queue.push(resolve));
+    }
+    this.running++;
+    try {
+      return await fn();
+    } finally {
+      this.running--;
+      if (this.queue.length) this.queue.shift()();
+    }
+  }
+}
+
+const queue = new TaskQueue(2);
+queue.add(() => fetch('https://api.example.com'));</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-commands">
+<div class="cmd-list">
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">node server.js</div><div class="desc">运行 Node.js 文件</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">node --watch server.js</div><div class="desc">文件变化自动重启</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">node --inspect server.js</div><div class="desc">启用调试器</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">node -e "console.log('hello')"</div><div class="desc">直接执行代码</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">node --test *.test.js</div><div class="desc">运行测试 (Node 20+)</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npm init -y</div><div class="desc">初始化 package.json</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npm install express</div><div class="desc">安装 npm 包</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">node --version</div><div class="desc">查看 Node.js 版本</div></div>
+</div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+function copyCode(id){const ta=document.getElementById(id);ta.select();document.execCommand('copy');showToast('已复制到剪贴板')}
+function copyCmd(el){navigator.clipboard.writeText(el.querySelector('.cmd').textContent).then(()=>showToast('命令已复制'))}
+</script>
+</body>
+</html>

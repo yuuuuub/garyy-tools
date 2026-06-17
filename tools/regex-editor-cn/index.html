@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文正则编辑器 - 在线正则表达式工具</title>
+<style>
+:root {
+--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+nav .logo{font-size:18px;font-weight:600;color:var(--accent2);}
+nav a{color:var(--accent);text-decoration:none;font-size:14px;}
+nav a:hover{color:var(--accent2);}
+.container{max-width:1200px;margin:0 auto;padding:20px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+@media(max-width:768px){.grid{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.card h3{font-size:14px;color:var(--accent2);margin-bottom:12px;font-weight:500;}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px;}
+input[type="text"],textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;color:var(--text);font-size:14px;font-family:"Fira Code",Consolas,monospace;outline:none;transition:border-color 0.2s;}
+input:focus,textarea:focus{border-color:var(--accent);}
+textarea{resize:vertical;min-height:120px;}
+.btn{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.2s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-secondary{background:var(--border);color:var(--text);}
+.btn-secondary:hover{background:#3d444d;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.templates{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.template-btn{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:12px;color:var(--accent2);cursor:pointer;transition:all 0.2s;}
+.template-btn:hover{border-color:var(--accent);color:var(--accent);}
+.highlight-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:16px;min-height:120px;font-family:"Fira Code",Consolas,monospace;font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-all;}
+.highlight-box mark{background:rgba(59,130,246,0.3);color:var(--accent2);border-radius:2px;padding:0 2px;}
+.results{max-height:300px;overflow-y:auto;}
+.result-item{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;}
+.result-item:last-child{border-bottom:none;}
+.result-item .match{color:var(--success);font-weight:500;}
+.result-item .index{color:#8b949e;margin-left:8px;}
+.result-item .group{color:var(--warning);margin-left:12px;}
+.replace-section{display:none;margin-top:16px;}
+.replace-section.active{display:block;}
+.regex-flags{display:flex;gap:8px;margin:8px 0;}
+.regex-flags label{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text);margin:0;}
+.regex-flags input[type="checkbox"]{width:auto;}
+.error{color:var(--error);font-size:13px;margin-top:8px;}
+</style>
+</head>
+<body>
+<nav>
+<span class="logo">中文正则编辑器</span>
+<a href="../index.html">← 返回工具箱</a>
+</nav>
+<div class="container">
+<div class="grid">
+<div class="card">
+<h3>正则表达式</h3>
+<label>输入正则表达式（不含 / /）</label>
+<input type="text" id="regexInput" placeholder="例如: ^\d{3}-\d{4}$" value="[\u4e00-\u9fa5]+">
+<div class="regex-flags">
+<label><input type="checkbox" id="flagG" checked> g (全局)</label>
+<label><input type="checkbox" id="flagI"> i (忽略大小写)</label>
+<label><input type="checkbox" id="flagM"> m (多行)</label>
+</div>
+<div id="regexError" class="error"></div>
+<h3 style="margin-top:16px;">常用模板</h3>
+<div class="templates">
+<button class="template-btn" data-pattern="^[\w.-]+@[\w.-]+\.\w+$">邮箱</button>
+<button class="template-btn" data-pattern="^1[3-9]\d{9}$">手机号</button>
+<button class="template-btn" data-pattern="^\d{17}[\dXx]$">身份证</button>
+<button class="template-btn" data-pattern="^https?://[\w.-]+(:\d+)?(/[\w./-]*)?$">URL</button>
+<button class="template-btn" data-pattern="^\d{4}-\d{2}-\d{2}$">日期</button>
+<button class="template-btn" data-pattern="^[\u4e00-\u9fa5]+$">纯中文</button>
+<button class="template-btn" data-pattern="^\d+(\.\d+)?$">数字</button>
+<button class="template-btn" data-pattern="^[A-Za-z]+$">纯字母</button>
+<button class="template-btn" data-pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$">颜色值</button>
+<button class="template-btn" data-pattern="^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$">IP地址</button>
+</div>
+</div>
+<div class="card">
+<h3>测试字符串</h3>
+<label>输入要匹配的文本</label>
+<textarea id="testString" placeholder="输入测试文本...">你好世界，Hello World！
+这是测试文本，包含中文内容。
+邮箱：test@example.com
+手机：13800138000
+日期：2024-01-15</textarea>
+<div style="margin-top:12px;display:flex;gap:8px;">
+<button class="btn btn-primary" onclick="testRegex()">测试匹配</button>
+<button class="btn btn-secondary" onclick="toggleReplace()">替换模式</button>
+<button class="btn btn-secondary" onclick="clearAll()">清空</button>
+</div>
+</div>
+</div>
+<div class="card">
+<h3>匹配结果预览</h3>
+<div id="highlightBox" class="highlight-box">在上方输入正则表达式和测试字符串，点击"测试匹配"查看结果</div>
+</div>
+<div class="replace-section" id="replaceSection">
+<div class="card">
+<h3>替换</h3>
+<label>替换为</label>
+<input type="text" id="replaceInput" placeholder="输入替换内容（支持 $1, $2 分组引用）">
+<button class="btn btn-primary" onclick="doReplace()" style="margin-top:8px;">执行替换</button>
+<button class="btn btn-secondary" style="margin-top:8px;" onclick="copyResult()">复制结果</button>
+</div>
+<div class="card">
+<h3>替换结果</h3>
+<div id="replaceResult" class="highlight-box" style="min-height:80px;">点击"执行替换"查看结果</div>
+</div>
+</div>
+<div class="grid">
+<div class="card">
+<h3>匹配结果列表</h3>
+<div id="matchList" class="results" style="min-height:100px;">
+<div style="color:#8b949e;font-size:13px;">暂无匹配结果</div>
+</div>
+</div>
+<div class="card">
+<h3>正则表达式说明</h3>
+<div style="font-size:13px;color:#8b949e;line-height:1.8;">
+<div><code style="color:var(--success);">.</code> 匹配任意字符</div>
+<div><code style="color:var(--success);">^</code> 匹配字符串开头</div>
+<div><code style="color:var(--success);">$</code> 匹配字符串结尾</div>
+<div><code style="color:var(--success);">*</code> 匹配0次或多次</div>
+<div><code style="color:var(--success);">+</code> 匹配1次或多次</div>
+<div><code style="color:var(--success);">?</code> 匹配0次或1次</div>
+<div><code style="color:var(--success);">\d</code> 匹配数字 [0-9]</div>
+<div><code style="color:var(--success);">\w</code> 匹配字母数字下划线</div>
+<div><code style="color:var(--success);">\s</code> 匹配空白字符</div>
+<div><code style="color:var(--success);">[abc]</code> 匹配a或b或c</div>
+<div><code style="color:var(--success);">[^abc]</code> 匹配非a,b,c</div>
+<div><code style="color:var(--success);">(abc)</code> 分组捕获</div>
+<div><code style="color:var(--success);">a|b</code> 匹配a或b</div>
+<div><code style="color:var(--success);">{n}</code> 匹配n次</div>
+<div><code style="color:var(--success);">{n,m}</code> 匹配n到m次</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const regexInput=document.getElementById('regexInput');
+const testString=document.getElementById('testString');
+const highlightBox=document.getElementById('highlightBox');
+const matchList=document.getElementById('matchList');
+const replaceSection=document.getElementById('replaceSection');
+const replaceInput=document.getElementById('replaceInput');
+const replaceResult=document.getElementById('replaceResult');
+const regexError=document.getElementById('regexError');
+
+document.querySelectorAll('.template-btn').forEach(btn=>{
+btn.onclick=()=>{
+regexInput.value=btn.dataset.pattern;
+testRegex();
+};
+});
+
+function getFlags(){
+let f='';
+if(document.getElementById('flagG').checked)f+='g';
+if(document.getElementById('flagI').checked)f+='i';
+if(document.getElementById('flagM').checked)f+='m';
+return f;
+}
+
+function testRegex(){
+const pattern=regexInput.value;
+const text=testString.value;
+regexError.textContent='';
+if(!pattern){highlightBox.textContent='请输入正则表达式';return;}
+try{
+const regex=new RegExp(pattern,getFlags());
+const matches=[];
+let match;
+const global=getFlags().includes('g');
+if(global){
+while((match=regex.exec(text))!==null){
+matches.push({value:match[0],index:match.index,groups:match.slice(1)});
+if(!match[0])regex.lastIndex++;
+}
+}else{
+match=regex.exec(text);
+if(match)matches.push({value:match[0],index:match.index,groups:match.slice(1)});
+}
+highlightMatches(text,matches);
+showMatchList(matches);
+}catch(e){
+regexError.textContent='正则表达式错误: '+e.message;
+highlightBox.innerHTML=text;
+matchList.innerHTML='<div style="color:var(--error);font-size:13px;">正则表达式无效</div>';
+}
+}
+
+function highlightMatches(text,matches){
+if(!matches.length){highlightBox.innerHTML=escapeHtml(text);return;}
+let html='';let lastIdx=0;
+matches.forEach(m=>{
+html+=escapeHtml(text.slice(lastIdx,m.index));
+html+='<mark>'+escapeHtml(m.value)+'</mark>';
+lastIdx=m.index+m.value.length;
+});
+html+=escapeHtml(text.slice(lastIdx));
+highlightBox.innerHTML=html;
+}
+
+function showMatchList(matches){
+if(!matches.length){matchList.innerHTML='<div style="color:#8b949e;font-size:13px;">无匹配结果</div>';return;}
+matchList.innerHTML=matches.map((m,i)=>{
+let html=`<div class="result-item"><span class="match">${escapeHtml(m.value)}</span><span class="index">索引: ${m.index}</span></div>`;
+if(m.groups.length){
+m.groups.forEach((g,gi)=>{
+if(g)html+=`<div class="result-item"><span class="group">分组$${gi+1}:</span> ${escapeHtml(g)}</div>`;
+});
+}
+return html;
+}).join('');
+}
+
+function toggleReplace(){
+replaceSection.classList.toggle('active');
+}
+
+function doReplace(){
+const pattern=regexInput.value;
+const text=testString.value;
+const replace=replaceInput.value;
+try{
+const regex=new RegExp(pattern,getFlags());
+const result=text.replace(regex,replace);
+replaceResult.innerHTML=escapeHtml(result);
+}catch(e){
+replaceResult.innerHTML='<span style="color:var(--error);">替换错误: '+e.message+'</span>';
+}
+}
+
+function copyResult(){
+const text=replaceResult.textContent;
+navigator.clipboard.writeText(text).then(()=>alert('已复制到剪贴板'));
+}
+
+function clearAll(){
+regexInput.value='';
+testString.value='';
+highlightBox.textContent='在上方输入正则表达式和测试字符串，点击"测试匹配"查看结果';
+matchList.innerHTML='<div style="color:#8b949e;font-size:13px;">暂无匹配结果</div>';
+replaceResult.textContent='';
+}
+
+function escapeHtml(text){
+return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+regexInput.addEventListener('input',testRegex);
+testString.addEventListener('input',testRegex);
+document.querySelectorAll('.regex-flags input').forEach(cb=>cb.addEventListener('change',testRegex));
+testRegex();
+</script>
+</body>
+</html>

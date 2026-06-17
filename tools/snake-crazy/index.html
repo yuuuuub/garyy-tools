@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>疯狂贪吃蛇</title>
+<style>
+:root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --accent:#3b82f6; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:20px; }
+h1 { color:#ef4444; margin-bottom:8px; font-size:1.5rem; }
+.hud { display:flex; gap:12px; margin:10px 0; flex-wrap:wrap; justify-content:center; }
+.hud span { background:var(--card); border:1px solid var(--border); padding:6px 14px; border-radius:8px; }
+.hud span.urgent { border-color:#ef4444; animation:pulse 0.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+canvas { border:2px solid #ef4444; border-radius:4px; display:block; margin:10px 0; }
+.controls { display:flex; gap:10px; margin-top:8px; }
+button { background:#ef4444; color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:1rem; }
+button:hover { opacity:0.85; }
+.warning { color:#ef4444; font-size:0.85rem; margin:4px 0; }
+</style>
+</head>
+<body>
+<h1>🔥 疯狂贪吃蛇</h1>
+<div class="hud">
+<span id="score">得分: 0</span>
+<span id="combo">连击: x1</span>
+<span id="timer" class="urgent">食物: 5.0s</span>
+<span id="speed">速度: 🔥</span>
+</div>
+<div class="warning">⚠️ 食物随机出现和消失，速度越来越快！</div>
+<canvas id="game" width="400" height="400"></canvas>
+<div class="controls">
+<button onclick="startGame()">开始游戏</button>
+</div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const G=20,C=20,R=20;
+
+let snake,dir,nextDir,foods,score,alive,combo,comboTimer,gameLoop,interval,foodTimer;
+
+const FOOD_COLORS=['#22c55e','#eab308','#f97316','#ef4444','#a855f7','#06b6d4'];
+
+function init(){
+  snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir={x:1,y:0};nextDir={x:1,y:0};
+  score=0;alive=true;combo=1;comboTimer=0;
+  foods=[];foodTimer=0;
+  interval=80;
+  for(let i=0;i<3;i++)spawnFood();
+  updateHUD();
+}
+
+function spawnFood(){
+  if(foods.length>=5)return;
+  let f;do{f={x:Math.floor(Math.random()*C),y:Math.floor(Math.random()*R),color:FOOD_COLORS[Math.floor(Math.random()*FOOD_COLORS.length)],life:Math.random()*200+100,maxLife:300};}
+  while(snake.some(s=>s.x===f.x&&s.y===f.y)||foods.some(fo=>fo.x===f.x&&fo.y===f.y));
+  foods.push(f);
+}
+
+function updateHUD(){
+  document.getElementById('score').textContent='得分: '+score;
+  document.getElementById('combo').textContent='连击: x'+combo;
+  document.getElementById('speed').textContent='速度: '+Math.floor((120-interval)/10)+'🔥';
+  const el=document.getElementById('timer');
+  if(foods.length>0){
+    const minLife=Math.min(...foods.map(f=>f.life));
+    el.textContent='食物: '+(minLife/10).toFixed(1)+'s';
+    el.style.color=minLife<50?'#ef4444':minLife<100?'#eab308':'#e6edf3';
+  }else el.textContent='食物: 无!';
+}
+
+function step(){
+  if(!alive)return;
+  foodTimer++;
+  if(foodTimer%5===0)spawnFood();
+  
+  // Remove expired food
+  foods.forEach(f=>f.life--);
+  const before=foods.length;
+  foods=foods.filter(f=>f.life>0);
+  if(foods.length<before)combo=1;
+  
+  dir={...nextDir};
+  let head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  
+  if(head.x<0||head.x>=C||head.y<0||head.y>=R){alive=false;end();return;}
+  if(snake.some(s=>s.x===head.x&&s.y===head.y)){alive=false;end();return;}
+  
+  snake.unshift(head);
+  let ate=false;
+  const fi=foods.findIndex(f=>f.x===head.x&&f.y===head.y);
+  if(fi!==-1){
+    foods.splice(fi,1);
+    score+=10*combo;
+    combo=Math.min(combo+1,10);
+    comboTimer=50;
+    ate=true;
+    if(interval>30)interval-=1;
+    clearInterval(gameLoop);gameLoop=setInterval(step,interval);
+    for(let i=0;i<2;i++)spawnFood();
+  }
+  if(!ate)snake.pop();
+  if(comboTimer>0)comboTimer--;
+  if(comboTimer===0)combo=1;
+  
+  draw();updateHUD();
+}
+
+function end(){
+  draw();
+  setTimeout(()=>alert('游戏结束！得分: '+score),50);
+}
+
+function draw(){
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='#1a2030';ctx.lineWidth=0.5;
+  for(let x=0;x<=C;x++){ctx.beginPath();ctx.moveTo(x*G,0);ctx.lineTo(x*G,canvas.height);ctx.stroke();}
+  for(let y=0;y<=R;y++){ctx.beginPath();ctx.moveTo(0,y*G);ctx.lineTo(canvas.width,y*G);ctx.stroke();}
+  
+  // Foods
+  foods.forEach(f=>{
+    const alpha=f.life/f.maxLife;
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle=f.color;
+    ctx.beginPath();ctx.arc(f.x*G+G/2,f.y*G+G/2,G/2-2,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+  
+  // Snake
+  snake.forEach((s,i)=>{
+    ctx.fillStyle=i===0?'#22c55e':'#16a34a';
+    ctx.fillRect(s.x*G+1,s.y*G+1,G-2,G-2);
+  });
+  
+  if(!alive){
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#ef4444';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
+    ctx.fillText('游戏结束',canvas.width/2,canvas.height/2-10);
+    ctx.fillStyle='#e6edf3';ctx.font='18px sans-serif';
+    ctx.fillText('得分: '+score+' | 最高连击: x'+combo,canvas.width/2,canvas.height/2+20);
+  }
+}
+
+function startGame(){clearInterval(gameLoop);init();draw();gameLoop=setInterval(step,interval);}
+
+document.addEventListener('keydown',e=>{
+  const m={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
+  const nd=m[e.key];if(nd&&(nd.x+dir.x!==0||nd.y+dir.y!==0)){nextDir=nd;e.preventDefault();}
+});
+
+let tx,ty;
+canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;});
+canvas.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  let nd;if(Math.abs(dx)>Math.abs(dy))nd={x:dx>0?1:-1,y:0};else nd={x:0,y:dy>0?1:-1};
+  if(nd.x+dir.x!==0||nd.y+dir.y!==0)nextDir=nd;
+});
+
+init();draw();
+</script>
+</body>
+</html>

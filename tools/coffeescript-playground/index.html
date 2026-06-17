@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoffeeScript 游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--editor-bg:#0d1117;--syntax-bg:#161b22}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.navbar{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+.navbar a{color:var(--accent2);text-decoration:none;font-size:14px}
+.navbar a:hover{text-decoration:underline}
+.navbar h1{font-size:18px;font-weight:600}
+.navbar .tag{background:var(--accent);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:320px;background:var(--syntax-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sidebar-header{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px}
+.sidebar-content{flex:1;overflow-y:auto;padding:8px}
+.syntax-section{margin-bottom:8px}
+.syntax-section h4{color:var(--accent2);font-size:13px;padding:8px 12px 4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.syntax-section h4::after{content:"▾";font-size:11px}
+.syntax-section.collapsed h4::after{content:"▸"}
+.syntax-section.collapsed .syntax-items{display:none}
+.syntax-item{padding:6px 12px;font-size:12px;border-radius:4px;margin:1px 0;cursor:pointer;transition:background .15s}
+.syntax-item:hover{background:var(--border)}
+.syntax-item code{color:var(--success);font-family:"SF Mono",Monaco,Consolas,monospace;font-size:11px}
+.syntax-item .desc{color:#8b949e;font-size:11px;margin-top:2px}
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card)}
+.toolbar select,.toolbar button{font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+.toolbar button:hover{border-color:var(--accent)}
+.toolbar .run-btn{background:var(--success);color:#000;border-color:var(--success);font-weight:600}
+.toolbar .run-btn:hover{opacity:.9}
+.toolbar .clear-btn{background:transparent;color:var(--warning);border-color:var(--warning)}
+.editor-wrap{flex:1;display:flex;overflow:hidden;position:relative}
+.line-numbers{width:48px;background:var(--card);border-right:1px solid var(--border);padding:12px 8px;font-family:"SF Mono",Monaco,Consolas,monospace;font-size:13px;line-height:1.6;color:#484f58;text-align:right;overflow:hidden;user-select:none}
+#codeEditor{flex:1;background:var(--editor-bg);color:var(--text);border:none;outline:none;resize:none;padding:12px 16px;font-family:"SF Mono",Monaco,Consolas,monospace;font-size:13px;line-height:1.6;tab-size:2;white-space:pre;overflow:auto;width:100%}
+.output-panel{height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;background:var(--card)}
+.output-header{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;background:var(--card)}
+.output-header .dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+.output-tabs{display:flex;gap:0}
+.output-tabs button{padding:6px 14px;font-size:12px;border:none;background:transparent;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent}
+.output-tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+#outputContent{flex:1;overflow:auto;padding:12px 16px;font-family:"SF Mono",Monaco,Consolas,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-all}
+.status-bar{padding:4px 12px;font-size:11px;color:#484f58;border-top:1px solid var(--border);background:var(--card);display:flex;justify-content:space-between}
+.right-panel{display:none}
+@media(max-width:900px){.sidebar{width:260px}.right-panel{display:none}}
+@media(max-width:700px){.main{flex-direction:column}.sidebar{width:100%;height:200px;border-right:none;border-bottom:1px solid var(--border)}.output-panel{height:160px}}
+</style>
+</head>
+<body>
+<nav class="navbar">
+<a href="../index.html">← 返回工具列表</a>
+<h1>CoffeeScript 游乐场</h1>
+<span class="tag">CoffeeScript</span>
+</nav>
+<div class="main">
+<aside class="sidebar">
+<div class="sidebar-header">📖 语法参考</div>
+<div class="sidebar-content">
+<div class="syntax-section">
+<h4 onclick="this.parentElement.classList.toggle('collapsed')">变量与字符串</h4>
+<div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('name = &quot;CoffeeScript&quot;\nversion = 6')"><code>name = "CoffeeScript"</code><div class="desc">不需要 var/let/const</div></div>
+<div class="syntax-item" onclick="insertSnippet('greeting = &quot;Hello, #{name}!&quot;')"><code>"Hello, #{name}!"</code><div class="desc">字符串插值</div></div>
+<div class="syntax-item" onclick="insertSnippet('multi = &quot;&quot;&quot;\n  多行字符串\n  支持缩进\n&quot;&quot;&quot;')"><code>"""多行字符串"""</code><div class="desc">多行字符串</div></div>
+</div></div>
+<div class="syntax-section">
+<h4 onclick="this.parentElement.classList.toggle('collapsed')">函数</h4>
+<div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('square = (x) ->\n  x * x')"><code>square = (x) -> x * x</code><div class="desc">箭头函数</div></div>
+<div class="syntax-item" onclick="insertSnippet('greet = (name = &quot;World&quot;) ->\n  &quot;Hello, #{name}!&quot;')"><code>greet = (name = "World") -></code><div class="desc">默认参数</div></div>
+<div class="syntax-item" onclick="insertSnippet('add = (args...) ->\n  args.reduce (a, b) -> a + b, 0')"><code>add = (args...) -></code><div class="desc">可变参数</div></div>
+</div></div>
+<div class="syntax-section">
+<h4 onclick="this.parentElement.classList.toggle('collapsed')">类</h4>
+<div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('class Animal\n  constructor: (@name) ->\n  speak: -&gt;\n    &quot;#{@name} makes a sound&quot;')"><code>class Animal</code><div class="desc">定义类</div></div>
+<div class="syntax-item" onclick="insertSnippet('class Dog extends Animal\n  speak: -&gt;\n    &quot;#{@name} barks!&quot;')"><code>class Dog extends Animal</code><div class="desc">继承</div></div>
+</div></div>
+<div class="syntax-section">
+<h4 onclick="this.parentElement.classList.toggle('collapsed')">列表推导</h4>
+<div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('squares = (x * x for x in [1..10])')"><code>squares = (x*x for x in [1..10])</code><div class="desc">列表推导</div></div>
+<div class="syntax-item" onclick="insertSnippet('evens = (x for x in [1..20] when x % 2 is 0)')"><code>evens = (x for x in [1..20] when x%2 is 0)</code><div class="desc">带条件的推导</div></div>
+<div class="syntax-item" onclick="insertSnippet('fruits = [&quot;apple&quot;, &quot;banana&quot;, &quot;cherry&quot;]\nfor fruit in fruits\n  console.log fruit')"><code>for fruit in fruits</code><div class="desc">循环遍历</div></div>
+</div></div>
+<div class="syntax-section">
+<h4 onclick="this.parentElement.classList.toggle('collapsed')">条件与循环</h4>
+<div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('score = 85\nresult = if score &gt;= 90 then &quot;优秀&quot;\nelse if score &gt;= 80 then &quot;良好&quot;\nelse if score &gt;= 60 then &quot;及格&quot;\nelse &quot;不及格&quot;')"><code>if/then/else</code><div class="desc">条件表达式</div></div>
+<div class="syntax-item" onclick="insertSnippet('for i in [1..5]\n  console.log &quot;第 #{i} 次&quot;')"><code>for i in [1..5]</code><div class="desc">for 循环</div></div>
+<div class="syntax-item" onclick="insertSnippet('count = 0\nloop\n  count++\n  break if count &gt;= 5')"><code>loop / break</code><div class="desc">无限循环</div></div>
+</div></div>
+<div class="syntax-section">
+<h4 onclick="this.parentElement.classList.toggle('collapsed')">对象与解构</h4>
+<div class="syntax-items">
+<div class="syntax-item" onclick="insertSnippet('person =\n  name: &quot;张三&quot;\n  age: 25\n  city: &quot;北京&quot;')"><code>person = name: "张三"</code><div class="desc">对象字面量</div></div>
+<div class="syntax-item" onclick="insertSnippet('{name, age} = person\nconsole.log name, age')"><code>{name, age} = person</code><div class="desc">解构赋值</div></div>
+<div class="syntax-item" onclick="insertSnippet('swap = (a, b) -&gt; [b, a]\n[x, y] = swap(1, 2)')"><code>[x, y] = swap(1, 2)</code><div class="desc">数组解构</div></div>
+</div></div>
+</div>
+</aside>
+<div class="center">
+<div class="toolbar">
+<select id="templateSelect" onchange="loadTemplate(this.value)">
+<option value="">选择模板...</option>
+<option value="listcomp">列表推导</option>
+<option value="classes">类</option>
+<option value="functions">函数</option>
+<option value="destructuring">对象解构</option>
+<option value="stringinterp">字符串插值</option>
+<option value="oop">面向对象编程</option>
+</select>
+<button class="run-btn" onclick="compileCode()">▶ 编译为 JavaScript</button>
+<button class="clear-btn" onclick="clearAll()">清空</button>
+<button onclick="copyCode()">复制代码</button>
+</div>
+<div class="editor-wrap">
+<div class="line-numbers" id="lineNumbers">1</div>
+<textarea id="codeEditor" spellcheck="false" placeholder="# 在这里编写 CoffeeScript 代码...&#10;greet = (name) ->&#10;  &quot;Hello, #{name}!&quot;&#10;&#10;console.log greet(&quot;世界&quot;)"></textarea>
+</div>
+<div class="output-panel">
+<div class="output-header">
+<div class="dot"></div>
+<span>输出</span>
+</div>
+<div class="output-tabs">
+<button class="active" onclick="showTab('js',this)">JavaScript</button>
+<button onclick="showTab('output',this)">运行输出</button>
+</div>
+<div id="outputContent">// 编译后的 JavaScript 代码将显示在这里</div>
+</div>
+</div>
+</div>
+<div class="status-bar">
+<span id="statusText">就绪</span>
+<span>CoffeeScript 游乐场 | 模拟编译环境</span>
+</div>
+<script>
+const editor = document.getElementById('codeEditor');
+const lineNumbers = document.getElementById('lineNumbers');
+const outputContent = document.getElementById('outputContent');
+let currentTab = 'js';
+const templates = {
+  listcomp: `# 列表推导示例
+
+# 基础列表推导
+squares = (x * x for x in [1..10])
+console.log "平方数: #{squares}"
+
+# 带条件的列表推导
+evens = (x for x in [1..20] when x % 2 is 0)
+console.log "偶数: #{evens}"
+
+# 嵌套列表推导
+matrix = ([x, y] for x in [1..3] for y in [1..3])
+console.log "矩阵: #{JSON.stringify(matrix)}"
+
+# 字符串转换
+uppercased = (word.toUpperCase() for word in ["hello", "coffee", "script"])
+console.log "大写: #{uppercased}"
+
+# 对象转换
+doubled = {x: x * 2 for x in [1..5]}
+console.log "加倍: #{JSON.stringify(doubled)}"`,
+  classes: `# 类示例
+
+class Animal
+  constructor: (@name, @sound) ->
+
+  speak: ->
+    "#{@name} 说: #{@sound}!"
+
+  toString: ->
+    "Animal(#{@name})"
+
+class Dog extends Animal
+  constructor: (name) ->
+    super(name, "汪汪")
+
+  fetch: (item) ->
+    "#{@name} 捡回了 #{item}"
+
+class Cat extends Animal
+  constructor: (name) ->
+    super(name, "喵喵")
+
+  purr: ->
+    "#{@name} 正在打呼噜..."
+
+# 使用
+dog = new Dog("旺财")
+cat = new Cat("小花")
+
+console.log dog.speak()
+console.log dog.fetch("飞盘")
+console.log cat.speak()
+console.log cat.purr()`,
+  functions: `# 函数示例
+
+# 基础函数
+add = (a, b) -> a + b
+console.log "1 + 2 = #{add(1, 2)}"
+
+# 默认参数
+greet = (name = "世界") -> "你好, #{name}!"
+console.log greet()
+console.log greet("CoffeeScript")
+
+# 可变参数
+sum = (numbers...) ->
+  numbers.reduce ((a, b) -> a + b), 0
+console.log "总和: #{sum(1, 2, 3, 4, 5)}"
+
+# 高阶函数
+applyTwice = (fn, x) -> fn(fn(x))
+double = (x) -> x * 2
+console.log "双重加倍: #{applyTwice(double, 3)}"
+
+# 箭头函数链式调用
+numbers = [1, 2, 3, 4, 5]
+result = numbers
+  .filter((x) -> x % 2 isnt 0)
+  .map((x) -> x * x)
+  .reduce((a, b) -> a + b, 0)
+console.log "奇数平方和: #{result}"
+
+# 闭包
+makeCounter = ->
+  count = 0
+  increment: -> count++
+  getCount: -> count
+
+counter = makeCounter()
+counter.increment()
+counter.increment()
+counter.increment()
+console.log "计数: #{counter.getCount()}"`,
+  destructuring: `# 对象与解构示例
+
+# 对象字面量
+person =
+  name: "张三"
+  age: 25
+  city: "北京"
+  skills: ["JavaScript", "CoffeeScript", "Python"]
+
+console.log "人物: #{JSON.stringify(person)}"
+
+# 解构赋值
+{name, age, city} = person
+console.log "姓名: #{name}, 年龄: #{age}, 城市: #{city}"
+
+# 重命名
+{name: fullName, age: years} = person
+console.log "全名: #{fullName}, 年龄: #{years}岁"
+
+# 默认值
+{email = "未知", phone = "未知"} = person
+console.log "邮箱: #{email}, 电话: #{phone}"
+
+# 数组解构
+[first, second, ...rest] = [1, 2, 3, 4, 5]
+console.log "第一个: #{first}, 第二个: #{second}, 其余: #{rest}"
+
+# 函数参数解构
+describe = ({name, age, city}) ->
+  "#{name}, #{age}岁, 来自#{city}"
+
+console.log describe(person)
+
+# 嵌套解构
+company =
+  name: "科技公司"
+  address:
+    city: "上海"
+    district: "浦东"
+  employees: [{name: "A"}, {name: "B"}]
+
+{name: companyName, address: {city}} = company
+console.log "#{companyName} 位于 #{city}"`,
+  stringinterp: `# 字符串插值示例
+
+# 基础插值
+name = "CoffeeScript"
+version = 6
+console.log "欢迎使用 #{name} v#{version}!"
+
+# 多行字符串
+html = """
+  <div class="greeting">
+    <h1>你好, #{name}!</h1>
+    <p>这是一个多行字符串示例</p>
+  </div>
+"""
+console.log html
+
+# 字符串方法链
+message = "  Hello, World!  "
+result = message.trim().toLowerCase().replace("world", "coffeescript")
+console.log result
+
+# 条件字符串
+score = 95
+grade = if score >= 90 then "优秀" else if score >= 60 then "及格" else "不及格"
+console.log "分数: #{score}, 等级: #{grade}"
+
+# 模板生成
+users = ["Alice", "Bob", "Charlie"]
+list = ("""
+  - #{user}
+""" for user in users).join("")
+console.log "用户列表:\\n#{list}"`,
+  oop: `# 面向对象编程示例
+
+class Shape
+  constructor: (@name) ->
+
+  area: -> 0
+  perimeter: -> 0
+
+  describe: ->
+    "#{@name}: 面积=#{@area().toFixed(2)}, 周长=#{@perimeter().toFixed(2)}"
+
+class Circle extends Shape
+  constructor: (@radius) ->
+    super("圆形")
+
+  area: -> Math.PI * @radius ** 2
+  perimeter: -> 2 * Math.PI * @radius
+
+class Rectangle extends Shape
+  constructor: (@width, @height) ->
+    super("矩形")
+
+  area: -> @width * @height
+  perimeter: -> 2 * (@width + @height)
+
+class Square extends Rectangle
+  constructor: (side) ->
+    super(side, side)
+    @name = "正方形"
+
+# 使用
+shapes = [new Circle(5), new Rectangle(4, 6), new Square(3)]
+for shape in shapes
+  console.log shape.describe()
+
+# 多态
+totalArea = shapes.reduce ((sum, s) -> sum + s.area()), 0
+console.log "总面积: #{totalArea.toFixed(2)}"`
+};
+
+editor.addEventListener('input', updateLineNumbers);
+editor.addEventListener('scroll', syncScroll);
+editor.addEventListener('keydown', handleTab);
+
+function updateLineNumbers() {
+  const lines = editor.value.split('\n').length;
+  lineNumbers.innerHTML = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+}
+
+function syncScroll() {
+  lineNumbers.scrollTop = editor.scrollTop;
+}
+
+function handleTab(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    updateLineNumbers();
+  }
+}
+
+function loadTemplate(key) {
+  if (templates[key]) {
+    editor.value = templates[key];
+    updateLineNumbers();
+    document.getElementById('statusText').textContent = '已加载模板';
+  }
+}
+
+function insertSnippet(code) {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  editor.value = editor.value.substring(0, start) + code + editor.value.substring(end);
+  editor.selectionStart = editor.selectionEnd = start + code.length;
+  editor.focus();
+  updateLineNumbers();
+}
+
+function compileCode() {
+  const code = editor.value;
+  if (!code.trim()) {
+    outputContent.textContent = '// 请先编写 CoffeeScript 代码';
+    return;
+  }
+  outputContent.textContent = '// CoffeeScript 编译结果 (模拟)\n// 注意: 完整编译需要 CoffeeScript 编译器\n\n' + simulateCompile(code);
+  document.getElementById('statusText').textContent = '编译完成';
+  showTab('js', document.querySelector('.output-tabs button:first-child'));
+}
+
+function simulateCompile(code) {
+  let js = '// === 编译后的 JavaScript ===\n\n';
+  // Simple transformations for demonstration
+  js += code
+    .replace(/#.*$/gm, '')
+    .replace(/\b(\w+)\s*=\s*(.+?)\s*->\s*\n((?:\s{2,}.+\n?)*)/g, (m, name, args, body) => {
+      const indent = body.match(/^\s*/)[0];
+      const cleanBody = body.trim().split('\n').map(l => l.replace(/^  /, '')).join('\n');
+      return `var ${name} = function(${args.replace(/\.\.\./g, '...args')}) {\n${indent}${cleanBody}\n};`;
+    })
+    .replace(/\b(\w+)\s*=\s*(.+?)\s*->\s*(.+)$/gm, 'var $1 = function($2) { return $3; };')
+    .replace(/\bclass\s+(\w+)(?:\s+extends\s+(\w+))?/g, (m, name, parent) => {
+      return parent ? `class ${name} extends ${parent}` : `class ${name}`;
+    });
+  return js;
+}
+
+function showTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.output-tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'js') {
+    outputContent.textContent = outputContent.textContent.startsWith('// CoffeeScript') || outputContent.textContent.startsWith('// ===') ? outputContent.textContent : '// 编译后的 JavaScript 代码将显示在这里';
+  } else {
+    outputContent.textContent = '// 运行输出需要 CoffeeScript 运行时环境\n// 请将编译后的 JavaScript 在 Node.js 中执行';
+  }
+}
+
+function clearAll() {
+  editor.value = '';
+  outputContent.textContent = '// 编译后的 JavaScript 代码将显示在这里';
+  lineNumbers.innerHTML = '1';
+  document.getElementById('statusText').textContent = '已清空';
+  document.getElementById('templateSelect').value = '';
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(editor.value).then(() => {
+    document.getElementById('statusText').textContent = '已复制到剪贴板';
+  });
+}
+
+updateLineNumbers();
+</script>
+</body>
+</html>

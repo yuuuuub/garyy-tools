@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文甘特图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='📅 中文甘特图';
+
+const APP=document.getElementById('app');
+let projects=JSON.parse(localStorage.getItem('gc_data')||'[]');
+let curProject=null;
+
+function save(){localStorage.setItem('gc_data',JSON.stringify(projects))}
+function render(){
+  let h=`<h1>📅 中文甘特图</h1><p class="subtitle">项目进度甘特图</p>`;
+  if(curProject!==null){
+    let p=projects[curProject];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curProject=null;render()">← 返回</button><b>${p.title}</b><button class="btn btn-sm" onclick="addTask()">+ 添加任务</button></div></div>`;
+    h+=`<div class="card" style="overflow-x:auto"><table class="table"><tr><th>任务</th><th>开始</th><th>结束</th><th>进度</th><th></th></tr>`;
+    p.tasks.forEach((t,i)=>{
+      h+=`<tr><td>${t.name}</td><td>${t.start||''}</td><td>${t.end||''}</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" style="width:${t.progress||0}%"></div></div> ${t.progress||0}%</td><td><button class="btn btn-sm" onclick="editTask(${i})">编辑</button> <button class="btn btn-sm btn-danger" onclick="delTask(${i})">×</button></td></tr>`;
+    });
+    h+=`</table></div>`;
+    h+=`<div class="card" style="overflow-x:auto;height:200px"><svg width="100%" height="${p.tasks.length*40+20}">`;
+    let start=p.tasks.map(t=>new Date(t.start||'2025-01-01').getTime());
+    let end=p.tasks.map(t=>new Date(t.end||'2025-01-02').getTime());
+    let min=Math.min(...start),max=Math.max(...end);
+    let range=max-min||1;
+    p.tasks.forEach((t,i)=>{
+      let x1=(start[i]-min)/range*100;
+      let w=Math.max(2,(end[i]-start[i])/range*100);
+      h+=`<rect x="${x1}%" y="${i*40+5}" width="${w}%" height="30" rx="4" fill="var(--accent)" opacity="0.7"/>`;
+      h+=`<text x="5" y="${i*40+25}" fill="var(--text)" font-size="12">${t.name}</text>`;
+    });
+    h+=`</svg></div>`;
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">项目列表</span><button class="btn btn-sm" onclick="newProject()">+ 新建项目</button></div></div>`;
+    projects.forEach((p,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${p.title}</b><div class="flex"><button class="btn btn-sm" onclick="openProject(${i})">打开</button><button class="btn btn-sm btn-danger" onclick="delProject(${i})">删除</button></div></div><p style="color:var(--text2)">${p.tasks.length} 个任务</p></div>`;
+    });
+    if(!projects.length) h+=`<div class="empty">暂无项目</div>`;
+  }
+  APP.innerHTML=h;
+}
+function newProject(){let t=prompt('项目名称：');if(t){projects.push({title:t,tasks:[]});save();render()}}
+function delProject(i){if(confirm('删除？')){projects.splice(i,1);curProject=null;save();render()}}
+function openProject(i){curProject=i;render()}
+function addTask(){let n=prompt('任务名称：');if(!n)return;let s=prompt('开始日期：',new Date().toISOString().slice(0,10));let e=prompt('结束日期：');projects[curProject].tasks.push({name:n,start:s,end:e,progress:0});save();render()}
+function editTask(i){let t=projects[curProject].tasks[i];let p=parseInt(prompt('进度(0-100)：',t.progress));if(!isNaN(p))t.progress=Math.min(100,Math.max(0,p));save();render()}
+function delTask(i){if(confirm('删除？')){projects[curProject].tasks.splice(i,1);save();render()}}
+render();
+
+</script>
+</body>
+</html>

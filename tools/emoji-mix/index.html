@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表情混合</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent-hover:#2563eb}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin:20px 0 8px}
+.sub{color:#8b949e;margin-bottom:24px;font-size:0.95rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:640px;margin-bottom:16px}
+.mix-area{display:flex;align-items:center;justify-content:center;gap:20px;margin:20px 0}
+.emoji-slot{width:100px;height:100px;background:var(--bg);border:2px dashed var(--border);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:3rem;cursor:pointer;transition:border-color .2s}
+.emoji-slot:hover{border-color:var(--accent)}
+.emoji-slot.filled{border-style:solid;border-color:var(--accent)}
+.plus{font-size:2rem;color:#8b949e}
+.equals{font-size:2rem;color:#8b949e}
+.result-slot{width:120px;height:120px;background:var(--bg);border:2px solid var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:3.5rem}
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:4px;margin-top:12px;max-height:200px;overflow-y:auto;padding:4px}
+.emoji-opt{background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:1.3rem;padding:6px 0;text-align:center;cursor:pointer;transition:border-color .15s}
+.emoji-opt:hover{border-color:var(--accent)}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+button{padding:10px 20px;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer;font-weight:500;transition:background .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--border);color:var(--text)}.btn-secondary:hover{background:#444c56}
+.result-name{font-size:1rem;margin-top:10px;color:#8b949e}
+.history{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.history-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:6px;font-size:0.9rem}
+.history-item span{font-size:1.5rem}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:10px 24px;border-radius:8px;font-size:0.9rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<h1>表情混合</h1>
+<p class="sub">选择两个表情，通过 Unicode 组合创造新的表情</p>
+<div class="card">
+<div style="font-weight:500">选择两个表情进行混合</div>
+<div class="mix-area">
+<div class="emoji-slot" id="slot1" onclick="showPicker(1)">❓</div>
+<div class="plus">+</div>
+<div class="emoji-slot" id="slot2" onclick="showPicker(2)">❓</div>
+<div class="equals">=</div>
+<div class="result-slot" id="resultSlot">✨</div>
+</div>
+<div class="btn-row">
+<button class="btn-primary" onclick="mixEmojis()">混合</button>
+<button class="btn-secondary" onclick="randomMix()">随机混合</button>
+<button class="btn-secondary" onclick="copyResult()">复制结果</button>
+</div>
+<div class="result-name" id="resultName"></div>
+</div>
+<div class="card" id="pickerCard" style="display:none">
+<div style="font-weight:500;margin-bottom:8px" id="pickerTitle">选择表情</div>
+<div class="emoji-grid" id="emojiGrid"></div>
+</div>
+<div class="card">
+<div style="font-weight:500;margin-bottom:8px">混合历史</div>
+<div class="history" id="history"></div>
+</div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+<script>
+let slot1='',slot2='';
+let pickerTarget=1;
+let mixHistory=JSON.parse(localStorage.getItem('emojiMixHistory')||'[]');
+const POOL=['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😉','😊','😇','🥰','😍','🤩','😘','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','😐','😑','😏','😒','🙄','😬','😌','😔','😪','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','😕','😟','😮','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','😤','😡','😠','🤬','💀','💩','🤡','👻','👽','🤖','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💕','💞','💓','💗','💖','💘','💝','👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','💪','🙏','🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🦆','🦄','🐝','🐛','🦋','🐢','🐍','🐙','🦑','🦐','🦀','🐟','🐬','🐳','🐋','🦈','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍒','🍑','🥭','🍍','🍅','🥑','🍆','🥕','🌽','🌶️','🍄','🍞','🥐','🧀','🍖','🍗','🥩','🍔','🍟','🍕','🌮','🥚','🍳','🍜','🍝','🍣','🥟','🍦','🍩','🍪','🎂','🍰','☕','🍵','🍷','🍸','🍹','✈️','🚀','⛵','🚂','🚗','🚕','🚌','🏎️','🚓','🚑','🚒','🏍️','🚲','🚁','🏠','🏡','🏢','🏨','🏪','🏫','🏰','🗼','🗽','⛲','⛰️','🏔️','🌋','🏖️','🌅','🌌','⭐','🌟','✨','⚡','🔥','💥','☀️','🌈','❄️','💧','🌊','✅','❌','⭕','❓','❗','💯','🔴','🟡','🟢','🔵','💜','⬛','⬜','🕐','🕑','🕒','⏰','📱','💻','⌨️','🖥️','📷','📹','🎥','📺','📻','💡','🔧','🔨','🎁','🎈','🎉','🧧','✉️','📝','✂️','💎','⚖️'];
+function showPicker(target){
+pickerTarget=target;
+document.getElementById('pickerTitle').textContent=target===1?'选择第一个表情':'选择第二个表情';
+document.getElementById('pickerGrid')&&(document.getElementById('pickerGrid'));
+const grid=document.getElementById('emojiGrid');
+grid.innerHTML=POOL.map(e=>`<div class="emoji-opt" onclick="selectEmoji('${e}')">${e}</div>`).join('');
+document.getElementById('pickerCard').style.display='block';
+}
+function selectEmoji(emoji){
+if(pickerTarget===1){slot1=emoji;document.getElementById('slot1').textContent=emoji;document.getElementById('slot1').classList.add('filled');}
+else{slot2=emoji;document.getElementById('slot2').textContent=emoji;document.getElementById('slot2').classList.add('filled');}
+document.getElementById('pickerCard').style.display='none';
+}
+function mixEmojis(){
+if(!slot1||!slot2){alert('请先选择两个表情');return;}
+const zwj='\u200D';
+const vs16='\uFE0F';
+const mix1=slot1+vs16+zwj+slot2;
+const mix2=slot2+vs16+zwj+slot1;
+const mix3=slot1+zwj+slot2;
+const results=[mix1,mix2,mix3];
+const result=results[Math.floor(Math.random()*results.length)];
+document.getElementById('resultSlot').textContent=result;
+const name=getEmojiName(slot1)+' × '+getEmojiName(slot2);
+document.getElementById('resultName').textContent=name;
+addHistory(slot1,slot2,result);
+}
+function randomMix(){
+const e1=POOL[Math.floor(Math.random()*POOL.length)];
+const e2=POOL[Math.floor(Math.random()*POOL.length)];
+slot1=e1;slot2=e2;
+document.getElementById('slot1').textContent=e1;
+document.getElementById('slot1').classList.add('filled');
+document.getElementById('slot2').textContent=e2;
+document.getElementById('slot2').classList.add('filled');
+mixEmojis();
+}
+function getEmojiName(e){
+const names={'😀':'开心','😃':'大笑','😄':'眯眼笑','😁':'露齿笑','😆':'哈哈','😅':'苦笑','🤣':'笑翻','😂':'笑哭','🙂':'微笑','😉':'眨眼','😊':'害羞笑','😇':'天使','🥰':'喜爱','😍':'爱心眼','🤩':'星眼','😘':'飞吻','😋':'好吃','😛':'吐舌','😜':'俏皮','🤪':'疯狂','😝':'调皮','🤑':'钱眼','🤗':'拥抱','🤭':'捂嘴','🤫':'嘘','🤔':'思考','😐':'面无表情','😑':'无语','😏':'得意','😒':'不高兴','🙄':'翻白眼','😬':'龇牙','😌':'放心','😔':'难过','😪':'困了','😴':'睡着','😷':'戴口罩','🤒':'发烧','🤕':'受伤','🤢':'恶心','🤮':'呕吐','🥵':'热','🥶':'冷','🥴':'晕','😵':'晕倒','🤯':'爆炸','🤠':'牛仔','🥳':'派对','😎':'酷','🤓':'书呆子','😕':'困惑','😟':'担心','😮':'惊讶','😲':'呆住','😳':'脸红','🥺':'恳求','😦':'啊','😧':'苦恼','😨':'害怕','😰':'冷汗','😥':'失望','😢':'哭','😭':'大哭','😱':'尖叫','😖':'纠结','😣':'忍耐','😞':'低落','😓':'汗','😩':'累','😫':'筋疲力尽','😤':'怒气','😡':'愤怒','😠':'生气','🤬':'骂人','💀':'骷髅','💩':'便便','🤡':'小丑','👻':'幽灵','👽':'外星人','🤖':'机器人','❤️':'红心','🧡':'橙心','💛':'黄心','💚':'绿心','💙':'蓝心','💜':'紫心','🖤':'黑心','🤍':'白心','💔':'碎心','💕':'双心','👍':'大拇指','👎':'倒拇指','👌':'OK','✌️':'胜利','🤞':'好运','🤟':'爱你','🤘':'摇滚','🤙':'打电话','🐶':'狗','🐱':'猫','🐭':'老鼠','🐹':'仓鼠','🐰':'兔子','🦊':'狐狸','🐻':'熊','🐼':'熊猫','🐨':'考拉','🐯':'老虎','🦁':'狮子','🐮':'牛','🐷':'猪','🐸':'青蛙','🐵':'猴子','🐔':'鸡','🐧':'企鹅','🐦':'鸟','🦆':'鸭子','🦄':'独角兽','🐝':'蜜蜂','🐛':'虫','🦋':'蝴蝶','🐢':'乌龟','🐍':'蛇','🐙':'章鱼','🦑':'鱿鱼','🦐':'虾','🦀':'螃蟹','🐟':'鱼','🐬':'海豚','🐳':'鲸鱼','🦈':'鲨鱼','🍎':'苹果','🍊':'橘子','🍋':'柠檬','🍌':'香蕉','🍉':'西瓜','🍇':'葡萄','🍓':'草莓','🍑':'桃子','🍅':'番茄','🥑':'牛油果','🍆':'茄子','🥕':'胡萝卜','🍔':'汉堡','🍟':'薯条','🍕':'披萨','🌮':'卷饼','🍜':'面条','🍣':'寿司','🍦':'冰淇淋','🍩':'甜甜圈','☕':'咖啡','🍵':'茶','✈️':'飞机','🚀':'火箭','🚗':'汽车','🏠':'房子','⭐':'星星','🌟':'闪亮星','✨':'闪光','⚡':'闪电','🔥':'火焰','💧':'水滴','🌊':'海浪','☀️':'太阳','🌈':'彩虹','❄️':'雪花','📱':'手机','💻':'电脑','💡':'灯泡','🔧':'扳手','💎':'钻石','🎉':'彩球','🧧':'红包','📝':'备忘录'};
+return names[e]||'表情';
+}
+function addHistory(e1,e2,result){
+mixHistory.unshift({e1,e2,result,time:Date.now()});
+if(mixHistory.length>20)mixHistory.pop();
+localStorage.setItem('emojiMixHistory',JSON.stringify(mixHistory));
+renderHistory();
+}
+function renderHistory(){
+document.getElementById('history').innerHTML=mixHistory.slice(0,10).map(h=>
+`<div class="history-item"><span>${h.e1}</span><span>+</span><span>${h.e2}</span><span>=</span><span>${h.result}</span></div>`
+).join('');
+}
+function copyResult(){
+const text=document.getElementById('resultSlot').textContent;
+if(!text||text==='✨')return;
+navigator.clipboard.writeText(text).then(()=>showToast('已复制'));
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+initHistory();
+function initHistory(){renderHistory();}
+</script>
+</body>
+</html>

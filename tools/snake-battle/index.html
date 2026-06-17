@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>贪吃蛇对战</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--p2:#f59e0b}
+body{background:var(--bg);color:var(--text);font-family:monospace;display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100}
+#overlay h1{font-size:36px;color:var(--accent);margin-bottom:10px}
+#overlay p{font-size:14px;color:#8b949e;margin-bottom:20px}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 28px;font-size:15px;border-radius:6px;cursor:pointer;font-family:monospace}
+.btn:hover{filter:brightness(1.2)}
+#hud{display:flex;gap:40px;margin:10px 0;font-size:14px}
+#hud .p1{color:var(--accent)}
+#hud .p2{color:var(--p2)}
+#hud span{font-weight:bold}
+canvas{display:block;border:1px solid var(--border);background:#111;border-radius:4px}
+</style>
+</head>
+<body>
+<div id="overlay">
+<h1>贪吃蛇对战</h1>
+<p>双人对战 — 碰到对方身体即死亡！</p>
+<p style="font-size:12px">玩家1: WASD | 玩家2: 方向键</p>
+<button class="btn" onclick="startGame()">开始对战</button>
+</div>
+<div id="hud">
+<div class="p1">玩家1 长度: <span id="len1">3</span></div>
+<div class="p2">玩家2 长度: <span id="len2">3</span></div>
+</div>
+<canvas id="gc" width="600" height="600"></canvas>
+<script>
+const W=600,H=600,G=20,COLS=W/G,ROWS=H/G;
+const cv=document.getElementById('gc'),ctx=cv.getContext('2d');
+let s1,s2,food,gameOn,timer,speed;
+
+function initSnake(x,y,dx,dy){return[{x,y},{x:x-dx,y:y-dy},{x:x-2*dx,y:y-2*dy}]}
+
+function startGame(){
+document.getElementById('overlay').style.display='none';
+s1=initSnake(5,10,1,0);s2=initSnake(COLS-6,ROWS-11,-1,0);
+s1.dir={x:1,y:0};s2.dir={x:-1,y:0};
+s1.alive=true;s2.alive=true;gameOn=true;speed=120;
+spawnFood();gameLoop();
+}
+
+function spawnFood(){
+food={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};
+}
+
+function move(snake,dir){
+const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+snake.unshift(head);
+if(head.x===food.x&&head.y===food.y){spawnFood();return true}
+snake.pop();return false;
+}
+
+function checkCollision(head,snake){
+return snake.some(s=>s.x===head.x&&s.y===head.y);
+}
+
+function isAlive(head,opponentSelf,opponentOther){
+if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS)return false;
+if(checkCollision(head,opponentSelf))return false;
+if(checkCollision(head,opponentOther))return false;
+return true;
+}
+
+function gameLoop(){
+if(!gameOn)return;
+const h1={x:s1[0].x+s1.dir.x,y:s1[0].y+s1.dir.y};
+const h2={x:s2[0].x+s2.dir.x,y:s2[0].y+s2.dir.y};
+const ate1=move(s1,s1.dir);
+const ate2=move(s2,s2.dir);
+s1.alive=isAlive(s1[0],s1.slice(1),s2);
+s2.alive=isAlive(s2[0],s2.slice(1),s1);
+if(!s1.alive||!s2.alive)endGame();
+draw();updateHUD();
+timer=setTimeout(gameLoop,speed);
+}
+
+function draw(){
+ctx.fillStyle='#111';ctx.fillRect(0,0,W,H);
+// food
+ctx.fillStyle='#ef4444';
+ctx.fillRect(food.x*G+2,food.y*G+2,G-4,G-4);
+// snakes
+if(s1.alive){ctx.fillStyle='#3b82f6';s1.forEach((s,i)=>{ctx.globalAlpha=i===0?1:0.7;ctx.fillRect(s.x*G+1,s.y*G+1,G-2,G-2)});ctx.globalAlpha=1}
+if(s2.alive){ctx.fillStyle='#f59e0b';s2.forEach((s,i)=>{ctx.globalAlpha=i===0?1:0.7;ctx.fillRect(s.x*G+1,s.y*G+1,G-2,G-2)});ctx.globalAlpha=1}
+}
+
+function updateHUD(){
+document.getElementById('len1').textContent=s1?.length||0;
+document.getElementById('len2').textContent=s2?.length||0;
+}
+
+function endGame(){
+gameOn=false;
+const winner=s1.alive?'玩家1':'玩家2';
+const ov=document.getElementById('overlay');ov.style.display='flex';
+ov.innerHTML=`<h1>${winner} 获胜！</h1><p>P1长度: ${s1.length} | P2长度: ${s2.length}</p><button class="btn" onclick="startGame()">再来一局</button>`;
+}
+
+const keys={};
+document.addEventListener('keydown',e=>{
+if(!gameOn)return;
+e.preventDefault();
+if(e.key==='w'&&s1.dir.y!==1)s1.dir={x:0,y:-1};
+else if(e.key==='s'&&s1.dir.y!==-1)s1.dir={x:0,y:1};
+else if(e.key==='a'&&s1.dir.x!==1)s1.dir={x:-1,y:0};
+else if(e.key==='d'&&s1.dir.x!==-1)s1.dir={x:1,y:0};
+if(e.key==='ArrowUp'&&s2.dir.y!==1)s2.dir={x:0,y:-1};
+else if(e.key==='ArrowDown'&&s2.dir.y!==-1)s2.dir={x:0,y:1};
+else if(e.key==='ArrowLeft'&&s2.dir.x!==1)s2.dir={x:-1,y:0};
+else if(e.key==='ArrowRight'&&s2.dir.x!==-1)s2.dir={x:1,y:0};
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>湖泊查找 - Lake Finder</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --secondary: #8b949e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.1rem;
+        }
+        
+        .search-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr 200px 150px;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .search-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .filter-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .filter-label {
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+        
+        .results-count {
+            color: var(--secondary);
+        }
+        
+        .sort-select {
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .lake-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .lake-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .lake-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .lake-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .lake-type {
+            padding: 4px 10px;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .lake-location {
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .lake-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .stars {
+            color: var(--warning);
+            letter-spacing: 2px;
+        }
+        
+        .rating-value {
+            font-weight: 600;
+        }
+        
+        .rating-count {
+            color: var(--secondary);
+            font-size: 0.85rem;
+        }
+        
+        .lake-description {
+            color: var(--secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .lake-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            margin-top: 4px;
+        }
+        
+        .lake-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .feature-tag {
+            padding: 4px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--secondary);
+        }
+        
+        .lake-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .info-item {
+            font-size: 0.9rem;
+        }
+        
+        .info-label {
+            color: var(--secondary);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .book-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+        
+        .book-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary);
+        }
+        
+        .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>湖泊查找</h1>
+            <p class="subtitle">探索中国最美湖泊，享受宁静时光</p>
+        </header>
+
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索湖泊名称或位置...">
+                <select class="sort-select" id="sortSelect">
+                    <option value="rating">按评分排序</option>
+                    <option value="area-large">面积从大到小</option>
+                    <option value="area-small">面积从小到大</option>
+                    <option value="depth-deep">深度从深到浅</option>
+                </select>
+            </div>
+            <div class="filter-section">
+                <span class="filter-label">活动：</span>
+                <button class="filter-btn active" data-activity="all">全部</button>
+                <button class="filter-btn" data-activity="swimming">游泳</button>
+                <button class="filter-btn" data-activity="fishing">钓鱼</button>
+                <button class="filter-btn" data-activity="boating">划船</button>
+                <button class="filter-btn" data-activity="hiking">徒步</button>
+            </div>
+        </div>
+
+        <div class="results-header">
+            <span class="results-count" id="resultsCount">找到 10 个湖泊</span>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Cards will be injected here -->
+        </div>
+
+        <div class="no-results" id="noResults" style="display: none;">
+            <div class="no-results-icon">🏞️</div>
+            <h3>未找到匹配的湖泊</h3>
+            <p>请尝试调整搜索条件或筛选项</p>
+        </div>
+
+        <footer>
+            <p>© 2024 湖泊查找 - 发现水天一色的美景</p>
+        </footer>
+    </div>
+
+    <script>
+        const lakes = [
+            {
+                name: "青海湖",
+                activity: "swimming",
+                activityLabel: "游泳",
+                location: "青海省海南州",
+                rating: 4.9,
+                reviews: 5670,
+                description: "中国最大的内陆湖，面积4543平方公里，湖水碧蓝，被誉为"高原蓝宝石"。",
+                area: 4543,
+                depth: 32,
+                activities: ["观鸟", "骑行", "摄影", "油菜花海"],
+                surroundingScenery: "草原、雪山、沙漠",
+                bestSeason: "6月-8月",
+                features: ["中国最大内陆湖", "鸟岛", "油菜花海", "环湖骑行"]
+            },
+            {
+                name: "杭州西湖",
+                activity: "boating",
+                activityLabel: "划船",
+                location: "浙江省杭州市",
+                rating: 4.8,
+                reviews: 6780,
+                description: "中国最著名的湖泊之一，以"西湖十景"闻名于世，是世界文化遗产。",
+                area: 6.3,
+                depth: 5,
+                activities: ["游船", "散步", "摄影", "品茶"],
+                surroundingScenery: "古建筑、园林、山峦",
+                bestSeason: "3月-5月, 9月-11月",
+                features: ["世界文化遗产", "断桥残雪", "三潭印月", "雷峰塔"]
+            },
+            {
+                name: "洞庭湖",
+                activity: "fishing",
+                activityLabel: "钓鱼",
+                location: "湖南省岳阳市",
+                rating: 4.6,
+                reviews: 3450,
+                description: "中国第二大淡水湖，以"洞庭天下水，岳阳天下楼"著称。",
+                area: 2820,
+                depth: 8,
+                activities: ["观鸟", "钓鱼", "游船", "摄影"],
+                surroundingScenery: "湿地、芦苇荡、古建筑",
+                bestSeason: "4月-10月",
+                features: ["中国第二大淡水湖", "岳阳楼", "君山岛", "候鸟栖息地"]
+            },
+            {
+                name: "纳木错",
+                activity: "hiking",
+                activityLabel: "徒步",
+                location: "西藏自治区拉萨市",
+                rating: 4.9,
+                reviews: 4560,
+                description: "世界上海拔最高的大型湖泊，海拔4718米，湖水碧蓝如宝石。",
+                area: 1920,
+                depth: 93,
+                activities: ["徒步", "摄影", "观星", "转湖"],
+                surroundingScenery: "雪山、草原、经幡",
+                bestSeason: "6月-9月",
+                features: ["世界海拔最高大湖", "圣湖", "雪山倒影", "星空"]
+            },
+            {
+                name: "太湖",
+                activity: "boating",
+                activityLabel: "划船",
+                location: "江苏省苏州市",
+                rating: 4.5,
+                reviews: 3890,
+                description: "中国第三大淡水湖，以"太湖佳绝处，毕竟在鼋头"著称。",
+                area: 2445,
+                depth: 3,
+                activities: ["游船", "品尝湖鲜", "摄影", "骑行"],
+                surroundingScenery: "园林、古镇、茶山",
+                bestSeason: "3月-5月, 9月-11月",
+                features: ["中国第三大淡水湖", "鼋头渚", "太湖三白", "灵山大佛"]
+            },
+            {
+                name: "喀纳斯湖",
+                activity: "hiking",
+                activityLabel: "徒步",
+                location: "新疆维吾尔自治区阿勒泰地区",
+                rating: 4.8,
+                reviews: 3230,
+                description: "中国最深的高山淡水湖，以"神的花园"著称，四季景色各异。",
+                area: 45,
+                depth: 188,
+                activities: ["徒步", "摄影", "观鱼", "划船"],
+                surroundingScenery: "原始森林、雪山、草原",
+                bestSeason: "6月-10月",
+                features: ["中国最深高山湖", "神秘水怪", "秋季彩林", "图瓦人村落"]
+            },
+            {
+                name: "洱海",
+                activity: "swimming",
+                activityLabel: "游泳",
+                location: "云南省大理州",
+                rating: 4.7,
+                reviews: 4120,
+                description: "云南第二大湖，以"下关风，上关花，苍山雪，洱海月"著称。",
+                area: 256,
+                depth: 21,
+                activities: ["环湖骑行", "游船", "摄影", "观日落"],
+                surroundingScenery: "苍山、古城、白族村落",
+                bestSeason: "3月-5月, 9月-11月",
+                features: ["风花雪月", "环湖骑行", "双廊古镇", "白族文化"]
+            },
+            {
+                name: "鄱阳湖",
+                activity: "fishing",
+                activityLabel: "钓鱼",
+                location: "江西省九江市",
+                rating: 4.4,
+                reviews: 2890,
+                description: "中国最大的淡水湖，候鸟天堂，冬季有数十万只候鸟在此越冬。",
+                area: 3583,
+                depth: 8,
+                activities: ["观鸟", "钓鱼", "游船", "摄影"],
+                surroundingScenery: "湿地、候鸟保护区、古建筑",
+                bestSeason: "4月-10月, 11月-次年3月",
+                features: ["中国最大淡水湖", "候鸟天堂", "鄱阳湖大桥", "水上公路"]
+            },
+            {
+                name: "泸沽湖",
+                activity: "swimming",
+                activityLabel: "游泳",
+                location: "云南省丽江市",
+                rating: 4.8,
+                reviews: 3560,
+                description: "高原明珠，以摩梭人走婚文化闻名，湖水清澈见底。",
+                area: 50,
+                depth: 40,
+                activities: ["划船", "徒步", "摄影", "体验摩梭文化"],
+                surroundingScenery: "格姆女神山、原始森林、摩梭村落",
+                bestSeason: "3月-5月, 9月-11月",
+                features: ["高原明珠", "摩梭文化", "猪槽船", "走婚桥"]
+            },
+            {
+                name: "天山天池",
+                activity: "hiking",
+                activityLabel: "徒步",
+                location: "新疆维吾尔自治区昌吉州",
+                rating: 4.6,
+                reviews: 2780,
+                description: "天山山脉中的高山湖泊，海拔1910米，以"天镜"著称。",
+                area: 4.9,
+                depth: 105,
+                activities: ["徒步", "游船", "摄影", "滑雪"],
+                surroundingScenery: "雪山、云杉林、草原",
+                bestSeason: "5月-10月",
+                features: ["天山明珠", "雪山倒影", "西王母传说", "冬季滑雪"]
+            }
+        ];
+
+        let currentActivity = 'all';
+        let currentSort = 'rating';
+        let searchQuery = '';
+
+        function createStars(rating) {
+            const fullStars = Math.floor(rating);
+            const hasHalf = rating % 1 >= 0.5;
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) {
+                stars += '★';
+            }
+            if (hasHalf) {
+                stars += '☆';
+            }
+            return stars;
+        }
+
+        function createLakeCard(lake) {
+            return `
+                <div class="lake-card">
+                    <div class="lake-header">
+                        <h3 class="lake-name">${lake.name}</h3>
+                        <span class="lake-type">${lake.activityLabel}</span>
+                    </div>
+                    <div class="lake-location">📍 ${lake.location}</div>
+                    <div class="lake-rating">
+                        <span class="stars">${createStars(lake.rating)}</span>
+                        <span class="rating-value">${lake.rating}</span>
+                        <span class="rating-count">(${lake.reviews}条评价)</span>
+                    </div>
+                    <p class="lake-description">${lake.description}</p>
+                    <div class="lake-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${lake.area}km²</div>
+                            <div class="stat-label">面积</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${lake.depth}m</div>
+                            <div class="stat-label">最大深度</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${lake.activities.length}</div>
+                            <div class="stat-label">活动项目</div>
+                        </div>
+                    </div>
+                    <div class="lake-features">
+                        ${lake.features.map(f => `<span class="feature-tag">${f}</span>`).join('')}
+                    </div>
+                    <div class="lake-info">
+                        <div class="info-item">
+                            <div class="info-label">最佳季节</div>
+                            <div class="info-value">${lake.bestSeason}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">周边景色</div>
+                            <div class="info-value">${lake.surroundingScenery}</div>
+                        </div>
+                    </div>
+                    <button class="book-btn">查看详情</button>
+                </div>
+            `;
+        }
+
+        function filterAndSort() {
+            let filtered = lakes;
+            
+            if (currentActivity !== 'all') {
+                filtered = filtered.filter(l => l.activity === currentActivity);
+            }
+            
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(l => 
+                    l.name.toLowerCase().includes(query) || 
+                    l.location.toLowerCase().includes(query)
+                );
+            }
+            
+            switch (currentSort) {
+                case 'rating':
+                    filtered.sort((a, b) => b.rating - a.rating);
+                    break;
+                case 'area-large':
+                    filtered.sort((a, b) => b.area - a.area);
+                    break;
+                case 'area-small':
+                    filtered.sort((a, b) => a.area - b.area);
+                    break;
+                case 'depth-deep':
+                    filtered.sort((a, b) => b.depth - a.depth);
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        function renderResults() {
+            const filtered = filterAndSort();
+            const grid = document.getElementById('resultsGrid');
+            const noResults = document.getElementById('noResults');
+            const count = document.getElementById('resultsCount');
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                count.textContent = '找到 0 个湖泊';
+            } else {
+                noResults.style.display = 'none';
+                grid.innerHTML = filtered.map(createLakeCard).join('');
+                count.textContent = `找到 ${filtered.length} 个湖泊`;
+            }
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentActivity = btn.dataset.activity;
+                renderResults();
+            });
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderResults();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderResults();
+        });
+
+        renderResults();
+    </script>
+</body>
+</html>

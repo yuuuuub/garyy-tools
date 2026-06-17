@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高尔夫球场查找 - Golf Course Finder</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --secondary: #8b949e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.1rem;
+        }
+        
+        .search-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr 200px 150px;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .search-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .filter-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .filter-label {
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 4px;
+        }
+        
+        .results-count {
+            color: var(--secondary);
+        }
+        
+        .sort-select {
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .course-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .course-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .course-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .course-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .course-type {
+            padding: 4px 10px;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .course-location {
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .course-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .stars {
+            color: var(--warning);
+            letter-spacing: 2px;
+        }
+        
+        .rating-value {
+            font-weight: 600;
+        }
+        
+        .rating-count {
+            color: var(--secondary);
+            font-size: 0.85rem;
+        }
+        
+        .course-description {
+            color: var(--secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .course-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            margin-top: 4px;
+        }
+        
+        .course-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .feature-tag {
+            padding: 4px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--secondary);
+        }
+        
+        .course-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .info-item {
+            font-size: 0.9rem;
+        }
+        
+        .info-label {
+            color: var(--secondary);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .book-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 16px;
+        }
+        
+        .book-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary);
+        }
+        
+        .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>高尔夫球场查找</h1>
+            <p class="subtitle">发现顶级高尔夫球场，享受挥杆乐趣</p>
+        </header>
+
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索球场名称或位置...">
+                <select class="sort-select" id="sortSelect">
+                    <option value="rating">按评分排序</option>
+                    <option value="price-low">果岭费从低到高</option>
+                    <option value="price-high">果岭费从高到低</option>
+                    <option value="holes">按洞数排序</option>
+                </select>
+            </div>
+            <div class="filter-section">
+                <span class="filter-label">难度：</span>
+                <button class="filter-btn active" data-difficulty="all">全部</button>
+                <button class="filter-btn" data-difficulty="beginner">初学者</button>
+                <button class="filter-btn" data-difficulty="intermediate">中级</button>
+                <button class="filter-btn" data-difficulty="advanced">高级</button>
+                <button class="filter-btn" data-difficulty="professional">职业级</button>
+            </div>
+        </div>
+
+        <div class="results-header">
+            <span class="results-count" id="resultsCount">找到 10 个球场</span>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Cards will be injected here -->
+        </div>
+
+        <div class="no-results" id="noResults" style="display: none;">
+            <div class="no-results-icon">⛳</div>
+            <h3>未找到匹配的球场</h3>
+            <p>请尝试调整搜索条件或筛选项</p>
+        </div>
+
+        <footer>
+            <p>© 2024 高尔夫球场查找 - 发现您的理想球场</p>
+        </footer>
+    </div>
+
+    <script>
+        const courses = [
+            {
+                name: "北京国际高尔夫俱乐部",
+                difficulty: "professional",
+                difficultyLabel: "职业级",
+                location: "北京市昌平区",
+                rating: 4.9,
+                reviews: 890,
+                description: "18洞国际标准球场，由著名设计师设计，适合职业比赛和高端商务活动。",
+                holes: 18,
+                par: 72,
+                greenFee: 1200,
+                features: ["18洞标准球场", "练习场", "Pro Shop", "餐厅", "更衣室", "球车"],
+                restaurant: "中西餐厅",
+                proShop: "品牌装备齐全"
+            },
+            {
+                name: "观澜湖高尔夫球会",
+                difficulty: "advanced",
+                difficultyLabel: "高级",
+                location: "广东省深圳市",
+                rating: 4.8,
+                reviews: 1560,
+                description: "亚洲最大的高尔夫球会，拥有多个12洞球场，适合不同水平球员。",
+                holes: 12,
+                par: 72,
+                greenFee: 800,
+                features: ["12洞球场", "灯光球场", "练习场", "酒店", "SPA"],
+                restaurant: "海鲜餐厅",
+                proShop: "国际品牌"
+            },
+            {
+                name: "上海佘山国际高尔夫俱乐部",
+                difficulty: "professional",
+                difficultyLabel: "职业级",
+                location: "上海市松江区",
+                rating: 4.7,
+                reviews: 780,
+                description: "中国公开赛举办地，18洞 championship 球场，挑战性极高。",
+                holes: 18,
+                par: 72,
+                greenFee: 1500,
+                features: ["18洞球场", "锦标赛级", "会所", "泳池", "网球场"],
+                restaurant: "高级西餐厅",
+                proShop: "专业定制"
+            },
+            {
+                name: "云南春城高尔夫球会",
+                difficulty: "intermediate",
+                difficultyLabel: "中级",
+                location: "云南省昆明市",
+                rating: 4.6,
+                reviews: 650,
+                description: "高原球场，风景秀丽，难度适中，适合度假休闲。",
+                holes: 18,
+                par: 72,
+                greenFee: 600,
+                features: ["18洞球场", "湖景", "山景", "度假村", "温泉"],
+                restaurant: "云南特色餐厅",
+                proShop: "本地特色装备"
+            },
+            {
+                name: "深圳正中高尔夫球会",
+                difficulty: "intermediate",
+                difficultyLabel: "中级",
+                location: "广东省深圳市",
+                rating: 4.5,
+                reviews: 920,
+                description: "城市中的绿洲，交通便利，适合商务人士周末休闲。",
+                holes: 18,
+                par: 72,
+                greenFee: 500,
+                features: ["18洞球场", "灯光球场", "练习场", "餐厅", "会议室"],
+                restaurant: "粤菜餐厅",
+                proShop: "基础装备"
+            },
+            {
+                name: "海南三亚亚龙湾高尔夫球会",
+                difficulty: "beginner",
+                difficultyLabel: "初学者",
+                location: "海南省三亚市",
+                rating: 4.4,
+                reviews: 540,
+                description: "海滨球场，风景如画，难度较低，适合初学者和家庭度假。",
+                holes: 18,
+                par: 72,
+                greenFee: 700,
+                features: ["18洞球场", "海景", "练习场", "度假村", "海滩"],
+                restaurant: "海鲜烧烤",
+                proShop: "度假装备"
+            },
+            {
+                name: "北京雁栖湖高尔夫俱乐部",
+                difficulty: "advanced",
+                difficultyLabel: "高级",
+                location: "北京市怀柔区",
+                rating: 4.3,
+                reviews: 430,
+                description: "山水球场，难度较高，适合有经验的球员挑战自我。",
+                holes: 18,
+                par: 72,
+                greenFee: 900,
+                features: ["18洞球场", "山景", "湖景", "会所", "酒店"],
+                restaurant: "农家菜",
+                proShop: "专业装备"
+            },
+            {
+                name: "成都麓山国际乡村俱乐部",
+                difficulty: "intermediate",
+                difficultyLabel: "中级",
+                location: "四川省成都市",
+                rating: 4.5,
+                reviews: 680,
+                description: "乡村风格球场，环境优美，难度适中，适合周末休闲。",
+                holes: 18,
+                par: 72,
+                greenFee: 450,
+                features: ["18洞球场", "乡村风格", "练习场", "餐厅", "住宿"],
+                restaurant: "川菜餐厅",
+                proShop: "基础装备"
+            },
+            {
+                name: "广州南沙高尔夫球会",
+                difficulty: "beginner",
+                difficultyLabel: "初学者",
+                location: "广东省广州市",
+                rating: 4.2,
+                reviews: 390,
+                description: "交通便利的入门球场，适合初学者练习和家庭活动。",
+                holes: 9,
+                par: 36,
+                greenFee: 300,
+                features: ["9洞球场", "练习场", "教学中心", "餐厅", "儿童乐园"],
+                restaurant: "简餐",
+                proShop: "入门装备"
+            },
+            {
+                name: "杭州西湖国际高尔夫球会",
+                difficulty: "advanced",
+                difficultyLabel: "高级",
+                location: "浙江省杭州市",
+                rating: 4.6,
+                reviews: 720,
+                description: "西湖边的球场，风景绝美，难度较高，适合有经验的球员。",
+                holes: 18,
+                par: 72,
+                greenFee: 1000,
+                features: ["18洞球场", "湖景", "山景", "会所", "SPA"],
+                restaurant: "杭帮菜",
+                proShop: "高端定制"
+            }
+        ];
+
+        let currentDifficulty = 'all';
+        let currentSort = 'rating';
+        let searchQuery = '';
+
+        function createStars(rating) {
+            const fullStars = Math.floor(rating);
+            const hasHalf = rating % 1 >= 0.5;
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) {
+                stars += '★';
+            }
+            if (hasHalf) {
+                stars += '☆';
+            }
+            return stars;
+        }
+
+        function createCourseCard(course) {
+            return `
+                <div class="course-card">
+                    <div class="course-header">
+                        <h3 class="course-name">${course.name}</h3>
+                        <span class="course-type">${course.difficultyLabel}</span>
+                    </div>
+                    <div class="course-location">📍 ${course.location}</div>
+                    <div class="course-rating">
+                        <span class="stars">${createStars(course.rating)}</span>
+                        <span class="rating-value">${course.rating}</span>
+                        <span class="rating-count">(${course.reviews}条评价)</span>
+                    </div>
+                    <p class="course-description">${course.description}</p>
+                    <div class="course-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${course.holes}</div>
+                            <div class="stat-label">洞数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${course.par}</div>
+                            <div class="stat-label">标准杆</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">¥${course.greenFee}</div>
+                            <div class="stat-label">果岭费</div>
+                        </div>
+                    </div>
+                    <div class="course-features">
+                        ${course.features.map(f => `<span class="feature-tag">${f}</span>`).join('')}
+                    </div>
+                    <div class="course-info">
+                        <div class="info-item">
+                            <div class="info-label">餐厅</div>
+                            <div class="info-value">${course.restaurant}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Pro Shop</div>
+                            <div class="info-value">${course.proShop}</div>
+                        </div>
+                    </div>
+                    <button class="book-btn">预约开球</button>
+                </div>
+            `;
+        }
+
+        function filterAndSort() {
+            let filtered = courses;
+            
+            if (currentDifficulty !== 'all') {
+                filtered = filtered.filter(c => c.difficulty === currentDifficulty);
+            }
+            
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(c => 
+                    c.name.toLowerCase().includes(query) || 
+                    c.location.toLowerCase().includes(query)
+                );
+            }
+            
+            switch (currentSort) {
+                case 'rating':
+                    filtered.sort((a, b) => b.rating - a.rating);
+                    break;
+                case 'price-low':
+                    filtered.sort((a, b) => a.greenFee - b.greenFee);
+                    break;
+                case 'price-high':
+                    filtered.sort((a, b) => b.greenFee - a.greenFee);
+                    break;
+                case 'holes':
+                    filtered.sort((a, b) => b.holes - a.holes);
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        function renderResults() {
+            const filtered = filterAndSort();
+            const grid = document.getElementById('resultsGrid');
+            const noResults = document.getElementById('noResults');
+            const count = document.getElementById('resultsCount');
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                count.textContent = '找到 0 个球场';
+            } else {
+                noResults.style.display = 'none';
+                grid.innerHTML = filtered.map(createCourseCard).join('');
+                count.textContent = `找到 ${filtered.length} 个球场`;
+            }
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDifficulty = btn.dataset.difficulty;
+                renderResults();
+            });
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderResults();
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderResults();
+        });
+
+        renderResults();
+    </script>
+</body>
+</html>

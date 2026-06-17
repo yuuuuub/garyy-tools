@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMQP游乐场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+nav a{color:var(--accent2);text-decoration:none;font-size:14px}
+nav a:hover{text-decoration:underline}
+nav h1{font-size:18px;font-weight:600}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card h2{font-size:16px;margin-bottom:16px;color:var(--accent2)}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+select,input,textarea{width:100%;padding:10px;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit}
+textarea{min-height:120px;resize:vertical;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#2ea043}
+.btn-danger{background:var(--error);color:#fff}
+.btn-danger:hover{background:#da3633}
+.actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.log{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;max-height:300px;overflow-y:auto;line-height:1.6}
+.log-entry{padding:2px 0;border-bottom:1px solid var(--border)}
+.log-entry:last-child{border:none}
+.log-time{color:#8b949e;margin-right:8px}
+.log-info{color:var(--accent2)}
+.log-success{color:var(--success)}
+.log-error{color:var(--error)}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.tag-exchange{background:#1f6feb33;color:var(--accent2)}
+.tag-queue{background:#3fb95033;color:var(--success)}
+.tag-binding{background:#d2992233;color:var(--warning)}
+.visual{display:flex;align-items:center;justify-content:center;gap:20px;padding:30px 10px;flex-wrap:wrap}
+.box{padding:16px 24px;border-radius:8px;font-weight:600;text-align:center;position:relative}
+.box-exchange{background:#1f6feb33;border:2px solid var(--accent2)}
+.box-queue{background:#3fb95033;border:2px solid var(--success)}
+.arrow{color:var(--warning);font-size:24px}
+.ref-section{margin-top:16px}
+.ref-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.ref-item{padding:8px 12px;background:#0d1117;border-radius:4px;margin-bottom:6px;font-size:13px}
+.ref-item code{color:var(--warning);font-family:'SF Mono',Monaco,Consolas,monospace}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 12px;border:1px solid var(--border);text-align:left}
+th{background:#0d1117;color:var(--accent2)}
+.full-width{grid-column:1/-1}
+</style>
+</head>
+<body>
+<nav>
+<a href="../index.html">← 返回工具列表</a>
+<h1>AMQP游乐场</h1>
+</nav>
+<div class="container">
+<div class="grid">
+<div class="card">
+<h2>Exchange/Queue 配置</h2>
+<label>Exchange 名称</label>
+<input type="text" id="exchangeName" value="my-exchange" placeholder="输入Exchange名称">
+<label style="margin-top:12px">Exchange 类型</label>
+<select id="exchangeType">
+<option value="direct">direct - 直接路由</option>
+<option value="fanout">fanout - 广播</option>
+<option value="topic">topic - 主题路由</option>
+<option value="headers">headers - 头部匹配</option>
+</select>
+<label style="margin-top:12px">Queue 名称</label>
+<input type="text" id="queueName" value="my-queue" placeholder="输入Queue名称">
+<label style="margin-top:12px">Routing Key</label>
+<input type="text" id="routingKey" value="test.key" placeholder="输入Routing Key">
+<div class="actions">
+<button class="btn btn-primary" onclick="createBinding()">创建绑定</button>
+<button class="btn btn-danger" onclick="clearBindings()">清除所有</button>
+</div>
+</div>
+<div class="card">
+<h2>消息发布</h2>
+<label>消息内容</label>
+<textarea id="messageContent" placeholder="输入要发送的消息...">{"event":"user.created","data":{"id":1,"name":"张三"}}</textarea>
+<label style="margin-top:12px">Routing Key</label>
+<input type="text" id="msgRoutingKey" value="test.key" placeholder="消息路由键">
+<label style="margin-top:12px">持久化</label>
+<select id="msgPersistent">
+<option value="true">是 - 持久化消息</option>
+<option value="false">否 - 临时消息</option>
+</select>
+<div class="actions">
+<button class="btn btn-success" onclick="publishMessage()">发布消息</button>
+</div>
+</div>
+<div class="card full-width">
+<h2>绑定可视化</h2>
+<div class="visual" id="visualArea">
+<div class="box box-exchange" id="visualExchange">Exchange<br><small id="visualExchangeName">my-exchange</small></div>
+<div class="arrow" id="visualArrow" style="display:none">→</div>
+<div class="box box-queue" id="visualQueue" style="display:none">Queue<br><small id="visualQueueName"></small></div>
+</div>
+</div>
+<div class="card">
+<h2>绑定列表</h2>
+<div id="bindingList" style="max-height:200px;overflow-y:auto">
+<p style="color:#8b949e;font-size:13px">暂无绑定关系</p>
+</div>
+</div>
+<div class="card">
+<h2>消息队列状态</h2>
+<div id="queueStatus">
+<p style="color:#8b949e;font-size:13px">Queue: <span id="statusQueue">-</span> | 消息数: <span id="statusCount" style="color:var(--success)">0</span> | 消费者: <span id="statusConsumers" style="color:var(--accent2)">0</span></p>
+</div>
+<div style="margin-top:12px">
+<button class="btn btn-primary" onclick="consumeMessage()" style="margin-right:8px">消费一条消息</button>
+<button class="btn btn-danger" onclick="purgeQueue()">清空队列</button>
+</div>
+</div>
+<div class="card full-width">
+<h2>事件日志</h2>
+<div class="log" id="logArea"></div>
+</div>
+<div class="card full-width">
+<h2>AMQP 协议参考</h2>
+<table>
+<tr><th>Exchange类型</th><th>路由规则</th><th>典型用例</th></tr>
+<tr><td><code>direct</code></td><td>Routing Key 精确匹配</td><td>点对点消息、RPC</td></tr>
+<tr><td><code>fanout</code></td><td>广播到所有绑定Queue</td><td>广播通知、事件分发</td></tr>
+<tr><td><code>topic</code></td><td>支持 * 和 # 通配符</td><td>日志分级、多主题订阅</td></tr>
+<tr><td><code>headers</code></td><td>消息头属性匹配</td><td>复杂路由规则</td></tr>
+</table>
+<div class="ref-section">
+<h3>常用属性</h3>
+<div class="ref-item"><code>durable</code> - 持久化，服务重启后Exchange/Queue保留</div>
+<div class="ref-item"><code>exclusive</code> - 排他性，仅允许一个消费者连接</div>
+<div class="ref-item"><code>auto-delete</code> - 最后一个消费者断开后自动删除</div>
+<div class="ref-item"><code>routing-key</code> - 路由键，用于Exchange到Queue的路由</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+let bindings = [];
+let messages = [];
+let messageId = 0;
+
+function log(text, type = 'info') {
+    const logArea = document.getElementById('logArea');
+    const time = new Date().toLocaleTimeString();
+    logArea.innerHTML = `<div class="log-entry"><span class="log-time">${time}</span><span class="log-${type}">${text}</span></div>` + logArea.innerHTML;
+}
+
+function updateVisual() {
+    const exName = document.getElementById('exchangeName').value;
+    document.getElementById('visualExchangeName').textContent = exName;
+    document.getElementById('visualExchange').innerHTML = `Exchange<br><small>${exName}</small><br><span class="tag tag-exchange">${document.getElementById('exchangeType').value}</span>`;
+    
+    if (bindings.length > 0) {
+        document.getElementById('visualArrow').style.display = 'block';
+        document.getElementById('visualQueue').style.display = 'block';
+        document.getElementById('visualQueueName').textContent = bindings[bindings.length - 1].queue;
+        document.getElementById('statusQueue').textContent = bindings[bindings.length - 1].queue;
+        document.getElementById('statusConsumers').textContent = Math.min(bindings.length, 3);
+    }
+}
+
+function createBinding() {
+    const exchange = document.getElementById('exchangeName').value;
+    const exchangeType = document.getElementById('exchangeType').value;
+    const queue = document.getElementById('queueName').value;
+    const routingKey = document.getElementById('routingKey').value;
+    
+    if (!exchange || !queue) {
+        log('Exchange和Queue名称不能为空', 'error');
+        return;
+    }
+    
+    const binding = { exchange, exchangeType, queue, routingKey, id: Date.now() };
+    bindings.push(binding);
+    
+    log(`绑定创建: ${exchange}(${exchangeType}) → ${queue} [key: ${routingKey}]`, 'success');
+    updateBindingList();
+    updateVisual();
+}
+
+function clearBindings() {
+    bindings = [];
+    updateBindingList();
+    document.getElementById('visualArrow').style.display = 'none';
+    document.getElementById('visualQueue').style.display = 'none';
+    log('所有绑定已清除', 'error');
+}
+
+function updateBindingList() {
+    const list = document.getElementById('bindingList');
+    if (bindings.length === 0) {
+        list.innerHTML = '<p style="color:#8b949e;font-size:13px">暂无绑定关系</p>';
+        return;
+    }
+    list.innerHTML = bindings.map(b => `
+        <div style="padding:8px;background:#0d1117;border-radius:4px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:13px">
+            <span><span class="tag tag-exchange">${b.exchangeType}</span> ${b.exchange} → <span class="tag tag-queue">${b.queue}</span> [${b.routingKey}]</span>
+            <button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="removeBinding(${b.id})">×</button>
+        </div>
+    `).join('');
+}
+
+function removeBinding(id) {
+    bindings = bindings.filter(b => b.id !== id);
+    updateBindingList();
+    updateVisual();
+    log('绑定已删除', 'error');
+}
+
+function publishMessage() {
+    const content = document.getElementById('messageContent').value;
+    const routingKey = document.getElementById('msgRoutingKey').value;
+    const persistent = document.getElementById('msgPersistent').value === 'true';
+    
+    if (!content) {
+        log('消息内容不能为空', 'error');
+        return;
+    }
+    
+    const msg = {
+        id: ++messageId,
+        content,
+        routingKey,
+        persistent,
+        timestamp: new Date().toISOString(),
+        status: 'pending'
+    };
+    messages.push(msg);
+    
+    log(`消息发布 #${msg.id} [key: ${routingKey}] ${persistent ? '(持久化)' : '(临时)'}`, 'success');
+    document.getElementById('statusCount').textContent = messages.filter(m => m.status === 'pending').length;
+}
+
+function consumeMessage() {
+    const pending = messages.find(m => m.status === 'pending');
+    if (!pending) {
+        log('队列中没有待处理的消息', 'error');
+        return;
+    }
+    pending.status = 'consumed';
+    log(`消息 #${pending.id} 已消费: ${pending.content.substring(0, 50)}...`, 'success');
+    document.getElementById('statusCount').textContent = messages.filter(m => m.status === 'pending').length;
+}
+
+function purgeQueue() {
+    const count = messages.filter(m => m.status === 'pending').length;
+    messages = messages.filter(m => m.status !== 'pending');
+    log(`已清空 ${count} 条消息`, 'error');
+    document.getElementById('statusCount').textContent = '0';
+}
+
+log('AMQP游乐场已启动');
+</script>
+</body>
+</html>

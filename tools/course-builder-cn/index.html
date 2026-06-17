@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文课程构建器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+document.title='📖 中文课程构建器';
+
+const APP=document.getElementById('app');
+let courses=JSON.parse(localStorage.getItem('cb_courses')||'[]');
+let curCourse=null;
+
+function save(){localStorage.setItem('cb_courses',JSON.stringify(courses))}
+function render(){
+  let h=`<h1>📖 中文课程构建器</h1><p class="subtitle">构建完整的课程体系</p>`;
+  if(curCourse!==null){
+    let c=courses[curCourse];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curCourse=null;render()">← 返回</button><b>${c.title}</b><button class="btn btn-sm" onclick="addModule()">+ 添加模块</button></div><p style="color:var(--text2);margin-top:4px">${c.desc||''}</p></div>`;
+    let total=c.modules.reduce((s,m)=>s+m.lessons.length,0);
+    let done=c.modules.reduce((s,m)=>s+m.lessons.filter(l=>l.done).length,0);
+    h+=`<div class="card"><div class="progress-bar"><div class="progress-fill" style="width:${total?done/total*100:0}%"></div></div><p style="text-align:center;color:var(--text2);font-size:.85rem">${done}/${total} 课时完成</p></div>`;
+    c.modules.forEach((m,mi)=>{
+      h+=`<div class="card"><div class="flex-between"><b>模块${mi+1}：${m.title}</b><div class="flex"><button class="btn btn-sm" onclick="addLessonToModule(${mi})">+ 课时</button><button class="btn btn-sm btn-danger" onclick="delModule(${mi})">删除</button></div></div>`;
+      m.lessons.forEach((l,li)=>{
+        h+=`<div style="padding:6px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><span style="cursor:pointer" onclick="toggleCourseLesson(${mi},${li})">${l.done?'✅':'⬜'} ${l.title}</span><button class="btn btn-sm" style="padding:2px 8px" onclick="delLessonInModule(${mi},${li})">×</button></div>`;
+      });
+      h+=`</div>`;
+    });
+    if(!c.modules.length) h+=`<div class="empty">暂无模块</div>`;
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">课程列表</span><button class="btn btn-sm" onclick="newCourse()">+ 新建课程</button></div></div>`;
+    courses.forEach((c,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${c.title}</b><div class="flex"><button class="btn btn-sm" onclick="openCourse(${i})">编辑</button><button class="btn btn-sm btn-danger" onclick="delCourse(${i})">删除</button></div></div><p style="color:var(--text2)">${c.modules.length} 个模块</p></div>`;
+    });
+    if(!courses.length) h+=`<div class="empty">暂无课程</div>`;
+  }
+  APP.innerHTML=h;
+}
+function newCourse(){let t=prompt('课程标题：');if(t){courses.push({title:t,desc:'',modules:[]});save();render()}}
+function delCourse(i){if(confirm('删除？')){courses.splice(i,1);curCourse=null;save();render()}}
+function openCourse(i){curCourse=i;render()}
+function addModule(){let t=prompt('模块标题：');if(t){courses[curCourse].modules.push({title:t,lessons:[]});save();render()}}
+function delModule(i){if(confirm('删除？')){courses[curCourse].modules.splice(i,1);save();render()}}
+function addLessonToModule(mi){let t=prompt('课时标题：');if(t){courses[curCourse].modules[mi].lessons.push({title:t,done:false});save();render()}}
+function toggleCourseLesson(mi,li){courses[curCourse].modules[mi].lessons[li].done=!courses[curCourse].modules[mi].lessons[li].done;save();render()}
+function delLessonInModule(mi,li){courses[curCourse].modules[mi].lessons.splice(li,1);save();render()}
+render();
+
+</script>
+</body>
+</html>

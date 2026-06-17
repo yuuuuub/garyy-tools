@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中式台球Pro</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .info-bar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .info-item {
+            padding: 8px 16px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .info-item.solid { border-color: #ef4444; }
+        .info-item.stripe { border-color: #3b82f6; }
+        #table-container {
+            background: #1a5c2e;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        canvas { display: block; cursor: crosshair; }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .status {
+            margin-top: 15px;
+            padding: 12px 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .status.win { border-color: #22c55e; background: #14532d; }
+        .status.lose { border-color: #ef4444; background: #7f1d1d; }
+        .power-bar {
+            width: 200px;
+            height: 20px;
+            background: #374151;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .power-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+            width: 50%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎱 中式台球Pro</h1>
+    
+    <div class="info-bar">
+        <div class="info-item">当前：玩家</div>
+        <div class="info-item solid">全色球 (1-7)</div>
+        <div class="info-item stripe">花色球 (9-15)</div>
+        <div class="info-item">8号球最后打</div>
+    </div>
+    
+    <div id="table-container">
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <div class="power-bar">
+        <div class="power-fill" id="power-fill"></div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="resetGame()">重新开始</button>
+    </div>
+    
+    <div class="status" id="status">点击白球拖拽瞄准，松开击球</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const powerFill = document.getElementById('power-fill');
+        
+        const TABLE_W = 800;
+        const TABLE_H = 400;
+        const BALL_R = 10;
+        const POCKET_R = 18;
+        const FRICTION = 0.985;
+        
+        canvas.width = TABLE_W;
+        canvas.height = TABLE_H;
+        
+        const BALL_COLORS = {
+            0: '#f5f5f5',
+            1: '#fbbf24', 2: '#3b82f6', 3: '#ef4444', 4: '#8b5cf6',
+            5: '#f97316', 6: '#22c55e', 7: '#7c3aed', 8: '#000',
+            9: '#fbbf24', 10: '#3b82f6', 11: '#ef4444', 12: '#8b5cf6',
+            13: '#f97316', 14: '#22c55e', 15: '#7c3aed'
+        };
+        
+        let balls = [];
+        let cueBall = null;
+        let pockets = [];
+        let isShooting = false;
+        let aimStart = null;
+        let aimEnd = null;
+        let shootPower = 0;
+        let gameOver = false;
+        let playerType = null;
+        let ballsPocketed = { solid: [], stripe: [] };
+        
+        function init() {
+            balls = [];
+            pockets = [];
+            gameOver = false;
+            playerType = null;
+            ballsPocketed = { solid: [], stripe: [] };
+            
+            pockets = [
+                { x: POCKET_R, y: POCKET_R },
+                { x: TABLE_W / 2, y: POCKET_R - 5 },
+                { x: TABLE_W - POCKET_R, y: POCKET_R },
+                { x: POCKET_R, y: TABLE_H - POCKET_R },
+                { x: TABLE_W / 2, y: TABLE_H - POCKET_R + 5 },
+                { x: TABLE_W - POCKET_R, y: TABLE_H - POCKET_R }
+            ];
+            
+            cueBall = { x: TABLE_W * 0.25, y: TABLE_H / 2, vx: 0, vy: 0, number: 0 };
+            balls.push(cueBall);
+            
+            const startX = TABLE_W * 0.7;
+            const startY = TABLE_H / 2;
+            const spacing = BALL_R * 2.1;
+            
+            const rackOrder = [1, 9, 2, 10, 8, 11, 3, 6, 14, 15, 13, 4, 7, 12, 5];
+            let idx = 0;
+            
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col <= row; col++) {
+                    const x = startX + row * spacing * Math.cos(Math.PI / 6);
+                    const y = startY + (col - row / 2) * spacing;
+                    
+                    balls.push({
+                        x: x,
+                        y: y,
+                        vx: 0,
+                        vy: 0,
+                        number: rackOrder[idx]
+                    });
+                    idx++;
+                }
+            }
+            
+            isShooting = false;
+            aimStart = null;
+            aimEnd = null;
+            
+            statusEl.textContent = '点击白球拖拽瞄准，松开击球';
+            statusEl.className = 'status';
+            
+            draw();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#1a5c2e';
+            ctx.fillRect(0, 0, TABLE_W, TABLE_H);
+            
+            ctx.strokeStyle = '#8b4513';
+            ctx.lineWidth = 15;
+            ctx.strokeRect(7, 7, TABLE_W - 14, TABLE_H - 14);
+            
+            ctx.strokeStyle = '#2d1810';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(15, 15, TABLE_W - 30, TABLE_H - 30);
+            
+            pockets.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, POCKET_R, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+                ctx.strokeStyle = '#1a1a1a';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+            
+            ctx.beginPath();
+            ctx.moveTo(TABLE_W * 0.25, 15);
+            ctx.lineTo(TABLE_W * 0.25, TABLE_H - 15);
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(TABLE_W * 0.25, TABLE_H / 2, BALL_R + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.stroke();
+            
+            balls.forEach(ball => {
+                drawBall(ball);
+            });
+            
+            if (aimStart && aimEnd && !isShooting) {
+                ctx.beginPath();
+                ctx.moveTo(cueBall.x, cueBall.y);
+                ctx.lineTo(cueBall.x + (aimStart.x - aimEnd.x) * 2, cueBall.y + (aimStart.y - aimEnd.y) * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        function drawBall(ball) {
+            const gradient = ctx.createRadialGradient(
+                ball.x - BALL_R * 0.3, ball.y - BALL_R * 0.3, 1,
+                ball.x, ball.y, BALL_R
+            );
+            
+            const color = BALL_COLORS[ball.number];
+            gradient.addColorStop(0, '#fff');
+            gradient.addColorStop(0.3, color);
+            gradient.addColorStop(1, shadeColor(color, -40));
+            
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            if (ball.number > 0) {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, BALL_R * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 8px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(ball.number, ball.x, ball.y);
+            }
+        }
+        
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + 
+                (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)
+            ).toString(16).slice(1);
+        }
+        
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameOver || isShooting) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const dist = Math.sqrt((x - cueBall.x) ** 2 + (y - cueBall.y) ** 2);
+            if (dist < BALL_R * 2) {
+                isShooting = true;
+                aimStart = { x, y };
+                aimEnd = { x, y };
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isShooting) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            aimEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            
+            const dx = aimStart.x - aimEnd.x;
+            const dy = aimStart.y - aimEnd.y;
+            shootPower = Math.min(Math.sqrt(dx * dx + dy * dy) / 3, 20);
+            powerFill.style.width = (shootPower / 20 * 100) + '%';
+            
+            draw();
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isShooting) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            aimEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            
+            const dx = aimStart.x - aimEnd.x;
+            const dy = aimStart.y - aimEnd.y;
+            
+            if (Math.sqrt(dx * dx + dy * dy) > 10) {
+                cueBall.vx = dx * 0.15;
+                cueBall.vy = dy * 0.15;
+                
+                if (!playerType) {
+                    playerType = 'solid';
+                    statusEl.textContent = '你选择了全色球 (1-7)';
+                }
+            }
+            
+            isShooting = false;
+            aimStart = null;
+            aimEnd = null;
+            shootPower = 0;
+            powerFill.style.width = '0%';
+            
+            gameLoop();
+        });
+        
+        function gameLoop() {
+            let moving = false;
+            
+            balls.forEach(ball => {
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+                
+                ball.vx *= FRICTION;
+                ball.vy *= FRICTION;
+                
+                if (ball.x - BALL_R < 15) { ball.x = BALL_R + 15; ball.vx *= -0.8; }
+                if (ball.x + BALL_R > TABLE_W - 15) { ball.x = TABLE_W - BALL_R - 15; ball.vx *= -0.8; }
+                if (ball.y - BALL_R < 15) { ball.y = BALL_R + 15; ball.vy *= -0.8; }
+                if (ball.y + BALL_R > TABLE_H - 15) { ball.y = TABLE_H - BALL_R - 15; ball.vy *= -0.8; }
+                
+                if (Math.abs(ball.vx) > 0.1 || Math.abs(ball.vy) > 0.1) {
+                    moving = true;
+                }
+            });
+            
+            for (let i = 0; i < balls.length; i++) {
+                for (let j = i + 1; j < balls.length; j++) {
+                    checkCollision(balls[i], balls[j]);
+                }
+            }
+            
+            checkPockets();
+            
+            draw();
+            
+            if (moving) {
+                requestAnimationFrame(gameLoop);
+            } else {
+                if (cueBall.x < 0 || cueBall.x > TABLE_W || cueBall.y < 0 || cueBall.y > TABLE_H) {
+                    resetCueBall();
+                }
+            }
+        }
+        
+        function checkCollision(b1, b2) {
+            const dx = b2.x - b1.x;
+            const dy = b2.y - b1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < BALL_R * 2) {
+                const angle = Math.atan2(dy, dx);
+                const sin = Math.sin(angle);
+                const cos = Math.cos(angle);
+                
+                const vx1 = b1.vx * cos + b1.vy * sin;
+                const vy1 = b1.vy * cos - b1.vx * sin;
+                const vx2 = b2.vx * cos + b2.vy * sin;
+                const vy2 = b2.vy * cos - b2.vx * sin;
+                
+                const newVx1 = vx2;
+                const newVx2 = vx1;
+                
+                b1.vx = newVx1 * cos - vy1 * sin;
+                b1.vy = vy1 * cos + newVx1 * sin;
+                b2.vx = newVx2 * cos - vy2 * sin;
+                b2.vy = vy2 * cos + newVx2 * sin;
+                
+                const overlap = BALL_R * 2 - dist;
+                b1.x -= overlap / 2 * cos;
+                b1.y -= overlap / 2 * sin;
+                b2.x += overlap / 2 * cos;
+                b2.y += overlap / 2 * sin;
+            }
+        }
+        
+        function checkPockets() {
+            for (let i = balls.length - 1; i >= 0; i--) {
+                const ball = balls[i];
+                
+                for (const pocket of pockets) {
+                    const dist = Math.sqrt((ball.x - pocket.x) ** 2 + (ball.y - pocket.y) ** 2);
+                    
+                    if (dist < POCKET_R) {
+                        if (ball.number === 0) {
+                            resetCueBall();
+                        } else if (ball.number === 8) {
+                            if (playerType && ballsPocketed[playerType].length < 7) {
+                                gameOver = true;
+                                statusEl.textContent = '😢 8号球提前入袋，你输了！';
+                                statusEl.className = 'status lose';
+                            } else {
+                                gameOver = true;
+                                statusEl.textContent = '🎉 恭喜！你赢了！';
+                                statusEl.className = 'status win';
+                            }
+                            balls.splice(i, 1);
+                        } else {
+                            if (ball.number >= 1 && ball.number <= 7) {
+                                ballsPocketed.solid.push(ball.number);
+                            } else {
+                                ballsPocketed.stripe.push(ball.number);
+                            }
+                            balls.splice(i, 1);
+                            
+                            if (playerType === 'solid' && ballsPocketed.solid.length === 7) {
+                                statusEl.textContent = '全色球已全部入袋，可以打8号球了！';
+                            } else if (playerType === 'stripe' && ballsPocketed.stripe.length === 7) {
+                                statusEl.textContent = '花色球已全部入袋，可以打8号球了！';
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+        function resetCueBall() {
+            cueBall.x = TABLE_W * 0.25;
+            cueBall.y = TABLE_H / 2;
+            cueBall.vx = 0;
+            cueBall.vy = 0;
+        }
+        
+        function resetGame() {
+            init();
+        }
+        
+        init();
+    </script>
+</body>
+</html>

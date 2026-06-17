@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>esbuild 游乐场</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--muted:#8b949e;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.navbar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px}
+.navbar a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.navbar h1{font-size:1.2rem;flex:1}
+.navbar .icon{font-size:1.4rem}
+.container{max-width:1200px;margin:0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:.85rem;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.editor-section{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.editor-section{grid-template-columns:1fr}}
+.editor-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.editor-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.editor-header span{font-size:.8rem;color:var(--muted)}
+textarea{width:100%;min-height:350px;padding:14px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',monospace;font-size:.82rem;line-height:1.6;resize:vertical;outline:none;tab-size:2}
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.cmd-list{display:flex;flex-direction:column;gap:8px}
+.cmd-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:.2s}
+.cmd-item:hover{border-color:var(--accent)}
+.cmd-item .cmd{font-family:monospace;color:var(--accent);font-size:.85rem;margin-bottom:4px}
+.cmd-item .desc{font-size:.78rem;color:var(--muted)}
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ref-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;transition:.2s}
+.ref-card:hover{border-color:var(--accent)}
+.ref-card h3{font-size:.9rem;margin-bottom:8px;color:var(--accent)}
+.ref-card pre{background:var(--bg);padding:10px;border-radius:6px;font-size:.78rem;overflow-x:auto;color:var(--text);line-height:1.5}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--success);color:#fff;padding:8px 18px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="navbar">
+<a href="../index.html">← 返回</a>
+<span class="icon">⚡</span>
+<h1>esbuild 游乐场</h1>
+</div>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab('editor',this)">配置编辑器</div>
+<div class="tab" onclick="switchTab('api',this)">API 配置</div>
+<div class="tab" onclick="switchTab('commands',this)">打包命令</div>
+</div>
+
+<div class="panel active" id="panel-editor">
+<div class="editor-section">
+<div class="editor-box">
+<div class="editor-header"><span>build.js (esbuild API)</span><button class="btn btn-outline" onclick="copyCode('configEditor')">复制</button></div>
+<div class="editor-body">
+<textarea id="configEditor">import * as esbuild from 'esbuild';
+
+await esbuild.build({
+  entryPoints: ['src/index.js'],
+  bundle: true,
+  outfile: 'dist/out.js',
+  format: 'esm',
+  target: 'es2020',
+  minify: true,
+  sourcemap: true,
+  define: {
+    'process.env.NODE_ENV': '"production"',
+  },
+  alias: {
+    '@': './src',
+  },
+  loader: {
+    '.png': 'dataurl',
+    '.svg': 'dataurl',
+    '.css': 'local-css',
+  },
+  metafile: true,
+  treeShaking: true,
+  drop: ['debugger'],
+  pure: ['console.log'],
+  legalComments: 'none',
+});
+
+// esbuild.build() 返回 metafile 信息
+// 可用于分析产物体积</textarea>
+</div>
+</div>
+<div class="editor-box">
+<div class="editor-header"><span>说明</span></div>
+<div class="editor-body">
+<textarea readonly>esbuild 是用 Go 编写的极速打包工具。
+
+⚡ 速度：比 Webpack 快 10-100 倍
+📦 功能：打包、压缩、转译一体化
+🎯 特点：
+• 极简配置，开箱即用
+• 支持 TypeScript / JSX / CSS
+• 内置 Minify 和 Source Map
+• 支持 ESM 和 CJS 输出
+
+💡 适合场景：
+• 快速开发构建
+• CI/CD 加速
+• 库打包发布
+• 脚本转译</textarea>
+</div>
+</div>
+</div>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="genLib()">生成库配置</button>
+<button class="btn btn-outline" onclick="genWatch()">生成监听配置</button>
+<button class="btn btn-outline" onclick="genMulti()">生成多入口配置</button>
+</div>
+</div>
+
+<div class="panel" id="panel-api">
+<div class="ref-grid">
+<div class="ref-card"><h3>基础构建</h3><pre>import * as esbuild from 'esbuild';
+
+await esbuild.build({
+  entryPoints: ['src/index.ts'],
+  bundle: true,
+  outfile: 'dist/out.js',
+});</pre></div>
+<div class="ref-card"><h3>开发服务器</h3><pre>import * as esbuild from 'esbuild';
+
+const ctx = await esbuild.context({
+  entryPoints: ['src/index.js'],
+  bundle: true,
+  outdir: 'dist',
+  sourcemap: true,
+  define: {
+    'process.env.NODE_ENV': '"development"'
+  }
+});
+
+await ctx.watch();
+console.log('Watching for changes...');</pre></div>
+<div class="ref-card"><h3>React + TypeScript</h3><pre>await esbuild.build({
+  entryPoints: ['src/index.tsx'],
+  bundle: true,
+  outfile: 'dist/app.js',
+  loader: { '.tsx': 'tsx', '.ts': 'ts' },
+  jsx: 'automatic',
+  target: 'es2020',
+});</pre></div>
+<div class="ref-card"><h3>CSS 处理</h3><pre>await esbuild.build({
+  entryPoints: ['src/styles.css'],
+  bundle: true,
+  outdir: 'dist',
+  loader: {
+    '.css': 'local-css',
+    '.png': 'file',
+    '.svg': 'dataurl'
+  },
+});</pre></div>
+<div class="ref-card"><h3>代码分割</h3><pre>await esbuild.build({
+  entryPoints: ['src/a.js', 'src/b.js'],
+  bundle: true,
+  outdir: 'dist',
+  splitting: true,
+  format: 'esm',
+  chunkNames: 'chunks/[name]-[hash]',
+});</pre></div>
+<div class="ref-card"><h3>PostCSS 插件</h3><pre>await esbuild.build({
+  entryPoints: ['src/index.js'],
+  bundle: true,
+  outdir: 'dist',
+  plugins: [
+    esbuildPostcss({
+      plugins: [require('autoprefixer')]
+    })
+  ],
+});</pre></div>
+</div>
+</div>
+
+<div class="panel" id="panel-commands">
+<div class="cmd-list">
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx esbuild src/index.js --bundle --outfile=dist/out.js</div><div class="desc">基础打包命令</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx esbuild src/index.ts --bundle --outfile=dist/out.js --loader:.ts=ts</div><div class="desc">TypeScript 打包</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx esbuild src/index.js --bundle --minify --sourcemap --outfile=dist/out.js</div><div class="desc">压缩 + Source Map</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx esbuild src/index.js --bundle --format=esm --target=es2020 --outfile=dist/out.mjs</div><div class="desc">ESM 输出 + 指定目标</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx esbuild src/index.js --bundle --define:process.env.NODE_ENV=\\\"production\\\"</div><div class="desc">定义全局变量</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npm install --save-dev esbuild</div><div class="desc">安装 esbuild</div></div>
+<div class="cmd-item" onclick="copyCmd(this)"><div class="cmd">npx esbuild src/index.jsx --bundle --jsx=automatic --outfile=dist/out.js</div><div class="desc">React JSX 自动转换</div></div>
+</div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+function copyCode(id){const ta=document.getElementById(id);ta.select();document.execCommand('copy');showToast('已复制到剪贴板')}
+function copyCmd(el){navigator.clipboard.writeText(el.querySelector('.cmd').textContent).then(()=>showToast('命令已复制'))}
+function genLib(){
+  document.getElementById('configEditor').value=`import * as esbuild from 'esbuild';
+
+await esbuild.build({
+  entryPoints: ['src/index.js'],
+  bundle: true,
+  outfile: 'dist/index.min.js',
+  format: 'esm',
+  minify: true,
+  sourcemap: true,
+  external: [],
+  metafile: true,
+});`;
+  showToast('库配置已加载');
+}
+function genWatch(){
+  document.getElementById('configEditor').value=`import * as esbuild from 'esbuild';
+
+const ctx = await esbuild.context({
+  entryPoints: ['src/index.js'],
+  bundle: true,
+  outdir: 'dist',
+  sourcemap: true,
+  define: { 'process.env.NODE_ENV': '"development"' },
+});
+
+await ctx.watch();
+console.log('Watching for changes...');
+// Ctrl+C to stop`;
+  showToast('监听配置已加载');
+}
+function genMulti(){
+  document.getElementById('configEditor').value=`import * as esbuild from 'esbuild';
+
+await esbuild.build({
+  entryPoints: ['src/app.js', 'src/admin.js'],
+  bundle: true,
+  outdir: 'dist',
+  splitting: true,
+  format: 'esm',
+  chunkNames: 'chunks/[name]-[hash]',
+  minify: true,
+  sourcemap: true,
+});`;
+  showToast('多入口配置已加载');
+}
+</script>
+</body>
+</html>

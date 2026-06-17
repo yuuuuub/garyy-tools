@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>喷气背包</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+canvas{border:2px solid var(--border);border-radius:8px;display:block}
+.ui{display:flex;gap:16px;margin-bottom:12px;font-size:14px}
+.ui span{background:var(--card);padding:6px 14px;border-radius:6px;border:1px solid var(--border)}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:16px;cursor:pointer;margin-top:12px}
+.btn:hover{opacity:.85}
+#overlay{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,17,23,.9);border-radius:12px;padding:32px;text-align:center}
+</style>
+</head>
+<body>
+<div class="ui">
+<span id="scoreText">距离: 0m</span>
+<span id="coinsText">金币: 0</span>
+<span id="fuelText">燃料: 100%</span>
+</div>
+<div style="position:relative">
+<canvas id="c" width="600" height="400"></canvas>
+<div id="overlay">
+<h2>喷气背包</h2>
+<p style="margin:10px 0;color:#8b949e">喷气背包飞行，控制高度，躲避激光导弹！</p>
+<button class="btn" onclick="startGame()">开始游戏</button>
+<p style="margin-top:8px;font-size:12px;color:#8b949e">↑/空格/按住 飞行 | ↓ 加速下降 | 鼠标按住也行</p>
+</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const W=600,H=400,GRAVITY=0.4,FLY=-0.8,MAX_VY=6;
+let player,obstacles,coins,particles,distance,coinCount,fuel,gameState='idle',animFrame;
+const overlay=document.getElementById('overlay');
+let keys={},mouseDown=false;
+
+function init(){
+  player={x:80,y:H/2,vy:0,flying:false};
+  obstacles=[];coins=[];particles=[];distance=0;coinCount=0;fuel=100;
+}
+
+function startGame(){init();gameState='playing';overlay.style.display='none';if(animFrame)cancelAnimationFrame(animFrame);loop()}
+
+function spawnObstacle(){
+  const types=['laser','missile','beam'];
+  const t=types[Math.floor(Math.random()*types.length)];
+  if(t==='laser'){
+    const y=60+Math.random()*(H-120);
+    obstacles.push({type:'laser',x:W+20,y,w:20,h:4,len:120+Math.random()*80});
+  }else if(t==='missile'){
+    const y=30+Math.random()*(H-60);
+    obstacles.push({type:'missile',x:W+20,y,vx:-3-Math.random()*2,w:30,h:12});
+  }else{
+    const gap=100+Math.random()*60;
+    const gy=80+Math.random()*(H-160);
+    obstacles.push({type:'beam',x:W+20,y:0,w:15,h:gy-gap/2});
+    obstacles.push({type:'beam',x:W+20,y:gy+gap/2,w:15,h:H-gy-gap/2});
+  }
+}
+
+function spawnCoin(){
+  coins.push({x:W+20+Math.random()*200,y:40+Math.random()*(H-80),r:8});
+}
+
+function update(){
+  const p=player;
+  const flying=keys['Space']||keys['ArrowUp']||keys['KeyW']||mouseDown;
+  if(flying&&fuel>0){
+    p.vy+=FLY;fuel-=0.15;
+    // particles
+    for(let i=0;i<2;i++){
+      particles.push({x:p.x-5,y:p.y+15,vx:-Math.random()*2,vy:Math.random()*3-1,life:20,color:Math.random()>0.5?'#f0883e':'#f85149'});
+    }
+  }else{
+    p.vy+=GRAVITY;
+  }
+  if(keys['ArrowDown']||keys['KeyS'])p.vy+=0.5;
+  p.vy=Math.max(-MAX_VY,Math.min(MAX_VY,p.vy));
+  p.y+=p.vy;
+  if(p.y<20){p.y=20;p.vy=0}
+  if(p.y>H-20){p.y=H-20;p.vy=0}
+  distance+=2;fuel=Math.max(0,fuel);
+  if(fuel<=0&&p.y>H-25){gameState='dead';showOverlay('游戏结束','距离: '+Math.floor(distance)+'m | 金币: '+coinCount,'重新开始');return}
+  // spawn
+  if(Math.random()<0.03)spawnObstacle();
+  if(Math.random()<0.04)spawnCoin();
+  // move
+  for(const o of obstacles){
+    if(o.type==='missile')o.x+=o.vx;else o.x-=3;
+  }
+  for(const c of coins)c.x-=3;
+  while(obstacles.length&&obstacles[0].x<-150)obstacles.shift();
+  while(coins.length&&coins[0].x<-30)coins.shift();
+  // collision
+  for(const o of obstacles){
+    if(o.type==='missile'){
+      if(Math.abs(p.x-o.x)<25&&Math.abs(p.y-o.y)<18){
+        gameState='dead';showOverlay('游戏结束','距离: '+Math.floor(distance)+'m | 金币: '+coinCount,'重新开始');return;
+      }
+    }else{
+      if(p.x+p.w>o.x&&p.x<o.x+o.w&&p.y+p.h>o.y&&p.y<o.y+o.h){
+        gameState='dead';showOverlay('游戏结束','距离: '+Math.floor(distance)+'m | 金币: '+coinCount,'重新开始');return;
+      }
+    }
+  }
+  // coins
+  for(let i=coins.length-1;i>=0;i--){
+    if(Math.hypot(p.x+12-coins[i].x,p.y+12-coins[i].y)<coins[i].r+15){coinCount++;coins.splice(i,1)}
+  }
+  // particles
+  for(const pa of particles){pa.x+=pa.vx;pa.y+=pa.vy;pa.life--}
+  while(particles.length&&particles[0].life<=0)particles.shift();
+}
+player={x:80,y:200,vy:0,w:24,h:24};
+
+function draw(){
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+  // bg buildings
+  ctx.fillStyle='#161b22';
+  for(let i=0;i<W;i+=60){
+    const h=50+Math.sin(i*0.05+distance*0.01)*30;
+    ctx.fillRect(i,H-h,50,h);
+  }
+  // particles
+  for(const pa of particles){
+    ctx.globalAlpha=pa.life/20;
+    ctx.fillStyle=pa.color;ctx.fillRect(pa.x,pa.y,3,3);
+  }
+  ctx.globalAlpha=1;
+  // obstacles
+  for(const o of obstacles){
+    if(o.type==='laser'){
+      ctx.fillStyle='#f85149';
+      ctx.fillRect(o.x,o.y,o.len,o.h);
+      ctx.fillStyle='#ff6b6b';
+      ctx.fillRect(o.x+o.len/2-3,o.y-3,6,o.h+6);
+    }else if(o.type==='missile'){
+      ctx.fillStyle='#f85149';
+      ctx.beginPath();
+      ctx.moveTo(o.x+o.w,o.y);
+      ctx.lineTo(o.x,o.y-o.h/2);
+      ctx.lineTo(o.x,o.y+o.h/2);
+      ctx.fill();
+      // trail
+      ctx.fillStyle='rgba(248,81,73,0.3)';
+      ctx.fillRect(o.x+o.w,o.y-3,20,6);
+    }else{
+      ctx.fillStyle='#a371f7';ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.fillStyle='rgba(163,113,247,0.3)';ctx.fillRect(o.x-2,o.y,o.w+4,o.h);
+    }
+  }
+  // coins
+  ctx.fillStyle='#f0c000';
+  for(const c of coins){ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill()}
+  // player
+  const p=player;
+  ctx.fillStyle='#3b82f6';ctx.fillRect(p.x,p.y,p.w,p.h);
+  ctx.fillStyle='#fff';ctx.fillRect(p.x+5,p.y+5,4,4);ctx.fillRect(p.x+14,p.y+5,4,4);
+  // jetpack
+  ctx.fillStyle='#f0883e';ctx.fillRect(p.x-6,p.y+4,6,16);
+  if(keys['Space']||keys['ArrowUp']||keys['KeyW']||mouseDown){
+    ctx.fillStyle='#f85149';ctx.fillRect(p.x-5,p.y+20,4,8+Math.random()*6);
+    ctx.fillStyle='#f0c000';ctx.fillRect(p.x-3,p.y+20,2,5+Math.random()*4);
+  }
+  // fuel bar
+  ctx.fillStyle='#21262d';ctx.fillRect(10,H-20,100,10);
+  ctx.fillStyle=fuel>30?'#2ea043':'#f85149';ctx.fillRect(10,H-20,fuel,10);
+  ctx.strokeStyle='#30363d';ctx.strokeRect(10,H-20,100,10);
+  document.getElementById('scoreText').textContent='距离: '+Math.floor(distance)+'m';
+  document.getElementById('coinsText').textContent='金币: '+coinCount;
+  document.getElementById('fuelText').textContent='燃料: '+Math.floor(fuel)+'%';
+}
+
+function showOverlay(t,d,b){overlay.querySelector('h2').textContent=t;overlay.querySelector('p').textContent=d;overlay.querySelector('.btn').textContent=b;overlay.style.display='flex'}
+
+function loop(){if(gameState!=='playing')return;update();draw();animFrame=requestAnimationFrame(loop)}
+
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault()});
+document.addEventListener('keyup',e=>{keys[e.code]=false});
+canvas.addEventListener('mousedown',()=>mouseDown=true);
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();mouseDown=true});
+canvas.addEventListener('touchend',()=>mouseDown=false);
+
+init();draw();
+</script>
+</body>
+</html>

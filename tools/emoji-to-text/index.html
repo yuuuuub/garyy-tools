@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>表情转文字</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent-hover:#2563eb}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.8rem;margin:20px 0 8px}
+.sub{color:#8b949e;margin-bottom:24px;font-size:0.95rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:640px;margin-bottom:16px}
+textarea{width:100%;min-height:120px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:1rem;resize:vertical;font-family:inherit}
+textarea:focus{outline:none;border-color:var(--accent)}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+button{padding:10px 20px;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer;font-weight:500;transition:background .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--border);color:var(--text)}.btn-secondary:hover{background:#444c56}
+.result{min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:1.1rem;line-height:1.8;word-break:break-all}
+.result:empty::before{content:"解码结果将显示在这里";color:#484f58;font-size:0.95rem}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:10px 24px;border-radius:8px;font-size:0.9rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+.detail{margin-top:10px;font-size:0.85rem;color:#8b949e}
+.detail span{display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 8px;margin:3px 4px 3px 0}
+</style>
+</head>
+<body>
+<h1>表情转文字</h1>
+<p class="sub">粘贴 Emoji 表情，解码为可读的文字/数字/字母</p>
+<div class="card">
+<textarea id="input" placeholder="请粘贴 Emoji 表情到这里..."></textarea>
+<div class="btn-row">
+<button class="btn-primary" onclick="decode()">解码</button>
+<button class="btn-secondary" onclick="clearAll()">清空</button>
+<button class="btn-secondary" onclick="pasteFromClipboard()">从剪贴板粘贴</button>
+</div>
+</div>
+<div class="card">
+<div class="result" id="result"></div>
+<div class="btn-row">
+<button class="btn-secondary" onclick="copyResult()">复制结果</button>
+</div>
+</div>
+<div class="card" id="detailCard" style="display:none">
+<h3 style="font-size:1rem;margin-bottom:10px">逐字符解析</h3>
+<div class="detail" id="detail"></div>
+</div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+<script>
+const emojiToNum={'0️⃣':'0','1️⃣':'1','2️⃣':'2','3️⃣':'3','4️⃣':'4','5️⃣':'5','6️⃣':'6','7️⃣':'7','8️⃣':'8','9️⃣':'9','🔟':'10'};
+const emojiToWord={'❤️':'爱','😍':'喜欢','😊':'开心','😄':'快乐','😢':'伤心','😠':'愤怒','😮':'惊讶','害怕':'害怕','🤔':'思考','👍':'点赞','💪':'加油','🎉':'庆祝','⭐':'星星','☀️':'太阳','🌙':'月亮','🌸':'花','🍎':'苹果','🍔':'食物','☕':'咖啡','🎵':'音乐','🎬':'电影','📚':'书','💻':'电脑','📱':'手机','⚽':'足球','🏀':'篮球','✈️':'旅行','🏠':'家','⏰':'时间','📧':'邮件','🧧':'红包','🎂':'生日','🔥':'厉害','😎':'酷','👋':'你好','🙏':'谢谢','😔':'对不起','😭':'哭','😴':'睡','🍜':'吃','🍺':'喝','🏃':'跑','🚶':'走','👀':'看','👂':'听','💬':'说','✏️':'写','🏊':'游','🤸':'跳','💔':'恨','👫':'朋友','👨‍👩‍👧‍👦':'家人','👨‍🏫':'老师','👨‍🎓':'学生','👨‍⚕️':'医生','👮':'警察','🌧️':'雨','❄️':'雪','🌬️':'风','💧':'水','⛰️':'山','🌊':'海','🌳':'树','🌿':'草','🐱':'猫','🐶':'狗','🐟':'鱼','🐦':'鸟','🐰':'兔','🐴':'马','🐮':'牛','🐷':'猪','🐵':'猴','🐯':'虎','🐉':'龙','🐍':'蛇','✅':'成功','❌':'失败','👍':'好','👎':'坏','➕':'多','➖':'少'};
+const regBase=0x1F1E6-65;
+function isRegionalPair(a,b){
+const ca=a.codePointAt(0),cb=b.codePointAt(0);
+return ca>=regBase&&ca<=regBase+25&&cb>=regBase&&cb<=regBase+25;
+}
+function regionalToLetter(a,b){
+const ca=a.codePointAt(0),cb=b.codePointAt(0);
+return String.fromCharCode(ca-regBase+65);
+}
+function decode(){
+const input=document.getElementById('input').value;
+if(!input.trim()){document.getElementById('result').textContent='';return;}
+let result='';
+const details=[];
+let i=0;
+while(i<input.length){
+const ch=input[i];
+const code=ch.codePointAt(0);
+let matched=false;
+// Skip ZWJ, variation selectors, skin tones
+if(code===0x200D||code===0xFE0E||code===0xFE0F||(code>=0x1F3FB&&code<=0x1F3FF)){
+i++;continue;
+}
+// Keycap sequences (digit + VS16 + combining)
+if(i+2<input.length){
+const seq=input.substring(i,i+3);
+for(const [emoji,num] of Object.entries(emojiToNum)){
+if(seq===emoji||ch===emoji[0]){result+=num;details.push({emoji:ch,char:num,type:'数字'});matched=true;i++;break;}
+}
+if(matched)continue;
+}
+// Regional indicator pairs
+if(i+1<input.length&&isRegionalPair(ch,input[i+1])){
+const letter=regionalToLetter(ch,input[i+1]);
+result+=letter;
+details.push({emoji:ch+input[i+1],char:letter,type:'字母'});
+i+=2;continue;
+}
+// Single emoji match
+let found=false;
+for(const [emoji,text] of Object.entries(emojiToWord)){
+if(ch===emoji||input.substring(i,i+emoji.length)===emoji){
+result+=text;details.push({emoji:emoji,char:text,type:'词语'});
+i+=emoji.length;found=true;break;
+}
+}
+if(found)continue;
+// Number emojis
+for(const [emoji,num] of Object.entries(emojiToNum)){
+if(ch===emoji){
+result+=num;details.push({emoji:emoji,char:num,type:'数字'});
+i++;found=true;break;
+}
+}
+if(found)continue;
+// Unknown
+result+=`[?]`;
+details.push({emoji:ch,char:'?',type:'未知'});
+i++;
+}
+document.getElementById('result').textContent=result;
+if(details.length>0){
+const detailDiv=document.getElementById('detail');
+detailDiv.innerHTML=details.map(d=>`<span>${d.emoji} → ${d.char} (${d.type})</span>`).join('');
+document.getElementById('detailCard').style.display='block';
+}
+}
+function clearAll(){document.getElementById('input').value='';document.getElementById('result').textContent='';document.getElementById('detailCard').style.display='none';}
+function copyResult(){
+const text=document.getElementById('result').textContent;
+if(!text)return;
+navigator.clipboard.writeText(text).then(()=>{const t=document.getElementById('toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);});
+}
+async function pasteFromClipboard(){
+try{const text=await navigator.clipboard.readText();document.getElementById('input').value=text;}catch(e){alert('无法访问剪贴板，请手动粘贴');}
+}
+</script>
+</body>
+</html>

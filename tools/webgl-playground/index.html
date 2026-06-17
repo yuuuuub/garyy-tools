@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGL游乐场 - 在线着色器编辑器</title>
+<style>
+:root {
+--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+nav .logo{font-size:18px;font-weight:600;color:var(--accent2);}
+nav a{color:var(--accent);text-decoration:none;font-size:14px;}
+nav a:hover{color:var(--accent2);}
+.container{display:flex;flex-direction:column;height:calc(100vh - 52px);}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.2s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-secondary{background:var(--border);color:var(--text);}
+.btn-secondary:hover{background:#3d444d;}
+.workspace{display:flex;flex:1;overflow:hidden;}
+.editor-panel{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);}
+.preview-panel{flex:1;display:flex;flex-direction:column;}
+.panel-header{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;font-size:13px;color:var(--accent2);font-weight:500;}
+.editor-wrapper{flex:1;position:relative;display:flex;flex-direction:column;}
+.editor-label{padding:6px 12px;font-size:12px;color:#8b949e;background:var(--bg);border-bottom:1px solid var(--border);}
+.shader-editor{width:100%;flex:1;background:var(--bg);border:none;color:var(--text);font-family:"Fira Code",Consolas,monospace;font-size:12px;padding:8px;resize:none;outline:none;line-height:1.5;}
+.canvas-area{flex:1;display:flex;justify-content:center;align-items:center;background:#000;padding:20px;}
+#webglCanvas{border-radius:8px;}
+.templates{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;}
+.templates span{font-size:12px;color:#8b949e;margin-right:8px;}
+.template-btn{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--accent2);cursor:pointer;margin-right:6px;margin-bottom:4px;}
+.template-btn:hover{border-color:var(--accent);color:var(--accent);}
+.error-msg{color:var(--error);font-size:12px;padding:8px;background:rgba(248,81,73,0.1);margin:8px;border-radius:4px;}
+@media(max-width:768px){
+.workspace{flex-direction:column;}
+.editor-panel{border-right:none;border-bottom:1px solid var(--border);}
+}
+</style>
+</head>
+<body>
+<nav>
+<span class="logo">WebGL游乐场</span>
+<a href="../index.html">← 返回工具箱</a>
+</nav>
+<div class="container">
+<div class="toolbar">
+<button class="btn btn-primary" onclick="compileAndRender()">▶ 编译运行</button>
+<button class="btn btn-secondary" onclick="copyCode()">复制代码</button>
+<button class="btn btn-secondary" onclick="resetCode()">重置</button>
+<span id="errorMsg" class="error-msg" style="display:none;margin:0 0 0 8px;"></span>
+</div>
+<div class="templates">
+<span>模板:</span>
+<button class="template-btn" data-vertex="attribute vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}" data-fragment="precision mediump float;\nuniform vec2 u_resolution;\nvoid main() {\n  vec2 st = gl_FragCoord.xy / u_resolution;\n  gl_FragColor = vec4(st.x, st.y, 0.5, 1.0);\n}">渐变</button>
+<button class="template-btn" data-vertex="attribute vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}" data-fragment="precision mediump float;\nuniform vec2 u_resolution;\nuniform float u_time;\nvoid main() {\n  vec2 st = gl_FragCoord.xy / u_resolution;\n  float d = distance(st, vec2(0.5));\n  float pulse = sin(u_time * 2.0) * 0.1 + 0.3;\n  vec3 color = vec3(smoothstep(pulse, pulse + 0.1, d));\n  color.r = 1.0 - color.r;\n  color.b = st.x;\n  gl_FragColor = vec4(color, 1.0);\n}">脉冲圆</button>
+<button class="template-btn" data-vertex="attribute vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}" data-fragment="precision mediump float;\nuniform vec2 u_resolution;\nuniform float u_time;\nvoid main() {\n  vec2 st = gl_FragCoord.xy / u_resolution;\n  st.x *= u_resolution.x / u_resolution.y;\n  vec3 color = vec3(0.0);\n  for (float i = 0.0; i < 5.0; i++) {\n    vec2 pos = vec2(\n      0.5 + 0.3 * cos(u_time + i * 1.0),\n      0.5 + 0.3 * sin(u_time + i * 1.5)\n    );\n    float d = distance(st, pos);\n    color += vec3(0.1) / d;\n  }\n  gl_FragColor = vec4(color, 1.0);\n}">光斑</button>
+<button class="template-btn" data-vertex="attribute vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}" data-fragment="precision mediump float;\nuniform vec2 u_resolution;\nuniform float u_time;\nvoid main() {\n  vec2 st = gl_FragCoord.xy / u_resolution;\n  vec3 color = vec3(0.0);\n  float size = 20.0;\n  vec2 grid = fract(st * size);\n  float pattern = step(0.5, grid.x) + step(0.5, grid.y);\n  color = vec3(mod(pattern + u_time * 0.5, 2.0));\n  gl_FragColor = vec4(color, 1.0);\n}">棋盘格</button>
+</div>
+<div class="workspace">
+<div class="editor-panel">
+<div class="editor-wrapper">
+<div class="editor-label">顶点着色器 (Vertex Shader)</div>
+<textarea id="vertexShader" class="shader-editor">attribute vec2 a_position;
+void main() {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}</textarea>
+<div class="editor-label">片段着色器 (Fragment Shader)</div>
+<textarea id="fragmentShader" class="shader-editor">precision mediump float;
+uniform vec2 u_resolution;
+uniform float u_time;
+
+void main() {
+  vec2 st = gl_FragCoord.xy / u_resolution;
+  
+  // 彩虹渐变
+  vec3 color = vec3(
+    sin(st.x * 3.14159 + u_time) * 0.5 + 0.5,
+    sin(st.y * 3.14159 + u_time * 1.5) * 0.5 + 0.5,
+    sin((st.x + st.y) * 3.14159 + u_time * 2.0) * 0.5 + 0.5
+  );
+  
+  gl_FragColor = vec4(color, 1.0);
+}</textarea>
+</div>
+</div>
+<div class="preview-panel">
+<div class="panel-header">WebGL预览</div>
+<div class="canvas-area">
+<canvas id="webglCanvas" width="400" height="400"></canvas>
+</div>
+</div>
+</div>
+</div>
+<script>
+const vertexShaderEl=document.getElementById('vertexShader');
+const fragmentShaderEl=document.getElementById('fragmentShader');
+const canvas=document.getElementById('webglCanvas');
+const errorMsg=document.getElementById('errorMsg');
+let gl,program,startTime=Date.now(),animFrame;
+
+function initGL(){
+gl=canvas.getContext('webgl');
+if(!gl){
+alert('WebGL不支持');
+return false;
+}
+return true;
+}
+
+function createShader(type,source){
+const shader=gl.createShader(type);
+gl.shaderSource(shader,source);
+gl.compileShader(shader);
+if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
+const error=gl.getShaderInfoLog(shader);
+gl.deleteShader(shader);
+return {error};
+}
+return {shader};
+}
+
+function createProgram(vsSource,fsSource){
+const vs=createShader(gl.VERTEX_SHADER,vsSource);
+if(vs.error)return{error:'顶点着色器错误: '+vs.error};
+const fs=createShader(gl.FRAGMENT_SHADER,fsSource);
+if(fs.error)return{error:'片段着色器错误: '+fs.error};
+const prog=gl.createProgram();
+gl.attachShader(prog,vs.shader);
+gl.attachShader(prog,fs.shader);
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){
+const error=gl.getProgramInfoLog(prog);
+gl.deleteProgram(prog);
+return{error:'链接错误: '+error};
+}
+return{program:prog};
+}
+
+function compileAndRender(){
+if(!gl&&!initGL())return;
+const vs=vertexShaderEl.value;
+const fs=fragmentShaderEl.value;
+const result=createProgram(vs,fs);
+if(result.error){
+errorMsg.textContent=result.error;
+errorMsg.style.display='inline-block';
+return;
+}
+errorMsg.style.display='none';
+if(program)gl.deleteProgram(program);
+program=result.program;
+gl.useProgram(program);
+const positions=new Float32Array([-1,-1,1,-1,-1,1,1,1]);
+const buffer=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+gl.bufferData(gl.ARRAY_BUFFER,positions,gl.STATIC_DRAW);
+const posLoc=gl.getAttribLocation(program,'a_position');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc,2,gl.FLOAT,false,0,0);
+render();
+}
+
+function render(){
+if(!program)return;
+gl.viewport(0,0,canvas.width,canvas.height);
+gl.clearColor(0,0,0,1);
+gl.clear(gl.COLOR_BUFFER_BIT);
+const timeLoc=gl.getUniformLocation(program,'u_time');
+const resLoc=gl.getUniformLocation(program,'u_resolution');
+if(timeLoc)gl.uniform1f(timeLoc,(Date.now()-startTime)/1000);
+if(resLoc)gl.uniform2f(resLoc,canvas.width,canvas.height);
+gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+animFrame=requestAnimationFrame(render);
+}
+
+function copyCode(){
+const code='// 顶点着色器\n'+vertexShaderEl.value+'\n\n// 片段着色器\n'+fragmentShaderEl.value;
+navigator.clipboard.writeText(code).then(()=>alert('代码已复制到剪贴板'));
+}
+
+function resetCode(){
+vertexShaderEl.value='attribute vec2 a_position;\nvoid main() {\n  gl_Position = vec4(a_position, 0.0, 1.0);\n}';
+fragmentShaderEl.value='precision mediump float;\nuniform vec2 u_resolution;\nuniform float u_time;\n\nvoid main() {\n  vec2 st = gl_FragCoord.xy / u_resolution;\n  vec3 color = vec3(\n    sin(st.x * 3.14159 + u_time) * 0.5 + 0.5,\n    sin(st.y * 3.14159 + u_time * 1.5) * 0.5 + 0.5,\n    sin((st.x + st.y) * 3.14159 + u_time * 2.0) * 0.5 + 0.5\n  );\n  gl_FragColor = vec4(color, 1.0);\n}';
+compileAndRender();
+}
+
+document.querySelectorAll('.template-btn').forEach(btn=>{
+btn.onclick=()=>{
+vertexShaderEl.value=btn.dataset.vertex;
+fragmentShaderEl.value=btn.dataset.fragment;
+compileAndRender();
+};
+});
+
+initGL();
+compileAndRender();
+</script>
+</body>
+</html>

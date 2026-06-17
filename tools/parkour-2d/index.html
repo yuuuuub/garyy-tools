@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D跑酷</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+canvas{border:2px solid var(--border);border-radius:8px;display:block}
+.ui{display:flex;gap:16px;margin-bottom:12px;font-size:14px}
+.ui span{background:var(--card);padding:6px 14px;border-radius:6px;border:1px solid var(--border)}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:16px;cursor:pointer;margin-top:12px}
+.btn:hover{opacity:.85}
+#overlay{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,17,23,.9);border-radius:12px;padding:32px;text-align:center}
+</style>
+</head>
+<body>
+<div class="ui">
+<span id="scoreText">分数: 0</span>
+<span id="coinText">金币: 0</span>
+<span id="distText">距离: 0m</span>
+</div>
+<div style="position:relative">
+<canvas id="c" width="600" height="350"></canvas>
+<div id="overlay">
+<h2>2D跑酷</h2>
+<p style="margin:10px 0;color:#8b949e">横版自动前进，跳跃翻越障碍墙壁，收集金币！</p>
+<button class="btn" id="overlayBtn" onclick="startGame()">开始游戏</button>
+<p style="margin-top:8px;font-size:12px;color:#8b949e">空格/↑/点击 跳跃 | 双击 二段跳</p>
+</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const W=600,H=350,GRAVITY=0.5,JUMP=-11;
+let player,obstacles,coins,ground,scrollSpeed,distance,coinCount,score,gameState='idle',animFrame;
+let lastTime=0,groundOffset=0;
+const overlay=document.getElementById('overlay');
+
+function init(){
+  ground=H-50;
+  obstacles=[];coins=[];
+  player={x:80,y:ground-36,w:28,h:36,vy:0,onGround:true,jumps:1,runFrame:0};
+  scrollSpeed=3;distance=0;coinCount=0;score=0;
+  spawnInitial();
+}
+
+function spawnInitial(){
+  for(let i=0;i<5;i++)spawnObstacle(600+i*200+Math.random()*100);
+  for(let i=0;i<8;i++)spawnCoin(600+i*120+Math.random()*60);
+}
+
+function spawnObstacle(x){
+  const types=['wall','spike','box'];
+  const t=types[Math.floor(Math.random()*types.length)];
+  if(t==='wall')obstacles.push({x,y:ground-40-Math.random()*30,w:20,h:40+Math.random()*30,type:'wall'});
+  else if(t==='spike')obstacles.push({x,y:ground-18,w:30,h:18,type:'spike'});
+  else obstacles.push({x,y:ground-30,w:28,h:30,type:'box'});
+}
+
+function spawnCoin(x){
+  coins.push({x,y:ground-60-Math.random()*80,r:8,collected:false});
+}
+
+function startGame(){
+  init();gameState='playing';overlay.style.display='none';
+  lastTime=performance.now();
+  if(animFrame)cancelAnimationFrame(animFrame);
+  loop();
+}
+
+function update(dt){
+  const p=player;
+  p.vy+=GRAVITY;p.y+=p.vy;
+  if(p.y>=ground-p.h){p.y=ground-p.h;p.vy=0;p.onGround=true;p.jumps=1}
+  // scroll
+  const spd=scrollSpeed+distance*0.0005;
+  distance+=spd*dt*0.06;score=Math.floor(distance);
+  for(const o of obstacles){o.x-=spd}
+  for(const c of coins){c.x-=spd}
+  groundOffset=(groundOffset+spd)%40;
+  // spawn
+  if(obstacles.length===0||obstacles[obstacles.length-1].x<400)spawnObstacle(650+Math.random()*150);
+  if(coins.length<5||coins[coins.length-1].x<400)spawnCoin(650+Math.random()*100);
+  // cleanup
+  while(obstacles.length&&obstacles[0].x<-60)obstacles.shift();
+  while(coins.length&&coins[0].x<-30)coins.shift();
+  // collision
+  for(const o of obstacles){
+    if(p.x+p.w>o.x+4&&p.x<o.x+o.w-4&&p.y+p.h>o.y+4&&p.y<o.y+o.h-4){
+      gameState='dead';showOverlay('游戏结束','距离: '+score+'m | 金币: '+coinCount,'重新开始');return;
+    }
+  }
+  for(const c of coins){
+    if(!c.collected&&Math.hypot(p.x+p.w/2-c.x,p.y+p.h/2-c.y)<c.r+14){
+      c.collected=true;coinCount++;score+=50;
+    }
+  }
+  coins=coins.filter(c=>!c.collected);
+  p.runFrame=(p.runFrame+dt*0.01)%1;
+}
+
+function draw(){
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+  // bg layers
+  ctx.fillStyle='#161b22';
+  for(let i=0;i<W;i+=80){
+    const h=30+Math.sin((i+groundOffset*0.3)*0.02)*15;
+    ctx.fillRect(i,ground-h-10,60,h);
+  }
+  // ground
+  ctx.fillStyle='#21262d';ctx.fillRect(0,ground,W,50);
+  ctx.strokeStyle='#30363d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,ground);ctx.lineTo(W,ground);ctx.stroke();
+  // ground lines
+  ctx.strokeStyle='#1a1f27';
+  for(let i=-groundOffset;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,ground+10);ctx.lineTo(i-20,ground+50);ctx.stroke()}
+  // obstacles
+  for(const o of obstacles){
+    if(o.type==='spike'){
+      ctx.fillStyle='#f85149';ctx.beginPath();
+      ctx.moveTo(o.x,o.y+o.h);ctx.lineTo(o.x+o.w/2,o.y);ctx.lineTo(o.x+o.w,o.y+o.h);ctx.fill();
+    }else if(o.type==='wall'){
+      ctx.fillStyle='#30363d';ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.fillStyle='#21262d';ctx.fillRect(o.x+2,o.y+2,o.w-4,8);
+    }else{
+      ctx.fillStyle='#f0883e';ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.strokeStyle='#d29922';ctx.strokeRect(o.x,o.y,o.w,o.h);
+    }
+  }
+  // coins
+  ctx.fillStyle='#f0c000';
+  for(const c of coins){
+    ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#0d1117';ctx.font='bold 10px sans-serif';ctx.fillText('$',c.x-4,c.y+4);ctx.fillStyle='#f0c000';
+  }
+  // player
+  const p=player;
+  ctx.fillStyle='#3b82f6';ctx.fillRect(p.x,p.y,p.w,p.h);
+  ctx.fillStyle='#fff';
+  ctx.fillRect(p.x+5,p.y+5,5,5);ctx.fillRect(p.x+17,p.y+5,5,5);
+  // legs
+  if(!p.onGround){
+    ctx.fillRect(p.x+4,p.y+p.h,4,6);ctx.fillRect(p.x+p.w-8,p.y+p.h-2,4,6);
+  }else{
+    const legOff=Math.sin(p.runFrame*Math.PI*2)*4;
+    ctx.fillRect(p.x+4,p.y+p.h,4,6+legOff);ctx.fillRect(p.x+p.w-8,p.y+p.h,4,6-legOff);
+  }
+  // UI
+  document.getElementById('scoreText').textContent='分数: '+score;
+  document.getElementById('coinText').textContent='金币: '+coinCount;
+  document.getElementById('distText').textContent='距离: '+Math.floor(distance)+'m';
+}
+
+function showOverlay(title,desc,btnText){
+  overlay.querySelector('h2').textContent=title;
+  overlay.querySelector('p').textContent=desc;
+  overlay.querySelector('.btn').textContent=btnText;
+  overlay.style.display='flex';
+}
+
+let lastJump=0;
+function jump(){
+  if(gameState!=='playing')return;
+  const now=Date.now();
+  if(player.onGround){player.vy=JUMP;player.onGround=false;player.jumps=1;lastJump=now}
+  else if(player.jumps>0&&now-lastJump>100){player.vy=JUMP*0.85;player.jumps=0;lastJump=now}
+}
+
+function loop(ts){
+  if(gameState!=='playing')return;
+  const dt=Math.min(ts-lastTime,30);lastTime=ts;
+  update(dt);draw();
+  animFrame=requestAnimationFrame(loop);
+}
+
+document.addEventListener('keydown',e=>{
+  if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();jump()}
+});
+canvas.addEventListener('click',jump);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();jump()});
+
+init();draw();
+</script>
+</body>
+</html>

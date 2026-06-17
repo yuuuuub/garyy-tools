@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>巨型数独 16×16</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px;overflow-x:auto}
+h1{font-size:1.5rem;margin-bottom:6px}
+.info{color:#8b949e;margin-bottom:16px;font-size:.9rem}
+.timer{font-size:1.1rem;color:#8b949e;margin-bottom:12px}
+.timer span{color:var(--accent);font-weight:700}
+.board{display:grid;grid-template-columns:repeat(16,1fr);gap:0;border:2px solid var(--accent);width:fit-content;margin-bottom:20px}
+.cell{width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:.95rem;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:background .15s}
+.cell:hover{background:#1c2333}
+.cell.selected{background:rgba(59,130,246,.25);outline:2px solid var(--accent);z-index:1}
+.cell.fixed{color:#8b949e;font-weight:600}
+.cell.user{color:var(--accent);font-weight:700}
+.cell.highlight{background:rgba(59,130,246,.12)}
+.cell.block-right{border-right:2px solid var(--accent)}
+.cell.block-bottom{border-bottom:2px solid var(--accent)}
+.numpad{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;max-width:500px}
+.numpad button{width:36px;height:36px;font-size:.9rem;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:6px;cursor:pointer;transition:all .15s}
+.numpad button:hover{background:var(--accent);color:#fff}
+.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.controls button{padding:8px 18px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:6px;cursor:pointer;font-size:.9rem;transition:all .15s}
+.controls button:hover{background:var(--accent);color:#fff}
+.win-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;justify-content:center;align-items:center}
+.win-overlay.show{display:flex}
+.win-box{background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:40px;text-align:center}
+.win-box h2{font-size:2rem;margin-bottom:10px;color:var(--accent)}
+.win-box p{color:#8b949e;margin-bottom:20px}
+.win-box button{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>巨型数独 16×16</h1>
+<div class="info">每行、每列、每个4×4宫包含1-16（用A-G代表10-16）</div>
+<div class="timer">时间: <span id="time">00:00</span></div>
+<div class="board" id="board"></div>
+<div class="numpad" id="numpad"></div>
+<div class="controls">
+<button onclick="newGame()">新游戏</button>
+<button onclick="hint()">提示</button>
+<button onclick="undo()">撤销</button>
+</div>
+<div class="win-overlay" id="winOverlay">
+<div class="win-box">
+<h2>恭喜通关!</h2>
+<p id="winMsg">用时</p>
+<button onclick="newGame();document.getElementById('winOverlay').classList.remove('show')">再来一局</button>
+</div>
+</div>
+<script>
+const N=16,B=4;
+const CHARS='123456789ABCDEFG';
+let solution=[],puzzle=[],grid=[],history=[],sel=null,timer=null,sec=0;
+
+function toChar(v){return v>=1&&v<=9?String(v):CHARS[v-1]}
+function toVal(c){let i=CHARS.indexOf(c);return i>=0?i+1:parseInt(c)}
+function rand(a,b){return a+Math.floor(Math.random()*(b-a+1))}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=rand(0,i);[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function generateSolution(){
+let sol=[];
+for(let i=0;i<N;i++)sol[i]=Array(N).fill(0);
+function valid(r,c,v){
+for(let i=0;i<N;i++)if(sol[r][i]===v)return false;
+for(let i=0;i<N;i++)if(sol[i][c]===v)return false;
+let br=Math.floor(r/B)*B,bc=Math.floor(c/B)*B;
+for(let i=br;i<br+B;i++)for(let j=bc;j<bc+B;j++)if(sol[i][j]===v)return false;
+return true;
+}
+function fill(pos){
+if(pos===N*N)return true;
+let r=Math.floor(pos/N),c=pos%N;
+let nums=shuffle(Array.from({length:N},(_, i)=>i+1));
+for(let v of nums){
+if(valid(r,c,v)){sol[r][c]=v;if(fill(pos+1))return true;sol[r][c]=0;}
+}
+return false;
+}
+fill(0);
+return sol;
+}
+
+function makePuzzle(sol,removeCount){
+let p=sol.map(r=>[...r]);
+let cells=[];
+for(let i=0;i<N;i++)for(let j=0;j<N;j++)cells.push([i,j]);
+shuffle(cells);
+for(let k=0;k<removeCount&&k<cells.length;k++){
+let[r,c]=cells[k];
+p[r][c]=0;
+}
+return p;
+}
+
+function render(){
+let b=document.getElementById('board');
+b.innerHTML='';
+for(let i=0;i<N;i++){
+for(let j=0;j<N;j++){
+let d=document.createElement('div');
+d.className='cell';
+if(j%4===3&&j<N-1)d.classList.add('block-right');
+if(i%4===3&&i<N-1)d.classList.add('block-bottom');
+if(puzzle[i][j]!==0){d.classList.add('fixed');d.textContent=toChar(puzzle[i][j])}
+else if(grid[i][j]!==0){d.classList.add('user');d.textContent=toChar(grid[i][j])}
+if(sel){
+if(sel[0]===i&&sel[1]===j)d.classList.add('selected');
+else if(sel[0]===i||sel[1]===j)d.classList.add('highlight');
+}
+d.onclick=()=>{if(puzzle[i][j]===0){sel=[i,j];render()}};
+b.appendChild(d);
+}
+}
+updateNumpad();
+}
+
+function isValid(r,c,v){
+if(v===0)return true;
+for(let i=0;i<N;i++)if(i!==c&&grid[r][i]===v)return false;
+for(let i=0;i<N;i++)if(i!==r&&grid[i][c]===v)return false;
+let br=Math.floor(r/B)*B,bc=Math.floor(c/B)*B;
+for(let i=br;i<br+B;i++)for(let j=bc;j<bc+B;j++)if((i!==r||j!==c)&&grid[i][j]===v)return false;
+return true;
+}
+
+function updateNumpad(){
+let n=document.getElementById('numpad');
+n.innerHTML='';
+for(let v=1;v<=N;v++){
+let b=document.createElement('button');b.textContent=toChar(v);
+b.onclick=()=>{
+if(sel&&puzzle[sel[0]][sel[1]]===0){
+history.push([...sel,grid[sel[0]][sel[1]]]);
+grid[sel[0]][sel[1]]=v;render();checkWin();
+}
+};
+n.appendChild(b);
+}
+let clr=document.createElement('button');
+clr.textContent='✕';clr.style.color='#f87171';
+clr.onclick=()=>{
+if(sel&&puzzle[sel[0]][sel[1]]===0){
+history.push([...sel,grid[sel[0]][sel[1]]]);
+grid[sel[0]][sel[1]]=0;render();
+}
+};
+n.appendChild(clr);
+}
+
+function checkWin(){
+for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+if(grid[i][j]===0||!isValid(i,j,grid[i][j]))return;
+}
+clearInterval(timer);
+document.getElementById('winMsg').textContent='用时 '+document.getElementById('time').textContent;
+document.getElementById('winOverlay').classList.add('show');
+}
+
+function newGame(){
+solution=generateSolution();
+puzzle=makePuzzle(solution,180);
+grid=puzzle.map(r=>[...r]);
+history=[];sel=null;sec=0;
+if(timer)clearInterval(timer);
+document.getElementById('time').textContent='00:00';
+timer=setInterval(()=>{sec++;let m=String(Math.floor(sec/60)).padStart(2,'0');let s=String(sec%60).padStart(2,'0');document.getElementById('time').textContent=m+':'+s},1000);
+render();
+}
+
+function hint(){
+if(!sel)return;
+let r=sel[0],c=sel[1];
+if(puzzle[r][c]===0&&grid[r][c]!==solution[r][c]){
+grid[r][c]=solution[r][c];render();checkWin();
+}
+}
+
+function undo(){
+if(history.length===0)return;
+let[last]=history.pop();
+grid[last[0]][last[1]]=sel?grid[sel[0]][sel[1]]:0;
+let prev=history.length>0?history[history.length-1]:null;
+if(prev)sel=[prev[0],prev[1]];
+render();
+}
+
+document.onkeydown=e=>{
+if(!sel)return;
+let k=e.key.toUpperCase();
+let idx=CHARS.indexOf(k);
+if(idx>=0){e.preventDefault();
+history.push([...sel,grid[sel[0]][sel[1]]]);
+grid[sel[0]][sel[1]]=idx+1;render();checkWin()}
+let v=parseInt(e.key);
+if(v>=1&&v<=9){e.preventDefault();
+history.push([...sel,grid[sel[0]][sel[1]]]);
+grid[sel[0]][sel[1]]=v;render();checkWin()}
+if(e.key==='Backspace'||e.key==='Delete'){e.preventDefault();
+history.push([...sel,grid[sel[0]][sel[1]]]);
+grid[sel[0]][sel[1]]=0;render()}
+};
+
+newGame();
+</script>
+</body>
+</html>

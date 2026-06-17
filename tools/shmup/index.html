@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>射击游戏</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --accent: #3b82f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .stats span { color: var(--accent); font-weight: bold; }
+        #gameCanvas {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            max-width: 100%;
+        }
+        .info { margin-top: 10px; color: #8b949e; }
+        .mobile-controls {
+            display: none;
+            margin-top: 15px;
+        }
+        .mobile-btn {
+            width: 50px; height: 50px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        @media (max-width: 600px) {
+            .mobile-controls { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 射击游戏</h1>
+    <div class="stats">
+        分数：<span id="score">0</span>
+        关卡：<span id="level">1</span>
+        生命：<span id="lives">3</span>
+    </div>
+    <canvas id="gameCanvas" width="500" height="700"></canvas>
+    <div class="info">方向键移动 | 自动射击 | 消灭敌人过关</div>
+    <div class="mobile-controls">
+        <button class="mobile-btn" id="bl">←</button>
+        <button class="mobile-btn" id="bu">↑</button>
+        <button class="mobile-btn" id="bd">↓</button>
+        <button class="mobile-btn" id="br">→</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 500, H = 700;
+
+        let player = {x:W/2, y:H-60, w:30, h:30, lives:3};
+        let bullets = [], enemies = [], particles = [], powerups = [];
+        let score = 0, level = 1, enemiesLeft = 0;
+        let keys = {};
+
+        document.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        const mb = (id, key) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', () => keys[key] = false);
+        };
+        mb('bl','ArrowLeft'); mb('bu','ArrowUp'); mb('bd','ArrowDown'); mb('br','ArrowRight');
+
+        function startLevel(lvl) {
+            level = lvl;
+            enemiesLeft = 5 + lvl * 3;
+            enemies = [];
+            bullets = [];
+            spawnTimer = 0;
+        }
+
+        let spawnTimer = 0, shootTimer = 0;
+        function update() {
+            const spd = 5;
+            if (keys['ArrowLeft'] || keys['a']) player.x -= spd;
+            if (keys['ArrowRight'] || keys['d']) player.x += spd;
+            if (keys['ArrowUp'] || keys['w']) player.y -= spd;
+            if (keys['ArrowDown'] || keys['s']) player.y += spd;
+            player.x = Math.max(15, Math.min(W-15, player.x));
+            player.y = Math.max(15, Math.min(H-15, player.y));
+
+            shootTimer++;
+            if (shootTimer % 10 === 0) {
+                bullets.push({x:player.x, y:player.y-15, vy:-8, r:3});
+            }
+
+            bullets.forEach(b => b.y += b.vy);
+            bullets = bullets.filter(b => b.y > -10);
+
+            spawnTimer++;
+            if (spawnTimer % Math.max(15, 50 - level * 3) === 0 && enemiesLeft > 0) {
+                const type = Math.random() < 0.3 + level * 0.05 ? 'fast' : 'normal';
+                enemies.push({
+                    x: 30 + Math.random() * (W-60),
+                    y: -20,
+                    w: type === 'fast' ? 20 : 25,
+                    h: type === 'fast' ? 20 : 25,
+                    vy: type === 'fast' ? 3 + level * 0.3 : 1.5 + level * 0.2,
+                    hp: type === 'fast' ? 1 : 2,
+                    type
+                });
+                enemiesLeft--;
+            }
+
+            enemies.forEach(e => e.y += e.vy);
+            enemies = enemies.filter(e => e.y < H + 30);
+
+            bullets.forEach((b, bi) => {
+                enemies.forEach((e, ei) => {
+                    if (e.hp > 0 && Math.abs(b.x - e.x) < e.w/2 + b.r && Math.abs(b.y - e.y) < e.h/2 + b.r) {
+                        e.hp--;
+                        b.y = -100;
+                        if (e.hp <= 0) {
+                            score += e.type === 'fast' ? 15 : 10;
+                            for (let i = 0; i < 6; i++) {
+                                particles.push({x:e.x, y:e.y, vx:(Math.random()-0.5)*5, vy:(Math.random()-0.5)*5, life:20, color:'#fbbf24'});
+                            }
+                            if (Math.random() < 0.1) {
+                                powerups.push({x:e.x, y:e.y, vy:2, type:'health'});
+                            }
+                        }
+                    }
+                });
+            });
+
+            enemies.forEach(e => {
+                if (e.y + e.h/2 > player.y - player.h/2 && e.y - e.h/2 < player.y + player.h/2 &&
+                    e.x + e.w/2 > player.x - player.w/2 && e.x - e.w/2 < player.x + player.w/2) {
+                    player.lives--;
+                    e.hp = 0;
+                    for (let i = 0; i < 8; i++) {
+                        particles.push({x:player.x, y:player.y, vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6, life:25, color:'#ef4444'});
+                    }
+                    if (player.lives <= 0) {
+                        player.lives = 3;
+                        score = 0;
+                        startLevel(1);
+                    }
+                }
+            });
+
+            powerups.forEach(p => p.y += p.vy);
+            powerups = powerups.filter(p => p.y < H + 20);
+            powerups.forEach(p => {
+                if (Math.abs(p.x - player.x) < 25 && Math.abs(p.y - player.y) < 25) {
+                    p.y = H + 100;
+                    if (p.type === 'health') player.lives = Math.min(5, player.lives + 1);
+                }
+            });
+
+            enemies = enemies.filter(e => e.hp > 0);
+            particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
+            particles = particles.filter(p => p.life > 0);
+
+            if (enemiesLeft <= 0 && enemies.length === 0) {
+                startLevel(level + 1);
+            }
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('lives').textContent = player.lives;
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, W, H);
+
+            const t = Date.now() * 0.001;
+            for (let i = 0; i < H; i += 30) {
+                ctx.fillStyle = `rgba(59,130,246,${0.05 + Math.sin(t + i * 0.05) * 0.03})`;
+                ctx.fillRect(0, i, W, 2);
+            }
+
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life / 25;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x-2, p.y-2, 4, 4);
+            });
+            ctx.globalAlpha = 1;
+
+            bullets.forEach(b => {
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillRect(b.x-2, b.y-6, 4, 12);
+            });
+
+            enemies.forEach(e => {
+                ctx.fillStyle = e.type === 'fast' ? '#a855f7' : '#ef4444';
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y + e.h/2);
+                ctx.lineTo(e.x - e.w/2, e.y - e.h/2);
+                ctx.lineTo(e.x + e.w/2, e.y - e.h/2);
+                ctx.fill();
+            });
+
+            powerups.forEach(p => {
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 8, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px sans-serif';
+                ctx.fillText('+', p.x-4, p.y+4);
+            });
+
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y - player.h/2);
+            ctx.lineTo(player.x - player.w/2, player.y + player.h/2);
+            ctx.lineTo(player.x, player.y + player.h/4);
+            ctx.lineTo(player.x + player.w/2, player.y + player.h/2);
+            ctx.fill();
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(player.x-2, player.y+player.h/2, 4, 8);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        startLevel(1);
+        gameLoop();
+    </script>
+</body>
+</html>

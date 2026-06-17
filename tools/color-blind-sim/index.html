@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色盲模拟 - Color Blind Simulator</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{text-align:center;padding:2rem 1rem;border-bottom:1px solid var(--border)}
+.header h1{font-size:1.8rem;margin-bottom:.3rem}
+.header p{color:#8b949e;font-size:.9rem}
+.container{max-width:1100px;margin:0 auto;padding:1.5rem}
+.upload-area{border:2px dashed var(--border);border-radius:12px;padding:3rem;text-align:center;cursor:pointer;transition:border-color .2s;margin:1.5rem 0}
+.upload-area:hover{border-color:var(--accent)}
+.upload-area p{color:#8b949e;margin-top:.5rem}
+.upload-area .icon{font-size:2.5rem}
+input[type="file"]{display:none}
+.demo-section{margin:1rem 0}
+.demo-section h3{margin-bottom:.8rem;font-size:1rem}
+.demo-colors{display:flex;gap:.5rem;flex-wrap:wrap}
+.demo-color{width:48px;height:48px;border-radius:8px;border:2px solid var(--border);cursor:pointer;transition:transform .2s}
+.demo-color:hover{transform:scale(1.1)}
+.results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem;margin:2rem 0}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.result-card h3{padding:1rem 1.2rem .5rem;font-size:1rem}
+.result-card .desc{padding:0 1.2rem;color:#8b949e;font-size:.8rem;margin-bottom:.8rem}
+.result-img-wrap{position:relative;overflow:hidden;min-height:200px;display:flex;align-items:center;justify-content:center;background:#111}
+.result-img-wrap canvas,.result-img-wrap img{max-width:100%;display:block}
+.result-colors{display:flex;padding:.8rem 1.2rem;gap:.4rem;flex-wrap:wrap;align-items:center}
+.rc-swatch{width:32px;height:32px;border-radius:6px;border:1px solid var(--border)}
+.rc-label{font-size:.7rem;color:#8b949e;margin-left:.3rem}
+.info-section{margin:2rem 0}
+.info-section h2{margin-bottom:1rem;font-size:1.2rem}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+.info-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem}
+.info-card h4{color:var(--accent);margin-bottom:.4rem}
+.info-card p{color:#8b949e;font-size:.8rem;line-height:1.5}
+.info-card .pct{font-size:1.5rem;font-weight:700;margin:.3rem 0}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>👁️ 色盲模拟</h1>
+<p>模拟不同类型的色觉缺陷如何感知颜色</p>
+</div>
+<div class="container">
+<div class="upload-area" id="uploadArea">
+<div class="icon">📷</div>
+<p>点击或拖拽上传图片进行模拟</p>
+<p style="font-size:.8rem;margin-top:.3rem">支持 JPG/PNG/WebP</p>
+<input type="file" id="fileInput" accept="image/*">
+</div>
+
+<div class="demo-section">
+<h3>或者使用预设色块体验</h3>
+<div class="demo-colors" id="demoColors"></div>
+</div>
+
+<div class="results-grid" id="resultsGrid"></div>
+
+<div class="info-section">
+<h2>色觉缺陷类型</h2>
+<div class="info-grid">
+<div class="info-card">
+<h4>🔴 红色盲 Protanopia</h4>
+<div class="pct">~1.3% 男性</div>
+<p>无法感知红色光。红色看起来像深灰色或黑色，绿色显得更黄。红绿灯识别困难。</p>
+</div>
+<div class="info-card">
+<h4>🟢 绿色盲 Deuteranopia</h4>
+<div class="pct">~1.2% 男性</div>
+<p>最常见的色盲类型。无法正常感知绿色光，红绿混淆。大多数人能适应日常生活。</p>
+</div>
+<div class="info-card">
+<h4>🔵 蓝色盲 Tritanopia</h4>
+<div class="pct">~0.01%</div>
+<p>非常罕见。无法感知蓝色光，蓝色看起来偏绿，黄色看起来偏粉或灰。</p>
+</div>
+<div class="info-card">
+<h4>⚫ 全色盲 Achromatopsia</h4>
+<div class="pct">~0.003%</div>
+<p>完全无法感知颜色，只能看到灰度。通常伴有畏光和视力下降。</p>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const types=[
+{name:'正常视觉',desc:'正常三色视觉',filter:'none',colors:true},
+{name:'红色盲 Protanopia',desc:'无法感知红色光 (~1.3% 男性)',filter:'url(#protanopia)'},
+{name:'绿色盲 Deuteranopia',desc:'无法感知绿色光 (~1.2% 男性)',filter:'url(#deuteranopia)'},
+{name:'蓝色盲 Tritanopia',desc:'无法感知蓝色光 (~0.01%)',filter:'url(#tritanopia)'},
+{name:'全色盲 Achromatopsia',desc:'完全灰度视觉 (~0.003%)',filter:'grayscale(100%)'}
+];
+
+const demoColorSet=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6','#ecf0f1','#2c3e50'];
+const dc=document.getElementById('demoColors');
+demoColorSet.forEach(c=>{
+const d=document.createElement('div');d.className='demo-color';d.style.background=c;
+d.onclick=()=>generateFromColor(c);
+dc.appendChild(d);
+});
+
+const svgNS='http://www.w3.org/2000/svg';
+const svg=document.createElementNS(svgNS,'svg');
+svg.setAttribute('width','0');svg.setAttribute('height','0');
+svg.style.position='absolute';
+svg.innerHTML=`
+<defs>
+<filter id="protanopia"><feColorMatrix type="matrix" values="0.567,0.433,0,0,0 0.558,0.442,0,0,0 0,0.242,0.758,0,0 0,0,0,1,0"/></filter>
+<filter id="deuteranopia"><feColorMatrix type="matrix" values="0.625,0.375,0,0,0 0.7,0.3,0,0,0 0,0.3,0.7,0,0 0,0,0,1,0"/></filter>
+<filter id="tritanopia"><feColorMatrix type="matrix" values="0.95,0.05,0,0,0 0,0.433,0.567,0,0 0,0.475,0.525,0,0 0,0,0,1,0"/></filter>
+</defs>`;
+document.body.appendChild(svg);
+
+function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
+function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('')}
+
+function simulateColor(hex,type){
+const[r,g,b]=hexToRgb(hex);
+let nr,ng,nb;
+switch(type){
+case'protanopia':nr=0.567*r+0.433*g;ng=0.558*r+0.442*g;nb=0.242*g+0.758*b;break;
+case'deuteranopia':nr=0.625*r+0.375*g;ng=0.7*r+0.3*g;nb=0.3*g+0.7*b;break;
+case'tritanopia':nr=0.95*r+0.05*g;ng=0.433*g+0.567*b;nb=0.475*g+0.525*b;break;
+case'achromatopsia':const avg=0.299*r+0.587*g+0.114*b;nr=ng=nb=avg;break;
+default:return hex;
+}
+return rgbToHex(nr,ng,nb);
+}
+
+function generateFromColor(hex){
+const grid=document.getElementById('resultsGrid');
+grid.innerHTML='';
+types.forEach(t=>{
+const card=document.createElement('div');card.className='result-card';
+const swatchSize=200;
+let content=`<h3>${t.name}</h3><p class="desc">${t.desc}</p>`;
+if(t.colors){
+content+=`<div class="result-img-wrap" style="background:${hex};min-height:200px"></div>`;
+content+=`<div class="result-colors">${demoColorSet.map(c=>`<div style="display:flex;align-items:center"><div class="rc-swatch" style="background:${c}"></div><div class="rc-label">${c}</div></div>`).join('')}</div>`;
+}else{
+content+=`<div class="result-img-wrap"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:1rem;width:100%">`;
+demoColorSet.forEach(c=>{
+const sim=simulateColor(c,t.filter.replace('url(#','').replace(')',''));
+content+=`<div style="background:${sim};aspect-ratio:1;border-radius:6px;border:1px solid var(--border)" title="${c} → ${sim}"></div>`;
+});
+content+=`</div></div>`;
+content+=`<div class="result-colors">${demoColorSet.map(c=>{const sim=simulateColor(c,t.filter.replace('url(#','').replace(')',''));return`<div style="display:flex;align-items:center"><div class="rc-swatch" style="background:${sim}"></div><div class="rc-label">${sim}</div></div>`}).join('')}</div>`;
+}
+card.innerHTML=content;
+grid.appendChild(card);
+});
+}
+
+document.getElementById('uploadArea').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('uploadArea').addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--accent)'});
+document.getElementById('uploadArea').addEventListener('dragleave',e=>{e.currentTarget.style.borderColor='var(--border)'});
+document.getElementById('uploadArea').addEventListener('drop',e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--border)';if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0])});
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0])});
+
+function handleFile(file){
+const reader=new FileReader();
+reader.onload=e=>{
+const img=new Image();
+img.onload=()=>{
+const grid=document.getElementById('resultsGrid');
+grid.innerHTML='';
+types.forEach(t=>{
+const card=document.createElement('div');card.className='result-card';
+let content=`<h3>${t.name}</h3><p class="desc">${t.desc}</p><div class="result-img-wrap"></div>`;
+card.innerHTML=content;grid.appendChild(card);
+const wrap=card.querySelector('.result-img-wrap');
+const canvas=document.createElement('canvas');
+canvas.width=img.width;canvas.height=img.height;
+const cctx=canvas.getContext('2d');
+cctx.drawImage(img,0,0);
+if(t.filter!=='none'){
+if(t.filter.startsWith('grayscale')){
+cctx.filter='grayscale(100%)';cctx.drawImage(canvas,0,0);
+}else{
+const tmpCanvas=document.createElement('canvas');
+tmpCanvas.width=img.width;tmpCanvas.height=img.height;
+const tmpCtx=tmpCanvas.getContext('2d');
+tmpCtx.drawImage(img,0,0);
+cctx.clearRect(0,0,canvas.width,canvas.height);
+cctx.filter=t.filter;cctx.drawImage(tmpCanvas,0,0);
+}
+}
+wrap.appendChild(canvas);
+});
+};
+img.src=e.target.result;
+};
+reader.readAsDataURL(file);
+}
+
+generateFromColor('#3b82f6');
+</script>
+</body>
+</html>

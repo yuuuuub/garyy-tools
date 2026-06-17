@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI俄罗斯方块99</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6}
+body{background:var(--bg);color:var(--text);font-family:monospace;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}
+#wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;justify-content:center;padding:10px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+canvas{display:block;border:1px solid var(--border);background:#000}
+.info{font-size:13px;line-height:1.6}
+.info h2{font-size:16px;color:var(--accent);margin-bottom:6px}
+.info .row{display:flex;justify-content:space-between;gap:12px}
+.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-height:200px;overflow:hidden}
+.mini-board{background:#000;border:1px solid var(--border);border-radius:4px;aspect-ratio:1}
+.mini-board canvas{width:100%;height:100%}
+.stats{display:flex;gap:20px;margin-top:8px;font-size:12px;color:#8b949e}
+.stats span{color:var(--accent);font-weight:bold}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100}
+#overlay h1{font-size:36px;color:var(--accent);margin-bottom:10px}
+#overlay p{font-size:14px;color:#8b949e;margin-bottom:20px}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 28px;font-size:15px;border-radius:6px;cursor:pointer;font-family:monospace}
+.btn:hover{filter:brightness(1.2)}
+#hud{position:fixed;top:10px;left:50%;transform:translateX(-50%);font-size:13px;color:#8b949e;z-index:50;display:flex;gap:20px}
+#hud span{color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="overlay">
+<h1>俄罗斯方块 99</h1>
+<p>99人对战模式 — AI自动对战98个对手，你来控制你的方块！</p>
+<button class="btn" onclick="startGame()">开始对战</button>
+</div>
+<div id="hud">
+存活: <span id="alive">99</span> / 99 | 
+消灭: <span id="kills">0</span> | 
+排名: <span id="rank">99</span>
+</div>
+<div id="wrap">
+<div class="panel info" style="min-width:120px">
+<h2>下一个</h2>
+<canvas id="nextC" width="80" height="160"></canvas>
+<div class="stats">
+<div>行: <span id="lines">0</span></div>
+<div>分: <span id="score">0</span></div>
+</div>
+</div>
+<div class="panel">
+<canvas id="gameC" width="300" height="600"></canvas>
+</div>
+<div class="panel info" style="min-width:160px">
+<h2>对手概览</h2>
+<div class="mini-grid" id="miniGrid"></div>
+</div>
+</div>
+<script>
+const COLS=10,ROWS=20,BW=30,BH=30;
+const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
+const COLORS=['#00f0f0','#f0f000','#a000f0','#f0a000','#0000f0','#00f000','#f00000'];
+const gc=document.getElementById('gameC'),gx=gc.getContext('2d');
+const nc=document.getElementById('nextC'),nx=nc.getContext('2d');
+let board,nextPiece,curPiece,curX,curY,lines,score,alive,kills,timer,gameOn=false,opponents=[],aiTimers=[];
+
+function initBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(0))}
+function randShape(){const i=Math.floor(Math.random()*7);return{shape:SHAPES[i],color:COLORS[i],type:i}}
+function drawCell(ctx,x,y,c,s=1){ctx.fillStyle=c;ctx.fillRect(x*BW*s,y*BH*s,BW*s-1,BH*s-1)}
+
+function drawBoard(){
+gx.fillStyle='#000';gx.fillRect(0,0,gc.width,gc.height);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c])drawCell(gx,c,r,board[r][c]);
+if(curPiece){
+curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v)drawCell(gx,curX+dc,curY+dr,curPiece.color)}));
+}
+}
+
+function drawNext(){
+nx.fillStyle='#000';nx.fillRect(0,0,nc.width,nc.height);
+if(!nextPiece)return;
+const s=18;
+nextPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{if(v){nx.fillStyle=nextPiece.color;nx.fillRect(dc*s+4,dr*s+4,s-1,s-1)}}));
+}
+
+function collide(piece,board,px,py){
+return piece.shape.some((row,dr)=>row.some((v,dc)=>{
+if(!v)return false;
+const nx2=px+dc,ny=py+dr;
+return nx2<0||nx2>=COLS||ny>=ROWS||(ny>=0&&board[ny][nx2]);
+}));
+}
+
+function lock(){
+curPiece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{
+if(v&&curY+dr>=0)board[curY+dr][curX+dc]=curPiece.color;
+}));
+let cleared=0;
+for(let r=ROWS-1;r>=0;r--){if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(0));cleared++;r++}}
+if(cleared>0){
+lines+=cleared;
+score+=[0,100,300,500,800][cleared];
+sendGarbage(cleared);
+}
+spawnPiece();
+}
+
+function sendGarbage(rows){
+const targets=opponents.filter(o=>o.alive&&o!==player);
+const count=Math.min(targets.length,rows-1);
+for(let i=0;i<count;i++){
+const t=targets[Math.floor(Math.random()*targets.length)];
+if(t.alive)addGarbage(t,rows);
+}
+}
+
+function addGarbage(opponent,rows){
+const garbageRow=Array(COLS).fill('#808080');
+for(let i=0;i<rows;i++){opponent.board.unshift(garbageRow.slice());opponent.board.pop()}
+}
+
+function spawnPiece(){
+curPiece=nextPiece||randShape();
+nextPiece=randShape();
+curX=Math.floor((COLS-curPiece.shape[0].length)/2);
+curY=-1;
+if(collide(curPiece,board,curX,curY)){gameOver();return}
+drawNext();
+}
+
+const player={board:initBoard(),alive:true,x:0,y:0,piece:null};
+
+function startGame(){
+document.getElementById('overlay').style.display='none';
+board=initBoard();lines=0;score=0;alive=99;kills=0;gameOn=true;opponents=[];
+for(let i=0;i<98;i++)opponents.push({board:initBoard(),alive:true,x:3,y:0,piece:randShape(),timer:0});
+player.board=board;player.alive=true;
+opponents.push(player);
+spawnPiece();
+updateHUD();
+if(timer)cancelAnimationFrame(timer);
+gameLoop();
+}
+
+function aiStep(opponent){
+if(!opponent.alive)return;
+if(!opponent.piece)opponent.piece=randShape();
+let bestX=0,bestScore=-Infinity,shape=opponent.piece.shape;
+for(let rot=0;rot<4;rot++){
+const s=rot===0?shape:rotate(shape,rot);
+for(let x=-2;x<COLS+2;x++){
+let y=0;
+while(!collideAt(opponent.board,s,x,y+1))y++;
+const sc=evalBoard(opponent.board,s,x,y);
+if(sc>bestScore){bestScore=sc;bestX=x;opponent.nextY=y;opponent.nextRot=rot;opponent.nextX=x}
+}
+}
+if(opponent.piece.shape!==shape)opponent.piece.shape=shape;
+let targetX=opponent.nextX||opponent.x;
+if(opponent.x<targetX)opponent.x++;
+else if(opponent.x>targetX)opponent.x--;
+if(opponent.y<(opponent.nextY||0))opponent.y++;
+else{
+lockOpponent(opponent);
+opponent.piece=randShape();
+opponent.x=3;opponent.y=0;
+}
+}
+
+function rotate(shape,times){
+let s=shape.map(r=>[...r]);
+for(let t=0;t<times;t++){
+const rows=s.length,cols=s[0].length;
+const ns=Array.from({length:cols},()=>Array(rows).fill(0));
+for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)ns[c][rows-1-r]=s[r][c];
+s=ns;
+}
+return s;
+}
+
+function collideAt(board,piece,px,py){
+return piece.some((row,dr)=>row.some((v,dc)=>{if(!v)return false;const nx=px+dc,ny=py+dr;return nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&board[ny][nx]);}));
+}
+
+function evalBoard(board,piece,px,py){
+const temp=board.map(r=>[...r]);
+piece.forEach((row,dr)=>row.forEach((v,dc)=>{if(v&&py+dr>=0&&py+dr<ROWS)temp[py+dr][px+dc]=1}));
+let holes=0,aggr=0,complete=0;
+for(let r=0;r<ROWS;r++){for(let c=0;c<COLS;c++){if(!temp[r][c]&&r>0&&temp[r-1][c])holes++;}if(temp[r].every(c=>c))complete++}
+for(let c=0;c<COLS;c++){let h=0;while(h<ROWS&&temp[h][c])h++;aggr+=ROWS-h}
+return complete*80-aggr*2-holes*10;
+}
+
+function lockOpponent(opponent){
+if(!opponent.piece)return;
+opponent.piece.shape.forEach((row,dr)=>row.forEach((v,dc)=>{
+if(v&&opponent.y+dr>=0&&opponent.y+dr<ROWS)opponent.board[opponent.y+dr][opponent.x+dc]=opponent.piece.color;
+}));
+let cleared=0;
+for(let r=ROWS-1;r>=0;r--){if(opponent.board[r].every(c=>c)){opponent.board.splice(r,1);opponent.board.unshift(Array(COLS).fill(0));cleared++;r++}}
+opponent.piece=randShape();
+opponent.x=3;opponent.y=0;
+}
+
+function checkDeaths(){
+alive=0;
+opponents.forEach((o,i)=>{
+if(o.alive&&o.board[0].some(c=>c)){o.alive=false;
+if(i!==opponents.length-1)kills++;}
+if(o.alive)alive++;
+});
+alive=opponents.filter(o=>o.alive).length;
+if(!player.alive)gameOver();
+updateHUD();
+}
+
+function updateHUD(){
+document.getElementById('alive').textContent=alive;
+document.getElementById('kills').textContent=kills;
+document.getElementById('lines').textContent=lines;
+document.getElementById('score').textContent=score;
+const rank=opponents.filter(o=>o.alive).indexOf(player)+1;
+document.getElementById('rank').textContent=rank>0?rank:alive+1;
+}
+
+function renderMini(){
+const grid=document.getElementById('miniGrid');
+if(grid.children.length===0){
+for(let i=0;i<9;i++){const d=document.createElement('div');d.className='mini-board';const cv=document.createElement('canvas');cv.width=30;cv.height=60;d.appendChild(cv);grid.appendChild(d)}
+}
+const aliveOpps=opponents.filter(o=>o.alive&&o!==player).slice(0,9);
+aliveOpps.forEach((o,i)=>{
+const cv=grid.children[i]?.querySelector('canvas');
+if(!cv)return;
+const ctx=cv.getContext('2d');
+ctx.fillStyle='#000';ctx.fillRect(0,0,30,60);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(o.board[r][c]){ctx.fillStyle=o.board[r][c];ctx.fillRect(c*3,r*3,3,3)}
+});
+}
+
+let frameCount=0;
+function gameLoop(){
+if(!gameOn)return;
+frameCount++;
+if(frameCount%3===0){
+opponents.forEach(o=>{if(o.alive&&o!==player){o.timer++;if(o.timer>=4){o.timer=0;aiStep(o)}}});
+}
+drawBoard();
+if(frameCount%30===0){checkDeaths();renderMini()}
+timer=requestAnimationFrame(gameLoop);
+}
+
+function gameOver(){
+gameOn=false;
+const overlay=document.getElementById('overlay');
+overlay.style.display='flex';
+overlay.innerHTML=`<h1>游戏结束</h1><p>排名: #${opponents.filter(o=>o.alive).indexOf(player)+1>0?opponents.filter(o=>o.alive).indexOf(player)+1:alive+1} / 99</p><p>消除: ${lines} 行 | 分数: ${score}</p><p>消灭: ${kills} 名对手</p><button class="btn" onclick="startGame()">再来一局</button>`;
+}
+
+document.addEventListener('keydown',e=>{
+if(!gameOn||!curPiece)return;
+if(e.key==='ArrowLeft'&&!collide(curPiece,board,curX-1,curY))curX--;
+else if(e.key==='ArrowRight'&&!collide(curPiece,board,curX+1,curY))curX++;
+else if(e.key==='ArrowDown'&&!collide(curPiece,board,curX,curY+1)){curY++;score++}
+else if(e.key==='ArrowUp'){
+const rotated=rotate(curPiece.shape,1);
+if(!collideAt(board,rotated,curX,curY))curPiece.shape=rotated;
+}else if(e.key===' '){
+while(!collide(curPiece,board,curX,curY+1)){curY++;score+=2}
+lock();
+}
+});
+</script>
+</body>
+</html>
