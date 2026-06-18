@@ -129,28 +129,30 @@ const refreshBtn = $('refreshBtn');
 const refreshNote = $('refreshNote');
 
 // ---- Helpers ----
+var cache={};
 function apiUrl(endpoint) {
-  return `${BASE}/${endpoint}/?sport=football&slug=fifa-world-cup`;
+  return `${BASE}/${endpoint}/?sport=football&slug=fifa-world-cup&_=${Math.floor(Date.now()/60000)}`;
 }
 
-// ---- Fetch ----
-async function fetchStandings() {
-  const url = apiUrl('standings');
+// ---- Fetch with caching ----
+async function fetchWithCache(url, cacheKey, ttl){
+  var now=Date.now();
+  if(cache[cacheKey] && now-cache[cacheKey].time<ttl) return cache[cacheKey].data;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  if (!json || !json.tables || !Array.isArray(json.tables)) {
-    throw new Error('数据格式异常');
-  }
-  return json;
+  const data = await res.json();
+  cache[cacheKey]={data:data,time:now};
+  return data;
+}
+
+async function fetchStandings() {
+  const url = apiUrl('standings');
+  return fetchWithCache(url, 'standings', 60000);
 }
 
 async function fetchBracket() {
   const url = apiUrl('bracket');
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  return json;
+  return fetchWithCache(url, 'bracket', 60000);
 }
 
 // ---- Render standings table ----

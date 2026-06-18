@@ -183,19 +183,24 @@ function updatePhaseBar(){
   }
 }
 
-// API fetches
-async function fetchStandings(){
-  var url = BASE+'/standings/?sport=football&slug=fifa-world-cup';
+// API fetches with caching
+var cache={};
+async function fetchWithCache(url, cacheKey, ttl){
+  var now=Date.now();
+  if(cache[cacheKey] && now-cache[cacheKey].time<ttl) return cache[cacheKey].data;
   var resp = await fetch(url);
   if (!resp.ok) throw new Error('HTTP '+resp.status);
-  return resp.json();
+  var data = await resp.json();
+  cache[cacheKey]={data:data,time:now};
+  return data;
+}
+
+async function fetchStandings(){
+  return fetchWithCache(BASE+'/standings/?sport=football&slug=fifa-world-cup&_='+Math.floor(Date.now()/60000), 'standings', 60000);
 }
 
 async function fetchBracket(){
-  var url = BASE+'/bracket/?sport=football&slug=fifa-world-cup';
-  var resp = await fetch(url);
-  if (!resp.ok) throw new Error('HTTP '+resp.status);
-  return resp.json();
+  return fetchWithCache(BASE+'/bracket/?sport=football&slug=fifa-world-cup&_='+Math.floor(Date.now()/60000), 'bracket', 60000);
 }
 
 // Render groups view
