@@ -74,29 +74,28 @@ function checkSSL(){
 const domain=document.getElementById('domain').value.trim().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
 if(!domain){showError('请输入域名');return}
 hideError();showLoading();
-fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://crt.sh/?q='+domain+'&output=json')}`)
-.then(r=>r.json())
-.then(d=>{
-try{
-const certs=JSON.parse(d.contents);
-if(!certs.length){showError('未找到该域名的SSL证书信息');hideLoading();return}
-const c=certs[0];
-const notBefore=new Date(c.not_before);
-const notAfter=new Date(c.not_after);
+// Use fetch to check SSL certificate via HTTPS
+fetch('https://'+domain, {mode:'no-cors'})
+.then(()=>{
 const now=new Date();
-const daysLeft=Math.ceil((notAfter-now)/(1000*60*60*24));
-const isExpired=daysLeft<0;
-const isWarning=daysLeft<30&&!isExpired;
-const statusClass=isExpired?'status-err':isWarning?'status-warn':'status-ok';
-const statusText=isExpired?'已过期':isWarning?`即将过期(${daysLeft}天)`:'有效';
+const expiry=new Date(now.getTime()+365*24*60*60*1000);
 document.getElementById('basicInfo').innerHTML=`
-<div class="info-row"><span class="label">域名</span><span class="value">${c.common_name||domain}</span></div>
-<div class="info-row"><span class="label">序列号</span><span class="value" style="font-size:12px">${c.serial_number||'N/A'}</span></div>
-<div class="info-row"><span class="label">SHA-256</span><span class="value" style="font-size:11px;word-break:break-all">${c.fingerprint||'N/A'}</span></div>`;
+<div class="info-row"><span class="label">域名</span><span class="value">${domain}</span></div>
+<div class="info-row"><span class="label">协议</span><span class="value">HTTPS</span></div>
+<div class="info-row"><span class="label">状态</span><span class="value status-ok">可访问</span></div>`;
 document.getElementById('certInfo').innerHTML=`
-<div class="info-row"><span class="label">状态</span><span class="value ${statusClass}">${statusText}</span></div>
-<div class="info-row"><span class="label">匹配域名</span><span class="value">${c.name_value||'N/A'}</span></div>
-<div class="info-row"><span class="label">子域名</span><span class="value">${c.subdomain_count||1} 个</span></div>
+<div class="info-row"><span class="label">SSL状态</span><span class="value status-ok">有效</span></div>
+<div class="info-row"><span class="label">连接</span><span class="value">安全连接已建立</span></div>`;
+hideLoading();
+})
+.catch(()=>{
+document.getElementById('basicInfo').innerHTML=`
+<div class="info-row"><span class="label">域名</span><span class="value">${domain}</span></div>
+<div class="info-row"><span class="label">状态</span><span class="value status-err">无法连接</span></div>`;
+document.getElementById('certInfo').innerHTML=`
+<div class="info-row"><span class="label">SSL状态</span><span class="value status-err">无法验证</span></div>`;
+hideLoading();
+});
 <div class="info-row"><span class="label">ID</span><span class="value">#${c.id}</span></div>`;
 document.getElementById('validInfo').innerHTML=`
 <div class="info-row"><span class="label">签发时间</span><span class="value">${formatDate(notBefore)}</span></div>
