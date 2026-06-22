@@ -338,7 +338,7 @@ function checkSupport(){
     const body=btoa(JSON.stringify({sub:'1234567890',name:'User',iat:Math.floor(Date.now()/1000),...p}));
     const mockSig=btoa('mock-signature-'+Date.now());
     const token=header+'.'+body+'.'+mockSig;
-    o.textContent='生成的JWT令牌:\\n\\n'+token+'\\n\\nHeader:\\n'+JSON.stringify({alg:'HS256',typ:'JWT'},null,2)+'\\n\\nPayload:\\n'+JSON.stringify({sub:'1234567890',name:'User',iat:Math.floor(Date.now()/1000),...p},null,2);
+    o.textContent='生成的JWT令牌:\\n\\n'+token+'\\n\\n头部(Header):\\n'+JSON.stringify({alg:'HS256',typ:'JWT'},null,2)+'\\n\\n载荷(Payload):\\n'+JSON.stringify({sub:'1234567890',name:'User',iat:Math.floor(Date.now()/1000),...p},null,2);
   }catch(e){o.textContent='JSON格式错误: '+e.message;}
 }
 function parseJwt(){
@@ -349,7 +349,7 @@ function parseJwt(){
     if(parts.length!==3){o.textContent='无效的JWT格式';return;}
     const header=JSON.parse(atob(parts[0]));
     const payload=JSON.parse(atob(parts[1]));
-    o.textContent='Header:\\n'+JSON.stringify(header,null,2)+'\\n\\nPayload:\\n'+JSON.stringify(payload,null,2)+'\\n\\nSignature: '+parts[2];
+    o.textContent='头部(Header):\\n'+JSON.stringify(header,null,2)+'\\n\\n载荷(Payload):\\n'+JSON.stringify(payload,null,2)+'\\n\\n签名(Signature): '+parts[2];
   }catch(e){o.textContent='解析错误: '+e.message;}
 }"""),
     ("oauth-token", "OAuth令牌", "OAuth 2.0令牌调试工具", """function genAuthUrl(){
@@ -359,7 +359,7 @@ function parseJwt(){
   const o=document.getElementById('output');
   const state=Math.random().toString(36).substr(2,16);
   const url='https://authorization-server.com/authorize?response_type=code&client_id='+clientId+'&redirect_uri='+encodeURIComponent(redirect)+'&scope='+encodeURIComponent(scope)+'&state='+state;
-  o.textContent='OAuth 2.0 Authorization URL\\n\\n'+url+'\\n\\n参数:\\n- response_type: code\\n- client_id: '+clientId+'\\n- redirect_uri: '+redirect+'\\n- scope: '+scope+'\\n- state: '+state+'\\n\\n流程:\\n1. 重定向到上述URL\\n2. 用户授权\\n3. 获取授权码\\n4. 用授权码换取令牌';
+  o.textContent='OAuth 2.0 授权链接\\n\\n'+url+'\\n\\n参数:\\n- response_type: code\\n- client_id: '+clientId+'\\n- redirect_uri: '+redirect+'\\n- scope: '+scope+'\\n- state: '+state+'\\n\\n流程:\\n1. 重定向到上述URL\\n2. 用户授权\\n3. 获取授权码\\n4. 用授权码换取令牌';
 }"""),
     ("api-key-gen", "API密钥生成", "随机API密钥生成器", """function genApiKey(){
   const type=document.getElementById('type').value;
@@ -1366,7 +1366,7 @@ function visualize(){
   o.textContent='PDF页面裁剪\\n\\nPDF裁剪需要指定页面区域:\\n- 上边距\\n- 下边距\\n- 左边距\\n- 右边距\\n\\n使用Ghostscript:\\ngs -sDEVICE=pdfwrite -dFIXEDMEDIA -dDEVICEWIDTHPOINTS=595 -dDEVICEHEIGHTPOINTS=842 -sOutputFile=output.pdf input.pdf';
 }"""),
     ("pdf-watermark", "PDF水印", "PDF添加水印工具", """function addPdfWatermark(){
-  const text=document.getElementById('watermark').value||'WATERMARK';
+  const text=document.getElementById('watermark').value||'水印';
   const opacity=parseInt(document.getElementById('opacity').value)||30;
   const o=document.getElementById('output');
   o.textContent='PDF水印\\n\\n水印文字: '+text+'\\n透明度: '+opacity+'%\\n\\n使用Ghostscript:\\ngs -dBATCH -dNOPAUSE -sDEVICE=pdfwrite \\\n  -sOutputFile=output.pdf \\\n  -c "<< /Page [/Page 1] /MediaBox [0 0 612 792] \\\n  /Contents << /Length 0 >> >> setdistillerparams \\\n  -f input.pdf';
@@ -1619,7 +1619,7 @@ function changeWidth(){ctx.lineWidth=parseInt(document.getElementById('width').v
   const title=document.getElementById('title').value||'优秀员工';
   const o=document.getElementById('output');
   const date=new Date().toLocaleDateString('zh-CN');
-  o.innerHTML='<div style="background:#fff;color:#1e293b;padding:60px 40px;text-align:center;border-radius:12px;border:3px solid #d4af37;"><div style="color:#d4af37;font-size:14px;letter-spacing:4px;">CERTIFICATE OF</div><div style="font-size:36px;font-weight:bold;margin:8px 0;color:#d4af37;">'+title.toUpperCase()+'</div><div style="margin:24px 0;color:#666;">特此颁发给</div><div style="font-size:28px;font-weight:bold;border-bottom:2px solid #d4af37;display:inline-block;padding:4px 24px;">'+name+'</div><div style="margin-top:24px;color:#666;">日期: '+date+'</div></div>';
+  o.innerHTML='<div style="background:#fff;color:#1e293b;padding:60px 40px;text-align:center;border-radius:12px;border:3px solid #d4af37;"><div style="color:#d4af37;font-size:14px;letter-spacing:4px;">荣 誉 证 书</div><div style="font-size:36px;font-weight:bold;margin:8px 0;color:#d4af37;">'+title.toUpperCase()+'</div><div style="margin:24px 0;color:#666;">特此颁发给</div><div style="font-size:28px;font-weight:bold;border-bottom:2px solid #d4af37;display:inline-block;padding:4px 24px;">'+name+'</div><div style="margin-top:24px;color:#666;">日期: '+date+'</div></div>';
 }"""),
     ("invoice-generator", "发票生成器", "电子发票生成工具", """function genInvoice(){
   const invoiceNo=document.getElementById('invoiceNo').value||'INV-001';
@@ -1658,7 +1658,7 @@ function changeWidth(){ctx.lineWidth=parseInt(document.getElementById('width').v
   const event=document.getElementById('event').value||'活动名称';
   const seat=document.getElementById('seat').value||'A区 12排 8号';
   const o=document.getElementById('output');
-  o.innerHTML='<div style="display:flex;background:#1e293b;border-radius:12px;overflow:hidden;max-width:500px;"><div style="flex:1;padding:24px;color:#e6edf3;"><div style="font-size:12px;color:#3b82f6;text-transform:uppercase;">Event</div><div style="font-size:20px;font-weight:bold;margin:4px 0;">'+event+'</div><div style="font-size:14px;color:#8b949e;margin-top:12px;">座位: '+seat+'</div><div style="font-size:14px;color:#8b949e;">时间: '+new Date().toLocaleString('zh-CN')+'</div></div><div style="width:120px;background:#21262d;display:flex;align-items:center;justify-content:center;color:#3b82f6;font-size:24px;letter-spacing:2px;">TICKET</div></div>';
+  o.innerHTML='<div style="display:flex;background:#1e293b;border-radius:12px;overflow:hidden;max-width:500px;"><div style="flex:1;padding:24px;color:#e6edf3;"><div style="font-size:12px;color:#3b82f6;text-transform:uppercase;">活动</div><div style="font-size:20px;font-weight:bold;margin:4px 0;">'+event+'</div><div style="font-size:14px;color:#8b949e;margin-top:12px;">座位: '+seat+'</div><div style="font-size:14px;color:#8b949e;">时间: '+new Date().toLocaleString('zh-CN')+'</div></div><div style="width:120px;background:#21262d;display:flex;align-items:center;justify-content:center;color:#3b82f6;font-size:24px;letter-spacing:2px;">票券</div></div>';
 }"""),
     ("badge-generator", "徽章生成器", "身份徽章生成工具", """function genBadge(){
   const name=document.getElementById('name').value||'姓名';
@@ -1668,7 +1668,7 @@ function changeWidth(){ctx.lineWidth=parseInt(document.getElementById('width').v
   o.innerHTML='<div style="background:#1e293b;padding:32px;border-radius:12px;text-align:center;max-width:240px;"><div style="width:80px;height:80px;background:'+color+';border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;">'+name[0]+'</div><div style="color:#e6edf3;font-size:18px;font-weight:bold;">'+name+'</div><div style="color:#8b949e;font-size:14px;margin-top:4px;">'+role+'</div><div style="margin-top:16px;padding:8px 16px;background:#21262d;border-radius:20px;color:#3b82f6;font-size:12px;display:inline-block;">ID: '+Math.random().toString(36).substr(2,8).toUpperCase()+'</div></div>';
 }"""),
     ("sticker-generator", "贴纸生成器", "数字贴纸生成工具", """function genSticker(){
-  const text=document.getElementById('text').value||'Hi!';
+  const text=document.getElementById('text').value||'你好!';
   const bg=document.getElementById('bg').value;
   const o=document.getElementById('output');
   o.innerHTML='<div style="display:inline-block;background:'+bg+';color:#fff;padding:16px 24px;border-radius:24px;font-size:24px;font-weight:bold;transform:rotate(-5deg);box-shadow:0 4px 12px rgba(0,0,0,0.3);">'+text+'</div><br><br>更多样式:<br><div style="display:flex;gap:12px;flex-wrap:wrap;"><div style="background:#ff6b6b;color:#fff;padding:12px 20px;border-radius:16px;">😊</div><div style="background:#51cf66;color:#fff;padding:12px 20px;border-radius:50%;">👍</div><div style="background:#339af0;color:#fff;padding:12px 20px;border-radius:12px;transform:rotate(5deg);">❤️</div></div>';
