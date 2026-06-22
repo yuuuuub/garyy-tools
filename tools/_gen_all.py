@@ -1299,7 +1299,7 @@ function visualize(){
   o.textContent='视频翻转: '+(dir==='h'?'水平':'垂直')+'\\n\\nFFmpeg命令:\\nffmpeg -i input.mp4 -vf "'+dir+'" output.mp4\\n\\nh: 水平翻转\\nv: 垂直翻转';
 }"""),
     ("video-watermark", "视频水印", "视频添加水印工具", """function addWatermark(){
-  const text=document.getElementById('watermark').value||'Watermark';
+  const text=document.getElementById('watermark').value||'水印';
   const pos=document.getElementById('position').value;
   const o=document.getElementById('output');
   const posMap={'tl':'10:10','tr':'main_w-overlay_w-10:10','c':'(main_w-overlay_w)/2:(main_h-overlay_h)/2','bl':'10:main_h-overlay_h-10','br':'main_w-overlay_w-10:main_h-overlay_h-10'};
@@ -1590,26 +1590,26 @@ function changeWidth(){ctx.lineWidth=parseInt(document.getElementById('width').v
   o.innerHTML='Logo预览:<br><div style="display:flex;align-items:center;justify-content:center;padding:40px;background:#1e293b;border-radius:12px;"><div style="font-size:48px;font-weight:bold;color:'+color+';letter-spacing:4px;">'+text+'</div></div><br><br>SVG代码:<br><code>&lt;svg viewBox="0 0 200 60"&gt;<br>&nbsp;&nbsp;&lt;text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="36" font-weight="bold" fill="'+color+'">'+text+'&lt;/text&gt;<br>&lt;/svg&gt;</code>';
 }"""),
     ("banner-generator", "横幅生成器", "网页横幅生成工具", """function genBanner(){
-  const title=document.getElementById('title').value||'Banner Title';
+  const title=document.getElementById('title').value||'横幅标题';
   const bg=document.getElementById('bg').value;
   const text=document.getElementById('textColor').value;
   const o=document.getElementById('output');
-  o.innerHTML='<div style="background:'+bg+';color:'+text+';padding:60px 40px;text-align:center;border-radius:12px;"><h1 style="font-size:32px;margin:0;">'+title+'</h1><p style="opacity:0.8;margin-top:8px;">Subtitle text here</p></div><br>建议尺寸:<br>- 横幅: 1200x628px<br>- 社交媒体: 1200x630px<br>- 网站头部: 1920x600px';
+  o.innerHTML='<div style="background:'+bg+';color:'+text+';padding:60px 40px;text-align:center;border-radius:12px;"><h1 style="font-size:32px;margin:0;">'+title+'</h1><p style="opacity:0.8;margin-top:8px;">副标题文字</p></div><br>建议尺寸:<br>- 横幅: 1200x628px<br>- 社交媒体: 1200x630px<br>- 网站头部: 1920x600px';
 }"""),
     ("poster-generator", "海报生成器", "宣传海报生成工具", """function genPoster(){
-  const title=document.getElementById('title').value||'Event Title';
+  const title=document.getElementById('title').value||'活动标题';
   const bg=document.getElementById('bg').value;
   const o=document.getElementById('output');
-  o.innerHTML='<div style="background:'+bg+';color:#fff;padding:80px 40px;text-align:center;border-radius:12px;min-height:400px;display:flex;flex-direction:column;justify-content:center;"><h1 style="font-size:48px;margin:0;">'+title+'</h1><p style="margin-top:16px;opacity:0.8;">Description text here</p><div style="margin-top:32px;padding:12px 24px;background:rgba(255,255,255,0.2);border-radius:8px;display:inline-block;">了解更多</div></div>';
+  o.innerHTML='<div style="background:'+bg+';color:#fff;padding:80px 40px;text-align:center;border-radius:12px;min-height:400px;display:flex;flex-direction:column;justify-content:center;"><h1 style="font-size:48px;margin:0;">'+title+'</h1><p style="margin-top:16px;opacity:0.8;">活动描述文字</p><div style="margin-top:32px;padding:12px 24px;background:rgba(255,255,255,0.2);border-radius:8px;display:inline-block;">了解更多</div></div>';
 }"""),
     ("flyer-generator", "传单生成器", "宣传传单生成工具", """function genFlyer(){
-  const title=document.getElementById('title').value||'Flyer Title';
+  const title=document.getElementById('title').value||'传单标题';
   const o=document.getElementById('output');
   o.innerHTML='<div style="background:#1e293b;color:#e6edf3;padding:40px;border-radius:12px;"><h1 style="font-size:36px;margin:0 0 16px;">'+title+'</h1><p style="opacity:0.7;line-height:1.6;">传单内容描述，包含活动信息、时间地点等。</p><div style="margin-top:24px;padding:12px 24px;background:#3b82f6;color:#fff;border-radius:8px;display:inline-block;">立即参与</div></div><br><br>标准尺寸:<br>- A4: 210x297mm<br>- A5: 148x210mm<br>- 信纸: 8.5x11in';
 }"""),
     ("card-generator", "卡片生成器", "卡片模板生成工具", """function genCard(){
-  const title=document.getElementById('title').value||'Card Title';
-  const desc=document.getElementById('desc').value||'Card description';
+  const title=document.getElementById('title').value||'卡片标题';
+  const desc=document.getElementById('desc').value||'卡片描述内容';
   const bg=document.getElementById('bg').value;
   const o=document.getElementById('output');
   o.innerHTML='<div style="background:'+bg+';color:#fff;padding:32px;border-radius:12px;max-width:320px;"><div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:12px;margin-bottom:16px;"></div><h3 style="margin:0 0 8px;font-size:20px;">'+title+'</h3><p style="opacity:0.8;margin:0;line-height:1.5;">'+desc+'</p></div>';
