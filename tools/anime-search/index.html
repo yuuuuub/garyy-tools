@@ -80,15 +80,25 @@ html+='<button class="quick-btn" onclick="quickSearch(\''+name+'\')">'+name+'</b
 });
 document.getElementById('quickList').innerHTML=html;
 }
+var animeCache={};
 window.quickSearch=function(name){input.value=name;searchAnime();};
 window.searchAnime=function(){
 var q=input.value.trim();
 if(!q){app.innerHTML='<div class="error"><p>请输入动漫名称</p></div>';return;}
 var apiName=cnToJp[q]||q;
+var cacheKey=apiName.toLowerCase();
+if(animeCache[cacheKey]&&Date.now()-animeCache[cacheKey].time<300000){
+var cached=animeCache[cacheKey].data;
+renderAnimeResults(cached,q);return;}
 app.innerHTML='<div class="loading"><div class="spinner"></div><p>搜索中...</p></div>';
 fetch('https://api.jikan.moe/v4/anime?q='+encodeURIComponent(apiName)+'&limit=10')
 .then(function(r){if(!r.ok)throw new Error('请求失败 ('+r.status+')');return r.json();})
-.then(function(data){
+.then(function(data){animeCache[cacheKey]={data:data,time:Date.now()};renderAnimeResults(data,q);})
+.catch(function(e){
+app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p></div>';
+});
+};
+function renderAnimeResults(data,q){
 if(!data.data||!data.data.length){app.innerHTML='<div class="error"><p>未找到"'+q+'"</p></div>';return;}
 var html='';
 data.data.forEach(function(a){
@@ -108,11 +118,7 @@ if(a.synopsis)html+='<div class="anime-synopsis">'+a.synopsis+'</div>';
 html+='</div></div>';
 });
 app.innerHTML=html;
-})
-.catch(function(e){
-app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p></div>';
-});
-};
+}
 renderQuick();
 })();
 </script>

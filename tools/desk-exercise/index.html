@@ -83,7 +83,7 @@ const exercises = [
   { name: '深呼吸', icon: '🌬️', duration: 60, desc: '鼻吸4秒→屏息4秒→口呼6秒。专注于呼吸，放松身体。', anim: 'breathe' }
 ];
 
-let currentExercise = 0, isPlaying = false, timer = null, timeLeft = 0;
+let currentExercise = 0, isPlaying = false, timer = null, timeLeft = 0, animInterval = null;
 let routineMode = false;
 
 function init() {
@@ -175,6 +175,7 @@ function nextExercise() {
 
 function stopExercise() {
   if (timer) clearInterval(timer);
+  if (animInterval) { cancelAnimationFrame(animInterval); animInterval = null; }
   isPlaying = false;
   document.getElementById('selectCard').classList.remove('hidden');
   document.getElementById('activeCard').classList.add('hidden');
@@ -192,20 +193,37 @@ function notifyComplete() {
 }
 
 function startAnim(type) {
+  if (animInterval) cancelAnimationFrame(animInterval);
   const container = document.getElementById('exerciseAnim');
   container.innerHTML = `<div class="anim-figure"><div class="anim-head" id="aHead"></div><div class="anim-body"></div><div class="anim-arm left" id="aArmL"></div><div class="anim-arm right" id="aArmR"></div><div class="anim-leg left" id="aLegL"></div><div class="anim-leg right" id="aLegR"></div></div>`;
 
-  const anims = {
-    head: () => { const h = document.getElementById('aHead'); let deg = 0; setInterval(() => { deg = (deg + 3) % 360; h.style.transform = `translateX(-50%) rotate(${Math.sin(deg * Math.PI / 180) * 20}deg)`; }, 50); },
-    shoulder: () => { let up = false, pos = 0; setInterval(() => { pos += up ? -1 : 1; if (pos < -5) up = true; if (pos > 0) up = false; document.getElementById('aArmL').style.transform = `translateY(${pos}px)`; document.getElementById('aArmR').style.transform = `translateY(${pos}px)`; }, 50); },
-    wrist: () => { let deg = 0; setInterval(() => { deg = (deg + 2) % 30; document.getElementById('aArmL').style.transform = `rotate(${-30 - deg}deg)`; }, 50); },
-    eye: () => { const h = document.getElementById('aHead'); setInterval(() => { h.style.opacity = h.style.opacity === '0.5' ? '1' : '0.5'; }, 1500); },
-    twist: () => { let deg = 0; setInterval(() => { deg = (deg + 1) % 60 - 30; document.querySelector('.anim-body').style.transform = `translateX(-50%) rotate(${deg}deg)`; }, 50); },
-    leg: () => { let deg = 0, dir = 1; setInterval(() => { deg += dir * 1.5; if (deg > 30 || deg < 0) dir *= -1; document.getElementById('aLegL').style.transform = `rotate(${-deg}deg)`; }, 50); },
-    ankle: () => { let deg = 0; setInterval(() => { deg = (deg + 3) % 360; document.getElementById('aLegR').style.transform = `rotate(${Math.sin(deg * Math.PI / 180) * 15}deg)`; }, 50); },
-    breathe: () => { const body = document.querySelector('.anim-body'); let scale = 1, dir = 0.01; setInterval(() => { scale += dir; if (scale > 1.15 || scale < 1) dir *= -1; body.style.transform = `translateX(-50%) scaleX(${scale})`; }, 50); }
-  };
-  if (anims[type]) anims[type]();
+  let deg = 0, pos = 0, up = false, scale = 1, dir = 0.01, legDeg = 0, legDir = 1;
+  let lastTime = performance.now();
+  function animLoop(now) {
+    if (!isPlaying) { animInterval = null; return; }
+    const dt = now - lastTime;
+    if (dt >= 50) {
+      lastTime = now;
+      const h = document.getElementById('aHead');
+      const armL = document.getElementById('aArmL');
+      const armR = document.getElementById('aArmR');
+      const legL = document.getElementById('aLegL');
+      const legR = document.getElementById('aLegR');
+      const body = document.querySelector('.anim-body');
+      switch(type) {
+        case 'head': deg = (deg + 3) % 360; if(h) h.style.transform = `translateX(-50%) rotate(${Math.sin(deg * Math.PI / 180) * 20}deg)`; break;
+        case 'shoulder': pos += up ? -1 : 1; if (pos < -5) up = true; if (pos > 0) up = false; if(armL) armL.style.transform = `translateY(${pos}px)`; if(armR) armR.style.transform = `translateY(${pos}px)`; break;
+        case 'wrist': deg = (deg + 2) % 30; if(armL) armL.style.transform = `rotate(${-30 - deg}deg)`; break;
+        case 'eye': if(h) h.style.opacity = h.style.opacity === '0.5' ? '1' : '0.5'; break;
+        case 'twist': deg = (deg + 1) % 60 - 30; if(body) body.style.transform = `translateX(-50%) rotate(${deg}deg)`; break;
+        case 'leg': legDeg += legDir * 1.5; if (legDeg > 30 || legDeg < 0) legDir *= -1; if(legL) legL.style.transform = `rotate(${-legDeg}deg)`; break;
+        case 'ankle': deg = (deg + 3) % 360; if(legR) legR.style.transform = `rotate(${Math.sin(deg * Math.PI / 180) * 15}deg)`; break;
+        case 'breathe': scale += dir; if (scale > 1.15 || scale < 1) dir *= -1; if(body) body.style.transform = `translateX(-50%) scaleX(${scale})`; break;
+      }
+    }
+    animInterval = requestAnimationFrame(animLoop);
+  }
+  animInterval = requestAnimationFrame(animLoop);
 }
 
 init();

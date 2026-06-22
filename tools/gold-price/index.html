@@ -42,13 +42,37 @@ h1{font-size:1.3rem}.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
 var app=document.getElementById('app');
 var USD_TO_CNY=7.25;
 var OZ_TO_GRAM=31.1035;
+var goldCache=null;
 function formatPrice(p){return '$'+p.toFixed(2);}
 function formatCNY(p){return '¥'+p.toFixed(2);}
 function loadPrices(){
+if(goldCache&&Date.now()-goldCache.time<300000){renderGoldData(goldCache.data);return;}
 app.innerHTML='<div style="text-align:center;padding:60px 0;color:var(--text2)"><div class="spinner" style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px"></div><p>获取价格中...</p></div>';
 fetch('https://api.gold-api.com/price/XAU')
 .then(function(r){return r.json();})
-.then(function(goldData){
+.then(function(data){goldCache={data:data,time:Date.now()};renderGoldData(data);})
+.catch(function(e){
+var goldCNY=450+50;
+var html='<div class="price-card">';
+html+='<div class="price-icon">🥇</div>';
+html+='<div class="price-value" style="color:var(--gold)">≈ ¥'+goldCNY.toFixed(0)+'/克</div>';
+html+='<div class="price-unit">参考价格 · 网络异常时显示估算值</div>';
+html+='<div class="info-grid">';
+html+='<div class="info-item"><div class="info-label">💰 人民币/克</div><div class="info-value" style="color:var(--gold)">≈ ¥'+goldCNY.toFixed(0)+'</div></div>';
+html+='<div class="info-item"><div class="info-label">📊 美元/盎司</div><div class="info-value">≈ $'+(goldCNY*OZ_TO_GRAM/USD_TO_CNY).toFixed(0)+'</div></div>';
+html+='</div></div>';
+html+='<div class="brand-section">';
+html+='<div class="brand-title">🏪 品牌金价参考 (元/克)</div>';
+html+='<div class="brand-grid">';
+[{name:'周大福',price:goldCNY+58},{name:'周生生',price:goldCNY+55},{name:'老凤祥',price:goldCNY+52},{name:'六福珠宝',price:goldCNY+56},{name:'中国黄金',price:goldCNY+48}].forEach(function(b){
+html+='<div class="brand-item"><div class="brand-name">'+b.name+'</div><div class="brand-price">¥'+Math.round(b.price)+'</div><div class="brand-unit">足金/克</div></div>';
+});
+html+='</div></div>';
+html+='<button class="refresh-btn" onclick="loadPrices()">🔄 重新加载</button>';
+app.innerHTML=html;
+});
+}
+function renderGoldData(goldData){
 var goldPrice=goldData.price||2391.45;
 var goldChange=goldData.chp||1.23;
 var goldPerGram=goldPrice/OZ_TO_GRAM;
@@ -78,27 +102,6 @@ html+='<div class="brand-item"><div class="brand-name">'+b.name+'</div><div clas
 html+='</div></div>';
 html+='<button class="refresh-btn" onclick="loadPrices()">🔄 刷新价格</button>';
 app.innerHTML=html;
-})
-.catch(function(e){
-var goldCNY=450+50;
-var html='<div class="price-card">';
-html+='<div class="price-icon">🥇</div>';
-html+='<div class="price-value" style="color:var(--gold)">≈ ¥'+goldCNY.toFixed(0)+'/克</div>';
-html+='<div class="price-unit">参考价格 · 网络异常时显示估算值</div>';
-html+='<div class="info-grid">';
-html+='<div class="info-item"><div class="info-label">💰 人民币/克</div><div class="info-value" style="color:var(--gold)">≈ ¥'+goldCNY.toFixed(0)+'</div></div>';
-html+='<div class="info-item"><div class="info-label">📊 美元/盎司</div><div class="info-value">≈ $'+(goldCNY*OZ_TO_GRAM/USD_TO_CNY).toFixed(0)+'</div></div>';
-html+='</div></div>';
-html+='<div class="brand-section">';
-html+='<div class="brand-title">🏪 品牌金价参考 (元/克)</div>';
-html+='<div class="brand-grid">';
-[{name:'周大福',price:goldCNY+58},{name:'周生生',price:goldCNY+55},{name:'老凤祥',price:goldCNY+52},{name:'六福珠宝',price:goldCNY+56},{name:'中国黄金',price:goldCNY+48}].forEach(function(b){
-html+='<div class="brand-item"><div class="brand-name">'+b.name+'</div><div class="brand-price">¥'+Math.round(b.price)+'</div><div class="brand-unit">足金/克</div></div>';
-});
-html+='</div></div>';
-html+='<button class="refresh-btn" onclick="loadPrices()">🔄 重新加载</button>';
-app.innerHTML=html;
-});
 }
 window.loadPrices=loadPrices;
 loadPrices();

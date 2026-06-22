@@ -1006,7 +1006,7 @@ function minifyJson(){
 }"""),
     ("image-watermark", "图片水印", "图片添加水印工具", """function addWatermark(){
   const file=document.getElementById('file').files[0];
-  const text=document.getElementById('watermark').value||'Watermark';
+  const text=document.getElementById('watermark').value||'水印';
   const o=document.getElementById('output');
   if(!file){o.textContent='请先选择图片';return;}
   const img=new Image();
