@@ -133,9 +133,7 @@
                     
                     svg.appendChild(symbolGroup);
                 });
-            } catch (error) {
-                console.error('Error drawing planet symbols:', error);
-            }
+            } catch (error) { }
         },
         
         // Draw zodiac wheel
@@ -261,9 +259,7 @@
                     'stroke-width': '1'
                 });
                 svg.appendChild(centerCircle);
-            } catch (error) {
-                console.error('Error drawing zodiac wheel:', error);
-            }
+            } catch (error) { }
         },
         
         // Draw houses chart
@@ -378,9 +374,7 @@
                     fill: '#6366F1'
                 });
                 svg.appendChild(centerCircle);
-            } catch (error) {
-                console.error('Error drawing houses chart:', error);
-            }
+            } catch (error) { }
         },
         
         // Draw aspect chart
@@ -527,9 +521,7 @@
                         svg.appendChild(line);
                     }
                 });
-            } catch (error) {
-                console.error('Error drawing aspect chart:', error);
-            }
+            } catch (error) { }
         }
     };
     
@@ -673,12 +665,7 @@
             Performance.optimizeScroll();
             
             // Log success
-            if (process.env.NODE_ENV === 'development') {
-                console.log('Astrological Guide initialized successfully');
-            }
-        } catch (error) {
-            console.error('Error initializing Astrological Guide:', error);
-        }
+        } catch (error) { }
     }
     
     // Start initialization

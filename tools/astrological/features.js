@@ -44,9 +44,7 @@
         setStorage(key, value) {
             try {
                 localStorage.setItem(key, JSON.stringify(value));
-            } catch (e) {
-                console.error('Storage error:', e);
-            }
+            } catch (e) { }
         },
 
         scrollToElement(elementId, offset = 80) {
@@ -566,10 +564,7 @@
             window.ThemeFeature = ThemeFeature;
             window.TOCFeature = TOCFeature;
 
-            console.log('Enhanced features initialized successfully');
-        } catch (error) {
-            console.error('Error initializing features:', error);
-        }
+        } catch (error) { }
     }
 
     // 启动
