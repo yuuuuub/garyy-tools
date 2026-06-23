@@ -377,4 +377,29 @@ if (currentLang === 'en') {
 }
 createToggle();
 
+if (location.pathname.indexOf('/tools/') === 0) {
+  var homeBtn = document.createElement('a');
+  homeBtn.href = '/index.html';
+  homeBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99998;background:var(--bg-card,#1f2937);color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:20px;padding:6px 14px;font-size:.8rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:all .2s;text-decoration:none';
+  homeBtn.innerHTML = '<span style="font-size:1rem">🏠</span> ' + (currentLang === 'en' ? 'Home' : '首页');
+  homeBtn.onmouseenter = function(){this.style.borderColor='#3b82f6';};
+  homeBtn.onmouseleave = function(){this.style.borderColor='#374151';};
+  document.body.appendChild(homeBtn);
+
+  var themeBtn = document.createElement('button');
+  var savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+  themeBtn.id = 'garyy-theme-btn';
+  themeBtn.style.cssText = 'position:fixed;bottom:20px;right:' + (currentLang === 'en' ? '100px' : '90px') + ';z-index:99998;background:var(--bg-card,#1f2937);color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;transition:all .2s;line-height:1';
+  themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+  themeBtn.onmouseenter = function(){this.style.borderColor='#3b82f6';};
+  themeBtn.onmouseleave = function(){this.style.borderColor='#374151';};
+  themeBtn.onclick = function(){
+    var cur = localStorage.getItem(THEME_KEY) || 'dark';
+    var next = cur === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+  };
+  document.body.appendChild(themeBtn);
+}
+
 })();
