@@ -117,34 +117,33 @@ function renderIndices(){
 }
 
 function renderGlobalStats(data){
-  const total_mcap = data.data.total_market_cap.usd;
-  const total_vol = data.data.total_volume.usd;
-  const btc_dominance = data.data.market_cap_percentage.btc;
-  const active_cryptos = data.data.active_cryptocurrencies;
+  const coins = data.data;
+  const total_mcap = coins.reduce((s,c) => s + c.market_cap, 0);
+  const btc = coins.find(c => c.symbol === 'BTC');
+  const btc_dom = btc ? (btc.market_cap / total_mcap * 100) : 0;
 
   globalStats.innerHTML = `
-    <div class="section-title">📊 全球加密市场总览</div>
+    <div class="section-title">📊 Top 10 加密货币总览</div>
     <div class="grid-4">
       <div class="stat-card"><div class="label">总市值</div><div class="value gold">${formatPrice(total_mcap)}</div></div>
-      <div class="stat-card"><div class="label">24h交易量</div><div class="value">${formatPrice(total_vol)}</div></div>
-      <div class="stat-card"><div class="label">BTC占比</div><div class="value">${btc_dominance.toFixed(1)}%</div></div>
-      <div class="stat-card"><div class="label">活跃币种</div><div class="value">${active_cryptos}</div></div>
+      <div class="stat-card"><div class="label">BTC价格</div><div class="value">${btc?'$'+Number(btc.priceUsd).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}):'-'}</div></div>
+      <div class="stat-card"><div class="label">BTC占比</div><div class="value">${btc_dom.toFixed(1)}%</div></div>
+      <div class="stat-card"><div class="label">币种数量</div><div class="value">${coins.length}</div></div>
     </div>`;
 }
 
 function renderCryptoMarket(data){
-  const btc = data.data.market_cap_percentage;
-  const topPct = Object.entries(btc).slice(0,5);
+  const coins = data.data;
+  const total_mcap = coins.reduce((s,c) => s + c.market_cap, 0);
+  const top5 = coins.slice(0,5);
   const colors = ['#f7931a','#627eea','#3b82f6','#8b5cf6','#ef4444'];
-  const labels = {btc:'BTC',eth:'ETH',usdt:'USDT',bnb:'BNB',sol:'SOL'};
-  const total = Object.values(btc).reduce((a,b)=>a+b,0);
 
   let barHtml = '<div class="mkt-bar">';
   let legendHtml = '<div class="legend">';
-  topPct.forEach(([k,v],i) => {
-    const pct = (v/total*100);
-    barHtml += `<div class="seg" style="width:${pct}%;background:${colors[i]}">${pct>5?labels[k]||k:''}</div>`;
-    legendHtml += `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${labels[k]||k} ${v.toFixed(1)}%</div>`;
+  top5.forEach((c,i) => {
+    const pct = total_mcap > 0 ? (c.market_cap / total_mcap * 100) : 0;
+    barHtml += `<div class="seg" style="width:${pct}%;background:${colors[i]}">${pct>5?c.symbol:''}</div>`;
+    legendHtml += `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${c.symbol} ${pct.toFixed(1)}%</div>`;
   });
   barHtml += '</div>';
   legendHtml += '</div>';
@@ -164,7 +163,7 @@ async function fetchData(){
     const res = await fetch('https://api.coincap.io/v2/assets?limit=10');
     if(!res.ok) throw new Error('API Error: '+res.status);
     const rawData = await res.json();
-    const data = {data:(rawData.data||[]).map(c=>({name:c.name,symbol:c.symbol,market_cap:parseFloat(c.marketCapUsd)||0,price_change_percentage_24h:parseFloat(c.changePercent24Hr)||0}))};
+    const data = {data:(rawData.data||[]).map(c=>({name:c.name,symbol:c.symbol,market_cap:parseFloat(c.marketCapUsd)||0,price_change_percentage_24h:parseFloat(c.changePercent24Hr)||0,priceUsd:c.priceUsd}))};
     renderGlobalStats(data);
     renderCryptoMarket(data);
     lastUpdate.textContent = '数据更新于: ' + new Date().toLocaleString('zh-CN');
@@ -176,6 +175,7 @@ async function fetchData(){
 
 renderIndices();
 fetchData();
+setInterval(fetchData, 60000);
 })();
 </script>
 <script src="../i18n.js"></script>
