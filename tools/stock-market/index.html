@@ -160,10 +160,20 @@ async function fetchData(){
   loading(cryptoMarket);
 
   try{
-    const res = await fetch('https://api.coincap.io/v2/assets?limit=10');
-    if(!res.ok) throw new Error('API Error: '+res.status);
-    const rawData = await res.json();
-    const data = {data:(rawData.data||[]).map(c=>({name:c.name,symbol:c.symbol,market_cap:parseFloat(c.marketCapUsd)||0,price_change_percentage_24h:parseFloat(c.changePercent24Hr)||0,priceUsd:c.priceUsd}))};
+    var pairs=['BTC_USDT','ETH_USDT','SOL_USDT','BNB_USDT','XRP_USDT','DOGE_USDT','ADA_USDT','AVAX_USDT','DOT_USDT','LINK_USDT'];
+    var results=await Promise.all(pairs.map(function(p){
+      return fetch('https://api.gateio.ws/api/v4/spot/tickers?currency_pair='+p)
+        .then(function(r){return r.json();})
+        .then(function(d){return d[0]?{pair:p,data:d[0]}:null;})
+        .catch(function(){return null;});
+    }));
+    var coins=results.filter(Boolean).map(function(r){
+      var sym=r.pair.split('_')[0];
+      var vol=parseFloat(r.data.quote_volume)||0;
+      var price=parseFloat(r.data.last)||0;
+      return {symbol:sym,market_cap:vol,priceUsd:price,changePercent24Hr:parseFloat(r.data.change_percentage)||0};
+    });
+    var data={data:coins};
     renderGlobalStats(data);
     renderCryptoMarket(data);
     lastUpdate.textContent = '数据更新于: ' + new Date().toLocaleString('zh-CN');

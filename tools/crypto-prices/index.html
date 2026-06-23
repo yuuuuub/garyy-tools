@@ -42,7 +42,7 @@ h1{font-size:1.3rem;color:var(--text)}
 <div class="container">
 <header>
 <h1>📊 加密货币实时行情</h1>
-<p class="sub">加密货币实时行情 · 内置数据</p>
+<p class="sub">加密货币实时行情 · Gate.io</p>
 <button class="refresh-btn" onclick="loadData()">🔄 刷新数据</button>
 </header>
 <div id="app"></div>
@@ -51,18 +51,28 @@ h1{font-size:1.3rem;color:var(--text)}
 (function(){
 'use strict';
 const app=document.getElementById('app');
+var PAIRS=['BTC_USDT','ETH_USDT','SOL_USDT','BNB_USDT','XRP_USDT','DOGE_USDT','ADA_USDT','AVAX_USDT','DOT_USDT','LINK_USDT','TRX_USDT','UNI_USDT','SHIB_USDT','LTC_USDT','ATOM_USDT'];
+var NAMES={BTC:'比特币',ETH:'以太坊',SOL:'索拉纳',BNB:'币安币',XRP:'瑞波币',DOGE:'狗狗币',ADA:'艾达币',AVAX:'雪崩',DOT:'波卡',LINK:'Chainlink',TRX:'波场',UNI:'Uniswap',SHIB:'柴犬币',LTC:'莱特币',ATOM:'Cosmos'};
 async function loadData(){
 app.innerHTML='<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
 try{
-const res=await fetch('https://api.coincap.io/v2/assets?limit=20');
-if(!res.ok)throw new Error('请求失败 ('+res.status+')');
-const rawData=await res.json();
-const data=(rawData.data||[]).map(c=>({
-  name:c.name,symbol:c.symbol.toUpperCase(),
-  current_price:parseFloat(c.priceUsd)||0,
-  price_change_percentage_24h:parseFloat(c.changePercent24Hr)||0,
-  market_cap:parseFloat(c.marketCapUsd)||0
+var results=await Promise.all(PAIRS.map(function(p){
+  return fetch('https://api.gateio.ws/api/v4/spot/tickers?currency_pair='+p)
+    .then(function(r){return r.json();})
+    .then(function(d){return d[0]?{pair:p,data:d[0]}:null;})
+    .catch(function(){return null;});
 }));
+var data=results.filter(Boolean).map(function(r,i){
+  var sym=r.pair.split('_')[0];
+  return {
+    name:(NAMES[sym]||sym)+' ('+sym+')',
+    symbol:sym,
+    current_price:parseFloat(r.data.last)||0,
+    price_change_percentage_24h:parseFloat(r.data.change_percentage)||0,
+    market_cap:0,
+    rank:i+1
+  };
+});
 render(data);
 }catch(e){
 app.innerHTML='<div class="error"><p>⚠️ '+e.message+'</p><button class="retry-btn" onclick="loadData()">重试</button></div>';

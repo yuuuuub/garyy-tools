@@ -31,7 +31,7 @@ h1{font-size:1.3rem}.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
 </head>
 <body>
 <div class="container">
-<header><h1>📊 加密货币行情</h1><p class="sub">支持中文名搜索 · CoinCap API</p></header>
+<header><h1>📊 加密货币行情</h1><p class="sub">支持中文名搜索 · Gate.io API</p></header>
 <div class="search-box">
 <input type="text" id="searchInput" placeholder="输入币名，如 比特币、ethereum" onkeydown="if(event.key==='Enter')fetchCoin()">
 <button onclick="fetchCoin()">查询</button>
@@ -44,18 +44,18 @@ h1{font-size:1.3rem}.sub{color:var(--text2);font-size:.82rem;margin-top:4px}
 'use strict';
 var app=document.getElementById('app');
 var input=document.getElementById('searchInput');
-var cnToId={
-'比特币':'bitcoin','以太坊':'ethereum','泰达币':'tether','币安币':'binancecoin',
-'瑞波币':'ripple','艾达币':'cardano','索拉纳':'solana','狗狗币':'dogecoin',
-'波卡':'polkadot','莱特币':'litecoin','Polygon':'matic-network',
-'雪崩':'avalanche-2','UNI':'uniswap','链link':'chainlink',
-'恒星币':'stellar','门罗币':'monero','达世币':'dash',
-'NEO':'neo','EOS':'eos','TRX':'tron','SHIB':'shiba-inu',
-'Filecoin':'filecoin','IOTA':'iota','APT':'aptos',
-'SUI':'sui','ARB':'arbitrum','OP':'optimism'
+var cnToPair={
+'比特币':'BTC_USDT','以太坊':'ETH_USDT','泰达币':'USDT_USDC','币安币':'BNB_USDT',
+'瑞波币':'XRP_USDT','艾达币':'ADA_USDT','索拉纳':'SOL_USDT','狗狗币':'DOGE_USDT',
+'波卡':'DOT_USDT','莱特币':'LTC_USDT','polygon':'MATIC_USDT',
+'雪崩':'AVAX_USDT','UNI':'UNI_USDT','链link':'LINK_USDT',
+'恒星币':'XLM_USDT','门罗币':'XMR_USDT','达世币':'DASH_USDT',
+'NEO':'NEO_USDT','EOS':'EOS_USDT','TRX':'TRX_USDT','SHIB':'SHIB_USDT',
+'Filecoin':'FIL_USDT','IOTA':'IOTA_USDT','APT':'APT_USDT',
+'SUI':'SUI_USDT','ARB':'ARB_USDT','OP':'OP_USDT'
 };
 var idToCn={};
-Object.keys(cnToId).forEach(function(k){idToCn[cnToId[k]]=k;});
+Object.keys(cnToPair).forEach(function(k){var sym=cnToPair[k].split('_')[0];idToCn[sym]=k;});
 var quickCoins=['比特币','以太坊','狗狗币','索拉纳','瑞波币','币安币'];
 function renderQuick(){
 var html='';
@@ -68,31 +68,30 @@ window.quickSearch=function(c){input.value=c;fetchCoin();};
 window.fetchCoin=function(){
 var q=input.value.trim().toLowerCase();
 if(!q){app.innerHTML='<div style="text-align:center;color:var(--text2);padding:40px">请输入币种名称</div>';return;}
-var coinId=cnToId[q]||q;
+var pair=cnToPair[q]||q.toUpperCase()+'_USDT';
 app.innerHTML='<div style="text-align:center;padding:60px 0;color:var(--text2)"><div class="spinner" style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px"></div><p>获取数据中...</p></div>';
-fetch('https://api.coincap.io/v2/assets/'+coinId)
+fetch('https://api.gateio.ws/api/v4/spot/tickers?currency_pair='+pair)
 .then(function(r){if(!r.ok)throw new Error('未找到该币种');return r.json();})
-.then(function(data){
-var d=data.data||data;
-var name=d.name||coinId;
-var symbol=(d.symbol||'').toUpperCase();
-var price=parseFloat(d.priceUsd)||0;
-var change24h=parseFloat(d.changePercent24Hr)||0;
-var marketCap=parseFloat(d.marketCapUsd)||0;
-var volume=parseFloat(d.volumeUsd24Hr)||0;
-var high24h=parseFloat(d.priceUsd)||0;
-var low24h=parseFloat(d.priceUsd)||0;
-var cnName=idToCn[d.id]||'';
-var img='';
+.then(function(d){
+if(!d||!d.length)throw new Error('未找到该币种');
+var t=d[0];
+var sym=pair.split('_')[0];
+var name=sym;
+var symbol=sym;
+var price=parseFloat(t.last)||0;
+var change24h=parseFloat(t.change_percentage)||0;
+var volume=parseFloat(t.quote_volume)||0;
+var high24h=parseFloat(t.high_24h)||0;
+var low24h=parseFloat(t.low_24h)||0;
+var cnName=idToCn[sym]||'';
 var html='<div class="crypto-card">';
-if(img)html+='<img src="'+img+'" alt="'+name+'" style="width:64px;height:64px">';
 html+='<div class="crypto-name">'+name+' ('+symbol+')</div>';
 if(cnName)html+='<div class="crypto-name-cn">'+cnName+'</div>';
 html+='<div class="crypto-price">$'+price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>';
 html+='<div class="crypto-change '+(change24h>=0?'up':'down')+'">'+(change24h>=0?'↑':'↓')+' '+Math.abs(change24h).toFixed(2)+'% (24h)</div>';
 html+='<div class="crypto-details">';
-html+='<div class="detail-item"><div class="detail-label">📊 市值</div><div class="detail-value">$'+formatNum(marketCap)+'</div></div>';
-html+='<div class="detail-item"><div class="detail-label">📈 24h成交量</div><div class="detail-value">$'+formatNum(volume)+'</div></div>';
+html+='<div class="detail-item"><div class="detail-label">📊 24h成交额</div><div class="detail-value">$'+formatNum(volume)+'</div></div>';
+html+='<div class="detail-item"><div class="detail-label">📈 24h成交量</div><div class="detail-value">'+Number(t.base_volume||0).toLocaleString()+'</div></div>';
 html+='<div class="detail-item"><div class="detail-label">⬆️ 24h最高</div><div class="detail-value">$'+high24h.toLocaleString()+'</div></div>';
 html+='<div class="detail-item"><div class="detail-label">⬇️ 24h最低</div><div class="detail-value">$'+low24h.toLocaleString()+'</div></div>';
 html+='</div></div>';
