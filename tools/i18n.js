@@ -2,6 +2,7 @@
 'use strict';
 
 var STORAGE_KEY = 'garyy_lang';
+var THEME_KEY = 'garyy_theme';
 var SUPPORTED = ['zh-CN', 'en'];
 var DEFAULT = 'zh-CN';
 
@@ -13,7 +14,20 @@ function detectLang(){
   return DEFAULT;
 }
 
+function detectTheme(){
+  var saved = localStorage.getItem(THEME_KEY);
+  if (saved) return saved;
+  return window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark';
+}
+
 var currentLang = detectLang();
+
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+applyTheme(detectTheme());
 
 var COMMON = {
   '搜索': 'Search',
@@ -105,6 +119,12 @@ var COMMON = {
   '英文': 'English',
   '数据来源': 'Source',
   '实时数据': 'Live Data',
+  '工具总数': 'Total Tools',
+  '分类数量': 'Categories',
+  '随机探索': 'Random',
+  '免费在线小工具，即开即用': 'free online tools, ready to use',
+  '全部工具浏览器本地运行，数据不上传服务器': 'All tools run locally, no data uploaded',
+  '个结果': 'results',
   '暂无该日期的历史记录': 'No records for this date',
   '数据加载失败': 'Data load failed',
   '检查网络连接': 'Check network',
@@ -171,7 +191,6 @@ var COMMON = {
   '请输入搜索关键词': 'Enter search keyword',
   '无匹配结果': 'No matches',
   '共找到': 'Found',
-  '个结果': 'results',
   '点击复制': 'Click to copy',
   '手机号': 'Phone',
   '邮箱': 'Email',
@@ -322,14 +341,23 @@ function applyLang(lang){
   location.reload();
 }
 
+window.garyyApplyLang = applyLang;
+
 function createToggle(){
+  var langBtn = document.getElementById('lang-toggle');
+  if (langBtn){
+    langBtn.innerHTML = currentLang === 'zh-CN' ? '🌐 EN' : '🌐 中';
+    langBtn.addEventListener('click', function(){
+      applyLang(currentLang === 'zh-CN' ? 'en' : 'zh-CN');
+    });
+    return;
+  }
   var btn = document.createElement('div');
   btn.id = 'garyy-lang-toggle';
-  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:20px;padding:6px 14px;font-size:.8rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:all .2s';
+  btn.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:99999;background:var(--bg-card,#1f2937);color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:20px;padding:6px 14px;font-size:.8rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:all .2s';
   btn.innerHTML = '<span style="font-size:1rem">🌐</span> <span id="garyy-lang-label">' + (currentLang === 'zh-CN' ? '中文' : 'EN') + '</span>';
   btn.addEventListener('click', function(){
     var newLang = currentLang === 'zh-CN' ? 'en' : 'zh-CN';
-    btn.querySelector('#garyy-lang-label').textContent = newLang === 'zh-CN' ? '中文' : 'EN';
     applyLang(newLang);
   });
   document.body.appendChild(btn);
