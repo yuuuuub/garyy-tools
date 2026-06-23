@@ -122,6 +122,19 @@ var COMMON = {
   '工具总数': 'Total Tools',
   '分类数量': 'Categories',
   '随机探索': 'Random',
+  '搜索颜色名称（中文或英文）...': 'Search color name (Chinese or English)...',
+  '搜索菜名或食材...': 'Search dish or ingredient...',
+  '输入城市名，如 Beijing': 'Enter city name, e.g. Beijing',
+  '输入城市名': 'Enter city name',
+  '输入域名': 'Enter domain name',
+  '输入IP地址': 'Enter IP address',
+  '输入网址': 'Enter URL',
+  '输入文本...': 'Enter text...',
+  '输入要翻译的文本...': 'Enter text to translate...',
+  '请输入中文姓名': 'Enter Chinese name',
+  '请输入搜索关键词': 'Enter search keyword',
+  '请输入要分析的文本': 'Enter text to analyze',
+  '在此输入文本或网址链接...': 'Enter text or URL here...',
   '免费在线小工具，即开即用': 'free online tools, ready to use',
   '全部工具浏览器本地运行，数据不上传服务器': 'All tools run locally, no data uploaded',
   '个结果': 'results',
@@ -283,7 +296,12 @@ function translateNode(node){
       node.textContent = translated;
     }
   } else if (node.nodeType === 1 && node.querySelectorAll){
-    if (/^(SCRIPT|STYLE|INPUT|TEXTAREA|SELECT|OPTION)$/i.test(node.tagName)) return;
+    if (/^(SCRIPT|STYLE)$/i.test(node.tagName)) return;
+    if (/^(INPUT|TEXTAREA)$/i.test(node.tagName)){
+      var ph = node.getAttribute('placeholder');
+      if (ph && COMMON[ph]) node.setAttribute('placeholder', COMMON[ph]);
+      return;
+    }
     if (node.getAttribute && node.getAttribute('data-i18n')){
       var key = node.getAttribute('data-i18n');
       if (COMMON[key]) node.textContent = COMMON[key];
