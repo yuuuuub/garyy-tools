@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字体比例工具 - 排版规范生成</title>
+<meta name="description" content="字体比例工具，基于模数生成排版系统，支持多种比例模式，导出CSS/Tailwind字体变量">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔤</text></svg>">
+<script src="i18n.js" defer></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#ec4899;--accent2:#f472b6;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:10px}
+[data-theme="light"]{--bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--accent:#db2777;--accent2:#ec4899;--green:#16a34a;--red:#dc2626;--yellow:#ca8a04}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px}
+.container{max-width:1000px;margin:0 auto}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.topbar h1{margin:0;font-size:1.2rem}
+.topbar .spacer{flex:1}
+.topbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit}
+.topbar button:hover{border-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.controls label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+.controls select,.controls input{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box}
+.controls select:focus,.controls input:focus{outline:none;border-color:var(--accent)}
+.scale-preview{margin-top:16px}
+.scale-row{display:flex;align-items:baseline;gap:16px;padding:8px 0;border-bottom:1px solid var(--border)}
+.scale-row:last-child{border-bottom:none}
+.scale-label{width:120px;font-size:.75rem;color:var(--text2);flex-shrink:0}
+.scale-size{width:60px;font-size:.75rem;color:var(--accent);flex-shrink:0;text-align:right}
+.scale-preview-text{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.scale-bar{height:8px;background:var(--accent);border-radius:4px;margin-top:4px;transition:width .3s}
+.font-options{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.font-opt{padding:6px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.font-opt:hover{border-color:var(--accent)}
+.font-opt.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.export-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px}
+.export-block h4{margin:0 0 8px;font-size:.85rem}
+.export-block pre{font-size:12px;overflow-x:auto;white-space:pre-wrap;padding:8px;background:var(--card);border-radius:6px;border:1px solid var(--border)}
+.export-block button{margin-top:8px;padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.container{animation:fadeIn .3s ease-out}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <h1>🔤 字体比例工具</h1>
+    <div class="spacer"></div>
+    <button onclick="exportCSS()">导出 CSS</button>
+    <button onclick="toggleTheme()">🌙</button>
+  </div>
+
+  <div class="card">
+    <h3>比例设置</h3>
+    <div class="controls">
+      <div><label>基础字号 (px)</label><input type="number" id="baseSize" value="16" min="12" max="24" onchange="generateScale()"></div>
+      <div><label>比例模式</label><select id="ratioMode" onchange="generateScale()">
+        <option value="minor-second">Minor Second (1.067)</option>
+        <option value="major-second">Major Second (1.125)</option>
+        <option value="minor-third" selected>Minor Third (1.2)</option>
+        <option value="major-third">Major Third (1.25)</option>
+        <option value="perfect-fourth">Perfect Fourth (1.333)</option>
+        <option value="aug-fourth">Augmented Fourth (1.414)</option>
+        <option value="perfect-fifth">Perfect Fifth (1.5)</option>
+        <option value="golden-ratio">Golden Ratio (1.618)</option>
+      </select></div>
+      <div><label>行高倍数</label><input type="number" id="lineHeight" value="1.4" min="1" max="2.5" step="0.1" onchange="generateScale()"></div>
+      <div><label>字重范围</label><select id="weightRange" onchange="generateScale()">
+        <option value="tight">紧凑 (300-700)</option>
+        <option value="normal" selected>标准 (400-700)</option>
+        <option value="wide">宽泛 (300-900)</option>
+      </select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>字体选择</h3>
+    <div class="font-options" id="fontOptions"></div>
+  </div>
+
+  <div class="card">
+    <h3>比例预览</h3>
+    <div class="scale-preview" id="scalePreview"></div>
+  </div>
+
+  <div class="card">
+    <h3>导出</h3>
+    <div class="export-block"><h4>CSS Variables</h4><pre id="cssExport"></pre><button onclick="copyExport('cssExport')">复制</button></div>
+    <div class="export-block"><h4>Tailwind Config</h4><pre id="twExport"></pre><button onclick="copyExport('twExport')">复制</button></div>
+    <div class="export-block"><h4>SCSS</h4><pre id="scssExport"></pre><button onclick="copyExport('scssExport')">复制</button></div>
+  </div>
+</div>
+<script>
+const ratios={'minor-second':1.067,'major-second':1.125,'minor-third':1.2,'major-third':1.25,'perfect-fourth':1.333,'aug-fourth':1.414,'perfect-fifth':1.5,'golden-ratio':1.618};
+const fonts=['-apple-system,BlinkMacSystemFont,PingFang SC','PingFang SC,Microsoft YaHei','Noto Sans SC','LXGW WenKai','Source Han Sans SC','Inter,system-ui'];
+const levels=['display','h1','h2','h3','h4','h5','h6','body-lg','body','body-sm','caption','overline'];
+let currentFont=fonts[0],scale=[];
+
+function generateScale(){
+  const base=+document.getElementById('baseSize').value;
+  const ratio=ratios[document.getElementById('ratioMode').value];
+  const lh=+document.getElementById('lineHeight').value;
+  const weights=document.getElementById('weightRange').value;
+  const wt=weights==='tight'?[300,400,500,600,700]:weights==='wide'?[300,400,500,600,700,800,900]:[400,500,600,700];
+  scale=levels.map((l,i)=>{
+    const pow=i===0?2:i<7?6-i:-(i-6);
+    const size=i===0?base*ratio*ratio:i<7?base*Math.pow(ratio,pow):base/Math.pow(ratio,i-5);
+    const fw=i===0?wt[wt.length-1]:i<3?wt[Math.min(2,wt.length-1)]:i<7?wt[Math.min(1,wt.length-1)]:wt[0];
+    return{name:l,size:Math.round(size*100)/100,weight:fw,lineHeight:i<3?1.1:i<7?lh:1.5};
+  });
+  render();
+}
+
+function render(){
+  document.getElementById('fontOptions').innerHTML=fonts.map(f=>`<div class="font-opt ${f===currentFont?'active':''}" onclick="setFont('${f}')">${f.split(',')[0]}</div>`).join('');
+  const maxSize=Math.max(...scale.map(s=>s.size));
+  document.getElementById('scalePreview').innerHTML=scale.map(s=>`<div class="scale-row"><div class="scale-label">${s.name}<br><span style="font-size:.65rem">${s.size}px / ${s.weight}</span></div><div class="scale-size">${s.size}px</div><div style="flex:1"><div class="scale-preview-text" style="font-family:${currentFont};font-size:${Math.min(s.size,48)}px;font-weight:${s.weight};line-height:${s.lineHeight}">示例文字 Abc 123</div><div class="scale-bar" style="width:${(s.size/maxSize)*100}%"></div></div></div>`).join('');
+
+  const cssVars=scale.map(s=>`  --font-${s.name}: ${s.size}px;\n  --font-${s.name}-weight: ${s.weight};\n  --font-${s.name}-lh: ${s.lineHeight};`).join('\n');
+  document.getElementById('cssExport').textContent=`:root {\n  --font-family: ${currentFont};\n${cssVars}\n}`;
+  const twScale={};scale.forEach(s=>{twScale[s.name]={fontSize:s.size+'px',fontWeight:s.weight,lineHeight:s.lineHeight}});
+  document.getElementById('twExport').textContent=`theme: {\n  extend: {\n    fontSize: ${JSON.stringify(Object.fromEntries(scale.map(s=>[s.name,[s.size+'px',{fontWeight:s.weight,lineHeight:s.lineHeight}]])),null,6).replace(/"/g,"'")}\n  }\n}`;
+  document.getElementById('scssExport').textContent=scale.map(s=>`$font-${s.name}: ${s.size}px;\n$font-${s.name}-weight: ${s.weight};\n$font-${s.name}-lh: ${s.lineHeight};`).join('\n');
+}
+
+function setFont(f){currentFont=f;render()}
+function copyExport(id){navigator.clipboard.writeText(document.getElementById(id).textContent);alert('已复制')}
+function exportCSS(){const blob=new Blob([document.getElementById('cssExport').textContent],{type:'text/css'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='typography.css';a.click()}
+function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t}
+generateScale();
+</script>
+</body>
+</html>

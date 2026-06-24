@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>组件画廊</title>
+<meta name="description" content="组件画廊，浏览和复制精美的UI组件样式">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6scroll-behavior:smooth;}
+.container{max-width:1100px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:var(--text);font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+input,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.widget-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:transform .2s,box-shadow .2s}
+.widget-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.widget-preview{padding:20px;background:var(--bg);min-height:120px;display:flex;align-items:center;justify-content:center}
+.widget-info{padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+.widget-name{font-weight:600;font-size:.9rem}
+.widget-copy{padding:4px 12px;font-size:.8rem;border:none;border-radius:6px;background:var(--accent);color:var(--text);cursor:pointer}
+.widget-copy:hover{background:var(--accent2)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:10px 24px;border-radius:8px;font-size:.9rem;z-index:9999;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:transparent;color:var(--text2);font-size:.8rem;cursor:pointer;transition:all .2s}
+.filter-btn.active{background:var(--accent);color:var(--text);border-color:var(--accent)}
+.filter-btn:hover:not(.active){border-color:var(--accent)}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.gallery-grid{grid-template-columns:1fr}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="组件画廊">
+<meta property="og:description" content="组件画廊，浏览和复制精美的UI组件样式">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/widget-gallery-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<div class="toast" id="toast">已复制到剪贴板</div>
+<script>
+document.title='🎨 组件画廊';
+const APP=document.getElementById('app');
+let favorites=JSON.parse(localStorage.getItem('wg_favs')||'[]');
+let filter='all';
+
+const WIDGETS=[
+  {name:'用户信息卡',cat:'card',preview:'<div style="text-align:center"><div style="width:60px;height:60px;border-radius:50%;background:var(--accent);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff">A</div><div style="font-weight:700">用户名</div><div style="color:var(--text2);font-size:.8rem">user@example.com</div></div>',code:'<div class="user-card" style="text-align:center;padding:20px"><div style="width:60px;height:60px;border-radius:50%;background:#3b82f6;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff">A</div><div style="font-weight:700">用户名</div><div style="color:#8b949e;font-size:.8rem">user@example.com</div></div>'},
+  {name:'统计卡片',cat:'stat',preview:'<div style="text-align:center;width:100%"><div style="font-size:2rem;font-weight:800;color:var(--accent)">1,234</div><div style="color:var(--text2);font-size:.85rem">总用户数</div><div style="color:var(--green);font-size:.8rem;margin-top:4px">↑ 12.5%</div></div>',code:'<div class="stat-card" style="text-align:center;padding:20px"><div style="font-size:2rem;font-weight:800;color:#3b82f6">1,234</div><div style="color:#8b949e;font-size:.85rem">总用户数</div><div style="color:#3fb950;font-size:.8rem;margin-top:4px">↑ 12.5%</div></div>'},
+  {name:'进度条',cat:'progress',preview:'<div style="width:100%"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px"><span>完成度</span><span>72%</span></div><div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div style="height:100%;width:72%;background:var(--green);border-radius:5px"></div></div></div>',code:'<div class="progress"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px"><span>完成度</span><span>72%</span></div><div style="height:10px;background:#30363d;border-radius:5px;overflow:hidden"><div style="height:100%;width:72%;background:#3fb950;border-radius:5px"></div></div></div>'},
+  {name:'通知提醒',cat:'card',preview:'<div style="display:flex;align-items:center;gap:12px;width:100%;background:rgba(59,130,246,.1);padding:12px;border-radius:8px;border-left:4px solid var(--accent)"><div style="font-size:1.5rem">ℹ️</div><div><div style="font-weight:600;font-size:.9rem">提示信息</div><div style="color:var(--text2);font-size:.8rem">这是一条重要的通知</div></div></div>',code:'<div class="notification" style="display:flex;align-items:center;gap:12px;background:rgba(59,130,246,.1);padding:12px;border-radius:8px;border-left:4px solid #3b82f6"><div style="font-size:1.5rem">ℹ️</div><div><div style="font-weight:600;font-size:.9rem">提示信息</div><div style="color:#8b949e;font-size:.8rem">这是一条重要的通知</div></div></div>'},
+  {name:'标签组',cat:'tag',preview:'<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="padding:4px 12px;background:rgba(59,130,246,.2);color:var(--accent2);border-radius:16px;font-size:.8rem">标签一</span><span style="padding:4px 12px;background:rgba(63,185,80,.2);color:var(--green);border-radius:16px;font-size:.8rem">标签二</span><span style="padding:4px 12px;background:rgba(248,81,73,.2);color:var(--red);border-radius:16px;font-size:.8rem">标签三</span></div>',code:'<div class="tags" style="display:flex;flex-wrap:wrap;gap:6px"><span style="padding:4px 12px;background:rgba(59,130,246,.2);color:#58a6ff;border-radius:16px;font-size:.8rem">标签一</span><span style="padding:4px 12px;background:rgba(63,185,80,.2);color:#3fb950;border-radius:16px;font-size:.8rem">标签二</span><span style="padding:4px 12px;background:rgba(248,81,73,.2);color:#f85149;border-radius:16px;font-size:.8rem">标签三</span></div>'},
+  {name:'评分星级',cat:'rating',preview:'<div style="font-size:1.5rem;letter-spacing:4px">⭐⭐⭐⭐☆</div>',code:'<div class="rating" style="font-size:1.5rem;letter-spacing:4px">⭐⭐⭐⭐☆</div>'},
+  {name:'按钮组',cat:'button',preview:'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button style="padding:8px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer">主要</button><button style="padding:8px 20px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:.85rem;cursor:pointer">次要</button><button style="padding:8px 20px;border:none;border-radius:8px;background:var(--red);color:#fff;font-size:.85rem;cursor:pointer">危险</button></div>',code:'<div class="buttons" style="display:flex;gap:8px"><button style="padding:8px 20px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-size:.85rem;cursor:pointer">主要</button><button style="padding:8px 20px;border:1px solid #30363d;border-radius:8px;background:transparent;color:#e6edf3;font-size:.85rem;cursor:pointer">次要</button><button style="padding:8px 20px;border:none;border-radius:8px;background:#f85149;color:#fff;font-size:.85rem;cursor:pointer">危险</button></div>'},
+  {name:'迷你折线图',cat:'chart',preview:'<svg width="100%" height="60" viewBox="0 0 200 60"><polyline points="10,50 40,30 70,40 100,15 130,25 160,10 190,20" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><circle cx="100" cy="15" r="3" fill="var(--accent)"/></svg>',code:'<svg width="200" height="60" viewBox="0 0 200 60"><polyline points="10,50 40,30 70,40 100,15 130,25 160,10 190,20" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/><circle cx="100" cy="15" r="3" fill="#3b82f6"/></svg>'},
+  {name:'迷你柱图',cat:'chart',preview:'<div style="display:flex;align-items:flex-end;gap:4px;height:60px;width:100%;justify-content:center"><div style="width:16px;height:30px;background:var(--accent);border-radius:4px 4px 0 0"></div><div style="width:16px;height:45px;background:var(--green);border-radius:4px 4px 0 0"></div><div style="width:16px;height:25px;background:var(--yellow);border-radius:4px 4px 0 0"></div><div style="width:16px;height:55px;background:var(--red);border-radius:4px 4px 0 0"></div><div style="width:16px;height:35px;background:var(--accent);border-radius:4px 4px 0 0"></div></div>',code:'<div class="mini-bar" style="display:flex;align-items:flex-end;gap:4px;height:60px"><div style="width:16px;height:30px;background:#3b82f6;border-radius:4px 4px 0 0"></div><div style="width:16px;height:45px;background:#3fb950;border-radius:4px 4px 0 0"></div><div style="width:16px;height:25px;background:#d29922;border-radius:4px 4px 0 0"></div><div style="width:16px;height:55px;background:#f85149;border-radius:4px 4px 0 0"></div><div style="width:16px;height:35px;background:#3b82f6;border-radius:4px 4px 0 0"></div></div>'},
+  {name:'时间轴项',cat:'timeline',preview:'<div style="display:flex;gap:12px;width:100%"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:12px;height:12px;border-radius:50%;background:var(--accent)"></div><div style="width:2px;flex:1;background:var(--border)"></div></div><div style="padding-bottom:16px"><div style="font-weight:600;font-size:.9rem">事件标题</div><div style="color:var(--text2);font-size:.8rem">2024-01-01</div><div style="font-size:.85rem;margin-top:4px">事件描述内容</div></div></div>',code:'<div class="timeline-item" style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:12px;height:12px;border-radius:50%;background:#3b82f6"></div><div style="width:2px;flex:1;background:#30363d"></div></div><div><div style="font-weight:600;font-size:.9rem">事件标题</div><div style="color:#8b949e;font-size:.8rem">2024-01-01</div><div style="font-size:.85rem;margin-top:4px">事件描述内容</div></div></div>'},
+  {name:'头像组',cat:'avatar',preview:'<div style="display:flex"><div style="width:36px;height:36px;border-radius:50%;background:var(--accent);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">A</div><div style="width:36px;height:36px;border-radius:50%;background:var(--green);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">B</div><div style="width:36px;height:36px;border-radius:50%;background:var(--red);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">C</div><div style="width:36px;height:36px;border-radius:50%;background:var(--yellow);border:2px solid var(--card);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">+2</div></div>',code:'<div class="avatar-group" style="display:flex"><div style="width:36px;height:36px;border-radius:50%;background:#3b82f6;border:2px solid #161b22;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">A</div><div style="width:36px;height:36px;border-radius:50%;background:#3fb950;border:2px solid #161b22;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">B</div><div style="width:36px;height:36px;border-radius:50%;background:#f85149;border:2px solid #161b22;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">C</div><div style="width:36px;height:36px;border-radius:50%;background:#d29922;border:2px solid #161b22;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;margin-left:-8px">+2</div></div>'}
+];
+
+const CATS=[{id:'all',label:'全部'},{id:'card',label:'卡片'},{id:'stat',label:'统计'},{id:'progress',label:'进度'},{id:'tag',label:'标签'},{id:'button',label:'按钮'},{id:'chart',label:'图表'},{id:'rating',label:'评分'},{id:'timeline',label:'时间轴'},{id:'avatar',label:'头像'}];
+
+function render(){
+  let filtered=filter==='all'?WIDGETS:WIDGETS.filter(w=>w.cat===filter);
+  let h=`<h1>🎨 组件画廊</h1><p class="subtitle">浏览、收藏和复制UI组件代码</p>`;
+  h+=`<div class="filter-bar">${CATS.map(c=>`<button class="filter-btn ${filter===c.id?'active':''}" onclick="filter='${c.id}';render()">${c.label}</button>`).join('')}</div>`;
+  h+=`<div class="gallery-grid">`;
+  filtered.forEach((w,i)=>{
+    let isFav=favorites.includes(w.name);
+    h+=`<div class="widget-card"><div class="widget-preview">${w.preview}</div><div class="widget-info"><div class="flex"><span class="widget-name">${w.name}</span><button style="background:none;border:none;cursor:pointer;font-size:1.1rem" onclick="toggleFav('${w.name}')">${isFav?'❤️':'🤍'}</button></div><button class="widget-copy" onclick="copyCode(${i})">复制代码</button></div></div>`;
+  });
+  h+=`</div>`;
+  if(!filtered.length) h+=`<div class="empty">没有匹配的组件</div>`;
+  APP.innerHTML=h;
+}
+
+function toggleFav(name){
+  let idx=favorites.indexOf(name);
+  if(idx>=0) favorites.splice(idx,1); else favorites.push(name);
+  localStorage.setItem('wg_favs',JSON.stringify(favorites));
+  render();
+}
+
+function copyCode(i){
+  navigator.clipboard.writeText(WIDGETS[i].code).then(()=>{
+    let t=document.getElementById('toast');t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2000);
+  });
+}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
