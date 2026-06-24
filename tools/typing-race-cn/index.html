@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>打字竞速</title>
+<meta name="description" content="打字竞速游戏，测试你的中文打字速度">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px;overflow-x:hidden;scroll-behavior:smooth}
+h1{font-size:1.5rem;margin-bottom:12px;color:#06b6d4;text-shadow:0 0 10px #06b6d444}
+.container{max-width:600px;width:100%;display:flex;flex-direction:column;gap:16px}
+.hud{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.hud div{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center;min-width:80px}
+.hud .label{font-size:.7rem;color:var(--text2)}
+.hud .val{font-size:1.2rem;font-weight:bold;color:#06b6d4}
+.text-display{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:20px;font-size:1.3rem;line-height:2;letter-spacing:2px;min-height:120px;word-break:break-all;user-select:none}
+.text-display .typed{color:var(--green)}
+.text-display .current{color:#06b6d4;border-bottom:2px solid #06b6d4}
+.text-display .untyped{color:var(--text2)}
+.text-display .wrong{color:var(--red);border-bottom:2px solid var(--red)}
+input#input{width:100%;padding:12px 16px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);outline:none;font-family:inherit}
+input#input:focus{border-color:#06b6d4}
+.btn{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:1rem;cursor:pointer;text-align:center}
+.btn:hover{opacity:.9}
+.progress{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#06b6d4,#22c55e);transition:width .3s;border-radius:3px}
+.result{text-align:center;padding:30px;background:var(--card);border-radius:12px;border:1px solid var(--border)}
+.result h2{font-size:1.6rem;margin-bottom:12px}
+.result .big{font-size:3rem;font-weight:bold;color:#06b6d4;margin:12px 0}
+.result .detail{color:var(--text2);line-height:2}
+.diff{display:flex;gap:8px;margin-bottom:8px}
+.diff button{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.9rem}
+.diff button.active{border-color:var(--blue);background:var(--blue);color:#fff}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⌨️</text></svg>">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<h1>⌨️ 打字竞速</h1>
+<div class="container" id="app"></div>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+<script>
+const TEXTS=[
+'天地玄黄宇宙洪荒日月盈昃辰宿列张寒来暑往秋收冬藏',
+'人生得意须尽欢莫使金樽空对月天生我材必有用千金散尽还复来',
+'大江东去浪淘尽千古风流人物故垒西边人道是三国周郎赤壁',
+'白日依山尽黄河入海流欲穷千里目更上一层楼',
+'春眠不觉晓处处闻啼鸟夜来风雨声花落知多少',
+'床前明月光疑是地上霜举头望明月低头思故乡',
+'红豆生南国春来发几枝愿君多采撷此物最相思',
+'空山新雨后天气晚来秋明月松间照清泉石上流',
+'千山鸟飞绝万径人踪灭孤舟蓑笠翁独钓寒江雪'
+];
+let difficulty=30,text='',typed='',startTime=0,timer=null,finished=false,charCorrect=0,charTotal=0;
+
+function pickText(len){return TEXTS[Math.floor(Math.random()*TEXTS.length)].slice(0,len)}
+
+function setDiff(d){
+difficulty=d;
+document.querySelectorAll('.diff button').forEach(b=>b.classList.remove('active'));
+document.getElementById('d'+d).classList.add('active');
+startGame();
+}
+
+function startGame(){
+finished=false;typed='';startTime=0;charCorrect=0;charTotal=0;clearInterval(timer);
+text=pickText(difficulty);
+render();
+document.getElementById('input').value='';
+document.getElementById('input').focus();
+}
+
+function render(){
+if(finished)return;
+const app=document.getElementById('app');
+const elapsed=startTime?Math.floor((Date.now()-startTime)/1000):0;
+const cpm=startTime&&typed.length?Math.round(typed.length/((Date.now()-startTime)/60000)):0;
+const acc=charTotal?Math.round(charCorrect/charTotal*100):100;
+const pct=Math.min(100,Math.round(typed.length/text.length*100));
+
+let display='';
+for(let i=0;i<text.length;i++){
+if(i<typed.length){
+display+=typed[i]===text[i]?`<span class="typed">${text[i]}</span>`:`<span class="wrong">${text[i]}</span>`;
+}else if(i===typed.length){
+display+=`<span class="current">${text[i]}</span>`;
+}else{
+display+=`<span class="untyped">${text[i]}</span>`;
+}
+}
+
+app.innerHTML=`
+<div class="diff"><button onclick="setDiff(15)" id="d15" class="${difficulty===15?'active':''}">短文</button><button onclick="setDiff(30)" id="d30" class="${difficulty===30?'active':''}">中等</button><button onclick="setDiff(60)" id="d60" class="${difficulty===60?'active':''}">长文</button></div>
+<div class="hud"><div><div class="label">时间</div><div class="val">${elapsed}s</div></div><div><div class="label">速度</div><div class="val">${cpm}字/分</div></div><div><div class="label">正确率</div><div class="val">${acc}%</div></div><div><div class="label">进度</div><div class="val">${pct}%</div></div></div>
+<div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+<div class="text-display" style="margin-top:12px">${display}</div>
+<input type="text" id="input" placeholder="在此输入..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+`;
+}
+
+function showResult(){
+finished=true;clearInterval(timer);
+const elapsed=Math.floor((Date.now()-startTime)/1000);
+const cpm=Math.round(typed.length/(elapsed/60));
+const acc=charTotal?Math.round(charCorrect/charTotal*100):100;
+const app=document.getElementById('app');
+app.innerHTML=`
+<div class="result"><h2>🏁 打字完成!</h2><div class="big">${cpm} 字/分</div>
+<div class="detail">用时: ${elapsed}秒<br>正确率: ${acc}%<br>总字数: ${typed.length} / ${text.length}</div>
+<button class="btn" style="margin-top:16px" onclick="startGame()">再来一次</button></div>`;
+}
+
+document.addEventListener('input',e=>{
+if(finished)return;
+const val=e.target.value;
+if(!startTime){startTime=Date.now();timer=setInterval(render,200)}
+typed=val;
+for(let i=0;i<val.length&&i<text.length;i++){
+charTotal++;
+if(val[i]===text[i])charCorrect++;
+}
+render();
+if(val.length>=text.length)showResult();
+});
+
+document.addEventListener('keydown',e=>{
+if(finished&&e.key==='Enter')startGame();
+});
+
+startGame();
+</script>
+</body>
+</html>

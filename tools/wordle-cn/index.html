@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>猜单词</title>
+<meta name="description" content="经典猜单词游戏，六次机会猜出正确的五字词语">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px;overflow-x:hidden;user-select:none;scroll-behavior:smooth}
+h1{font-size:1.5rem;margin-bottom:16px;color:#8b5cf6;text-shadow:0 0 10px #8b5cf644}
+.board{display:grid;grid-template-rows:repeat(6,1fr);gap:5px;margin-bottom:20px}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.cell{width:56px;height:56px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:bold;transition:transform 0.2s;background:var(--card)}
+.cell.filled{border-color:#8b949e}
+.cell.correct{background:#238636;border-color:#238636;color:#fff;transform:rotateX(360deg)}
+.cell.present{background:#b45309;border-color:#b45309;color:#fff;transform:rotateX(360deg)}
+.cell.absent{background:#30363d;border-color:#30363d;color:#8b949e;transform:rotateX(360deg)}
+.keyboard{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.kb-row{display:flex;gap:4px;justify-content:center}
+.key{min-width:32px;height:50px;border:none;border-radius:6px;background:#30363d;color:#e6edf3;font-size:14px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;user-select:none}
+.key:active{transform:scale(0.95)}
+.key.correct{background:#238636;color:#fff}
+.key.present{background:#b45309;color:#fff}
+.key.absent{background:#1c2128;color:#666}
+.key.wide{min-width:56px;font-size:12px}
+.msg{margin:12px 0;font-size:1.1rem;color:#8b5cf6;min-height:1.5em;text-align:center}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔤</text></svg>">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<h1>🔤 猜单词</h1>
+<div class="board" id="board"></div>
+<div class="msg" id="msg"></div>
+<div class="keyboard" id="kb"></div>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+<script>
+const WORDS=['苹果','香蕉','电脑','手机','音乐','足球','海洋','森林','太阳','月亮','星星','城市','火车','飞机','花朵','彩虹','书本','画画','游泳','跑步','花园','桌子','椅子','窗户','门锁','牛奶','面包','鸡蛋','米饭','蔬菜','水果'];
+let answer='',guesses=[],current=[],row=0,over=false,keyStates={};
+
+function init(){
+const board=document.getElementById('board');
+board.innerHTML='';
+for(let r=0;r<6;r++){const row=document.createElement('div');row.className='row';row.id='row-'+r;
+for(let c=0;c<5;c++){const cell=document.createElement('div');cell.className='cell';cell.id='c-'+r+'-'+c;row.appendChild(cell)}
+board.appendChild(row)}
+const kb=document.getElementById('kb');
+kb.innerHTML='';
+const rows=[['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['ENTER','Z','X','C','V','B','N','M','⌫']];
+rows.forEach(r=>{const kr=document.createElement('div');kr.className='kb-row';
+r.forEach(k=>{const btn=document.createElement('button');btn.className='key'+(k.length>1?' wide':'');btn.textContent=k;
+btn.onclick=()=>handleKey(k);kr.appendChild(btn)});kb.appendChild(btn)});
+pickWord();document.getElementById('msg').textContent='猜一个五字词语';
+}
+function pickWord(){answer=WORDS[Math.floor(Math.random()*WORDS.length)]}
+function handleKey(k){
+if(over)return;
+if(k==='⌫'){if(current.length>0){current.pop();const c=document.getElementById('c-'+row+'-'+current.length);c.textContent='';c.classList.remove('filled')}return}
+if(k==='ENTER'){if(current.length<5){showMsg('需要5个字');return}submitGuess();return}
+if(current.length>=5)return;
+current.push(k);const c=document.getElementById('c-'+row+'-'+current.length-1);c.textContent=k;c.classList.add('filled');
+}
+function submitGuess(){
+const g=current.join('');const result=[];
+for(let i=0;i<5;i++){if(g[i]===answer[i])result.push('correct');
+else if(answer.includes(g[i]))result.push('present');
+else result.push('absent')}
+for(let i=0;i<5;i++){
+const cell=document.getElementById('c-'+row+'-'+i);
+setTimeout(()=>{cell.classList.add(result[i]);updateKey(g[i],result[i])},i*200)}
+if(g===answer){setTimeout(()=>{showMsg('恭喜你猜对了! 🎉');over=true},1200)}
+else if(row>=5){setTimeout(()=>{showMsg('游戏结束! 答案是: '+answer);over=true},1200)}
+row++;current=[];
+}
+function updateKey(ch,state){if(!keyStates[ch]||state==='correct')keyStates[ch]=state;
+document.querySelectorAll('.key').forEach(b=>{if(b.textContent===ch)b.className='key '+keyStates[ch]})}
+function showMsg(t){document.getElementById('msg').textContent=t}
+init();
+document.addEventListener('keydown',e=>{
+if(over)return;
+if(e.key==='Enter')handleKey('ENTER');
+else if(e.key==='Backspace')handleKey('⌫');
+else if(/[\u4e00-\u9fa5]/.test(e.key)&&e.key.length===1)handleKey(e.key);
+});
+</script>
+</body>
+</html>
