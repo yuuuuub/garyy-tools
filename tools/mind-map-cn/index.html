@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文思维导图</title>
+<meta name="description" content="在线思维导图工具，快速创建和编辑思维导图，支持导出">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden;line-height:1.6}
+#toolbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px;z-index:100}
+#toolbar .brand{font-size:18px;font-weight:700;color:var(--accent);margin-right:16px}
+#toolbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;transition:var(--transition);white-space:nowrap}
+#toolbar button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+#toolbar .sep{width:1px;height:26px;background:var(--border);margin:0 4px}
+#canvas-wrap{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+#canvas-wrap:active{cursor:grabbing}
+svg{width:100%;height:100%}
+.mm-node{cursor:pointer}
+.mm-rect{rx:12;ry:12;transition:fill .15s}
+.mm-text{fill:var(--text);font-size:14px;font-family:inherit;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.mm-root .mm-text{font-size:18px;font-weight:700}
+.mm-link{stroke:var(--border);stroke-width:2;fill:none}
+.mm-line{stroke:var(--accent);stroke-width:2;fill:none}
+.mm-btn{fill:var(--accent);cursor:pointer;transition:fill .15s}
+.mm-btn:hover{fill:var(--red)}
+#context-menu{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 0;z-index:200;box-shadow:var(--shadow);min-width:140px}
+#context-menu div{padding:8px 16px;cursor:pointer;font-size:13px;transition:background .15s}
+#context-menu div:hover{background:var(--accent);color:#fff}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="中文思维导图">
+<meta property="og:description" content="在线思维导图工具，快速创建和编辑思维导图">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div id="toolbar">
+  <span class="brand">🧠 思维导图</span>
+  <button onclick="addChild()">+ 子节点</button>
+  <button onclick="addSibling()">+ 同级节点</button>
+  <button onclick="deleteNode()">删除</button>
+  <div class="sep"></div>
+  <button onclick="expandAll()">展开全部</button>
+  <button onclick="collapseAll()">折叠全部</button>
+  <div class="sep"></div>
+  <button onclick="exportPNG()">导出PNG</button>
+  <button onclick="loadDemo()">示例</button>
+</div>
+<div id="canvas-wrap"></div>
+<div id="context-menu" class="hidden"></div>
+<script>
+document.title='🧠 中文思维导图';
+const SVG_NS='http://www.w3.org/2000/svg';
+const wrap=document.getElementById('canvas-wrap');
+const ctxMenu=document.getElementById('context-menu');
+let data=JSON.parse(localStorage.getItem('mm_cn_data')||'null');
+if(!data) data={text:'中心主题',children:[],collapsed:false};
+let selected=null;
+let viewBox={x:-400,y:-200,w:1200,h:800};
+let isPanning=false,panStart={x:0,y:0};
+
+function save(){localStorage.setItem('mm_cn_data',JSON.stringify(data))}
+
+function getLayout(node,depth=0,x=0){
+  let result=[];
+  let colors=['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+  let color=colors[depth%colors.length];
+  let childH=node.children&&!node.collapsed?node.children.reduce((s,c)=>s+getLayout(c,depth+1,0).length*50,0):0;
+  childH=Math.max(childH,50);
+  result.push({node,x,y:0,depth,color,w:120,h:Math.min(childH,400)});
+  if(node.children&&!node.collapsed){
+    let cy=-(childH/2);
+    node.children.forEach(c=>{
+      let cl=getLayout(c,depth+1,x+180);
+      let ch=cl.filter(l=>l.depth===depth+1).reduce((s,l)=>Math.max(s,l.h),0)||50;
+      cl.forEach(l=>{l.y+=cy+ch/2});
+      cy+=ch+10;
+      result.push(...cl);
+    });
+  }
+  return result;
+}
+
+function render(){
+  let svg=document.createElementNS(SVG_NS,'svg');
+  svg.setAttribute('viewBox',`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+  svg.style.background='var(--bg)';
+  let layout=getLayout(data);
+  layout.forEach(item=>{
+    let g=document.createElementNS(SVG_NS,'g');
+    g.setAttribute('transform',`translate(${item.x},${item.y})`);
+    g.classList.add('mm-node');
+    if(item.depth===0)g.classList.add('mm-root');
+    let rect=document.createElementNS(SVG_NS,'rect');
+    rect.setAttribute('width',item.w);
+    rect.setAttribute('height',40);
+    rect.setAttribute('x',-item.w/2);
+    rect.setAttribute('y',-20);
+    rect.setAttribute('fill',item.depth===0?item.color:'#161b22');
+    rect.setAttribute('stroke',item.color);
+    rect.setAttribute('stroke-width',2);
+    rect.classList.add('mm-rect');
+    if(selected===item.node){rect.setAttribute('stroke-width',3);rect.setAttribute('filter','drop-shadow(0 0 6px '+item.color+')')}
+    g.appendChild(rect);
+    let text=document.createElementNS(SVG_NS,'text');
+    text.textContent=item.node.text;
+    text.classList.add('mm-text');
+    g.appendChild(text);
+    if(item.node.children&&item.node.children.length>0){
+      let btn=document.createElementNS(SVG_NS,'circle');
+      btn.setAttribute('cx',item.w/2);
+      btn.setAttribute('cy',0);
+      btn.setAttribute('r',8);
+      btn.classList.add('mm-btn');
+      btn.addEventListener('click',e=>{e.stopPropagation();item.node.collapsed=!item.node.collapsed;save();render()});
+      g.appendChild(btn);
+      let btnText=document.createElementNS(SVG_NS,'text');
+      btnText.setAttribute('x',item.w/2);
+      btnText.setAttribute('y',1);
+      btnText.setAttribute('text-anchor','middle');
+      btnText.setAttribute('dominant-baseline','central');
+      btnText.setAttribute('fill','#fff');
+      btnText.setAttribute('font-size','10');
+      btnText.setAttribute('pointer-events','none');
+      btnText.textContent=item.node.collapsed?'+':'-';
+      btn.appendChild(btnText);
+    }
+    g.addEventListener('click',()=>{selected=item.node;render()});
+    g.addEventListener('dblclick',e=>{
+      e.stopPropagation();
+      let t=prompt('编辑节点文字：',item.node.text);
+      if(t!==null){item.node.text=t;save();render()}
+    });
+    g.addEventListener('contextmenu',e=>{
+      e.preventDefault();e.stopPropagation();
+      selected=item.node;
+      ctxMenu.style.left=e.clientX+'px';
+      ctxMenu.style.top=e.clientY+'px';
+      ctxMenu.innerHTML=`<div onclick="addChild()">添加子节点</div><div onclick="addSibling()">添加同级节点</div><div onclick="renameNode()">重命名</div><div onclick="deleteNode()" style="color:var(--red)">删除节点</div>`;
+      ctxMenu.classList.remove('hidden');
+      render();
+    });
+    svg.appendChild(g);
+  });
+  wrap.innerHTML='';
+  wrap.appendChild(svg);
+  svg.addEventListener('mousedown',e=>{if(e.target===svg){isPanning=true;panStart={x:e.clientX,y:e.clientY}}});
+  svg.addEventListener('mousemove',e=>{if(isPanning){viewBox.x-=(e.clientX-panStart.x);viewBox.y-=(e.clientY-panStart.y);panStart={x:e.clientX,y:e.clientY};svg.setAttribute('viewBox',`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`)}});
+  svg.addEventListener('mouseup',()=>isPanning=false);
+  svg.addEventListener('mouseleave',()=>isPanning=false);
+}
+
+function findParent(node,target,path=[]){
+  if(node===target)return path;
+  if(node.children){for(let c of node.children){let r=findParent(c,target,[...path,node]);if(r)return r}}
+  return null;
+}
+
+function addChild(){
+  if(!selected){selected=data}
+  if(!selected.children)selected.children=[];
+  let t=prompt('子节点文字：','新节点');
+  if(t===null)return;
+  selected.children.push({text:t,children:[],collapsed:false});
+  selected.collapsed=false;
+  save();render();
+}
+
+function addSibling(){
+  if(!selected||selected===data)return;
+  let path=findParent(data,selected);
+  if(!path)return;
+  let parent=path[path.length-1]||data;
+  let t=prompt('同级节点文字：','新节点');
+  if(t===null)return;
+  parent.children.push({text:t,children:[],collapsed:false});
+  save();render();
+}
+
+function renameNode(){
+  if(!selected)return;
+  let t=prompt('重命名：',selected.text);
+  if(t!==null){selected.text=t;save();render()}
+}
+
+function deleteNode(){
+  if(!selected||selected===data)return;
+  let path=findParent(data,selected);
+  if(!path)return;
+  let parent=path[path.length-1]||data;
+  parent.children=parent.children.filter(c=>c!==selected);
+  selected=data;
+  save();render();
+}
+
+function expandAll(){
+  function walk(n){n.collapsed=false;if(n.children)n.children.forEach(walk)}
+  walk(data);save();render();
+}
+
+function collapseAll(){
+  function walk(n){if(n.children&&n.children.length){n.collapsed=true;n.children.forEach(walk)}}
+  data.children.forEach(walk);save();render();
+}
+
+function loadDemo(){
+  data={text:'项目管理',children:[
+    {text:'需求分析',children:[{text:'用户调研',children:[]},{text:'竞品分析',children:[]}]},
+    {text:'技术方案',children:[{text:'前端',children:[{text:'React',children:[]},{text:'Vue',children:[]}]},{text:'后端',children:[{text:'Node.js',children:[]},{text:'Go',children:[]}]}]},
+    {text:'项目排期',children:[{text:'第一周',children:[]},{text:'第二周',children:[]},{text:'第三周',children:[]}]}
+  ],collapsed:false};
+  save();render();
+}
+
+function exportPNG(){
+  let svg=wrap.querySelector('svg');
+  let canvas=document.createElement('canvas');
+  canvas.width=2400;canvas.height=1600;
+  let ctx=canvas.getContext('2d');
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,2400,1600);
+  let data=new XMLSerializer().serializeToString(svg);
+  let img=new Image();
+  img.onload=()=>{ctx.drawImage(img,0,0,2400,1600);canvas.toBlob(b=>{let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mindmap.png';a.click()})};
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(data);
+}
+
+document.addEventListener('click',()=>ctxMenu.classList.add('hidden'));
+document.addEventListener('keydown',e=>{
+  if(e.key==='Delete'&&selected&&selected!==data)deleteNode();
+  if(e.key==='Tab'&&selected){e.preventDefault();addChild()}
+  if(e.key==='Enter'&&selected&&selected!==data){e.preventDefault();addSibling()}
+});
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>
