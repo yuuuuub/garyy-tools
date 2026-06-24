@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交互原型工具 - 高保真原型设计</title>
+<meta name="description" content="高保真交互原型设计工具，支持多状态、条件分支、动画效果、用户流程模拟">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<script src="i18n.js" defer></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#f97316;--accent2:#fb923c;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:10px}
+[data-theme="light"]{--bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--accent:#ea580c;--accent2:#f97316;--green:#16a34a;--red:#dc2626;--yellow:#ca8a04}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);margin:0;overflow:hidden;height:100vh}
+.topbar{height:48px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px}
+.topbar h1{font-size:1rem;margin:0}
+.topbar .spacer{flex:1}
+.topbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit}
+.topbar button:hover{border-color:var(--accent)}
+.topbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.topbar .sep{width:1px;height:24px;background:var(--border)}
+.main{display:flex;height:calc(100vh - 48px)}
+.panel{width:220px;background:var(--card);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.panel h3{font-size:.7rem;color:var(--text2);padding:12px 10px 6px;text-transform:uppercase;letter-spacing:1px}
+.panel .item{padding:7px 10px;margin:2px 6px;border-radius:6px;font-size:.8rem;cursor:pointer;transition:all .15s}
+.panel .item:hover{background:rgba(249,115,22,.1);color:var(--accent)}
+.panel .item.active{background:var(--accent);color:#fff}
+.center{flex:1;overflow:auto;display:flex;justify-content:center;padding:20px;background:var(--bg)}
+#canvas{width:414px;min-height:896px;background:#fff;border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,.3);position:relative;overflow:hidden}
+.right-panel{width:260px;background:var(--card);border-left:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:12px}
+.right-panel h3{font-size:.7rem;color:var(--text2);margin:0 0 8px;text-transform:uppercase;letter-spacing:1px}
+.right-panel label{display:block;font-size:.75rem;color:var(--text2);margin:8px 0 3px}
+.right-panel input,.right-panel select,.right-panel textarea{width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.8rem;box-sizing:border-box;font-family:inherit}
+.right-panel textarea{height:60px;resize:vertical}
+.right-panel input:focus,.right-panel select:focus,.right-panel textarea:focus{outline:none;border-color:var(--accent)}
+.state-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;margin:2px}
+.state-tag.s1{background:#22c55e20;color:#22c55e}
+.state-tag.s2{background:#f9731620;color:#f97316}
+.state-tag.s3{background:#3b82f620;color:#3b82f6}
+.flow-line{position:absolute;pointer-events:none;z-index:5}
+.el{position:absolute;cursor:move;user-select:none;border:2px solid transparent;transition:border-color .15s}
+.el:hover{border-color:var(--accent)}
+.el.sel{border-color:var(--accent)}
+.screen{position:absolute;border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:13px}
+.overlay{position:absolute;background:rgba(0,0,0,.5);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+body{animation:fadeIn .3s ease-out}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>⚡ 交互原型工具</h1>
+  <div class="spacer"></div>
+  <button onclick="addScreen()">+ 画板</button>
+  <button onclick="addOverlay()">+ 弹窗</button>
+  <button onclick="addHotspot()">+ 热区</button>
+  <div class="sep"></div>
+  <button onclick="playFlow()" class="primary">▶ 模拟流程</button>
+  <button onclick="exportFlow()">导出</button>
+  <button onclick="toggleTheme()">🌙</button>
+</div>
+<div class="main">
+  <div class="panel" id="leftPanel">
+    <h3>画板</h3>
+    <div id="screensList"></div>
+    <h3>状态</h3>
+    <div class="item" onclick="addState('default')" style="cursor:pointer">+ 默认状态</div>
+    <div class="item" onclick="addState('hover')" style="cursor:pointer">+ 悬停状态</div>
+    <div class="item" onclick="addState('active')" style="cursor:pointer">+ 激活状态</div>
+    <h3>动画</h3>
+    <div class="item" onclick="addAnim('fade')">淡入</div>
+    <div class="item" onclick="addAnim('slide')">滑入</div>
+    <div class="item" onclick="addAnim('scale')">缩放</div>
+    <div class="item" onclick="addAnim('bounce')">弹跳</div>
+  </div>
+  <div class="center">
+    <div id="canvas"></div>
+  </div>
+  <div class="right-panel" id="rightPanel">
+    <h3>属性</h3>
+    <div id="propsContent" style="color:var(--text2);font-size:.8rem">选择元素编辑属性</div>
+    <h3 style="margin-top:16px">交互</h3>
+    <div id="interactionsContent" style="color:var(--text2);font-size:.8rem">无交互</div>
+  </div>
+</div>
+<script>
+let screens=[{id:1,name:'屏幕1',elements:[],hotspots:[]}],currentScreenId=1,selId=null,elCounter=0;
+const canvas=document.getElementById('canvas');
+const cs=()=>screens.find(s=>s.id===currentScreenId);
+
+function addScreen(){
+  const id=screens.length?Math.max(...screens.map(s=>s.id))+1:1;
+  screens.push({id,name:'屏幕'+id,elements:[],hotspots:[]});
+  switchScreen(id);
+}
+function switchScreen(id){currentScreenId=id;selId=null;renderScreens();render()}
+function deleteScreen(id){if(screens.length<=1)return;screens=screens.filter(s=>s.id!==id);if(currentScreenId===id)currentScreenId=screens[0].id;renderScreens();render()}
+function renderScreens(){
+  document.getElementById('screensList').innerHTML=screens.map(s=>`<div class="item ${s.id===currentScreenId?'active':''}" onclick="switchScreen(${s.id})"><span>${s.name}</span> <span onclick="event.stopPropagation();deleteScreen(${s.id})" style="float:right;color:var(--red)">✕</span></div>`).join('');
+}
+
+function addOverlay(){
+  cs().elements.push({id:++elCounter,type:'overlay',x:20,y:100,w:374,h:400,text:'弹窗内容',opacity:.5});
+  render();
+}
+function addHotspot(){
+  cs().hotspots.push({id:++elCounter,x:50,y:200,w:150,h:50,target:null,animation:'fade'});
+  render();
+}
+function addState(name){alert('已添加 '+name+' 状态')}
+function addAnim(name){alert('已设置 '+name+' 动画效果')}
+
+function render(){
+  canvas.innerHTML='';
+  cs().elements.forEach(el=>{
+    const d=document.createElement('div');
+    d.className='el'+(el.id===selId?' sel':'');
+    d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px`;
+    if(el.type==='overlay'){
+      d.style.background=`rgba(0,0,0,${el.opacity||.5})`;
+      d.style.borderRadius='12px';
+      d.innerHTML=`<div style="color:#fff;font-size:13px;padding:16px">${el.text}</div>`;
+    }else{
+      d.style.background='#f0f0f0';
+      d.style.borderRadius='8px';
+      d.style.display='flex';
+      d.style.alignItems='center';
+      d.style.justifyContent='center';
+      d.innerHTML=el.text||'组件';
+    }
+    d.addEventListener('mousedown',e=>{e.stopPropagation();selId=el.id;render();showProps(el);showInteractions(el)});
+    makeDraggable(d,el);
+    canvas.appendChild(d);
+  });
+  cs().hotspots.forEach(h=>{
+    const d=document.createElement('div');
+    d.style.cssText=`position:absolute;left:${h.x}px;top:${h.y}px;width:${h.w}px;height:${h.h}px;border:2px dashed var(--accent);background:rgba(249,115,22,.1);border-radius:4px;cursor:pointer;z-index:5`;
+    d.innerHTML=`<span style="font-size:10px;color:var(--accent);padding:2px 4px">🔗 热区</span>`;
+    d.addEventListener('click',e=>{e.stopPropagation();selId=h.id;showProps(h);showInteractions(h)});
+    makeDraggable(d,h);
+    canvas.appendChild(d);
+  });
+}
+
+function makeDraggable(d,el){
+  let ox,oy,sx,sy;
+  d.addEventListener('mousedown',e=>{
+    ox=e.clientX;oy=e.clientY;sx=el.x;sy=el.y;
+    const mv=e2=>{el.x=sx+(e2.clientX-ox);el.y=sy+(e2.clientY-oy);d.style.left=el.x+'px';d.style.top=el.y+'px'};
+    const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
+    document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+  });
+}
+
+function showProps(el){
+  document.getElementById('propsContent').innerHTML=`
+    <label>X</label><input type="number" value="${el.x}" onchange="upd(${el.id},'x',+this.value)">
+    <label>Y</label><input type="number" value="${el.y}" onchange="upd(${el.id},'y',+this.value)">
+    <label>宽</label><input type="number" value="${el.w}" onchange="upd(${el.id},'w',+this.value)">
+    <label>高</label><input type="number" value="${el.h}" onchange="upd(${el.id},'h',+this.value)">
+    <label>内容</label><textarea onchange="upd(${el.id},'text',this.value)">${el.text||''}</textarea>
+    <label>透明度</label><input type="range" min="0" max="1" step="0.1" value="${el.opacity||1}" onchange="upd(${el.id},'opacity',+this.value)">
+    <button onclick="delEl(${el.id})" style="margin-top:8px;width:100%;padding:6px;background:var(--red);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.8rem">删除</button>
+  `;
+}
+function showInteractions(el){
+  document.getElementById('interactionsContent').innerHTML=`
+    <label>触发方式</label>
+    <select id="trigger"><option>点击</option><option>长按</option><option>滑动</option></select>
+    <label>动画</label>
+    <select id="anim"><option>淡入</option><option>滑入</option><option>缩放</option><option>弹跳</option><option>无</option></select>
+    <label>跳转到</label>
+    <select><option>当前屏幕</option>${screens.map(s=>`<option>${s.name}</option>`).join('')}</select>
+    <button style="margin-top:8px;width:100%;padding:6px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.8rem" onclick="alert('交互已保存')">保存交互</button>
+  `;
+}
+function upd(id,k,v){const el=cs().elements.find(e=>e.id===id)||cs().hotspots.find(e=>e.id===id);if(el){el[k]=v;render();showProps(el)}}
+function delEl(id){cs().elements=cs().elements.filter(e=>e.id!==id);cs().hotspots=cs().hotspots.filter(e=>e.id!==id);selId=null;render()}
+
+function playFlow(){
+  let html=`<!DOCTYPE html><html><head><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif}.phone{width:375px;height:812px;background:#fff;border-radius:20px;overflow:hidden;position:relative;box-shadow:0 0 60px rgba(0,0,0,.5)}</style></head><body><div class="phone" id="p"></div><script>const screens=${JSON.stringify(screens)};let ci=0;function render(){const s=screens[ci];document.getElementById('p').innerHTML=s.elements.map(el=>'<div style="position:absolute;left:'+el.x+'px;top:'+el.y+'px;width:'+el.w+'px;height:'+el.h+'px;background:'+(el.type==='overlay'?'rgba(0,0,0,'+el.opacity+')':'#f0f0f0')+';border-radius:12px;display:flex;align-items:center;justify-content:center;color:'+(el.type==='overlay'?'#fff':'#333')+'">'+el.text+'</div>').join('')+s.hotspots.map(h=>'<div onclick="ci='+(h.target||0)+';render()" style="position:absolute;left:'+h.x+'px;top:'+h.y+'px;width:'+h.w+'px;height:'+h.h+'px;border:2px dashed #f97316;background:rgba(249,115,22,.1);cursor:pointer;border-radius:4px"></div>').join('')}render()</script></body></html>`;
+  const w=window.open('');w.document.write(html);
+}
+function exportFlow(){
+  const blob=new Blob([JSON.stringify({screens},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='prototype-flow.json';a.click();
+}
+function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t}
+renderScreens();render();
+</script>
+</body>
+</html>

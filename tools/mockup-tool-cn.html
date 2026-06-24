@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型图工具 - 可交互原型设计</title>
+<meta name="description" content="在线原型图工具，支持拖拽组件、设置交互、多页面管理、导出原型">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📱</text></svg>">
+<script src="i18n.js" defer></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#8b5cf6;--accent2:#a78bfa;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:12px}
+[data-theme="light"]{--bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--accent:#7c3aed;--accent2:#8b5cf6;--green:#16a34a;--red:#dc2626;--yellow:#ca8a04}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);margin:0}
+.topbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px;z-index:200}
+.topbar h1{font-size:1rem;margin:0;white-space:nowrap}
+.topbar .spacer{flex:1}
+.topbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:all .2s}
+.topbar button:hover{border-color:var(--accent);color:var(--accent)}
+.topbar button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.topbar .sep{width:1px;height:24px;background:var(--border)}
+.sidebar{position:fixed;top:52px;left:0;width:200px;height:calc(100vh - 52px);background:var(--card);border-right:1px solid var(--border);padding:10px;overflow-y:auto;z-index:100}
+.sidebar h3{font-size:.7rem;color:var(--text2);margin:12px 0 6px;text-transform:uppercase;letter-spacing:1px}
+.sidebar .item{padding:7px 8px;margin:2px 0;border:1px solid var(--border);border-radius:6px;cursor:grab;font-size:.8rem;display:flex;align-items:center;gap:6px;transition:all .15s}
+.sidebar .item:hover{border-color:var(--accent);background:rgba(139,92,246,.08)}
+.sidebar .item .ico{width:22px;height:22px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.pages{position:fixed;top:52px;right:0;width:180px;height:calc(100vh - 52px);background:var(--card);border-left:1px solid var(--border);padding:10px;overflow-y:auto;z-index:100}
+.pages h3{font-size:.7rem;color:var(--text2);margin:0 0 8px;text-transform:uppercase;letter-spacing:1px}
+.page-item{padding:6px 8px;margin:3px 0;border:1px solid var(--border);border-radius:6px;font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .15s}
+.page-item:hover,.page-item.active{border-color:var(--accent);background:rgba(139,92,246,.08)}
+.page-item .del{color:var(--red);cursor:pointer;font-size:.7rem}
+.canvas-wrap{position:fixed;top:52px;left:200px;right:180px;bottom:0;overflow:auto;background:var(--bg);display:flex;justify-content:center;padding:30px}
+#artboard{width:375px;min-height:812px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);position:relative;overflow:hidden}
+.el{position:absolute;cursor:move;border:2px dashed transparent;transition:border-color .15s;user-select:none}
+.el:hover{border-color:var(--accent)}
+.el.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,92,246,.2)}
+.el .del-btn{position:absolute;top:-8px;right:-8px;width:18px;height:18px;background:var(--red);color:#fff;border-radius:50%;font-size:10px;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:10}
+.el.sel .del-btn{display:flex}
+.prop-panel{position:fixed;bottom:0;left:200px;right:180px;height:0;background:var(--card);border-top:1px solid var(--border);overflow:hidden;transition:height .3s;z-index:90}
+.prop-panel.open{height:200px}
+.prop-panel .content{padding:12px 16px;display:flex;gap:16px;overflow-x:auto}
+.prop-panel label{font-size:.75rem;color:var(--text2);display:block;margin-bottom:3px}
+.prop-panel input{padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.8rem;width:80px}
+.prop-panel input:focus{outline:none;border-color:var(--accent)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .3s ease-out}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>📱 原型图工具</h1>
+  <div class="spacer"></div>
+  <button onclick="toggleProps()">📋 属性</button>
+  <button onclick="previewMode()">▶ 预览</button>
+  <button onclick="exportProto()">导出</button>
+  <button onclick="toggleTheme()">🌙</button>
+</div>
+<div class="sidebar">
+  <h3>组件</h3>
+  <div class="item" draggable="true" data-type="text"><div class="ico">T</div>文本</div>
+  <div class="item" draggable="true" data-type="rect"><div class="ico">▢</div>矩形</div>
+  <div class="item" draggable="true" data-type="btn"><div class="ico">▣</div>按钮</div>
+  <div class="item" draggable="true" data-type="img"><div class="ico">🖼</div>图片</div>
+  <div class="item" draggable="true" data-type="input"><div class="ico">▭</div>输入框</div>
+  <div class="item" draggable="true" data-type="nav"><div class="ico">☰</div>导航栏</div>
+  <div class="item" draggable="true" data-type="list"><div class="ico">≡</div>列表</div>
+  <div class="item" draggable="true" data-type="switch"><div class="ico">⊘</div>开关</div>
+  <div class="item" draggable="true" data-type="avatar"><div class="ico">👤</div>头像</div>
+  <div class="item" draggable="true" data-type="card"><div class="ico">🃏</div>卡片</div>
+  <div class="item" draggable="true" data-type="tab"><div class="ico">📑</div>标签栏</div>
+  <h3>交互</h3>
+  <div class="item" onclick="addLink()" style="cursor:pointer"><div class="ico">🔗</div>添加链接</div>
+</div>
+<div class="pages" id="pagesPanel">
+  <h3>页面</h3>
+  <div id="pagesList"></div>
+  <button onclick="addPage()" style="width:100%;margin-top:8px;padding:6px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.8rem">+ 新页面</button>
+</div>
+<div class="canvas-wrap"><div id="artboard"></div></div>
+<div class="prop-panel" id="propPanel">
+  <div class="content" id="propContent"></div>
+</div>
+<script>
+let pages=[{id:1,name:'页面1',elements:[]}],currentPageId=1,selectedId=null,elIdCounter=0;
+const artboard=document.getElementById('artboard');
+const currentPage=()=>pages.find(p=>p.id===currentPageId);
+
+function addPage(){
+  const id=pages.length?Math.max(...pages.map(p=>p.id))+1:1;
+  pages.push({id,name:'页面'+id,elements:[]});
+  switchPage(id);
+}
+function switchPage(id){currentPageId=id;selectedId=null;renderPages();render()}
+function deletePage(id){if(pages.length<=1)return;pages=pages.filter(p=>p.id!==id);if(currentPageId===id)currentPageId=pages[0].id;renderPages();render()}
+function renderPages(){
+  document.getElementById('pagesList').innerHTML=pages.map(p=>`<div class="page-item ${p.id===currentPageId?'active':''}" onclick="switchPage(${p.id})"><span>${p.name}</span><span class="del" onclick="event.stopPropagation();deletePage(${p.id})">✕</span></div>`).join('');
+}
+
+function addEl(type,x,y){
+  const el={id:++elIdCounter,type,x,y,w:type==='nav'?375:type==='list'?350:type==='tab'?375:160,h:type==='nav'?48:type==='list'?120:type==='tab'?50:type==='btn'?40:type==='input'?40:type==='avatar'?60:type==='switch'?30:80,text:'',color:'',link:null};
+  if(type==='text')el.text='文本内容';
+  if(type==='btn')el.text='按钮';
+  if(type==='nav')el.text='页面标题';
+  if(type==='list'){el.text='列表项 1\n列表项 2\n列表项 3'}
+  if(type==='card')el.text='卡片内容';
+  currentPage().elements.push(el);
+  render();
+}
+
+function render(){
+  artboard.innerHTML='';
+  currentPage().elements.forEach(el=>{
+    const d=document.createElement('div');
+    d.className='el'+(el.id===selectedId?' sel':'');
+    d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px`;
+    let inner='';
+    if(el.type==='text')inner=`<div style="padding:4px;font-size:14px;color:${el.color||'#333'}">${(el.text||'文本').replace(/\n/g,'<br>')}</div>`;
+    else if(el.type==='rect')inner=`<div style="width:100%;height:100%;background:${el.color||'#e5e7eb'};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#666">${el.text||''}</div>`;
+    else if(el.type==='btn')inner=`<div style="width:100%;height:100%;background:${el.color||'#8b5cf6'};color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">${el.text||'按钮'}</div>`;
+    else if(el.type==='img')inner=`<div style="width:100%;height:100%;background:#e5e7eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:20px">🖼</div>`;
+    else if(el.type==='input')inner=`<div style="width:100%;height:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:8px;color:#333;font-size:13px;display:flex;align-items:center">${el.text||'请输入...'}</div>`;
+    else if(el.type==='nav')inner=`<div style="width:100%;height:100%;background:#1f2937;color:#fff;display:flex;align-items:center;padding:0 16px;font-weight:600">${el.text||'导航栏'}</div>`;
+    else if(el.type==='list')inner=`<div style="width:100%;height:100%;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">${(el.text||'').split('\n').map(t=>`<div style="padding:10px 16px;border-bottom:1px solid #e5e7eb;font-size:13px">${t}</div>`).join('')}</div>`;
+    else if(el.type==='switch')inner=`<div style="width:50px;height:28px;background:${el.color||'#22c55e'};border-radius:14px;position:relative;cursor:pointer"><div style="width:24px;height:24px;background:#fff;border-radius:50%;position:absolute;top:2px;left:24px;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div></div>`;
+    else if(el.type==='avatar')inner=`<div style="width:100%;height:100%;background:#e5e7eb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px">👤</div>`;
+    else if(el.type==='card')inner=`<div style="width:100%;height:100%;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)">${el.text||'卡片内容'}</div>`;
+    else if(el.type==='tab')inner=`<div style="width:100%;height:100%;background:#fff;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-around;font-size:12px;color:#666"><span>首页</span><span>发现</span><span>消息</span><span>我的</span></div>`;
+    d.innerHTML=`<span class="del-btn" onclick="event.stopPropagation();deleteEl(${el.id})">✕</span>`+inner;
+    d.addEventListener('mousedown',e=>{if(e.target.classList.contains('del-btn'))return;e.stopPropagation();selectedId=el.id;render();updateProps(el)});
+    makeDraggable(d,el);
+    artboard.appendChild(d);
+  });
+}
+
+function makeDraggable(d,el){
+  let ox,oy,sx,sy;
+  d.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('del-btn'))return;
+    ox=e.clientX;oy=e.clientY;sx=el.x;sy=el.y;
+    const onMove=e2=>{el.x=sx+(e2.clientX-ox);el.y=sy+(e2.clientY-oy);d.style.left=el.x+'px';d.style.top=el.y+'px'};
+    const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp)};
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  });
+}
+
+function updateProps(el){
+  document.getElementById('propContent').innerHTML=`
+    <div><label>X</label><input type="number" value="${el.x}" onchange="setProp(${el.id},'x',+this.value)"></div>
+    <div><label>Y</label><input type="number" value="${el.y}" onchange="setProp(${el.id},'y',+this.value)"></div>
+    <div><label>宽</label><input type="number" value="${el.w}" onchange="setProp(${el.id},'w',+this.value)"></div>
+    <div><label>高</label><input type="number" value="${el.h}" onchange="setProp(${el.id},'h',+this.value)"></div>
+    <div><label>文字</label><input type="text" value="${el.text||''}" onchange="setProp(${el.id},'text',this.value)" style="width:120px"></div>
+    <div><label>颜色</label><input type="color" value="${el.color||'#e5e7eb'}" onchange="setProp(${el.id},'color',this.value)"></div>
+    <div><label>链接到</label><select onchange="setProp(${el.id},'link',this.value?+this.value:null)" style="padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.8rem"><option value="">无</option>${pages.map(p=>`<option value="${p.id}" ${el.link===p.id?'selected':''}>${p.name}</option>`).join('')}</select></div>
+  `;
+}
+function setProp(id,k,v){const el=currentPage().elements.find(e=>e.id===id);if(el){el[k]=v;render();updateProps(el)}}
+function deleteEl(id){currentPage().elements=currentPage().elements.filter(e=>e.id!==id);selectedId=null;render();document.getElementById('propContent').innerHTML=''}
+function toggleProps(){document.getElementById('propPanel').classList.toggle('open')}
+
+document.querySelectorAll('.item[draggable]').forEach(c=>{
+  c.addEventListener('dragstart',e=>e.dataTransfer.setData('type',c.dataset.type));
+});
+artboard.addEventListener('dragover',e=>e.preventDefault());
+artboard.addEventListener('drop',e=>{
+  e.preventDefault();
+  const type=e.dataTransfer.getData('type');
+  if(type){const r=artboard.getBoundingClientRect();addEl(type,e.clientX-r.left,e.clientY+r.scrollTop-r.top)}
+});
+
+function previewMode(){
+  const w=window.open('');w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;display:flex;justify-content:center;background:#111}iframe{border:none;width:375px;height:812px;border-radius:16px;box-shadow:0 0 40px rgba(0,0,0,.5)}</style></head><body><iframe id="f"></iframe><script>const pages=${JSON.stringify(pages)};let cp=0;function render(p){const f=document.getElementById('f');f.srcdoc='<!DOCTYPE html><html><body style="margin:0;background:#fff;font-family:sans-serif">'+p.elements.map(el=>'<div style="position:absolute;left:'+el.x+'px;top:'+el.y+'px;width:'+el.w+'px;height:'+el.h+'px">'+(el.type==='btn'?'<div style="width:100%;height:100%;background:#8b5cf6;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center">'+el.text+'</div>':el.type==='nav'?'<div style="width:100%;height:100%;background:#1f2937;color:#fff;display:flex;align-items:center;padding:0 16px">'+el.text+'</div>':'<div style="padding:4px">'+el.text+'</div>')+'</div>').join('')+'</body></html>';f.onload=()=>{f.contentDocument.querySelectorAll('div[style*="background:#8b5cf6"],div[style*="background: rgb(139, 92, 246)"]').forEach(b=>{b.style.cursor='pointer'})}}render(pages[0]);</script></body></html>`);
+}
+
+function exportProto(){
+  const blob=new Blob([JSON.stringify({pages,current:currentPageId},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='prototype.json';a.click();
+}
+function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t}
+renderPages();render();
+</script>
+</body>
+</html>

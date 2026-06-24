@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计系统工具 - 组件与规范管理</title>
+<meta name="description" content="设计系统管理工具，管理颜色、字体、间距、组件库，生成设计规范文档">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<script src="i18n.js" defer></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#06b6d4;--accent2:#22d3ee;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:10px}
+[data-theme="light"]{--bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--accent:#0891b2;--accent2:#06b6d4;--green:#16a34a;--red:#dc2626;--yellow:#ca8a04}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);margin:0}
+.topbar{height:52px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:10px}
+.topbar h1{font-size:1.05rem;margin:0}
+.topbar .spacer{flex:1}
+.topbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit}
+.topbar button:hover{border-color:var(--accent)}
+.topbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--card);padding:0 20px;gap:0}
+.tab{padding:10px 20px;cursor:pointer;font-size:14px;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.content{padding:20px;max-width:1200px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:1rem}
+.grid{display:grid;gap:12px}
+.grid-2{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.grid-3{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.grid-4{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.color-swatch{height:80px;border-radius:8px;display:flex;align-items:flex-end;padding:8px;font-size:12px;font-weight:600;color:#fff;cursor:pointer;position:relative;transition:transform .2s}
+.color-swatch:hover{transform:scale(1.05)}
+.color-swatch .info{position:absolute;bottom:4px;right:8px;font-size:10px;opacity:.8}
+.font-sample{padding:12px;border:1px solid var(--border);border-radius:8px}
+.font-sample .name{font-size:12px;color:var(--text2);margin-bottom:4px}
+.spacing-sample{display:flex;align-items:flex-end;gap:8px}
+.spacing-bar{background:var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;min-width:30px}
+.comp-preview{padding:12px;border:1px solid var(--border);border-radius:8px;text-align:center}
+.comp-preview .preview{margin:8px 0;min-height:40px;display:flex;align-items:center;justify-content:center}
+.comp-preview .label{font-size:12px;color:var(--text2)}
+.btn-preview{padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-weight:600}
+.input-preview{padding:8px 12px;border:1px solid var(--border);border-radius:6px;width:100%;box-sizing:border-box;background:var(--bg);color:var(--text)}
+.tag-preview{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px}
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.modal-content{background:var(--card);border-radius:12px;padding:20px;width:400px;max-width:90vw}
+.modal-content h3{margin:0 0 12px}
+.modal-content input,.modal-content select{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box;margin-bottom:10px}
+.modal-content button{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:14px;margin-right:8px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.content{animation:fadeIn .3s ease-out}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🎨 设计系统工具</h1>
+  <div class="spacer"></div>
+  <button onclick="exportSystem()">导出规范</button>
+  <button onclick="importSystem()">导入</button>
+  <button onclick="toggleTheme()">🌙</button>
+</div>
+<div class="tabs" id="tabs">
+  <div class="tab active" onclick="switchTab('colors')">颜色</div>
+  <div class="tab" onclick="switchTab('typography')">字体</div>
+  <div class="tab" onclick="switchTab('spacing')">间距</div>
+  <div class="tab" onclick="switchTab('components')">组件</div>
+  <div class="tab" onclick="switchTab('tokens')">Tokens</div>
+</div>
+<div class="content" id="mainContent"></div>
+<div class="modal" id="addModal"><div class="modal-content" id="modalContent"></div></div>
+<script>
+let data={
+  colors:[
+    {name:'Primary',value:'#3b82f6',category:'品牌'},
+    {name:'Secondary',value:'#8b5cf6',category:'品牌'},
+    {name:'Success',value:'#22c55e',category:'状态'},
+    {name:'Warning',value:'#eab308',category:'状态'},
+    {name:'Error',value:'#ef4444',category:'状态'},
+    {name:'Info',value:'#06b6d4',category:'状态'},
+    {name:'Gray 50',value:'#f9fafb',category:'中性色'},
+    {name:'Gray 100',value:'#f3f4f6',category:'中性色'},
+    {name:'Gray 200',value:'#e5e7eb',category:'中性色'},
+    {name:'Gray 500',value:'#6b7280',category:'中性色'},
+    {name:'Gray 900',value:'#111827',category:'中性色'}
+  ],
+  typography:[
+    {name:'H1',family:'PingFang SC',size:32,weight:700,lineHeight:1.2},
+    {name:'H2',family:'PingFang SC',size:24,weight:600,lineHeight:1.3},
+    {name:'H3',family:'PingFang SC',size:20,weight:600,lineHeight:1.4},
+    {name:'Body',family:'PingFang SC',size:16,weight:400,lineHeight:1.6},
+    {name:'Caption',family:'PingFang SC',size:12,weight:400,lineHeight:1.5},
+    {name:'Button',family:'PingFang SC',size:14,weight:600,lineHeight:1}
+  ],
+  spacing:[4,8,12,16,20,24,32,40,48,64],
+  components:[
+    {name:'Button',type:'button',props:{bg:'#3b82f6',color:'#fff',radius:6,padding:'8px 20px'}},
+    {name:'Input',type:'input',props:{border:'#d1d5db',radius:6,padding:'8px 12px'}},
+    {name:'Card',type:'card',props:{bg:'#fff',border:'#e5e7eb',radius:8,padding:16}},
+    {name:'Badge',type:'badge',props:{bg:'#22c55e',color:'#fff',radius:20,padding:'4px 12px'}},
+    {name:'Avatar',type:'avatar',props:{size:40,radius:20,bg:'#e5e7eb'}},
+    {name:'Tag',type:'tag',props:{bg:'#eff6ff',color:'#3b82f6',radius:4,padding:'2px 8px'}}
+  ]
+};
+
+let currentTab='colors';
+function switchTab(t){currentTab=t;document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['colors','typography','spacing','components','tokens'][i]===t));render()}
+
+function render(){
+  const c=document.getElementById('mainContent');
+  if(currentTab==='colors')renderColors(c);
+  else if(currentTab==='typography')renderTypography(c);
+  else if(currentTab==='spacing')renderSpacing(c);
+  else if(currentTab==='components')renderComponents(c);
+  else renderTokens(c);
+}
+
+function renderColors(c){
+  const cats=[...new Set(data.colors.map(cl=>cl.category))];
+  c.innerHTML=cats.map(cat=>`<div class="card"><h3>${cat}</h3><div class="grid grid-4">${data.colors.filter(cl=>cl.category===cat).map(cl=>`<div class="color-swatch" style="background:${cl.value}" onclick="editColor('${cl.name}')" title="${cl.name}">${cl.name}<span class="info">${cl.value}</span></div>`).join('')}</div></div>`).join('')+`<button onclick="showAddColor()" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">+ 添加颜色</button>`;
+}
+function renderTypography(c){
+  c.innerHTML=`<div class="card"><h3>字体比例</h3><div class="grid grid-2">${data.typography.map(t=>`<div class="font-sample"><div class="name">${t.name} · ${t.size}px · ${t.weight}</div><div style="font-family:${t.family};font-size:${t.size}px;font-weight:${t.weight};line-height:${t.lineHeight}">示例文字 Abc 123</div></div>`).join('')}</div></div>`;
+}
+function renderSpacing(c){
+  c.innerHTML=`<div class="card"><h3>间距系统</h3><div class="spacing-sample">${data.spacing.map(s=>`<div class="spacing-bar" style="height:${Math.max(s*2,24)}px;min-width:${s*2}px">${s}px</div>`).join('')}</div><p style="margin-top:12px;font-size:13px;color:var(--text2)">基于 ${data.spacing[1]}px 网格的间距比例系统</p></div>`;
+}
+function renderComponents(c){
+  c.innerHTML=`<div class="card"><h3>组件库</h3><div class="grid grid-3">${data.components.map(comp=>{
+    let preview='';
+    if(comp.type==='button')preview=`<button class="btn-preview" style="background:${comp.props.bg};color:${comp.props.color};border-radius:${comp.props.radius}px;padding:${comp.props.padding}">按钮</button>`;
+    else if(comp.type==='input')preview=`<input class="input-preview" placeholder="输入内容" style="border-color:${comp.props.border};border-radius:${comp.props.radius}px">`;
+    else if(comp.type==='card')preview=`<div style="background:${comp.props.bg};border:1px solid ${comp.props.border};border-radius:${comp.props.radius}px;padding:${comp.props.padding}px;text-align:left"><b>卡片标题</b><p style="margin:4px 0 0;font-size:13px;color:var(--text2)">卡片内容描述</p></div>`;
+    else if(comp.type==='badge')preview=`<span class="tag-preview" style="background:${comp.props.bg};color:${comp.props.color};border-radius:${comp.props.radius}px;padding:${comp.props.padding}">Badge</span>`;
+    else if(comp.type==='avatar')preview=`<div style="width:${comp.props.size}px;height:${comp.props.size}px;border-radius:${comp.props.radius}px;background:${comp.props.bg};display:flex;align-items:center;justify-content:center;font-size:18px">👤</div>`;
+    else if(comp.type==='tag')preview=`<span class="tag-preview" style="background:${comp.props.bg};color:${comp.props.color};border-radius:${comp.props.radius}px;padding:${comp.props.padding}">标签</span>`;
+    return `<div class="comp-preview"><div class="preview">${preview}</div><div class="label">${comp.name}</div></div>`;
+  }).join('')}</div></div>`;
+}
+function renderTokens(c){
+  const tokens={};
+  data.colors.forEach(cl=>{tokens['--color-'+cl.name.toLowerCase().replace(/\s+/g,'-')]=cl.value});
+  data.typography.forEach(t=>{tokens['--font-'+t.name.toLowerCase()+'-size']=t.size+'px';tokens['--font-'+t.name.toLowerCase()+'-weight']=t.weight});
+  c.innerHTML=`<div class="card"><h3>CSS Tokens</h3><pre style="background:var(--bg);padding:16px;border-radius:8px;font-size:12px;overflow-x:auto;border:1px solid var(--border)">${Object.entries(tokens).map(([k,v])=>`${k}: ${v};`).join('\n')}</pre><button onclick="copyTokens()" style="margin-top:12px;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer">复制 CSS</button></div>`;
+}
+
+function showAddColor(){
+  const m=document.getElementById('addModal');m.classList.add('open');
+  m.querySelector('#modalContent').innerHTML=`<h3>添加颜色</h3><input id="newColorName" placeholder="颜色名称"><input id="newColorValue" type="color" value="#3b82f6"><input id="newColorCat" placeholder="分类（如：品牌）"><button onclick="addColor()" style="background:var(--accent);color:#fff">添加</button><button onclick="closeModal()" style="background:var(--border);color:var(--text)">取消</button>`;
+}
+function addColor(){
+  data.colors.push({name:document.getElementById('newColorName').value,value:document.getElementById('newColorValue').value,category:document.getElementById('newColorCat').value||'自定义'});
+  closeModal();render();
+}
+function editColor(name){const cl=data.colors.find(c=>c.name===name);if(cl){const v=prompt('新颜色值:',cl.value);if(v){cl.value=v;render()}}}
+function closeModal(){document.getElementById('addModal').classList.remove('open')}
+
+function exportSystem(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='design-system.json';a.click();
+}
+function importSystem(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{const r=new FileReader();r.onload=ev=>{data=JSON.parse(ev.target.result);render()};r.readAsText(e.target.files[0])};
+  inp.click();
+}
+function copyTokens(){
+  const tokens={};data.colors.forEach(cl=>{tokens['--color-'+cl.name.toLowerCase().replace(/\s+/g,'-')]=cl.value});
+  navigator.clipboard.writeText(':root{\n'+Object.entries(tokens).map(([k,v])=>`  ${k}: ${v};`).join('\n')+'\n}');
+}
+function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t}
+render();
+</script>
+</body>
+</html>

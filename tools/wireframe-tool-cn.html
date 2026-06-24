@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>线框图工具 - 快速构建UI线框</title>
+<meta name="description" content="在线线框图工具，快速创建和编辑UI线框图，支持拖拽组件、导出PNG/SVG">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖼</text></svg>">
+<script src="i18n.js" defer></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#60a5fa;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--accent:#2563eb;--accent2:#3b82f6;--green:#16a34a;--red:#dc2626;--yellow:#ca8a04}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;min-height:100vh}
+.toolbar{position:fixed;top:0;left:0;right:0;height:56px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px;z-index:200}
+.toolbar h1{font-size:1.1rem;margin:0}
+.toolbar .spacer{flex:1}
+.toolbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}
+.toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+.toolbar button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.toolbar .sep{width:1px;height:28px;background:var(--border)}
+.sidebar{position:fixed;top:56px;left:0;width:220px;height:calc(100vh - 56px);background:var(--card);border-right:1px solid var(--border);padding:12px;overflow-y:auto;z-index:100}
+.sidebar h3{font-size:.75rem;color:var(--text2);margin:16px 0 8px;text-transform:uppercase;letter-spacing:1px}
+.sidebar .comp{padding:8px 10px;margin:3px 0;border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:.85rem;display:flex;align-items:center;gap:8px;transition:all .2s}
+.sidebar .comp:hover{border-color:var(--accent);background:rgba(59,130,246,.08)}
+.sidebar .comp .ico{width:26px;height:26px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.props{position:fixed;top:56px;right:0;width:240px;height:calc(100vh - 56px);background:var(--card);border-left:1px solid var(--border);padding:12px;overflow-y:auto;z-index:100}
+.props h3{font-size:.75rem;color:var(--text2);margin:0 0 10px;text-transform:uppercase;letter-spacing:1px}
+.props label{display:block;font-size:.8rem;color:var(--text2);margin:8px 0 4px}
+.props input,.props select{width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.85rem;box-sizing:border-box}
+.props input:focus{outline:none;border-color:var(--accent)}
+.canvas-wrap{position:fixed;top:56px;left:220px;right:240px;bottom:0;overflow:auto;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;padding:30px}
+#artboard{width:375px;min-height:812px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);position:relative;overflow:hidden}
+.el{position:absolute;cursor:move;border:2px dashed transparent;transition:border-color .15s;user-select:none}
+.el:hover{border-color:var(--accent)}
+.el.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+.el .resize{position:absolute;bottom:-5px;right:-5px;width:10px;height:10px;background:var(--accent);border-radius:2px;cursor:se-resize;display:none}
+.el.sel .resize{display:block}
+.wf-text{padding:8px;font-size:14px;color:#333}
+.wf-rect{background:#e5e7eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px}
+.wf-btn{background:#3b82f6;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.wf-img{background:#e5e7eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:20px}
+.wf-input{background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:8px 12px;color:#333;font-size:13px}
+.wf-nav{background:#1f2937;color:#fff;border-radius:0;padding:12px 16px;font-size:14px;font-weight:600}
+.wf-divider{height:1px;background:#e5e7eb;width:100%}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .3s ease-out}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <h1>🖼 线框图工具</h1>
+  <div class="spacer"></div>
+  <button onclick="undo()">↩ 撤销</button>
+  <button onclick="redo()">↪ 重做</button>
+  <div class="sep"></div>
+  <button onclick="clearCanvas()">🗑 清空</button>
+  <button onclick="exportPNG()">导出PNG</button>
+  <button onclick="exportJSON()">导出JSON</button>
+  <button onclick="toggleTheme()">🌙</button>
+</div>
+<div class="sidebar">
+  <h3>基础组件</h3>
+  <div class="comp" draggable="true" data-type="text"><div class="ico">T</div>文本</div>
+  <div class="comp" draggable="true" data-type="rect"><div class="ico">▢</div>矩形</div>
+  <div class="comp" draggable="true" data-type="btn"><div class="ico">▣</div>按钮</div>
+  <div class="comp" draggable="true" data-type="img"><div class="ico">🖼</div>图片占位</div>
+  <div class="comp" draggable="true" data-type="input"><div class="ico">▭</div>输入框</div>
+  <div class="comp" draggable="true" data-type="nav"><div class="ico">☰</div>导航栏</div>
+  <div class="comp" draggable="true" data-type="divider"><div class="ico">—</div>分割线</div>
+  <h3>模板</h3>
+  <div class="comp" onclick="loadTemplate('login')"><div class="ico">📄</div>登录页</div>
+  <div class="comp" onclick="loadTemplate('profile')"><div class="ico">📄</div>个人中心</div>
+  <div class="comp" onclick="loadTemplate('list')"><div class="ico">📄</div>列表页</div>
+</div>
+<div class="props" id="propsPanel">
+  <h3>属性面板</h3>
+  <div id="propsContent" style="color:var(--text2);font-size:.85rem">选中组件以编辑属性</div>
+</div>
+<div class="canvas-wrap">
+  <div id="artboard"></div>
+</div>
+<script>
+let elements=[], selectedId=null, history=[], historyIdx=-1, idCounter=0;
+const artboard=document.getElementById('artboard');
+
+function saveState(){history=history.slice(0,historyIdx+1);history.push(JSON.parse(JSON.stringify(elements)));historyIdx=history.length-1}
+function undo(){if(historyIdx>0){historyIdx--;elements=JSON.parse(JSON.stringify(history[historyIdx]));render()}}
+function redo(){if(historyIdx<history.length-1){historyIdx++;elements=JSON.parse(JSON.stringify(history[historyIdx]));render()}}
+
+function addEl(type,x,y){
+  const w=type==='nav'?375:type==='divider'?350:type==='btn'?200:type==='input'?300:160;
+  const h=type==='nav'?48:type==='divider'?1:type==='btn'?40:type==='input'?40:type==='text'?30:80;
+  elements.push({id:++idCounter,type,x,y,w,h,text:type==='text'?'文本':type==='nav'?'导航栏':type==='btn'?'按钮':type==='input'?'请输入...':type==='rect'?'矩形':'',color:''});
+  saveState();render();
+}
+
+function render(){
+  artboard.innerHTML='';
+  elements.forEach(el=>{
+    const d=document.createElement('div');
+    d.className='el'+(el.id===selectedId?' sel':'');
+    d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px`;
+    if(el.type==='text'){d.innerHTML=`<div class="wf-text" contenteditable="true" style="color:${el.color||'#333'}">${el.text}</div>`}
+    else if(el.type==='rect'){d.innerHTML=`<div class="wf-rect" style="background:${el.color||'#e5e7eb'};width:100%;height:100%">${el.text}</div>`}
+    else if(el.type==='btn'){d.innerHTML=`<div class="wf-btn" style="width:100%;height:100%">${el.text||'按钮'}</div>`}
+    else if(el.type==='img'){d.innerHTML=`<div class="wf-img" style="width:100%;height:100%">🖼</div>`}
+    else if(el.type==='input'){d.innerHTML=`<div class="wf-input" style="width:100%;height:100%">${el.text||'请输入...'}</div>`}
+    else if(el.type==='nav'){d.innerHTML=`<div class="wf-nav" style="width:100%;height:100%">${el.text||'导航栏'}</div>`}
+    else if(el.type==='divider'){d.innerHTML=`<div class="wf-divider"></div>`}
+    d.innerHTML+=`<div class="resize"></div>`;
+    d.addEventListener('mousedown',e=>{e.stopPropagation();selectedId=el.id;render();showProps(el)});
+    makeDraggable(d,el);
+    artboard.appendChild(d);
+  });
+}
+
+function makeDraggable(d,el){
+  let ox,oy,sx,sy;
+  d.querySelector('.resize')?.addEventListener('mousedown',e=>{
+    e.stopPropagation();
+    const onMove=e2=>{el.w=Math.max(40,el.w+(e2.clientX-e.clientX));el.h=Math.max(20,el.h+(e2.clientY-e.clientY));render()};
+    const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp)};
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  });
+  d.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('resize'))return;
+    ox=e.clientX;oy=e.clientY;sx=el.x;sy=el.y;
+    const onMove=e2=>{el.x=sx+(e2.clientX-ox);el.y=sy+(e2.clientY-oy);d.style.left=el.x+'px';d.style.top=el.y+'px'};
+    const onUp=()=>{if(Math.abs(e.clientX-ox)>2||Math.abs(e.clientY-oy)>2)saveState();document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp)};
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  });
+}
+
+function showProps(el){
+  document.getElementById('propsContent').innerHTML=`
+    <label>X</label><input type="number" value="${el.x}" onchange="updateProp(${el.id},'x',+this.value)">
+    <label>Y</label><input type="number" value="${el.y}" onchange="updateProp(${el.id},'y',+this.value)">
+    <label>宽度</label><input type="number" value="${el.w}" onchange="updateProp(${el.id},'w',+this.value)">
+    <label>高度</label><input type="number" value="${el.h}" onchange="updateProp(${el.id},'h',+this.value)">
+    <label>内容</label><input type="text" value="${el.text}" onchange="updateProp(${el.id},'text',this.value)">
+    <label>颜色</label><input type="color" value="${el.color||'#e5e7eb'}" onchange="updateProp(${el.id},'color',this.value)">
+    <button style="margin-top:12px;background:var(--red);color:#fff;width:100%;border:none;padding:8px;border-radius:6px;cursor:pointer" onclick="deleteEl(${el.id})">删除</button>
+  `;
+}
+function updateProp(id,k,v){const el=elements.find(e=>e.id===id);if(el){el[k]=v;saveState();render();showProps(el)}}
+function deleteEl(id){elements=elements.filter(e=>e.id!==id);selectedId=null;saveState();render();document.getElementById('propsContent').innerHTML='<span style="color:var(--text2);font-size:.85rem">选中组件以编辑属性</span>'}
+function clearCanvas(){elements=[];selectedId=null;saveState();render()}
+
+document.querySelectorAll('.comp[draggable]').forEach(c=>{
+  c.addEventListener('dragstart',e=>{e.dataTransfer.setData('type',c.dataset.type)});
+});
+artboard.addEventListener('dragover',e=>e.preventDefault());
+artboard.addEventListener('drop',e=>{
+  e.preventDefault();
+  const type=e.dataTransfer.getData('type');
+  if(type){const r=artboard.getBoundingClientRect();addEl(type,e.clientX-r.left,e.clientY+r.scrollTop-r.top)}
+});
+artboard.addEventListener('click',e=>{if(e.target===artboard){selectedId=null;render();document.getElementById('propsContent').innerHTML='<span style="color:var(--text2);font-size:.85rem">选中组件以编辑属性</span>'}});
+
+function loadTemplate(name){
+  clearCanvas();
+  if(name==='login'){
+    addEl('nav',0,0);updateProp(1,'text','登录');
+    addEl('img',137,80);elements[elements.length-1].w=100;elements[elements.length-1].h=100;
+    addEl('input',37,220);updateProp(elements.length,'text','用户名');
+    addEl('input',37,280);updateProp(elements.length,'text','密码');
+    addEl('btn',37,340);updateProp(elements.length,'text','登录');
+    addEl('text',120,400);updateProp(elements.length,'text','忘记密码？');
+  }else if(name==='profile'){
+    addEl('nav',0,0);updateProp(1,'text','个人中心');
+    addEl('img',137,70);elements[elements.length-1].w=100;elements[elements.length-1].h=100;
+    addEl('text',150,185);updateProp(elements.length,'text','用户名');
+    addEl('rect',0,210);elements[elements.length-1].w=375;elements[elements.length-1].h=1;elements[elements.length-1].color='#e5e7eb';
+    addEl('text',20,230);updateProp(elements.length,'text','我的订单');
+    addEl('text',20,280);updateProp(elements.length,'text','我的收藏');
+    addEl('text',20,330);updateProp(elements.length,'text','设置');
+  }else if(name==='list'){
+    addEl('nav',0,0);updateProp(1,'text','列表');
+    for(let i=0;i<5;i++){addEl('rect',16,60+i*70);elements[elements.length-1].w=343;elements[elements.length-1].h=60;updateProp(elements.length,'text','列表项 '+(i+1))}
+  }
+  saveState();render();
+}
+
+function exportPNG(){
+  const w=window.open('');w.document.write('<html><body style="margin:0"></body></html>');
+  const c=document.createElement('canvas');c.width=375*2;c.height=artboard.scrollHeight*2;
+  const ctx=c.getContext('2d');ctx.scale(2,2);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,375,artboard.scrollHeight);
+  ctx.font='14px sans-serif';ctx.fillStyle='#333';
+  elements.forEach(el=>{
+    ctx.fillStyle=el.type==='nav'?'#1f2937':el.type==='btn'?'#3b82f6':el.color||'#e5e7eb';
+    ctx.fillRect(el.x,el.y,el.w,el.h);
+    if(el.text){ctx.fillStyle=el.type==='nav'||el.type==='btn'?'#fff':'#333';ctx.font=el.type==='nav'?'bold 14px sans-serif':'13px sans-serif';ctx.fillText(el.text,el.x+8,el.y+el.h/2+5)}
+  });
+  const img=c.toDataURL();const imgEl=w.document.createElement('img');imgEl.src=img;w.document.body.appendChild(imgEl);
+}
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(elements,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='wireframe.json';a.click();
+}
+function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;document.querySelector('.toolbar button:last-child').textContent=t==='light'?'🌙':'☀️'}
+saveState();render();
+</script>
+</body>
+</html>

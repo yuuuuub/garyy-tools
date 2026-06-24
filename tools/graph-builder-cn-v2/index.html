@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图形构建器 V2</title>
+<meta name="description" content="图形关系网络构建器V2，可视化节点关系和网络拓扑">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6scroll-behavior:smooth;}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:var(--text);font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.hidden{display:none!important}
+.graph-canvas{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:crosshair}
+.node-circle{cursor:move}
+.node-circle:hover{filter:brightness(1.2)}
+.edge-line{stroke:var(--text2);stroke-width:2;opacity:0.6}
+.edge-line.highlighted{stroke:var(--accent);stroke-width:3;opacity:1}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="图形构建器V2">
+<meta property="og:description" content="图形关系网络构建器V2，可视化节点关系和网络拓扑">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/graph-builder-cn-v2/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🔗 图形构建器V2';
+const APP=document.getElementById('app');
+let graphs=JSON.parse(localStorage.getItem('gbv2_graphs')||'[]');
+let curGraph=null;
+let mode='view';
+let dragNode=null;
+let dragOff={x:0,y:0};
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+
+function save(){localStorage.setItem('gbv2_graphs',JSON.stringify(graphs))}
+
+function render(){
+  let h=`<h1>🔗 图形构建器V2</h1><p class="subtitle">创建和编辑节点关系图</p>`;
+  if(curGraph!==null){
+    let g=graphs[curGraph];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curGraph=null;render()">← 返回</button><b>${g.title}</b><div class="flex">`;
+    h+=`<button class="btn btn-sm ${mode==='view'?'btn-success':''}" onclick="mode='view';render()">选择</button>`;
+    h+=`<button class="btn btn-sm ${mode==='addNode'?'btn-success':''}" onclick="mode='addNode';render()">+ 节点</button>`;
+    h+=`<button class="btn btn-sm ${mode==='addEdge'?'btn-success':''}" onclick="mode='addEdge';render()">连边</button>`;
+    h+=`<button class="btn btn-sm ${mode==='delete'?'btn-danger':''}" onclick="mode='delete';render()">删除</button>`;
+    h+=`<button class="btn btn-sm btn-warning" onclick="autoLayout()">自动布局</button>`;
+    h+=`</div></div></div>`;
+    h+=`<div class="card" style="padding:0"><svg id="graphSvg" width="100%" height="450" viewBox="0 0 800 450" class="graph-canvas"></svg></div>`;
+    h+=`<div class="card"><div class="flex-between" style="margin-bottom:8px"><b style="font-size:.9rem">节点列表（${g.nodes.length}）</b><button class="btn btn-sm" onclick="addNodePrompt()">+ 添加</button></div>`;
+    if(g.nodes.length){
+      h+=`<table class="table"><tr><th>ID</th><th>标签</th><th>连接数</th><th>操作</th></tr>`;
+      g.nodes.forEach((n,i)=>{
+        let conn=g.edges.filter(e=>e.from===i||e.to===i).length;
+        h+=`<tr><td>${i+1}</td><td><span style="color:${COLORS[i%COLORS.length]}">●</span> ${n.label}</td><td>${conn}</td><td><button class="btn btn-sm" onclick="renameNode(${i})">重命名</button> <button class="btn btn-sm btn-danger" onclick="delNode(${i})">×</button></td></tr>`;
+      });
+      h+=`</table>`;
+    }
+    h+=`<div class="card"><div class="flex-between" style="margin-bottom:8px"><b style="font-size:.9rem">边列表（${g.edges.length}）</b></div>`;
+    if(g.edges.length){
+      h+=`<table class="table"><tr><th>起点</th><th>终点</th><th>权重</th><th>操作</th></tr>`;
+      g.edges.forEach((e,i)=>{
+        h+=`<tr><td>${g.nodes[e.from]?g.nodes[e.from].label:'?'}</td><td>${g.nodes[e.to]?g.nodes[e.to].label:'?'}</td><td>${e.weight||1}</td><td><button class="btn btn-sm" onclick="editEdge(${i})">编辑</button> <button class="btn btn-sm btn-danger" onclick="delEdge(${i})">×</button></td></tr>`;
+      });
+      h+=`</table>`;
+    }
+    drawGraph();
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">图形列表</span><button class="btn btn-sm" onclick="newGraph()">+ 新建</button></div></div>`;
+    graphs.forEach((g,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${g.title}</b><div class="flex"><span class="badge badge-blue">${g.nodes.length} 节点</span><span class="badge badge-green">${g.edges.length} 边</span><button class="btn btn-sm" onclick="openGraph(${i})">打开</button><button class="btn btn-sm btn-danger" onclick="delGraph(${i})">×</button></div></div></div>`;
+    });
+    if(!graphs.length) h+=`<div class="empty">暂无图形</div>`;
+  }
+  APP.innerHTML=h;
+}
+
+function drawGraph(){
+  let svg=document.getElementById('graphSvg');
+  if(!svg) return;
+  let g=graphs[curGraph];
+  let s='';
+  g.edges.forEach((e,ei)=>{
+    let from=g.nodes[e.from],to=g.nodes[e.to];
+    if(!from||!to) return;
+    s+=`<line class="edge-line" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" data-ei="${ei}"/>`;
+    let mx=(from.x+to.x)/2,my=(from.y+to.y)/2;
+    if(e.weight&&e.weight!==1) s+=`<text x="${mx}" y="${my-6}" fill="var(--text2)" font-size="10" text-anchor="middle">${e.weight}</text>`;
+  });
+  g.nodes.forEach((n,i)=>{
+    s+=`<circle class="node-circle" cx="${n.x}" cy="${n.y}" r="20" fill="${COLORS[i%COLORS.length]}" data-ni="${i}"/>`;
+    s+=`<text x="${n.x}" y="${n.y+4}" fill="#fff" font-size="11" text-anchor="middle" pointer-events="none">${n.label.substring(0,4)}</text>`;
+  });
+  svg.innerHTML=s;
+  svg.querySelectorAll('.node-circle').forEach(el=>{
+    el.addEventListener('mousedown',onNodeDown);
+    el.addEventListener('touchstart',onNodeTouch,{passive:false});
+  });
+  svg.addEventListener('click',onSvgClick);
+}
+
+let edgeStart=null;
+
+function onSvgClick(e){
+  let g=graphs[curGraph];
+  let svg=document.getElementById('graphSvg');
+  let rect=svg.getBoundingClientRect();
+  let sx=800/rect.width, sy=450/rect.height;
+  let mx=(e.clientX-rect.left)*sx, my=(e.clientY-rect.top)*sy;
+
+  if(mode==='addNode'){
+    let label=prompt('节点标签：');
+    if(label){g.nodes.push({label,x:mx,y:my});save();render();}
+  } else if(mode==='addEdge'){
+    let target=findNodeAt(mx,my);
+    if(target!==null){
+      if(edgeStart===null){
+        edgeStart=target;
+        alert('已选起点：'+g.nodes[target].label+'，请点击终点');
+      } else {
+        let w=parseInt(prompt('权重（默认1）：','1'))||1;
+        g.edges.push({from:edgeStart,to:target,weight:w});
+        edgeStart=null;save();render();
+      }
+    }
+  } else if(mode==='delete'){
+    let target=findNodeAt(mx,my);
+    if(target!==null){
+      if(confirm('删除节点「'+g.nodes[target].label+'」？')){
+        g.edges=g.edges.filter(e=>e.from!==target&&e.to!==target).map(e=>({from:e.from>target?e.from-1:e.from,to:e.to>target?e.to-1:e.to,weight:e.weight}));
+        g.nodes.splice(target,1);save();render();
+      }
+    } else {
+      let ei=findEdgeAt(mx,my);
+      if(ei!==null){g.edges.splice(ei,1);save();render();}
+    }
+  }
+}
+
+function findNodeAt(x,y){
+  let g=graphs[curGraph];
+  for(let i=0;i<g.nodes.length;i++){
+    let n=g.nodes[i];
+    if(Math.hypot(n.x-x,n.y-y)<22) return i;
+  }
+  return null;
+}
+
+function findEdgeAt(x,y){
+  let g=graphs[curGraph];
+  for(let i=0;i<g.edges.length;i++){
+    let e=g.edges[i];
+    let from=g.nodes[e.from],to=g.nodes[e.to];
+    if(!from||!to) continue;
+    let d=distPointToSegment(x,y,from.x,from.y,to.x,to.y);
+    if(d<8) return i;
+  }
+  return null;
+}
+
+function distPointToSegment(px,py,x1,y1,x2,y2){
+  let dx=x2-x1,dy=y2-y1;
+  let t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
+}
+
+function onNodeDown(e){
+  e.stopPropagation();
+  let ni=parseInt(e.target.dataset.ni);
+  if(mode==='delete'||mode==='addEdge') return;
+  dragNode=ni;
+  let svg=document.getElementById('graphSvg');
+  let rect=svg.getBoundingClientRect();
+  dragOff={x:e.clientX,y:e.clientY};
+  let gMove=ev=>{
+    let dx=(ev.clientX-dragOff.x)*800/rect.width;
+    let dy=(ev.clientY-dragOff.y)*450/rect.height;
+    graphs[curGraph].nodes[ni].x+=dx;
+    graphs[curGraph].nodes[ni].y+=dy;
+    dragOff={x:ev.clientX,y:ev.clientY};
+    drawGraph();
+  };
+  let gUp=()=>{dragNode=null;document.removeEventListener('mousemove',gMove);document.removeEventListener('mouseup',gUp);save();};
+  document.addEventListener('mousemove',gMove);
+  document.addEventListener('mouseup',gUp);
+}
+
+function onNodeTouch(e){
+  e.preventDefault();
+  let touch=e.touches[0];
+  let ni=parseInt(e.target.dataset.ni);
+  if(mode==='delete'||mode==='addEdge') return;
+  dragNode=ni;
+  let svg=document.getElementById('graphSvg');
+  let rect=svg.getBoundingClientRect();
+  dragOff={x:touch.clientX,y:touch.clientY};
+  let gMove=ev=>{
+    let t=ev.touches[0];
+    let dx=(t.clientX-dragOff.x)*800/rect.width;
+    let dy=(t.clientY-dragOff.y)*450/rect.height;
+    graphs[curGraph].nodes[ni].x+=dx;
+    graphs[curGraph].nodes[ni].y+=dy;
+    dragOff={x:t.clientX,y:t.clientY};
+    drawGraph();
+  };
+  let gEnd=()=>{dragNode=null;document.removeEventListener('touchmove',gMove);document.removeEventListener('touchend',gEnd);save();};
+  document.addEventListener('touchmove',gMove,{passive:false});
+  document.addEventListener('touchend',gEnd);
+}
+
+function autoLayout(){
+  let g=graphs[curGraph];
+  let n=g.nodes.length;
+  let cx=400,cy=225,r=Math.min(180,n*25);
+  g.nodes.forEach((nd,i)=>{
+    let a=i*Math.PI*2/n-Math.PI/2;
+    nd.x=cx+r*Math.cos(a);
+    nd.y=cy+r*Math.sin(a);
+  });
+  save();drawGraph();
+}
+
+function newGraph(){let t=prompt('图形标题：');if(t){graphs.push({title:t,nodes:[],edges:[]});save();render()}}
+function openGraph(i){curGraph=i;mode='view';edgeStart=null;render()}
+function delGraph(i){if(confirm('删除？')){graphs.splice(i,1);curGraph=null;save();render()}}
+function addNodePrompt(){let label=prompt('节点标签：');if(label){graphs[curGraph].nodes.push({label,x:400,y:225});save();render()}}
+function renameNode(i){let n=graphs[curGraph].nodes[i];let l=prompt('新标签：',n.label);if(l){n.label=l;save();render()}}
+function delNode(i){
+  if(confirm('删除节点？')){
+    let g=graphs[curGraph];
+    g.edges=g.edges.filter(e=>e.from!==i&&e.to!==i).map(e=>({from:e.from>i?e.from-1:e.from,to:e.to>i?e.to-1:e.to,weight:e.weight}));
+    g.nodes.splice(i,1);save();render();
+  }
+}
+function editEdge(i){
+  let e=graphs[curGraph].edges[i];
+  let w=prompt('权重：',e.weight||1);
+  if(w!==null){e.weight=parseInt(w)||1;save();render();}
+}
+function delEdge(i){graphs[curGraph].edges.splice(i,1);save();render()}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
