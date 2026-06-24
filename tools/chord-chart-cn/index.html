@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎸 和弦图表</title>
+<meta name="description" content="在线和弦图表查看器，支持吉他、钢琴和弦按法展示和试听">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎸</text></svg>">
+<meta name="robots" content="noindex">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:540px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.key-selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.key-btn{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:13px;cursor:pointer;transition:all .2s;font-weight:600}
+.key-btn.active{border-color:var(--accent);background:var(--accent);color:#fff}
+.key-btn:hover{border-color:var(--accent)}
+.chord-type-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.chord-tab{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:11px;cursor:pointer;transition:all .2s}
+.chord-tab.active{border-color:var(--accent);background:var(--tag-bg);color:var(--tag-text)}
+.chord-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.chord-card{border-radius:12px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:all .2s}
+.chord-card:hover{border-color:var(--accent);transform:scale(1.03)}
+.chord-card.active{border-color:var(--accent);background:var(--tag-bg)}
+.chord-name{font-size:18px;font-weight:700;margin-bottom:8px}
+.chord-diagram{margin:0 auto}
+.fret-grid{display:grid;gap:2px;margin:8px auto}
+.fret-cell{width:16px;height:16px;border-radius:50%;border:2px solid var(--text);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;background:transparent}
+.fret-cell.filled{background:var(--accent)}
+.fret-cell.open{background:transparent;border-color:var(--accent)}
+.fret-cell.muted{background:var(--red);border-color:var(--red)}
+.chord-notes{font-size:11px;color:var(--text-secondary);margin-top:4px}
+.play-chord-btn{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:12px;cursor:pointer;margin-top:8px;transition:all .2s}
+.play-chord-btn:hover{border-color:var(--accent);background:var(--tag-bg)}
+.detail-panel{padding:16px;background:var(--preview-bg);border-radius:12px;margin-top:12px}
+.detail-panel h3{font-size:20px;font-weight:700;margin-bottom:8px}
+.detail-panel p{font-size:13px;color:var(--text-secondary);line-height:1.6}
+.detail-notes{margin-top:12px}
+.detail-notes h4{font-size:14px;font-weight:600;margin-bottom:6px}
+.detail-btns{display:flex;gap:8px;margin-top:12px}
+.detail-btns button{padding:10px 20px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-play{background:var(--accent);color:#fff}
+.btn-play:hover{background:var(--accent-hover)}
+.footer{text-align:center;padding:20px 0;font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎸 和弦图表</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</header>
+<div class="card">
+<div class="card-title">🎵 根音</div>
+<div class="key-selector" id="keySelector"></div>
+</div>
+<div class="card">
+<div class="card-title">📋 和弦类型</div>
+<div class="chord-type-tabs" id="typeTabs"></div>
+</div>
+<div class="card">
+<div class="card-title">🎶 和弦列表</div>
+<div class="chord-grid" id="chordGrid"></div>
+</div>
+<div class="card" id="detailCard" style="display:none">
+<div class="card-title">📖 详细信息</div>
+<div class="detail-panel" id="detailPanel"></div>
+</div>
+<div class="footer">和弦图表 - 基于 Web Audio API | 点击和弦试听</div>
+</div>
+<script>
+let audioCtx,currentKey='C',currentType='major';
+const KEYS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const CHORD_TYPES=[
+{id:'major',name:'大三和弦',formula:[0,4,7]},
+{id:'minor',name:'小三和弦',formula:[0,3,7]},
+{id:'dim',name:'减三和弦',formula:[0,3,6]},
+{id:'aug',name:'增三和弦',formula:[0,4,8]},
+{id:'maj7',name:'大七和弦',formula:[0,4,7,11]},
+{id:'min7',name:'小七和弦',formula:[0,3,7,10]},
+{id:'dom7',name:'属七和弦',formula:[0,4,7,10]},
+{id:'sus2',name:'挂二和弦',formula:[0,2,7]},
+{id:'sus4',name:'挂四和弦',formula:[0,5,7]},
+{id:'add9',name:'加九和弦',formula:[0,4,7,14]},
+{id:'dim7',name:'减七和弦',formula:[0,3,6,9]},
+{id:'min7b5',name:'半减七和弦',formula:[0,3,6,10]}
+];
+const GUITAR_CHORDS={
+'C':{frets:[-1,3,2,0,1,0],fingers:[0,3,2,0,1,0]},
+'Cm':{frets:[-1,3,5,5,4,3],fingers:[0,1,3,4,2,1]},
+'Cdim':{frets:[-1,3,4,2,4,2],fingers:[0,2,3,1,4,1]},
+'Caug':{frets:[-1,3,2,1,1,0],fingers:[0,3,2,1,1,0]},
+'Cmaj7':{frets:[-1,3,2,0,0,0],fingers:[0,2,1,0,0,0]},
+'Cm7':{frets:[-1,3,5,3,4,3],fingers:[0,1,3,1,2,1]},
+'C7':{frets:[-1,3,2,3,1,0],fingers:[0,3,2,4,1,0]},
+'Csus2':{frets:[-1,3,0,0,1,3],fingers:[0,2,0,0,1,3]},
+'Csus4':{frets:[-1,3,3,0,1,1],fingers:[0,2,3,0,1,1]},
+'Cadd9':{frets:[-1,3,2,0,3,0],fingers:[0,2,1,0,3,0]},
+'D':{frets:[-1,-1,0,2,3,2],fingers:[0,0,0,1,3,2]},
+'Dm':{frets:[-1,-1,0,2,3,1],fingers:[0,0,0,2,3,1]},
+'Dmaj7':{frets:[-1,-1,0,2,2,2],fingers:[0,0,0,1,1,1]},
+'Dm7':{frets:[-1,-1,0,2,1,1],fingers:[0,0,0,2,1,1]},
+'D7':{frets:[-1,-1,0,2,1,2],fingers:[0,0,0,2,1,3]},
+'E':{frets:[0,2,2,1,0,0],fingers:[0,2,3,1,0,0]},
+'Em':{frets:[0,2,2,0,0,0],fingers:[0,2,3,0,0,0]},
+'Edim':{frets:[0,1,2,0,-1,-1],fingers:[0,1,2,0,0,0]},
+'Emaj7':{frets:[0,2,1,1,0,0],fingers:[0,3,1,2,0,0]},
+'Em7':{frets:[0,2,2,0,3,0],fingers:[0,1,2,0,3,0]},
+'E7':{frets:[0,2,0,1,0,0],fingers:[0,2,0,1,0,0]},
+'Esus2':{frets:[0,2,4,4,0,0],fingers:[0,1,3,4,0,0]},
+'Esus4':{frets:[0,2,2,2,0,0],fingers:[0,2,3,4,0,0]},
+'F':{frets:[1,3,3,2,1,1],fingers:[1,3,4,2,1,1]},
+'Fm':{frets:[1,3,3,1,1,1],fingers:[1,3,4,1,1,1]},
+'Fmaj7':{frets:[1,-1,2,2,1,0],fingers:[1,0,3,4,2,0]},
+'F7':{frets:[1,3,1,2,1,1],fingers:[1,3,1,2,1,1]},
+'G':{frets:[3,2,0,0,0,3],fingers:[2,1,0,0,0,3]},
+'Gm':{frets:[3,5,5,3,3,3],fingers:[1,3,4,1,1,1]},
+'Gmaj7':{frets:[3,2,0,0,0,2],fingers:[2,1,0,0,0,3]},
+'Gm7':{frets:[3,5,3,3,3,3],fingers:[1,3,1,1,1,1]},
+'G7':{frets:[3,2,0,0,0,1],fingers:[2,1,0,0,0,3]},
+'A':{frets:[-1,0,2,2,2,0],fingers:[0,0,1,2,3,0]},
+'Am':{frets:[-1,0,2,2,1,0],fingers:[0,0,2,3,1,0]},
+'Adim':{frets:[-1,0,1,2,1,-1],fingers:[0,0,1,3,2,0]},
+'Amaj7':{frets:[-1,0,2,1,2,0],fingers:[0,0,3,1,2,0]},
+'Am7':{frets:[-1,0,2,0,1,0],fingers:[0,0,2,0,1,0]},
+'A7':{frets:[-1,0,2,0,2,0],fingers:[0,0,2,0,3,0]},
+'Asus2':{frets:[-1,0,2,2,0,0],fingers:[0,0,1,2,0,0]},
+'Asus4':{frets:[-1,0,2,2,3,0],fingers:[0,0,1,2,3,0]},
+'B':{frets:[-1,2,4,4,4,2],fingers:[0,1,2,3,4,1]},
+'Bm':{frets:[-1,2,4,4,3,2],fingers:[0,1,3,4,2,1]},
+'B7':{frets:[-1,2,1,2,0,2],fingers:[0,2,1,3,0,4]}
+};
+function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;document.querySelector('.theme-toggle').textContent=t==='dark'?'☀️':'🌙'}
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+function playChord(notes){initAudio();notes.forEach((freq,i)=>{setTimeout(()=>{const osc=audioCtx.createOscillator();const g=audioCtx.createGain();osc.type='triangle';osc.frequency.value=freq;g.gain.setValueAtTime(0.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+1.5);osc.connect(g);g.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+1.5)},i*30)})}
+function getChordFreqs(root,type){const rootIdx=KEYS.indexOf(root);const chordType=CHORD_TYPES.find(t=>t.id===type);if(!chordType)return[];const baseNote=rootIdx+60;return chordType.formula.map(f=>440*Math.pow(2,(baseNote+f-69)/12))}
+function buildKeySelector(){const el=document.getElementById('keySelector');el.innerHTML=KEYS.map(k=>`<button class="key-btn${k===currentKey?' active':''}" onclick="selectKey('${k}',this)">${k}</button>`).join('')}
+function selectKey(key,el){currentKey=key;el.parentElement.querySelectorAll('.key-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');buildChordGrid()}
+function buildTypeTabs(){const el=document.getElementById('typeTabs');el.innerHTML=CHORD_TYPES.map(t=>`<button class="chord-tab${t.id===currentType?' active':''}" onclick="selectType('${t.id}',this)">${t.name}</button>`).join('')}
+function selectType(type,el){currentType=type;el.parentElement.querySelectorAll('.chord-tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');buildChordGrid()}
+function buildChordGrid(){const el=document.getElementById('chordGrid');const chordTypes=CHORD_TYPES;const grid=[];chordTypes.forEach(ct=>{const chordName=currentKey+(ct.id==='major'?'':ct.id);const freqs=getChordFreqs(currentKey,ct.id);const guitar=GUITAR_CHORDS[chordName]||GUITAR_CHORDS[currentKey];const noteNames=ct.formula.map(f=>KEYS[(KEYS.indexOf(currentKey)+f)%12]);grid.push(`<div class="chord-card" onclick="showDetail('${chordName}','${ct.id}')"><div class="chord-name">${chordName}</div><div class="chord-diagram">${guitar?renderGuitarDiagram(guitar):renderPianoDiagram(ct.formula,currentKey)}</div><div class="chord-notes">${noteNames.join(' - ')}</div><button class="play-chord-btn" onclick="event.stopPropagation();playChord(getChordFreqs('${currentKey}','${ct.id}'))">🔊 试听</button></div>`)});el.innerHTML=grid.join('')}
+function renderGuitarDiagram(guitar){let html='<svg width="70" height="80" viewBox="0 0 70 80">';const xStart=10,yStart=5,stringSpacing=10,fretSpacing=12;for(let i=0;i<6;i++){const x=xStart+i*stringSpacing;html+=`<line x1="${x}" y1="${yStart}" x2="${x}" y2="${yStart+fretSpacing*4}" stroke="currentColor" stroke-width="1"/>`}
+for(let f=0;f<=4;f++){const y=yStart+f*fretSpacing;html+=`<line x1="${xStart}" y1="${y}" x2="${xStart+5*stringSpacing}" y2="${y}" stroke="currentColor" stroke-width="${f===0?3:1}"/>`}
+for(let i=0;i<6;i++){const x=xStart+i*stringSpacing;const fret=guitar.frets[i];if(fret===-1){html+=`<text x="${x}" y="${yStart-5}" text-anchor="middle" font-size="8" fill="currentColor">✕</text>`}else if(fret===0){html+=`<circle cx="${x}" cy="${yStart-8}" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>`}else{const y=yStart+(fret-0.5)*fretSpacing;html+=`<circle cx="${x}" cy="${y}" r="4.5" fill="var(--accent)"/>`}}html+='</svg>';return html}
+function renderPianoDiagram(formula,root){const notes=formula.map(f=>(KEYS.indexOf(root)+f)%12);const allKeys=[];for(let i=0;i<12;i++)allKeys.push({note:i,isBlack:[1,3,6,8,10].includes(i),isActive:notes.includes(i)});let html='<div style="display:flex;gap:1px;height:50px">';allKeys.forEach(k=>{const w=k.isBlack?'width:12px;margin-left:-6px;margin-right:-6px;z-index:1':'width:14px';const bg=k.isActive?'var(--accent)':'var(--card-bg)';const border=k.isBlack?'border:1px solid var(--border)':'border:1px solid var(--border)';html+=`<div style="${w};height:${k.isBlack?'30px':'50px'};background:${bg};${border};border-radius:0 0 3px 3px;align-self:flex-end;position:relative"></div>`});html+='</div>';return html}
+function showDetail(name,type){const el=document.getElementById('detailCard');const panel=document.getElementById('detailPanel');const ct=CHORD_TYPES.find(t=>t.id===type);const freqs=getChordFreqs(currentKey,type);const noteNames=ct.formula.map(f=>KEYS[(KEYS.indexOf(currentKey)+f)%12]);const guitar=GUITAR_CHORDS[name];panel.innerHTML=`<h3>${name}</h3><p>类型: ${ct.name}</p><p>组成音: ${noteNames.join(' - ')}</p><p>频率: ${freqs.map(f=>f.toFixed(1)+'Hz').join(', ')}</p>${guitar?`<p>吉他指法: ${guitar.frets.map((f,i)=>['E','A','D','G','B','e'][i]+':'+(f===-1?'x':f===0?'0':f)).join('  ')}</p>`:''}<div class="detail-btns"><button class="btn-play" onclick="playChord([${freqs}])">🔊 试听和弦</button></div>`;el.style.display='block'}
+buildKeySelector();buildTypeTabs();buildChordGrid();
+</script>
+</body>
+</html>

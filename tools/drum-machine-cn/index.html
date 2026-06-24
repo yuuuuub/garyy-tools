@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🥁 鼓机</title>
+<meta name="description" content="在线鼓机/节奏编排器，支持自定义节拍和多种鼓声音色">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥁</text></svg>">
+<meta name="robots" content="noindex">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:600px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.transport{display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:16px}
+.transport-btn{width:48px;height:48px;border-radius:50%;border:2px solid var(--border);background:var(--card-bg);font-size:20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.transport-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+.transport-btn.active{border-color:var(--accent);background:var(--tag-bg)}
+.transport-btn.playing{border-color:var(--green);background:rgba(35,134,54,.1)}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:60px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;min-width:36px;text-align:right;color:var(--accent);font-weight:600}
+.pattern-grid{display:grid;gap:2px;margin:12px 0}
+.pattern-row{display:flex;align-items:center;gap:2px}
+.pattern-label{width:60px;font-size:11px;font-weight:600;text-align:right;padding-right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step-cell{width:100%;aspect-ratio:1;border-radius:4px;border:1px solid var(--border);background:var(--preview-bg);cursor:pointer;transition:all .1s;min-width:20px}
+.step-cell:hover{border-color:var(--accent)}
+.step-cell.active{background:var(--accent);border-color:var(--accent)}
+.step-cell.current{box-shadow:0 0 0 2px var(--green)}
+.step-numbers{display:flex;gap:2px;margin-bottom:4px;padding-left:60px}
+.step-num{flex:1;text-align:center;font-size:9px;color:var(--text-secondary)}
+.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.preset-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:11px;cursor:pointer;transition:all .2s}
+.preset-btn:hover{border-color:var(--accent)}
+.preset-btn.active{border-color:var(--accent);background:var(--tag-bg);color:var(--tag-text)}
+.footer{text-align:center;padding:20px 0;font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🥁 鼓机</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</header>
+<div class="card">
+<div class="card-title">🎛️ 节奏控制</div>
+<div class="transport">
+<button class="transport-btn" id="playBtn" onclick="togglePlay()">▶️</button>
+<button class="transport-btn" onclick="stopPlay()">⏹️</button>
+<button class="transport-btn" id="clearBtn" onclick="clearPattern()">🗑️</button>
+</div>
+<div class="slider-row"><label>BPM</label><input type="range" min="40" max="240" value="120" id="bpm" oninput="document.getElementById('bpmVal').textContent=this.value"><span id="bpmVal">120</span></div>
+<div class="slider-row"><label>步数</label><input type="range" min="4" max="32" value="16" step="4" id="steps" oninput="rebuildGrid()"><span id="stepsVal">16</span></div>
+<div class="slider-row"><label>音量</label><input type="range" min="0" max="100" value="70" id="vol" oninput="document.getElementById('volVal').textContent=this.value+'%'"><span id="volVal">70%</span></div>
+</div>
+<div class="card">
+<div class="card-title">🥁 鼓组预设</div>
+<div class="preset-row">
+<button class="preset-btn active" onclick="loadPreset('basic',this)">基础</button>
+<button class="preset-btn" onclick="loadPreset('rock',this)">摇滚</button>
+<button class="preset-btn" onclick="loadPreset('hiphop',this)">嘻哈</button>
+<button class="preset-btn" onclick="loadPreset('house',this)">浩室</button>
+<button class="preset-btn" onclick="loadPreset('dnb',this)">鼓打贝斯</button>
+</div>
+</div>
+<div class="card">
+<div class="card-title">🎵 编排网格</div>
+<div class="step-numbers" id="stepNumbers"></div>
+<div class="pattern-grid" id="patternGrid"></div>
+</div>
+<div class="footer">鼓机 - 基于 Web Audio API | 点击网格编辑节奏</div>
+</div>
+<script>
+let audioCtx,isPlaying=false,currentStep=0,timerId=null,numSteps=16;
+const DRUMS=[
+{id:'kick',name:'底鼓',type:'kick'},
+{id:'snare',name:'军鼓',type:'snare'},
+{id:'hihat',name:'踩镲',type:'hihat'},
+{id:'hihat_open',name:'开镲',type:'hihat_open'},
+{id:'clap',name:'拍手',type:'clap'},
+{id:'tom_high',name:'高嗵',type:'tom_high'},
+{id:'tom_mid',name:'中嗵',type:'tom_mid'},
+{id:'rim',name:'边击',type:'rim'}
+];
+let pattern={};
+DRUMS.forEach(d=>{pattern[d.id]=new Array(32).fill(false)});
+const PRESETS={
+basic:{kick:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]},
+rock:{kick:[1,0,0,0,1,0,0,0,1,0,0,1,1,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],hihat_open:[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1]},
+hiphop:{kick:[1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],hihat:[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]},
+house:{kick:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],clap:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]},
+dnb:{kick:[1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]}
+};
+function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;document.querySelector('.theme-toggle').textContent=t==='dark'?'☀️':'🌙'}
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+function synthDrum(type){initAudio();const now=audioCtx.currentTime;const vol=document.getElementById('vol').value/100;
+if(type==='kick'){const osc=audioCtx.createOscillator();const g=audioCtx.createGain();osc.frequency.setValueAtTime(150,now);osc.frequency.exponentialRampToValueAtTime(30,now+0.1);g.gain.setValueAtTime(vol,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.3);osc.connect(g);g.connect(audioCtx.destination);osc.start(now);osc.stop(now+0.3)}
+else if(type==='snare'){const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.15,audioCtx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);const src=audioCtx.createBufferSource();src.buffer=buf;const g=audioCtx.createGain();g.gain.value=vol*0.8;src.connect(g);g.connect(audioCtx.destination);src.start(now);const osc=audioCtx.createOscillator();const g2=audioCtx.createGain();osc.frequency.value=200;g2.gain.setValueAtTime(vol*0.5,now);g2.gain.exponentialRampToValueAtTime(0.001,now+0.08);osc.connect(g2);g2.connect(audioCtx.destination);osc.start(now);osc.stop(now+0.08)}
+else if(type==='hihat'||type==='hihat_open'){const dur=type==='hihat_open'?0.3:0.05;const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*dur,audioCtx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);const src=audioCtx.createBufferSource();src.buffer=buf;const hp=audioCtx.createBiquadFilter();hp.type='highpass';hp.frequency.value=8000;const g=audioCtx.createGain();g.gain.value=vol*0.5;src.connect(hp);hp.connect(g);g.connect(audioCtx.destination);src.start(now)}
+else if(type==='clap'){for(let i=0;i<3;i++){const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.05,audioCtx.sampleRate);const d=buf.getChannelData(0);for(let j=0;j<d.length;j++)d[j]=(Math.random()*2-1)*Math.pow(1-j/d.length,4);const src=audioCtx.createBufferSource();src.buffer=buf;const bp=audioCtx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=2000;const g=audioCtx.createGain();g.gain.value=vol*0.6;src.connect(bp);bp.connect(g);g.connect(audioCtx.destination);src.start(now+i*0.01)}}
+else if(type==='tom_high'||type==='tom_mid'){const f=type==='tom_high'?300:200;const osc=audioCtx.createOscillator();const g=audioCtx.createGain();osc.frequency.setValueAtTime(f,now);osc.frequency.exponentialRampToValueAtTime(f*0.5,now+0.2);g.gain.setValueAtTime(vol*0.7,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.3);osc.connect(g);g.connect(audioCtx.destination);osc.start(now);osc.stop(now+0.3)}
+else if(type==='rim'){const osc=audioCtx.createOscillator();const g=audioCtx.createGain();osc.frequency.value=800;osc.type='triangle';g.gain.setValueAtTime(vol*0.5,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.03);osc.connect(g);g.connect(audioCtx.destination);osc.start(now);osc.stop(now+0.05)}}
+function togglePlay(){if(isPlaying)stopPlay();else startPlay()}
+function startPlay(){isPlaying=true;currentStep=0;document.getElementById('playBtn').classList.add('playing');const bpm=parseInt(document.getElementById('bpm').value);const interval=60000/bpm/4;timerId=setInterval(step,interval)}
+function stopPlay(){isPlaying=false;clearInterval(timerId);currentStep=0;document.getElementById('playBtn').classList.remove('playing');document.querySelectorAll('.step-cell.current').forEach(c=>c.classList.remove('current'))}
+function step(){const numStepsVal=parseInt(document.getElementById('steps').value);DRUMS.forEach(d=>{if(pattern[d.id][currentStep])synthDrum(d.type)});document.querySelectorAll('.step-cell.current').forEach(c=>c.classList.remove('current'));document.querySelectorAll(`[data-step="${currentStep}"]`).forEach(c=>c.classList.add('current'));currentStep=(currentStep+1)%numStepsVal}
+function rebuildGrid(){numSteps=parseInt(document.getElementById('steps').value);document.getElementById('stepsVal').textContent=numSteps;buildGrid()}
+function buildGrid(){const grid=document.getElementById('patternGrid');const nums=document.getElementById('stepNumbers');nums.innerHTML=Array.from({length:numSteps},(_,i)=>`<div class="step-num">${i+1}</div>`).join('');grid.innerHTML=DRUMS.map(d=>`<div class="pattern-row"><div class="pattern-label">${d.name}</div>${Array.from({length:numSteps},(_,i)=>`<div class="step-cell${pattern[d.id][i]?' active':''}" data-drum="${d.id}" data-step="${i}" onclick="toggleStep(this)"></div>`).join('')}</div>`).join('')}
+function toggleStep(el){const drum=el.dataset.drum;const step=parseInt(el.dataset.step);pattern[drum][step]=!pattern[drum][step];el.classList.toggle('active');if(pattern[drum][step])synthDrum(DRUMS.find(d=>d.id===drum).type)}
+function clearPattern(){DRUMS.forEach(d=>pattern[d.id]=new Array(32).fill(false));buildGrid()}
+function loadPreset(name,el){clearPattern();const p=PRESETS[name];if(!p)return;Object.keys(p).forEach(k=>{if(pattern[k])for(let i=0;i<Math.min(numSteps,p[k].length);i++)pattern[k][i]=!!p[k][i]});buildGrid();el.parentElement.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active')}
+buildGrid();
+</script>
+</body>
+</html>

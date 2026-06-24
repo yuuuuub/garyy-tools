@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎹 合成器</title>
+<meta name="description" content="在线音乐合成器，支持多波形、滤波器、包络控制和虚拟键盘">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎹</text></svg>">
+<meta name="robots" content="noindex">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:580px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.waveform-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.wave-btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:12px;cursor:pointer;transition:all .2s}
+.wave-btn.active{border-color:var(--accent);background:var(--tag-bg);color:var(--tag-text)}
+.wave-btn:hover{border-color:var(--accent)}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:80px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;min-width:36px;text-align:right;color:var(--accent);font-weight:600}
+.synth-display{width:100%;height:60px;border-radius:10px;background:var(--preview-bg);overflow:hidden;margin:10px 0}
+canvas{width:100%;height:100%}
+.keyboard{display:flex;position:relative;height:120px;margin:12px 0;user-select:none}
+.key{flex:1;border-radius:0 0 6px 6px;cursor:pointer;transition:all .05s;position:relative}
+.key-white{background:var(--card-bg);border:1px solid var(--border);z-index:1}
+.key-white:active,.key-white.active{background:var(--accent);border-color:var(--accent)}
+.key-black{background:var(--text);width:6%;margin-left:-3%;margin-right:-3%;z-index:2;height:70%;position:absolute;border-radius:0 0 4px 4px}
+.key-black:active,.key-black.active{background:var(--accent-hover)}
+.key-label{position:absolute;bottom:4px;width:100%;text-align:center;font-size:9px;color:var(--text-secondary)}
+.footer{text-align:center;padding:20px 0;font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎹 合成器</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</header>
+<div class="card">
+<div class="card-title">🎵 振荡器</div>
+<div class="waveform-btns">
+<button class="wave-btn active" onclick="setWave('sine',this)">正弦波</button>
+<button class="wave-btn" onclick="setWave('square',this)">方波</button>
+<button class="wave-btn" onclick="setWave('sawtooth',this)">锯齿波</button>
+<button class="wave-btn" onclick="setWave('triangle',this)">三角波</button>
+</div>
+<div class="synth-display"><canvas id="waveDisplay"></canvas></div>
+<div class="slider-row"><label>八度</label><input type="range" min="2" max="6" value="4" id="octave" oninput="document.getElementById('octVal').textContent=this.value"><span id="octVal">4</span></div>
+<div class="slider-row"><label>音量</label><input type="range" min="0" max="100" value="60" id="volume" oninput="setSynthVol(this.value)"><span id="volVal">60%</span></div>
+<div class="slider-row"><label>滑音</label><input type="range" min="0" max="100" value="0" id="glide" oninput="document.getElementById('glideVal').textContent=this.value+'ms'"><span id="glideVal">0ms</span></div>
+</div>
+<div class="card">
+<div class="card-title">🎛️ 滤波器</div>
+<div class="waveform-btns">
+<button class="wave-btn active" onclick="setFilter('lowpass',this)">低通</button>
+<button class="wave-btn" onclick="setFilter('highpass',this)">高通</button>
+<button class="wave-btn" onclick="setFilter('bandpass',this)">带通</button>
+</div>
+<div class="slider-row"><label>频率</label><input type="range" min="20" max="20000" value="10000" id="filterFreq" oninput="updateFilter()"><span id="ffVal">10k</span></div>
+<div class="slider-row"><label>Q值</label><input type="range" min="0" max="20" value="1" step="0.1" id="filterQ" oninput="updateFilter()"><span id="fqVal">1</span></div>
+</div>
+<div class="card">
+<div class="card-title">📈 包络 (ADSR)</div>
+<div class="slider-row"><label>起音</label><input type="range" min="0" max="2000" value="10" id="attack" oninput="document.getElementById('atkVal').textContent=this.value+'ms'"><span id="atkVal">10ms</span></div>
+<div class="slider-row"><label>衰减</label><input type="range" min="0" max="2000" value="100" id="decay" oninput="document.getElementById('dcyVal').textContent=this.value+'ms'"><span id="dcyVal">100ms</span></div>
+<div class="slider-row"><label>延音</label><input type="range" min="0" max="100" value="70" id="sustain" oninput="document.getElementById('susVal').textContent=this.value+'%'"><span id="susVal">70%</span></div>
+<div class="slider-row"><label>释音</label><input type="range" min="0" max="3000" value="200" id="release" oninput="document.getElementById('relVal').textContent=this.value+'ms'"><span id="relVal">200ms</span></div>
+</div>
+<div class="card">
+<div class="card-title">⌨️ 虚拟键盘</div>
+<div class="keyboard" id="keyboard"></div>
+</div>
+<div class="footer">合成器 - 基于 Web Audio API | 使用鼠标或键盘演奏</div>
+</div>
+<script>
+let audioCtx,filter,gainNode,waveType='sine',filterType='lowpass',activeNotes={},analyser,animFrame;
+const NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const KEY_MAP={'a':0,'w':1,'s':2,'e':3,'d':4,'f':5,'t':6,'g':7,'y':8,'h':9,'u':10,'j':11,'k':12,'o':13,'l':14,'p':15,';':16};
+function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;document.querySelector('.theme-toggle').textContent=t==='dark'?'☀️':'🌙'}
+function initAudio(){if(audioCtx)return;audioCtx=new(window.AudioContext||window.webkitAudioContext)();filter=audioCtx.createBiquadFilter();filter.type=filterType;filter.frequency.value=10000;filter.Q.value=1;gainNode=audioCtx.createGain();gainNode.gain.value=0.6;analyser=audioCtx.createAnalyser();analyser.fftSize=2048;filter.connect(gainNode);gainNode.connect(analyser);analyser.connect(audioCtx.destination);drawWave()}
+function noteToFreq(note){return 440*Math.pow(2,(note-69)/12)}
+function playNote(midiNote){initAudio();if(activeNotes[midiNote])return;const osc=audioCtx.createOscillator();const env=audioCtx.createGain();osc.type=waveType;const glide=parseInt(document.getElementById('glide').value);if(glide>0&&Object.keys(activeNotes).length>0){const lastNote=parseInt(Object.keys(activeNotes).pop());osc.frequency.setValueAtTime(noteToFreq(lastNote),audioCtx.currentTime);osc.frequency.linearRampToValueAtTime(noteToFreq(midiNote),audioCtx.currentTime+glide/1000)}else{osc.frequency.value=noteToFreq(midiNote)}const a=parseInt(document.getElementById('attack').value)/1000;const d=parseInt(document.getElementById('decay').value)/1000;const s=document.getElementById('sustain').value/100;env.gain.setValueAtTime(0,audioCtx.currentTime);env.gain.linearRampToValueAtTime(0.8,audioCtx.currentTime+a);env.gain.linearRampToValueAtTime(0.8*s,audioCtx.currentTime+a+d);osc.connect(env);env.connect(filter);osc.start();activeNotes[midiNote]={osc,env};highlightKey(midiNote,true)}
+function stopNote(midiNote){const n=activeNotes[midiNote];if(!n)return;const r=parseInt(document.getElementById('release').value)/1000;n.env.gain.cancelScheduledValues(audioCtx.currentTime);n.env.gain.setValueAtTime(n.env.gain.value,audioCtx.currentTime);n.env.gain.linearRampToValueAtTime(0,audioCtx.currentTime+r);n.osc.stop(audioCtx.currentTime+r+0.05);delete activeNotes[midiNote];highlightKey(midiNote,false)}
+function setWave(type,el){waveType=type;document.querySelectorAll('.waveform-btns:first-of-type .wave-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active')}
+function setFilter(type,el){filterType=type;if(filter)filter.type=type;const btns=el.parentElement.querySelectorAll('.wave-btn');btns.forEach(b=>b.classList.remove('active'));el.classList.add('active')}
+function updateFilter(){const freq=parseInt(document.getElementById('filterFreq').value);const q=parseFloat(document.getElementById('filterQ').value);if(filter){filter.frequency.value=freq;filter.Q.value=q}document.getElementById('ffVal').textContent=freq>=1000?(freq/1000).toFixed(1)+'k':freq;document.getElementById('fqVal').textContent=q.toFixed(1)}
+function setSynthVol(v){document.getElementById('volVal').textContent=v+'%';if(gainNode)gainNode.gain.value=v/100}
+function drawWave(){if(!analyser)return;const canvas=document.getElementById('waveDisplay');canvas.width=canvas.offsetWidth*2;canvas.height=canvas.offsetHeight*2;const c=canvas.getContext('2d');const buf=new Uint8Array(analyser.frequencyBinCount);analyser.getByteTimeDomainData(buf);c.clearRect(0,0,canvas.width,canvas.height);c.beginPath();const sw=canvas.width/buf.length;for(let i=0;i<buf.length;i++){const v=buf[i]/128;const y=v*canvas.height/2;i===0?c.moveTo(0,y):c.lineTo(i*sw,y)}c.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');c.lineWidth=2;c.stroke();animFrame=requestAnimationFrame(drawWave)}
+function buildKeyboard(){const kb=document.getElementById('keyboard');const startNote=parseInt(document.getElementById('octave').value)*12;const whiteNotes=[];const blackNotes=[];for(let i=0;i<25;i++){const n=startNote+i;const isBlack=[1,3,6,8,10].includes(n%12);if(!isBlack)whiteNotes.push(n);else blackNotes.push(n)}
+kb.innerHTML='';whiteNotes.forEach(n=>{const key=document.createElement('div');key.className='key key-white';key.dataset.note=n;key.innerHTML=`<div class="key-label">${NOTE_NAMES[n%12]}${Math.floor(n/12)-1}</div>`;key.onmousedown=e=>{e.preventDefault();playNote(n)};key.onmouseup=()=>stopNote(n);key.onmouseleave=()=>stopNote(n);key.ontouchstart=e=>{e.preventDefault();playNote(n)};key.ontouchend=()=>stopNote(n);kb.appendChild(key)});
+const kbWidth=kb.offsetWidth;const whiteW=kbWidth/whiteNotes.length;const blackW=whiteW*0.6;const blackPositions=[1,3,6,8,10];
+blackNotes.forEach(n=>{const octave=n%12;const posInOctave=blackPositions.indexOf(octave);if(posInOctave===-1)return;const octStart=whiteNotes.findIndex(w=>Math.floor(w/12)===Math.floor(n/12));const x=(octStart+posInOctave+0.6)*whiteW-blackW/2;const key=document.createElement('div');key.className='key key-black';key.dataset.note=n;key.style.left=x+'px';key.style.width=blackW+'px';key.onmousedown=e=>{e.preventDefault();playNote(n)};key.onmouseup=()=>stopNote(n);key.onmouseleave=()=>stopNote(n);kb.appendChild(key)})}
+document.getElementById('octave').oninput=function(){document.getElementById('octVal').textContent=this.value;buildKeyboard()};
+buildKeyboard();
+document.addEventListener('keydown',e=>{if(e.repeat)return;const note=KEY_MAP[e.key.toLowerCase()];if(note!==undefined){const startNote=parseInt(document.getElementById('octave').value)*12;playNote(startNote+note)}});
+document.addEventListener('keyup',e=>{const note=KEY_MAP[e.key.toLowerCase()];if(note!==undefined){const startNote=parseInt(document.getElementById('octave').value)*12;stopNote(startNote+note)}});
+function highlightKey(midiNote,on){const el=document.querySelector(`[data-note="${midiNote}"]`);if(el)el.classList.toggle('active',on)}
+</script>
+</body>
+</html>

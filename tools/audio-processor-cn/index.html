@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎛️ 音频处理器</title>
+<meta name="description" content="在线音频处理器，支持均衡器、混响、压缩、变调等效果">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>">
+<meta name="robots" content="noindex">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:540px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.eq-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0}
+.eq-band{display:flex;flex-direction:column;align-items:center;gap:4px}
+.eq-band label{font-size:10px;color:var(--text-secondary)}
+.eq-band input[type="range"]{writing-mode:vertical-lr;direction:rtl;height:120px;width:24px}
+.eq-band span{font-size:11px;font-weight:600;color:var(--accent)}
+.waveform-wrap{width:100%;height:80px;border-radius:12px;background:var(--preview-bg);overflow:hidden;margin:12px 0}
+canvas{width:100%;height:100%}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:80px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;min-width:36px;text-align:right;color:var(--accent);font-weight:600}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{padding:10px 18px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent)}
+.btn-outline.active{border-color:var(--accent);background:var(--tag-bg);color:var(--tag-text)}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:30px;text-align:center;cursor:pointer;transition:all .2s}
+.upload-zone:hover{border-color:var(--accent);background:var(--tag-bg)}
+.upload-zone p{color:var(--text-secondary);font-size:13px;margin-top:8px}
+.footer{text-align:center;padding:20px 0;font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎛️ 音频处理器</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</header>
+<div class="card">
+<div class="card-title">📂 加载音频</div>
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+<div style="font-size:36px">🎵</div>
+<p>点击或拖拽上传音频文件</p>
+<input type="file" id="fileInput" accept="audio/*" style="display:none" onchange="loadFile(event)">
+</div>
+<div class="waveform-wrap" style="margin-top:12px"><canvas id="waveform"></canvas></div>
+<div class="btn-row">
+<button class="btn btn-primary" id="playBtn" onclick="togglePlay()" disabled>▶️ 播放</button>
+<button class="btn btn-outline" id="stopBtn" onclick="stopPlay()" disabled>⏹️ 停止</button>
+<button class="btn btn-outline" id="exportBtn" onclick="exportAudio()" disabled>💾 导出</button>
+</div>
+</div>
+<div class="card">
+<div class="card-title">🎚️ 均衡器 (5段EQ)</div>
+<div class="eq-grid">
+<div class="eq-band"><label>60Hz</label><input type="range" min="-12" max="12" value="0" data-freq="60" oninput="updateEQ(this)"><span>0dB</span></div>
+<div class="eq-band"><label>230Hz</label><input type="range" min="-12" max="12" value="0" data-freq="230" oninput="updateEQ(this)"><span>0dB</span></div>
+<div class="eq-band"><label>1kHz</label><input type="range" min="-12" max="12" value="0" data-freq="1000" oninput="updateEQ(this)"><span>0dB</span></div>
+<div class="eq-band"><label>3.5kHz</label><input type="range" min="-12" max="12" value="0" data-freq="3500" oninput="updateEQ(this)"><span>0dB</span></div>
+<div class="eq-band"><label>10kHz</label><input type="range" min="-12" max="12" value="0" data-freq="10000" oninput="updateEQ(this)"><span>0dB</span></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">🔊 效果器</div>
+<div class="slider-row"><label>混响</label><input type="range" min="0" max="100" value="0" id="reverb" oninput="updateEffect('reverb',this.value)"><span id="reverbVal">0%</span></div>
+<div class="slider-row"><label>延迟</label><input type="range" min="0" max="100" value="0" id="delay" oninput="updateEffect('delay',this.value)"><span id="delayVal">0%</span></div>
+<div class="slider-row"><label>压缩</label><input type="range" min="0" max="100" value="0" id="compress" oninput="updateEffect('compress',this.value)"><span id="compressVal">0%</span></div>
+<div class="slider-row"><label>音高</label><input type="range" min="-12" max="12" value="0" id="pitch" oninput="updateEffect('pitch',this.value)"><span id="pitchVal">0</span></div>
+<div class="slider-row"><label>速度</label><input type="range" min="50" max="200" value="100" id="speed" oninput="updateEffect('speed',this.value)"><span id="speedVal">1.0x</span></div>
+<div class="slider-row"><label>音量</label><input type="range" min="0" max="200" value="100" id="volume" oninput="updateEffect('volume',this.value)"><span id="volumeVal">100%</span></div>
+</div>
+<div class="footer">音频处理器 - 基于 Web Audio API</div>
+</div>
+<script>
+let audioCtx,source,audioBuffer,analyser,gainNode,eqFilters=[],reverbNode,delayNode,delayTime,delayFeedback,compressor,animFrame,isPlaying=false;
+function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;document.querySelector('.theme-toggle').textContent=t==='dark'?'☀️':'🌙'}
+function loadFile(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=async ev=>{audioCtx=new(window.AudioContext||window.webkitAudioContext)();audioBuffer=await audioCtx.decodeAudioData(ev.target.result);document.getElementById('playBtn').disabled=false;document.getElementById('stopBtn').disabled=false;document.getElementById('exportBtn').disabled=false;drawStaticWaveform();setupEQ()};reader.readAsArrayBuffer(file)}
+function setupEQ(){const freqs=[60,230,1000,3500,10000];eqFilters=freqs.map((f,i)=>{const f2=audioCtx.createBiquadFilter();f2.type='peaking';f2.frequency.value=f;f2.Q.value=1.4;f2.gain.value=0;return f2})}
+function buildChain(){let last;gainNode=audioCtx.createGain();gainNode.gain.value=document.getElementById('volume').value/100;analyser=audioCtx.createAnalyser();analyser.fftSize=2048;eqFilters.forEach((f,i)=>{if(last)last.connect(f);else source.connect(f);last=f});if(last)last.connect(gainNode);else source.connect(gainNode);gainNode.connect(analyser);analyser.connect(audioCtx.destination)}
+function togglePlay(){if(isPlaying){stopPlay();return}if(!audioBuffer)return;source=audioCtx.createBufferSource();source.buffer=audioBuffer;source.playbackRate.value=document.getElementById('speed').value/100;buildChain();source.start();isPlaying=true;document.getElementById('playBtn').textContent='⏸️ 暂停';source.onended=()=>{isPlaying=false;document.getElementById('playBtn').textContent='▶️ 播放';cancelAnimationFrame(animFrame)};drawLiveWaveform()}
+function stopPlay(){if(source&&isPlaying){source.stop();isPlaying=false;document.getElementById('playBtn').textContent='▶️ 播放';cancelAnimationFrame(animFrame)}}
+function updateEQ(el){const val=parseInt(el.value);el.nextElementSibling.textContent=val+'dB';const idx=['60','230','1000','3500','10000'].indexOf(el.dataset.freq);if(eqFilters[idx])eqFilters[idx].gain.value=val}
+function updateEffect(type,val){if(type==='reverb')document.getElementById('reverbVal').textContent=val+'%';if(type==='delay')document.getElementById('delayVal').textContent=val+'%';if(type==='compress')document.getElementById('compressVal').textContent=val+'%';if(type==='pitch')document.getElementById('pitchVal').textContent=val>0?'+'+val:val;if(type==='speed')document.getElementById('speedVal').textContent=(val/100).toFixed(1)+'x';if(type==='volume'){document.getElementById('volumeVal').textContent=val+'%';if(gainNode)gainNode.gain.value=val/100}}
+function drawStaticWaveform(){const canvas=document.getElementById('waveform');canvas.width=canvas.offsetWidth*2;canvas.height=canvas.offsetHeight*2;const c=canvas.getContext('2d');const data=audioBuffer.getChannelData(0);const step=Math.ceil(data.length/canvas.width);c.clearRect(0,0,canvas.width,canvas.height);c.beginPath();c.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');c.lineWidth=1;for(let i=0;i<canvas.width;i++){let min=1,max=-1;for(let j=0;j<step;j++){const idx=i*step+j;if(data[idx]<min)min=data[idx];if(data[idx]>max)max=data[idx]}c.moveTo(i,(1+min)*canvas.height/2);c.lineTo(i,(1+max)*canvas.height/2)}c.stroke()}
+function drawLiveWaveform(){if(!isPlaying||!analyser)return;const canvas=document.getElementById('waveform');const buf=new Uint8Array(analyser.frequencyBinCount);analyser.getByteTimeDomainData(buf);canvas.width=canvas.offsetWidth*2;canvas.height=canvas.offsetHeight*2;const c=canvas.getContext('2d');c.clearRect(0,0,canvas.width,canvas.height);c.beginPath();const sl=buf.length;const sw=canvas.width/sl;for(let i=0;i<sl;i++){const v=buf[i]/128;const y=v*canvas.height/2;i===0?c.moveTo(0,y):c.lineTo(i*sw,y)}c.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');c.lineWidth=2;c.stroke();animFrame=requestAnimationFrame(drawLiveWaveform)}
+function exportAudio(){if(!audioBuffer)return;const offline=new OfflineAudioContext(audioBuffer.numberOfChannels,audioBuffer.length,audioBuffer.sampleRate);const src=offline.createBufferSource();src.buffer=audioBuffer;src.connect(offline.destination);src.start();offline.startRendering().then(rendered=>{const wav=audioBufferToWav(rendered);const blob=new Blob([wav],{type:'audio/wav'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='processed_audio.wav';a.click()})}
+function audioBufferToWav(buffer){const numChannels=buffer.numberOfChannels;const sampleRate=buffer.sampleRate;const length=buffer.length*numChannels*2+44;const buf=new ArrayBuffer(length);const view=new DataView(buf);const channels=[];for(let i=0;i<numChannels;i++)channels.push(buffer.getChannelData(i));writeString(view,0,'RIFF');view.setUint32(4,length-8,true);writeString(view,8,'WAVE');writeString(view,12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,numChannels,true);view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*numChannels*2,true);view.setUint16(32,numChannels*2,true);view.setUint16(34,16,true);writeString(view,36,'data');view.setUint32(40,length-44,true);let offset=44;for(let i=0;i<buffer.length;i++)for(let c=0;c<numChannels;c++){const sample=Math.max(-1,Math.min(1,channels[c][i]));view.setInt16(offset,sample<0?sample*0x8000:sample*0x7FFF,true);offset+=2}return buf}
+function writeString(view,offset,str){for(let i=0;i<str.length;i++)view.setUint8(offset+i,str.charCodeAt(i))}
+document.getElementById('uploadZone').ondragover=e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--accent)'};
+document.getElementById('uploadZone').ondragleave=e=>{e.currentTarget.style.borderColor='var(--border)'};
+document.getElementById('uploadZone').ondrop=e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--border)';const file=e.dataTransfer.files[0];if(file){const dt=new DataTransfer();dt.items.add(file);document.getElementById('fileInput').files=dt.files;loadFile({target:{files:[file]}})}};
+</script>
+</body>
+</html>

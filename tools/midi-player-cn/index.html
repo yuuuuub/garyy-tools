@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎹 MIDI播放器</title>
+<meta name="description" content="在线MIDI文件播放器，支持可视化钢琴卷帘和播放控制">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎹</text></svg>">
+<meta name="robots" content="noindex">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:540px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:30px;text-align:center;cursor:pointer;transition:all .2s}
+.upload-zone:hover{border-color:var(--accent);background:var(--tag-bg)}
+.upload-zone p{color:var(--text-secondary);font-size:13px;margin-top:8px}
+.controls{display:flex;gap:10px;align-items:center;justify-content:center;margin:16px 0}
+.ctrl-btn{width:48px;height:48px;border-radius:50%;border:2px solid var(--border);background:var(--card-bg);font-size:20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.ctrl-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+.ctrl-btn.active{border-color:var(--accent);background:var(--tag-bg)}
+.progress-bar{width:100%;height:6px;border-radius:3px;background:var(--border);cursor:pointer;margin:8px 0}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .1s}
+.time-display{display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);font-family:monospace}
+.piano-roll{width:100%;height:200px;border-radius:12px;background:var(--preview-bg);overflow:hidden;position:relative}
+canvas#rollCanvas{width:100%;height:100%}
+.piano-keys{position:absolute;left:0;top:0;bottom:0;width:40px;background:rgba(0,0,0,.3);display:flex;flex-direction:column}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:80px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;min-width:36px;text-align:right;color:var(--accent);font-weight:600}
+.track-list{max-height:200px;overflow-y:auto}
+.track-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;margin-bottom:4px;transition:background .2s}
+.track-item:hover{background:var(--preview-bg)}
+.track-color{width:12px;height:12px;border-radius:50%}
+.track-name{font-size:13px;flex:1}
+.track-notes{font-size:11px;color:var(--text-secondary)}
+.footer{text-align:center;padding:20px 0;font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎹 MIDI播放器</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</header>
+<div class="card">
+<div class="card-title">📂 加载MIDI文件</div>
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('midiInput').click()">
+<div style="font-size:36px">🎼</div>
+<p>点击或拖拽上传MIDI文件</p>
+<input type="file" id="midiInput" accept=".mid,.midi" style="display:none" onchange="loadMidi(event)">
+</div>
+</div>
+<div class="card">
+<div class="card-title">🎛️ 播放控制</div>
+<div class="controls">
+<button class="ctrl-btn" onclick="skipBack()">⏮️</button>
+<button class="ctrl-btn" id="playBtn" onclick="togglePlay()">▶️</button>
+<button class="ctrl-btn" onclick="skipForward()">⏭️</button>
+<button class="ctrl-btn" id="stopBtn" onclick="stopPlay()">⏹️</button>
+</div>
+<div class="progress-bar" id="progressBar" onclick="seek(event)"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+<div class="time-display"><span id="currentTime">0:00</span><span id="totalTime">0:00</span></div>
+<div class="slider-row"><label>音量</label><input type="range" min="0" max="100" value="80" id="volumeSlider" oninput="setVolume(this.value)"><span id="volVal">80%</span></div>
+<div class="slider-row"><label>速度</label><input type="range" min="25" max="200" value="100" id="speedSlider" oninput="setSpeed(this.value)"><span id="speedVal">1.0x</span></div>
+</div>
+<div class="card">
+<div class="card-title">🎹 钢琴卷帘</div>
+<div class="piano-roll"><canvas id="rollCanvas"></canvas></div>
+</div>
+<div class="card">
+<div class="card-title">🎵 音轨列表</div>
+<div class="track-list" id="trackList"><p style="color:var(--text-secondary);font-size:13px">请先加载MIDI文件</p></div>
+</div>
+<div class="footer">MIDI播放器 - 基于 Web Audio API</div>
+</div>
+<script>
+let audioCtx,midiData=null,isPlaying=false,playStartTime=0,pausedAt=0,scheduledNotes=[],nextNoteIndex=[],playbackSpeed=1,noteGain=null;
+const NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const TRACK_COLORS=['#ef4444','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;document.querySelector('.theme-toggle').textContent=t==='dark'?'☀️':'🌙'}
+function loadMidi(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{midiData=parseMidi(ev.target.result);renderTracks();drawPianoRoll();document.getElementById('totalTime').textContent=formatTime(midiData.duration)}catch(err){alert('MIDI解析失败: '+err.message)}};reader.readAsArrayBuffer(file)}
+function parseMidi(buffer){const data=new Uint8Array(buffer);let pos=0;function readUint32(){const v=(data[pos]<<24)|(data[pos+1]<<16)|(data[pos+2]<<8)|data[pos+3];pos+=4;return v>>>0}function readUint16(){const v=(data[pos]<<8)|data[pos+1];pos+=2;return v}function readUint8(){return data[pos++]}function readStr(n){let s='';for(let i=0;i<n;i++)s+=String.fromCharCode(data[pos++]);return s}
+if(readStr(4)!=='MThd')throw new Error('不是MIDI文件');const headerLen=readUint32();const format=readUint16();const numTracks=readUint16();const division=readUint16();pos+=headerLen-6;
+const tracks=[];let maxTime=0;
+for(let t=0;t<numTracks;t++){if(readStr(4)!=='MTrk')throw new Error('轨道头错误');const trackLen=readUint32();const trackEnd=pos+trackLen;const notes=[];let absTime=0;let runningStatus=0;
+while(pos<trackEnd){let delta=0;let shift=0;do{delta=(delta<<7)|(data[pos]&0x7f);if(data[pos]&0x80)pos++;else{pos++;break}}while(true);absTime+=delta;const status=data[pos];if(status>=0x80){runningStatus=status;pos++}else{}const st=runningStatus&0xF0;
+if(st===0x90){const note=readUint8();const vel=readUint8();if(vel>0){notes.push({time:absTime/division,duration:0,note,velocity:vel,track:t})}
+}else if(st===0x80){pos+=2;
+}else if(st===0xA0){pos+=2;
+}else if(st===0xB0){pos+=2;
+}else if(st===0xC0){pos++;
+}else if(st===0xD0){pos++;
+}else if(st===0xE0){pos+=2;
+}else if(st===0xF0){while(data[pos]!==0xF7){pos++}pos++;
+}else{pos++}
+if(absTime/division>maxTime)maxTime=absTime/division}
+tracks.push({name:'轨道 '+(t+1),notes,channel:t})}
+return{tracks,division,format,duration:maxTime||60,numTracks}}
+function renderTracks(){const el=document.getElementById('trackList');if(!midiData)return;el.innerHTML=midiData.tracks.map((t,i)=>`<div class="track-item"><div class="track-color" style="background:${TRACK_COLORS[i%TRACK_COLORS.length]}"></div><span class="track-name">${t.name}</span><span class="track-notes">${t.notes.length} 个音符</span></div>`).join('')}
+function drawPianoRoll(){const canvas=document.getElementById('rollCanvas');if(!midiData)return;const W=canvas.offsetWidth*2;const H=canvas.offsetHeight*2;canvas.width=W;canvas.height=H;const c=canvas.getContext('2d');c.clearRect(0,0,W,H);const dur=midiData.duration||60;const minNote=24,maxNote=96;const noteRange=maxNote-minNote;const noteH=H/noteRange;const pxPerSec=W/dur;
+for(let n=minNote;n<=maxNote;n++){const y=(1-(n-minNote)/noteRange)*H;const isBlack=[1,3,6,8,10].includes(n%12);if(isBlack){c.fillStyle='rgba(0,0,0,.05)';c.fillRect(0,y-noteH/2,W,noteH)}}
+midiData.tracks.forEach((track,ti)=>{const color=TRACK_COLORS[ti%TRACK_COLORS.length];track.notes.forEach(note=>{if(note.note<minNote||note.note>maxNote)return;const x=note.time*pxPerSec;const w=Math.max(2,(note.duration||0.1)*pxPerSec);const y=(1-(note.note-minNote)/noteRange)*H-noteH/2;c.fillStyle=color;c.globalAlpha=0.7;c.fillRect(x,y,w,noteH-1);c.globalAlpha=1})})}
+function togglePlay(){if(!midiData)return;if(isPlaying){pausePlay();return}audioCtx=new(window.AudioContext||window.webkitAudioContext)();noteGain=audioCtx.createGain();noteGain.gain.value=document.getElementById('volumeSlider').value/100;noteGain.connect(audioCtx.destination);isPlaying=true;playStartTime=audioCtx.currentTime-pausedAt;nextNoteIndex=midiData.tracks.map(()=>0);document.getElementById('playBtn').textContent='⏸️';scheduleNotes();animateProgress()}
+function pausePlay(){if(!isPlaying)return;isPlaying=false;pausedAt=audioCtx.currentTime-playStartTime;scheduledNotes.forEach(n=>{try{n.osc.stop()}catch(e){}});scheduledNotes=[];document.getElementById('playBtn').textContent='▶️'}
+function stopPlay(){isPlaying=false;if(audioCtx){audioCtx.close();audioCtx=null}scheduledNotes=[];pausedAt=0;document.getElementById('playBtn').textContent='▶️';document.getElementById('progressFill').style.width='0%';document.getElementById('currentTime').textContent='0:00'}
+function scheduleNotes(){if(!isPlaying||!midiData)return;const elapsed=(audioCtx.currentTime-playStartTime)*playbackSpeed;midiData.tracks.forEach((track,ti)=>{while(nextNoteIndex[ti]<track.notes.length){const note=track.notes[nextNoteIndex[ti]];const noteTime=note.time;if(noteTime>elapsed+2)break;nextNoteIndex[ti]++;if(noteTime<elapsed-0.1)continue;const osc=audioCtx.createOscillator();const env=audioCtx.createGain();osc.type='triangle';osc.frequency.value=440*Math.pow(2,(note.note-69)/12);env.gain.value=note.velocity/127*0.3;const startAt=playStartTime+noteTime/playbackSpeed;const dur=Math.max(0.05,Math.min(2,note.duration||0.2));env.gain.setValueAtTime(0,startAt);env.gain.linearRampToValueAtTime(note.velocity/127*0.3,startAt+0.01);env.gain.exponentialRampToValueAtTime(0.001,startAt+dur);osc.connect(env);env.connect(noteGain);osc.start(startAt);osc.stop(startAt+dur+0.05);scheduledNotes.push({osc,endTime:startAt+dur})}});setTimeout(()=>{if(isPlaying)scheduleNotes()},100)}
+function animateProgress(){if(!isPlaying||!midiData)return;const elapsed=(audioCtx.currentTime-playStartTime)*playbackSpeed;const pct=Math.min(100,elapsed/midiData.duration*100);document.getElementById('progressFill').style.width=pct+'%';document.getElementById('currentTime').textContent=formatTime(elapsed);if(pct<100)requestAnimationFrame(animateProgress)}
+function seek(e){if(!midiData)return;const rect=e.currentTarget.getBoundingClientRect();const pct=(e.clientX-rect.left)/rect.width;stopPlay();pausedAt=pct*midiData.duration;togglePlay()}
+function setVolume(v){document.getElementById('volVal').textContent=v+'%';if(noteGain)noteGain.gain.value=v/100}
+function setSpeed(v){playbackSpeed=v/100;document.getElementById('speedVal').textContent=playbackSpeed.toFixed(1)+'x'}
+function skipBack(){if(!midiData)return;pausedAt=Math.max(0,(audioCtx?audioCtx.currentTime-playStartTime:pausedAt)*playbackSpeed-5);if(isPlaying){stopPlay();togglePlay()}}
+function skipForward(){if(!midiData)return;pausedAt=Math.min(midiData.duration,(audioCtx?audioCtx.currentTime-playStartTime:pausedAt)*playbackSpeed+5);if(isPlaying){stopPlay();togglePlay()}}
+function formatTime(s){const m=Math.floor(s/60);const sec=Math.floor(s%60);return m+':'+String(sec).padStart(2,'0')}
+document.getElementById('uploadZone').ondragover=e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--accent)'};
+document.getElementById('uploadZone').ondragleave=e=>{e.currentTarget.style.borderColor='var(--border)'};
+document.getElementById('uploadZone').ondrop=e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--border)';const file=e.dataTransfer.files[0];if(file){const dt=new DataTransfer();dt.items.add(file);document.getElementById('midiInput').files=dt.files;loadMidi({target:{files:[file]}})}};
+</script>
+</body>
+</html>

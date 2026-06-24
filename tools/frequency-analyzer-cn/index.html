@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 频谱分析器</title>
+<meta name="description" content="在线频谱分析器，支持实时音频频谱显示、频率检测和瀑布图">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+<meta name="robots" content="noindex">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:580px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.spectrum-display{width:100%;height:200px;border-radius:12px;background:var(--preview-bg);overflow:hidden;position:relative}
+canvas{width:100%;height:100%;display:block}
+.freq-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text-secondary);margin-top:4px;padding:0 4px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.stat-item{padding:10px;border-radius:8px;background:var(--preview-bg);text-align:center}
+.stat-label{font-size:11px;color:var(--text-secondary)}
+.stat-value{font-size:18px;font-weight:700;color:var(--accent);margin-top:4px;font-family:monospace}
+.transport{display:flex;gap:10px;justify-content:center;margin:12px 0}
+.transport-btn{width:48px;height:48px;border-radius:50%;border:2px solid var(--border);background:var(--card-bg);font-size:20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.transport-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+.transport-btn.active{border-color:var(--accent);background:var(--tag-bg)}
+.transport-btn.recording{border-color:var(--red);background:rgba(239,68,68,.1);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+.view-tabs{display:flex;gap:6px;margin-bottom:12px}
+.view-tab{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:12px;cursor:pointer;transition:all .2s}
+.view-tab.active{border-color:var(--accent);background:var(--accent);color:#fff}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:80px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;min-width:36px;text-align:right;color:var(--accent);font-weight:600}
+.peak-list{max-height:150px;overflow-y:auto}
+.peak-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:4px;font-size:12px}
+.peak-item:nth-child(odd){background:var(--preview-bg)}
+.peak-freq{font-weight:700;color:var(--accent);min-width:60px}
+.peak-db{color:var(--text-secondary);min-width:50px}
+.peak-bar{flex:1;height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+.peak-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--red));border-radius:3px;transition:width .1s}
+.footer{text-align:center;padding:20px 0;font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>📊 频谱分析器</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</header>
+<div class="card">
+<div class="card-title">🎤 音频输入</div>
+<div class="transport">
+<button class="transport-btn" id="micBtn" onclick="toggleMic()">🎤</button>
+<button class="transport-btn" id="fileBtn" onclick="document.getElementById('audioFile').click()">📂</button>
+<input type="file" id="audioFile" accept="audio/*" style="display:none" onchange="loadFile(event)">
+</div>
+<div class="view-tabs">
+<button class="view-tab active" onclick="setView('bars',this)">频谱柱状</button>
+<button class="view-tab" onclick="setView('line',this)">波形曲线</button>
+<button class="view-tab" onclick="setView('waterfall',this)">瀑布图</button>
+</div>
+<div class="spectrum-display"><canvas id="spectrum"></canvas></div>
+<div class="freq-labels"><span>20Hz</span><span>100Hz</span><span>1kHz</span><span>5kHz</span><span>10kHz</span><span>20kHz</span></div>
+</div>
+<div class="card">
+<div class="card-title">📈 实时数据</div>
+<div class="stats-grid">
+<div class="stat-item"><div class="stat-label">主频</div><div class="stat-value" id="domFreq">-- Hz</div></div>
+<div class="stat-item"><div class="stat-label">音量 (RMS)</div><div class="stat-value" id="rmsDb">-- dB</div></div>
+<div class="stat-item"><div class="stat-label">峰值</div><div class="stat-value" id="peakDb">-- dB</div></div>
+<div class="stat-item"><div class="stat-label">音高</div><div class="stat-value" id="pitchNote">--</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">🔝 频率峰值</div>
+<div class="peak-list" id="peakList"><p style="color:var(--text-secondary);font-size:13px">等待音频输入...</p></div>
+</div>
+<div class="card">
+<div class="card-title">⚙️ 设置</div>
+<div class="slider-row"><label>FFT大小</label><select id="fftSize" onchange="updateFFT()" style="flex:1;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--input-bg);color:var(--text)"><option value="512">512</option><option value="1024">1024</option><option value="2048" selected>2048</option><option value="4096">4096</option><option value="8192">8192</option></select></div>
+<div class="slider-row"><label>平滑系数</label><input type="range" min="0" max="99" value="80" id="smoothing" oninput="if(analyser)analyser.smoothingTimeConstant=this.value/100;document.getElementById('smVal').textContent=(this.value/100).toFixed(2)"><span id="smVal">0.80</span></div>
+<div class="slider-row"><label>增益</label><input type="range" min="0" max="30" value="0" id="gainBoost" oninput="document.getElementById('gainVal').textContent='+'+this.value+'dB'"><span id="gainVal">+0dB</span></div>
+</div>
+<div class="footer">频谱分析器 - 基于 Web Audio API</div>
+</div>
+<script>
+let audioCtx,analyser,mediaStream,sourceNode,isActive=false,animFrame,currentView='bars',waterfallData=[],audioElement=null;
+const NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;document.querySelector('.theme-toggle').textContent=t==='dark'?'☀️':'🌙'}
+function initAudio(){audioCtx=new(window.AudioContext||window.webkitAudioContext)();analyser=audioCtx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.8;analyser.connect(audioCtx.destination)}
+async function toggleMic(){if(isActive){stopAll();return}try{mediaStream=await navigator.mediaDevices.getUserMedia({audio:true});initAudio();sourceNode=audioCtx.createMediaStreamSource(mediaStream);sourceNode.connect(analyser);isActive=true;document.getElementById('micBtn').classList.add('active');analyze()}catch(e){alert('请允许麦克风权限')}}
+function loadFile(e){const file=e.target.files[0];if(!file)return;stopAll();initAudio();audioElement=new Audio();audioElement.src=URL.createObjectURL(file);audioElement.crossOrigin='anonymous';sourceNode=audioCtx.createMediaElementSource(audioElement);sourceNode.connect(analyser);audioElement.play();isActive=true;document.getElementById('fileBtn').classList.add('active');audioElement.onended=()=>{isActive=false;document.getElementById('fileBtn').classList.remove('active')};analyze()}
+function stopAll(){isActive=false;cancelAnimationFrame(animFrame);if(mediaStream)mediaStream.getTracks().forEach(t=>t.stop());if(audioElement){audioElement.pause();audioElement=null}if(audioCtx)audioCtx.close();document.getElementById('micBtn').classList.remove('active');document.getElementById('fileBtn').classList.remove('active');clearStats()}
+function updateFFT(){if(analyser){analyser.fftSize=parseInt(document.getElementById('fftSize').value)}}
+function setView(view,el){currentView=view;document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');waterfallData=[]}
+function freqToIndex(freq){return Math.round(freq*analyser.fftSize/audioCtx.sampleRate)}
+function indexToFreq(i){return i*audioCtx.sampleRate/analyser.fftSize}
+function analyze(){if(!isActive||!analyser)return;const bufLen=analyser.frequencyBinCount;const freqData=new Uint8Array(bufLen);const timeData=new Float32Array(analyser.fftSize);analyser.getByteFrequencyData(freqData);analyser.getFloatTimeDomainData(timeData);
+const canvas=document.getElementById('spectrum');canvas.width=canvas.offsetWidth*2;canvas.height=canvas.offsetHeight*2;const c=canvas.getContext('2d');c.clearRect(0,0,canvas.width,canvas.height);
+if(currentView==='bars'){const barCount=Math.min(bufLen,128);const barW=canvas.width/barCount;const gain=parseInt(document.getElementById('gainBoost').value);for(let i=0;i<barCount;i++){const idx=Math.floor(i*bufLen/barCount);const val=Math.min(255,freqData[idx]+gain);const h=val/255*canvas.height;const hue=240-idx/barCount*240;c.fillStyle=`hsl(${hue},70%,50%)`;c.fillRect(i*barW,canvas.height-h,barW-1,h)}}
+else if(currentView==='line'){c.beginPath();c.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent');c.lineWidth=2;for(let i=0;i<bufLen;i++){const x=i/bufLen*canvas.width;const y=canvas.height-freqData[i]/255*canvas.height;i===0?c.moveTo(x,y):c.lineTo(x,y)}c.stroke()}
+else if(currentView==='waterfall'){const gain=parseInt(document.getElementById('gainBoost').value);const rowData=[];for(let i=0;i<128;i++){const idx=Math.floor(i*bufLen/128);rowData.push(Math.min(255,freqData[idx]+gain))}waterfallData.unshift(rowData);if(waterfallData.length>canvas.height/2)waterfallData.pop();waterfallData.forEach((row,y)=>{row.forEach((val,x)=>{const hue=240-val/255*240;c.fillStyle=`hsl(${hue},80%,${30+val/255*40}%)`;c.fillRect(x*canvas.width/row.length,y*2,canvas.width/row.length+1,2)})})}
+analyzeStats(freqData,timeData);animFrame=requestAnimationFrame(analyze)}
+function analyzeStats(freqData,timeData){const bufLen=freqData.length;let maxVal=0,maxIdx=0;for(let i=0;i<bufLen;i++){if(freqData[i]>maxVal){maxVal=freqData[i];maxIdx=i}}
+const domFreq=indexToFreq(maxIdx);document.getElementById('domFreq').textContent=domFreq>0?domFreq.toFixed(1)+' Hz':'-- Hz';
+let rms=0;for(let i=0;i<timeData.length;i++)rms+=timeData[i]*timeData[i];rms=Math.sqrt(rms/timeData.length);const rmsDb=rms>0?20*Math.log10(rms):-100;document.getElementById('rmsDb').textContent=rmsDb.toFixed(1)+' dB';
+let peak=0;for(let i=0;i<timeData.length;i++)if(Math.abs(timeData[i])>peak)peak=Math.abs(timeData[i]);const peakDb=peak>0?20*Math.log10(peak):-100;document.getElementById('peakDb').textContent=peakDb.toFixed(1)+' dB';
+if(domFreq>20&&domFreq<5000){const noteNum=12*Math.log2(domFreq/440)+69;const noteIdx=Math.round(noteNum)%12;const oct=Math.floor(Math.round(noteNum)/12)-1;document.getElementById('pitchNote').textContent=NOTE_NAMES[noteIdx]+oct}else{document.getElementById('pitchNote').textContent='--'}
+const peaks=[];for(let i=2;i<bufLen-2;i++){if(freqData[i]>freqData[i-1]&&freqData[i]>freqData[i+1]&&freqData[i]>freqData[i-2]&&freqData[i]>freqData[i+2]&&freqData[i]>50){const f=indexToFreq(i);const db=20*Math.log10(freqData[i]/255);peaks.push({freq:f,db:db,dbNorm:freqData[i]/255})}}
+peaks.sort((a,b)=>b.db-a.db);peaks.length=Math.min(peaks.length,8);
+const peakEl=document.getElementById('peakList');if(peaks.length===0){peakEl.innerHTML='<p style="color:var(--text-secondary);font-size:13px">无明显峰值</p>'}else{peakEl.innerHTML=peaks.map(p=>`<div class="peak-item"><span class="peak-freq">${p.freq>=1000?(p.freq/1000).toFixed(1)+'k':p.freq.toFixed(0)+'Hz'}</span><span class="peak-db">${p.db.toFixed(1)}dB</span><div class="peak-bar"><div class="peak-fill" style="width:${p.dbNorm*100}%"></div></div></div>`).join('')}}
+function clearStats(){document.getElementById('domFreq').textContent='-- Hz';document.getElementById('rmsDb').textContent='-- dB';document.getElementById('peakDb').textContent='-- dB';document.getElementById('pitchNote').textContent='--';document.getElementById('peakList').innerHTML='<p style="color:var(--text-secondary);font-size:13px">等待音频输入...</p>'}
+</script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔗 弹簧物理</title>
+<meta name="description" content="弹簧物理 - 弹簧-质点系统模拟，支持多种弹簧类型和交互">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%;cursor:crosshair}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:80px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.85}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-warn{background:var(--warn);color:#fff}.btn-warn:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0}
+.info-bar span{color:var(--accent);font-weight:600}
+.hint{color:var(--text2);text-align:center;font-size:.8rem;margin-bottom:8px}</style>
+</head>
+<body>
+<div class="hdr"><h1>🔗 弹簧物理</h1><p>弹簧-质点系统模拟</p></div>
+
+<div class="hint">拖拽质点 | 点击空白添加质点 | Shift+点击两个质点创建弹簧 | Alt+点击固定质点</div>
+<div class="canvas-wrap"><canvas id="spring"></canvas></div>
+
+<div class="tabs" id="tabs">
+<button class="active" data-preset="pendulum">弹簧摆</button>
+<button data-preset="softbody">软体</button>
+<button data-preset="bridge">桥梁</button>
+<button data-preset="ragdoll">布娃娃</button>
+<button data-preset="springnet">弹簧网络</button>
+<button data-preset="cloth">布料弹簧</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>弹簧刚度</label><input type="range" min="0.01" max="0.5" step="0.01" value="0.1" id="springK"><span class="val">0.1</span></div>
+<div class="row"><label>弹簧阻尼</label><input type="range" min="0.9" max="1" step="0.005" value="0.97" id="springD"><span class="val">0.97</span></div>
+<div class="row"><label>重力</label><input type="range" min="0" max="2" step="0.05" value="0.4" id="gravity"><span class="val">0.4</span></div>
+<div class="row"><label>质点半径</label><input type="range" min="2" max="15" step="1" value="5" id="radius"><span class="val">5</span></div>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" onclick="togglePlay()">▶ 播放/暂停</button>
+<button class="btn btn-success" onclick="explode()">💥 爆炸</button>
+<button class="btn btn-danger" onclick="clearAll()">🗑 清空</button>
+<button class="btn btn-outline" onclick="screenshot()">📷 截图</button>
+</div>
+
+<div class="info-bar">FPS: <span id="fps">0</span> | 质点: <span id="massCount">0</span> | 弹簧: <span id="springCount">0</span></div>
+
+<script>
+const canvas=document.getElementById('spring'),ctx=canvas.getContext('2d');
+let W,H,playing=true,springK=0.1,springD=0.97,grav=0.4,massRadius=5;
+let masses=[],springs=[],dragMass=null,firstPick=null;
+let animId,lastTime=0,fpsCount=0,fpsTime=0;
+
+function resize(){const r=canvas.parentElement.getBoundingClientRect();W=canvas.width=r.width;H=canvas.height=Math.min(500,r.width*0.6);loadPreset('pendulum')}
+
+class Mass{
+constructor(x,y,fixed=false,mass=1){
+this.x=x;this.y=y;this.ox=x;this.oy=y;this.fixed=fixed;this.mass=mass;this.radius=massRadius;
+}
+update(){
+if(this.fixed)return;
+const vx=(this.x-this.ox)*springD;const vy=(this.y-this.oy)*springD;
+this.ox=this.x;this.oy=this.y;
+this.x+=vx;this.y+=vy+grav;
+if(this.y>H-this.radius){this.y=H-this.radius;this.oy=this.y+vy*0.2}
+if(this.x<this.radius){this.x=this.radius;this.ox=this.radius}
+if(this.x>W-this.radius){this.x=W-this.radius;this.ox=W-this.radius}
+if(this.y<this.radius){this.y=this.radius;this.oy=this.radius}
+}
+}
+
+class Spring{
+constructor(a,b,len){this.a=a;this.b=b;this.len=len||Math.hypot(masses[a].x-masses[b].x,masses[a].y-masses[b].y)}
+}
+
+function addMass(x,y,fixed=false){masses.push(new Mass(x,y,fixed));return masses.length-1}
+function addSpring(a,b,len){springs.push(new Spring(a,b,len))}
+
+function clearAll(){masses=[];springs=[];firstPick=null}
+
+function loadPreset(name){
+clearAll();
+if(name==='pendulum'){
+const top=addMass(W/2,50,true);
+for(let i=1;i<=5;i++)addMass(W/2,50+i*40);
+for(let i=0;i<5;i++)addSpring(i,i+1);
+}else if(name==='softbody'){
+const cx=W/2,cy=H/2,r=80,n=12;
+const ids=[];for(let i=0;i<n;i++)ids.push(addMass(cx+Math.cos(i*2*Math.PI/n)*r,cy+Math.sin(i*2*Math.PI/n)*r));
+for(let i=0;i<n;i++)addSpring(ids[i],ids[(i+1)%n]);
+for(let i=0;i<n;i++)addSpring(ids[i],ids[(i+Math.floor(n/2))%n]);
+}else if(name==='bridge'){
+const segs=10,span=W*0.7,startX=(W-span)/2;
+for(let i=0;i<=segs;i++)addMass(startX+i*span/segs,100,i===0||i===segs);
+for(let i=0;i<segs;i++)addSpring(i,i+1);
+for(let i=0;i<=segs;i++)addMass(startX+i*span/segs,200);
+for(let i=segs+1;i<=segs*2+1;i++)addSpring(i,i+1);
+for(let i=0;i<=segs;i++)addSpring(i,i+segs+1);
+}else if(name==='ragdoll'){
+const cx=W/2,cy=H/3;
+const head=addMass(cx,cy);const neck=addMass(cx,cy+30);const hip=addMass(cx,cy+90);
+const la=addMass(cx-40,cy+50);const ra=addMass(cx+40,cy+50);
+const ll=addMass(cx-25,cy+140);const rl=addMass(cx+25,cy+140);
+addSpring(head,neck,30);addSpring(neck,hip,60);
+addSpring(neck,la,50);addSpring(neck,ra,50);
+addSpring(hip,ll,55);addSpring(hip,rl,55);
+addSpring(head,hip,90);addSpring(la,ra,80);addSpring(ll,rl,50);
+}else if(name==='springnet'){
+const rows=6,cols=8,spacing=50;
+const startX=(W-cols*spacing)/2,startY=50;
+const ids=[];
+for(let r=0;r<rows;r++){ids[r]=[];for(let c=0;c<cols;c++){
+ids[r][c]=addMass(startX+c*spacing,startY+r*spacing,r===0);
+}}
+for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+if(c<cols-1)addSpring(ids[r][c],ids[r][c+1]);
+if(r<rows-1)addSpring(ids[r][c],ids[r+1][c]);
+}
+}else if(name==='cloth'){
+const rows=12,cols=16,spacing=20;
+const startX=(W-cols*spacing)/2,startY=40;
+const ids=[];
+for(let r=0;r<=rows;r++){ids[r]=[];for(let c=0;c<=cols;c++){
+ids[r][c]=addMass(startX+c*spacing,startY+r*spacing,r===0&&(c%4===0||c===0||c===cols));
+}}
+for(let r=0;r<=rows;r++)for(let c=0;c<=cols;c++){
+if(c<cols)addSpring(ids[r][c],ids[r][c+1]);
+if(r<rows)addSpring(ids[r][c],ids[r+1][c]);
+}
+}
+}
+
+function simStep(){
+masses.forEach(m=>m.update());
+for(let iter=0;iter<5;iter++){
+springs.forEach(s=>{
+const a=masses[s.a],b=masses[s.b];
+const dx=b.x-a.x,dy=b.y-a.y;
+const dist=Math.sqrt(dx*dx+dy*dy);
+const diff=(dist-s.len)/dist*springK;
+const fx=dx*diff,fy=dy*diff;
+if(!a.fixed){a.x+=fx;a.y+=fy}
+if(!b.fixed){b.x-=fx;b.y-=fy}
+});
+}
+}
+
+function draw(){
+ctx.fillStyle='rgba(10,10,15,0.4)';ctx.fillRect(0,0,W,H);
+
+springs.forEach(s=>{
+const a=masses[s.a],b=masses[s.b];
+const dist=Math.hypot(b.x-a.x,b.y-a.y);
+const strain=Math.abs(dist-s.len)/s.len;
+ctx.strokeStyle=strain>0.3?'#ef4444':strain>0.1?'#f59e0b':'#3b82f6';
+ctx.lineWidth=Math.max(1,3-strain*5);
+ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+});
+
+masses.forEach((m,i)=>{
+ctx.fillStyle=m.fixed?'#f59e0b':'#3b82f6';
+ctx.beginPath();ctx.arc(m.x,m.y,m.radius,0,Math.PI*2);ctx.fill();
+ctx.strokeStyle=m.fixed?'#fff':'rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.stroke();
+});
+}
+
+function animate(t){
+if(!playing){animId=requestAnimationFrame(animate);return}
+fpsCount++;if(t-fpsTime>1000){document.getElementById('fps').textContent=fpsCount;fpsCount=0;fpsTime=t}
+simStep();draw();
+document.getElementById('massCount').textContent=masses.length;
+document.getElementById('springCount').textContent=springs.length;
+animId=requestAnimationFrame(animate);
+}
+
+function togglePlay(){playing=!playing}
+
+function explode(){
+masses.forEach(m=>{if(!m.fixed){m.ox=m.x+(Math.random()-.5)*50;m.oy=m.y-30-Math.random()*30}});
+}
+
+canvas.addEventListener('mousedown',e=>{
+const rect=canvas.getBoundingClientRect();const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+if(e.altKey){
+let closest=null,minD=20;
+masses.forEach(m=>{const d=Math.hypot(m.x-mx,m.y-my);if(d<minD){minD=d;closest=m}});
+if(closest){closest.fixed=!closest.fixed;return}
+}
+if(e.shiftKey){
+let closest=null,minD=20;
+masses.forEach(m=>{const d=Math.hypot(m.x-mx,m.y-my);if(d<minD){minD=d;closest=m}});
+if(closest){
+if(firstPick===null)firstPick=masses.indexOf(closest);
+else{addSpring(firstPick,masses.indexOf(closest));firstPick=null}
+return;
+}
+firstPick=null;
+}
+let closest=null,minD=20;
+masses.forEach(m=>{const d=Math.hypot(m.x-mx,m.y-my);if(d<minD){minD=d;closest=m}});
+if(closest)dragMass=closest;
+else{const idx=addMass(mx,my);dragMass=masses[idx]}
+});
+canvas.addEventListener('mousemove',e=>{
+if(!dragMass)return;const rect=canvas.getBoundingClientRect();
+dragMass.x=e.clientX-rect.left;dragMass.y=e.clientY-rect.top;
+dragMass.ox=dragMass.x;dragMass.oy=dragMass.y;
+});
+canvas.addEventListener('mouseup',()=>dragMass=null);
+canvas.addEventListener('mouseleave',()=>dragMass=null);
+
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];const rect=canvas.getBoundingClientRect();
+let closest=null,minD=25;
+masses.forEach(m=>{const d=Math.hypot(m.x-(t.clientX-rect.left),m.y-(t.clientY-rect.top));if(d<minD){minD=d;closest=m}});
+if(closest)dragMass=closest},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!dragMass)return;const t=e.touches[0];const rect=canvas.getBoundingClientRect();
+dragMass.x=t.clientX-rect.left;dragMass.y=t.clientY-rect.top;dragMass.ox=dragMass.x;dragMass.oy=dragMass.y},{passive:false});
+canvas.addEventListener('touchend',()=>dragMass=null);
+
+document.getElementById('springK').oninput=function(){springK=+this.value;this.nextElementSibling.textContent=springK};
+document.getElementById('springD').oninput=function(){springD=+this.value;this.nextElementSibling.textContent=springD};
+document.getElementById('gravity').oninput=function(){grav=+this.value;this.nextElementSibling.textContent=grav};
+document.getElementById('radius').oninput=function(){massRadius=+this.value;this.nextElementSibling.textContent=massRadius;masses.forEach(m=>m.radius=massRadius)};
+
+document.getElementById('tabs').addEventListener('click',e=>{
+if(!e.target.dataset.preset)return;
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');
+loadPreset(e.target.dataset.preset);
+});
+
+function screenshot(){const link=document.createElement('a');link.download='spring-physics.png';link.href=canvas.toDataURL();link.click()}
+
+resize();requestAnimationFrame(animate);
+window.addEventListener('resize',resize);
+</script>
+</body></html>

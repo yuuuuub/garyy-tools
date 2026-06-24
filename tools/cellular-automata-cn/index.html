@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔲 元胞自动机</title>
+<meta name="description" content="元胞自动机 - Conway生命游戏、Wolfram规则等多种元胞自动机模拟">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔲</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%;cursor:crosshair}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.controls select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:.8rem}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.85}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0}
+.info-bar span{color:var(--accent);font-weight:600}
+.presets{display:flex;gap:6px;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
+.presets button{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.75rem;transition:all .2s}
+.presets button:hover{border-color:var(--accent);color:var(--accent)}</style>
+</head>
+<body>
+<div class="hdr"><h1>🔲 元胞自动机</h1><p>探索生命游戏和各种元胞自动机规则</p></div>
+
+<div class="tabs" id="tabs">
+<button class="active" data-rule="life">生命游戏</button>
+<button data-rule="highlife">HighLife</button>
+<button data-rule="daynight">日与夜</button>
+<button data-rule="seeds">种子</button>
+<button data-rule="wolfram110">Wolfram 110</button>
+<button data-rule="wolfram30">Wolfram 30</button>
+<button data-rule="wireworld">线路世界</button>
+</div>
+
+<div class="presets" id="presets">
+<button onclick="preset('glider')">滑翔机</button>
+<button onclick="preset('lwss')">轻量级飞船</button>
+<button onclick="preset('pulsar')">脉冲星</button>
+<button onclick="preset('gosper')">Gosper滑翔机枪</button>
+<button onclick="preset('rpentomino')">R五格骨牌</button>
+<button onclick="preset('random')">随机</button>
+<button onclick="preset('checkerboard')">棋盘格</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="ca"></canvas></div>
+
+<div class="controls">
+<div class="row"><label>网格大小</label><input type="range" min="20" max="200" step="10" value="80" id="gridSize"><span class="val">80</span></div>
+<div class="row"><label>速度</label><input type="range" min="1" max="60" step="1" value="10" id="speed"><span class="val">10</span></div>
+<div class="row"><label>着色</label>
+<select id="colorMode"><option value="classic">经典</option><option value="heat">热力图</option><option value="rainbow">彩虹</option><option value="mono">单色</option></select>
+</div>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" onclick="togglePlay()">▶ 播放/暂停</button>
+<button class="btn btn-success" onclick="step()">⏭ 单步</button>
+<button class="btn btn-danger" onclick="clearGrid()">🗑 清空</button>
+<button class="btn btn-outline" onclick="screenshot()">📷 截图</button>
+</div>
+
+<div class="info-bar">世代: <span id="gen">0</span> | 存活: <span id="alive">0</span> | FPS: <span id="fps">0</span></div>
+
+<script>
+const canvas=document.getElementById('ca'),ctx=canvas.getContext('2d');
+let W,H,cols,rows,cellSize,grid,nextGrid,playing=true,rule='life',gridSize=80,speed=10,colorMode='classic';
+let generation=0,animId,lastStep=0,fpsCount=0,fpsTime=0;
+
+function resize(){
+const r=canvas.parentElement.getBoundingClientRect();W=canvas.width=r.width;H=canvas.height=Math.min(500,r.width*0.6);
+cols=gridSize;rows=Math.floor(cols*H/W);cellSize=W/cols;
+initGrid();draw();
+}
+
+function initGrid(){
+grid=Array.from({length:rows},()=>Array(cols).fill(0));
+nextGrid=Array.from({length:rows},()=>Array(cols).fill(0));
+generation=0;document.getElementById('gen').textContent='0';
+}
+
+function countNeighbors(g,x,y){
+let n=0;
+for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+if(dx===0&&dy===0)continue;
+const nx=(x+dx+cols)%cols,ny=(y+dy+rows)%rows;n+=g[ny][nx];
+}return n;
+}
+
+function applyRule(n,state){
+if(rule==='life')return(state&&n===2)||(n===3);
+if(rule==='highlife')return(state&&n===2)||(n===3)||(n===6&&!state);
+if(rule==='daynight')return(state&&(n===3||n===4||n===5||n===6||n===7||n===8))||(!state&&(n===3||n===6||n===7||n===8));
+if(rule==='seeds')return!state&&n===2;
+if(rule==='wireworld'){
+if(state===1)return 2;if(state===2)return 3;if(state===3)return 1;
+if(state===0){let e=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(dx===0&&dy===0)continue;const nx=(x+dx+cols)%cols,ny=(y+dy+rows)%rows;if(grid[ny][nx]===1)e++}return(e===1||e===2)?1:0}
+return 0;
+}
+return(state&&n===2)||(n===3);
+}
+
+function update(){
+for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+const n=countNeighbors(grid,x,y);nextGrid[y][x]=applyRule(n,grid[y][x])?1:0;
+}
+[grid,nextGrid]=[nextGrid,grid];generation++;document.getElementById('gen').textContent=generation;
+}
+
+function getColor(state,x,y){
+if(rule==='wireworld'){
+if(state===0)return'#0a0a0f';if(state===1)return'#ff4444';if(state===2)return'#ffaa00';return'#4488ff';
+}
+if(colorMode==='heat'){
+const n=countNeighbors(grid,x,y);const t=state?(n/8):0;
+return state?`hsl(${30-t*30},${80+t*20}%,${40+t*20}%)`:'#0a0a0f';
+}
+if(colorMode==='rainbow')return state?`hsl(${(x*5+y*5+generation)%360},80%,50%)`:'#0a0a0f';
+if(colorMode==='mono')return state?'#22c55e':'#0a0a0f';
+return state?'#e6edf3':'#0a0a0f';
+}
+
+function draw(){
+ctx.fillStyle='#0a0a0f';ctx.fillRect(0,0,W,H);
+for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+if(grid[y][x]||colorMode!=='classic'){
+ctx.fillStyle=getColor(grid[y][x],x,y);
+ctx.fillRect(x*cellSize,y*cellSize,cellSize-0.5,cellSize-0.5);
+}
+}
+let aliveCount=0;for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)if(grid[y][x])aliveCount++;
+document.getElementById('alive').textContent=aliveCount;
+}
+
+function animate(t){
+if(!playing){animId=requestAnimationFrame(animate);return}
+fpsCount++;if(t-fpsTime>1000){document.getElementById('fps').textContent=fpsCount;fpsCount=0;fpsTime=t}
+if(t-lastStep>=1000/speed){update();draw();lastStep=t}
+animId=requestAnimationFrame(animate);
+}
+
+function togglePlay(){playing=!playing}
+function step(){update();draw()}
+function clearGrid(){initGrid();draw()}
+function screenshot(){const link=document.createElement('a');link.download='cellular-automata.png';link.href=canvas.toDataURL();link.click()}
+
+function preset(name){
+clearGrid();
+const cx=Math.floor(cols/2),cy=Math.floor(rows/2);
+const set=(pts,ox=0,oy=0)=>pts.forEach(([x,y])=>{if(oy+y>=0&&oy+y<rows&&ox+x>=0&&ox+x<cols)grid[oy+y][ox+x]=1});
+if(name==='glider')set([[1,0],[2,1],[0,2],[1,2],[2,2]],cx-1,cy-1);
+if(name==='lwss')set([[1,0],[4,0],[0,1],[0,2],[4,2],[0,3],[1,3],[2,3],[3,3]],cx-2,cy-2);
+if(name==='pulsar'){
+const p=[[2,0],[3,0],[4,0],[8,0],[9,0],[10,0],[0,2],[5,2],[7,2],[12,2],[0,3],[5,3],[7,3],[12,3],[0,4],[5,4],[7,4],[12,4],[2,5],[3,5],[4,5],[8,5],[9,5],[10,5]];
+p.forEach(([x,y])=>{set([[x,y]],cx-6,cy-6);set([[x,11-y]],cx-6,cy-6)});
+}
+if(name==='gosper')set([[24,0],[22,1],[24,1],[12,2],[13,2],[20,2],[21,2],[34,2],[35,2],[11,3],[15,3],[20,3],[21,3],[34,3],[35,3],[0,4],[1,4],[10,4],[16,4],[20,4],[21,4],[0,5],[1,5],[10,5],[14,5],[16,5],[17,5],[22,5],[24,5],[10,6],[16,6],[24,6],[11,7],[15,7],[12,8],[13,8]],cx-17,cy-4);
+if(name==='rpentomino')set([[1,0],[2,0],[0,1],[1,1],[1,2]],cx-1,cy-1);
+if(name==='random'){for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)grid[y][x]=Math.random()<0.3?1:0}
+if(name==='checkerboard'){for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)grid[y][x]=(x+y)%2}
+draw();
+}
+
+canvas.addEventListener('click',e=>{
+const rect=canvas.getBoundingClientRect();const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+const gx=Math.floor(mx/cellSize),gy=Math.floor(my/cellSize);
+if(gx>=0&&gx<cols&&gy>=0&&gy<rows){grid[gy][gx]=grid[gy][gx]?0:1;draw()}
+});
+
+document.getElementById('gridSize').oninput=function(){gridSize=+this.value;this.nextElementSibling.textContent=gridSize;resize()};
+document.getElementById('speed').oninput=function(){speed=+this.value;this.nextElementSibling.textContent=speed};
+document.getElementById('colorMode').onchange=function(){colorMode=this.value;draw()};
+
+document.getElementById('tabs').addEventListener('click',e=>{
+if(!e.target.dataset.rule)return;
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');
+rule=e.target.dataset.rule;clearGrid();preset('random');
+});
+
+resize();requestAnimationFrame(animate);
+</script>
+</body></html>
