@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>饼图生成器 - Pie Chart Generator</title>
+<meta name="description" content="在线饼图/环形图生成器，支持自定义数据和颜色，快速生成美观的饼图">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23533483'/><path d='M16 2 A14 14 0 0 1 30 16 L16 16Z' fill='%23e94560'/><path d='M16 2 A14 14 0 0 0 4 14 L16 16Z' fill='%230f3460'/></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--text:#e0e0e0;--text2:#a0a0b0;--accent:#e94560;--accent2:#533483;--border:#2a2a4a;--shadow:0 4px 24px rgba(0,0,0,.4);--radius:10px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--surface:#fff;--surface2:#f0f3f6;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#8250df;--border:#d0d7de;--shadow:0 2px 8px rgba(0,0,0,.1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+h1{font-size:20px;font-weight:700;color:var(--accent);padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.container{display:flex;height:calc(100vh - 56px)}
+.sidebar{width:320px;background:var(--surface);border-right:1px solid var(--border);padding:16px;overflow-y:auto;flex-shrink:0}
+.main{flex:1;padding:16px;overflow:auto;display:flex;align-items:center;justify-content:center}
+label{display:block;font-size:13px;color:var(--text2);margin:8px 0 4px}
+input,textarea,select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-size:13px;font-family:inherit}
+textarea{resize:vertical;min-height:80px;font-family:monospace}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;width:100%;margin-top:12px;transition:var(--transition)}
+.btn:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);margin-top:8px}
+.btn-outline:hover{background:var(--surface2)}
+.chart-wrap{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative;width:560px;height:560px}
+canvas{max-width:100%;max-height:100%}
+.toggle-theme{position:fixed;top:16px;right:16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;z-index:200}
+.legend{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+</style>
+</head>
+<body>
+<h1>🥧 饼图生成器 Pie Chart Generator</h1>
+<button class="toggle-theme" onclick="toggleTheme()">🌙 / ☀️</button>
+<div class="container">
+<div class="sidebar">
+<label>图表标题</label>
+<input id="title" value="市场份额分布" placeholder="输入标题">
+<label>数据（每行：标签,数值）</label>
+<textarea id="data" rows="8">Chrome,65
+Firefox,15
+Safari,12
+Edge,5
+其他,3</textarea>
+<label>图表类型</label>
+<select id="chartType"><option value="pie">饼图</option><option value="donut">环形图</option></select>
+<label>颜色主题</label>
+<select id="theme">
+<option value="rainbow">彩虹色</option>
+<option value="pastel">柔和色</option>
+<option value="vivid">鲜艳色</option>
+<option value="earth">大地色</option>
+</select>
+<label>显示百分比</label>
+<select id="showPercent"><option value="yes">显示</option><option value="no">隐藏</option></select>
+<button class="btn" onclick="drawChart()">生成图表</button>
+<button class="btn btn-outline" onclick="exportPNG()">导出 PNG</button>
+<button class="btn btn-outline" onclick="exportSVG()">导出 SVG</button>
+</div>
+<div class="main">
+<div>
+<div class="chart-wrap"><canvas id="canvas" width="560" height="560"></canvas></div>
+<div class="legend" id="legend"></div>
+</div>
+</div>
+</div>
+<script>
+const palettes={rainbow:['#e94560','#533483','#0f3460','#f5a623','#1a7f37','#0969da','#8250df','#cf222e','#bf8700'],pastel:['#ffb3ba','#bae1ff','#baffc9','#ffffba','#e8baff','#ffdfba','#c9baff','#baffee','#ffbae8'],vivid:['#ff0054','#00d4ff','#ffea00','#00ff88','#ff6600','#cc00ff','#00ffcc','#ff0066'],earth:['#8B4513','#228B22','#DAA520','#4682B4','#CD853F','#2E8B57','#B8860B']};
+function parseData(){return document.getElementById('data').value.trim().split('\n').map(l=>{const p=l.split(/[,，]/);return{label:p[0]||'',value:parseFloat(p[1])||0}}).filter(d=>d.value>0)}
+function toggleTheme(){const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'}
+function drawChart(){
+const cv=document.getElementById('canvas'),ctx=cv.getContext('2d');
+const data=parseData();if(!data.length)return;
+const total=data.reduce((s,d)=>s+d.value,0);
+const pal=palettes[document.getElementById('theme').value];
+const isDonut=document.getElementById('chartType').value==='donut';
+const showP=document.getElementById('showPercent').value==='yes';
+const W=560,H=560,cx=W/2,cy=H/2-10,r=isDonut?160:180,innerR=isDonut?90:0;
+ctx.clearRect(0,0,W,H);
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()||'#16213e';
+ctx.fillRect(0,0,W,H);
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#e0e0e0';
+ctx.font='bold 16px -apple-system,sans-serif';ctx.textAlign='center';
+ctx.fillText(document.getElementById('title').value,cx,30);
+let startAngle=-Math.PI/2;
+const slices=[];
+data.forEach((d,i)=>{
+const sliceAngle=2*Math.PI*(d.value/total);
+const endAngle=startAngle+sliceAngle;
+ctx.beginPath();ctx.moveTo(cx+innerR*Math.cos(startAngle),cy+innerR*Math.sin(startAngle));
+ctx.arc(cx,cy,r,startAngle,endAngle);
+ctx.arc(cx,cy,innerR,endAngle,startAngle,true);ctx.closePath();
+ctx.fillStyle=pal[i%pal.length];ctx.fill();
+ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#1a1a2e';
+ctx.lineWidth=2;ctx.stroke();
+if(showP&&sliceAngle>0.15){
+const mid=startAngle+sliceAngle/2;
+const pct=((d.value/total)*100).toFixed(1);
+const lx=cx+(r+innerR)/2*Math.cos(mid),ly=cy+(r+innerR)/2*Math.sin(mid);
+ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillText(pct+'%',lx,ly);
+}
+slices.push({label:d.label,value:d.value,pct:((d.value/total)*100).toFixed(1),color:pal[i%pal.length]});
+startAngle=endAngle;
+});
+const leg=document.getElementById('legend');
+leg.innerHTML=slices.map(s=>`<div class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.label} ${s.pct}%</div>`).join('');
+}
+function exportPNG(){const cv=document.getElementById('canvas');const a=document.createElement('a');a.download='pie-chart.png';a.href=cv.toDataURL('image/png');a.click()}
+function exportSVG(){
+const data=parseData();if(!data.length)return;
+const total=data.reduce((s,d)=>s+d.value,0);
+const pal=palettes[document.getElementById('theme').value];
+const isDonut=document.getElementById('chartType').value==='donut';
+const W=560,H=560,cx=W/2,cy=H/2-10,r=isDonut?160:180,innerR=isDonut?90:0;
+let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<rect width="${W}" height="${H}" fill="#16213e"/>
+<text x="${cx}" y="30" text-anchor="middle" fill="#e0e0e0" font-size="16" font-weight="bold">${document.getElementById('title').value}</text>`;
+let start=-Math.PI/2;
+data.forEach((d,i)=>{
+const sa=start,ea=start+2*Math.PI*(d.value/total);
+const x1=cx+r*Math.cos(sa),y1=cy+r*Math.sin(sa);
+const x2=cx+r*Math.cos(ea),y2=cy+r*Math.sin(ea);
+const large=(ea-sa)>Math.PI?1:0;
+const ix1=cx+innerR*Math.cos(sa),iy1=cy+innerR*Math.sin(sa);
+const ix2=cx+innerR*Math.cos(ea),iy2=cy+innerR*Math.sin(ea);
+svg+=`<path d="M${ix1} ${iy1} L${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2} L${ix2} ${iy2} A${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1}Z" fill="${pal[i%pal.length]}"/>`;
+start=ea;
+});
+svg+='</svg>';
+const blob=new Blob([svg],{type:'image/svg+xml'});
+const a=document.createElement('a');a.download='pie-chart.svg';a.href=URL.createObjectURL(blob);a.click();
+}
+drawChart();
+</script>
+</body>
+</html>
