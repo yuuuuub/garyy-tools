@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JavaScript错误检查工具 - 检测JS代码错误">
+    <meta name="robots" content="index, follow">
+    <title>JavaScript错误检查工具</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #dee2e6;
+            --card-bg: #f8f9fa;
+        }
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #444444;
+            --card-bg: #2d2d2d;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-family: monospace;
+            resize: vertical;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+        }
+        .error-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid var(--danger-color);
+        }
+        .warning-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid var(--warning-color);
+        }
+        .info-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(0, 123, 255, 0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .score {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .score.good {
+            color: var(--success-color);
+        }
+        .score.average {
+            color: var(--warning-color);
+        }
+        .score.poor {
+            color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>JavaScript错误检查工具</h1>
+        <p>输入JavaScript代码检查错误</p>
+        
+        <div class="form-group">
+            <label for="jsInput">JavaScript代码:</label>
+            <textarea id="jsInput" rows="15" placeholder="粘贴JavaScript代码..."></textarea>
+        </div>
+        
+        <button onclick="runCheck()">开始检查</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h2>检查结果</h2>
+            <div id="score" class="score"></div>
+            <div id="issues"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            html.setAttribute('data-theme', currentTheme === 'light' ? 'dark' : 'light');
+        }
+
+        function runCheck() {
+            const jsInput = document.getElementById('jsInput').value;
+            
+            if (!jsInput) {
+                alert('请输入JavaScript代码');
+                return;
+            }
+            
+            const issues = [];
+            let score = 100;
+            
+            // 检查语法错误
+            try {
+                new Function(jsInput);
+            } catch (e) {
+                score -= 30;
+                issues.push({
+                    type: 'error',
+                    message: `语法错误: ${e.message}`
+                });
+            }
+            
+            // 检查未声明变量
+            const varRegex = /(?:var|let|const)\s+(\w+)/g;
+            const declaredVars = [];
+            let match;
+            while ((match = varRegex.exec(jsInput)) !== null) {
+                declaredVars.push(match[1]);
+            }
+            
+            // 检查console.log使用
+            const consoleCount = (jsInput.match(/console\.(log|warn|error|info)/g) || []).length;
+            if (consoleCount > 3) {
+                score -= 5;
+                issues.push({
+                    type: 'warning',
+                    message: `使用了${consoleCount}次console方法，建议移除`
+                });
+            }
+            
+            // 检查alert使用
+            const alertCount = (jsInput.match(/alert\(/g) || []).length;
+            if (alertCount > 0) {
+                score -= 3;
+                issues.push({
+                    type: 'warning',
+                    message: `使用了${alertCount}次alert，建议使用更好的UI`
+                });
+            }
+            
+            // 检查eval使用
+            if (jsInput.includes('eval(')) {
+                score -= 10;
+                issues.push({
+                    type: 'error',
+                    message: '使用了eval，存在安全风险'
+                });
+            }
+            
+            // 检查==使用
+            const looseEquality = (jsInput.match(/[^=!]==[^=]/g) || []).length;
+            if (looseEquality > 0) {
+                score -= 3;
+                issues.push({
+                    type: 'warning',
+                    message: `使用了${looseEquality}次宽松相等，建议使用===`
+                });
+            }
+            
+            // 检查for-in使用
+            if (jsInput.includes('for(') && jsInput.includes('in')) {
+                score -= 2;
+                issues.push({
+                    type: 'info',
+                    message: '使用了for-in，确保检查hasOwnProperty'
+                });
+            }
+            
+            // 检查setTimeout字符串
+            if (jsInput.includes('setTimeout("') || jsInput.includes("setTimeout('")) {
+                score -= 5;
+                issues.push({
+                    type: 'error',
+                    message: 'setTimeout使用字符串参数，存在安全风险'
+                });
+            }
+            
+            // 检查未使用的变量
+            const lines = jsInput.split('\n');
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
+                    return;
+                }
+                
+                // 检查未使用的var声明
+                const unusedVarMatch = trimmed.match(/^(?:var|let|const)\s+(\w+)\s*=/);
+                if (unusedVarMatch) {
+                    const varName = unusedVarMatch[1];
+                    const varUsageRegex = new RegExp(`\\b${varName}\\b`, 'g');
+                    const usageCount = (jsInput.match(varUsageRegex) || []).length;
+                    if (usageCount === 1) {
+                        score -= 1;
+                        issues.push({
+                            type: 'info',
+                            message: `第${index + 1}行: 变量 ${varName} 可能未使用`
+                        });
+                    }
+                }
+            });
+            
+            // 计算最终分数
+            score = Math.max(0, Math.min(100, score));
+            
+            // 显示结果
+            const scoreDiv = document.getElementById('score');
+            const issuesDiv = document.getElementById('issues');
+            
+            scoreDiv.textContent = `${score}分`;
+            scoreDiv.className = `score ${score >= 80 ? 'good' : score >= 60 ? 'average' : 'poor'}`;
+            
+            if (issues.length === 0) {
+                issuesDiv.innerHTML = '<div class="info-item">JavaScript代码检查通过</div>';
+            } else {
+                issuesDiv.innerHTML = issues.map(issue => 
+                    `<div class="${issue.type}-item">${issue.message}</div>`
+                ).join('');
+            }
+            
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
