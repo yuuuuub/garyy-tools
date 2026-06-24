@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDN监控工具</title>
+    <meta name="description" content="用于监控CDN性能和状态的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #ff9800;
+            --accent-hover: #ffb74d;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .metric-card { text-align: center; }
+        .metric-value { font-size: 2.5rem; font-weight: bold; margin: 1rem 0; }
+        .metric-label { color: var(--text-secondary); }
+        .chart { height: 200px; background: var(--bg-tertiary); border-radius: 8px; display: flex; align-items: flex-end; padding: 1rem; }
+        .bar { flex: 1; margin: 0 2px; background: var(--accent); border-radius: 4px 4px 0 0; transition: height 0.3s; }
+        .refresh-btn { margin-top: 1rem; }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>CDN监控面板</h1>
+        
+        <div class="dashboard">
+            <div class="card metric-card">
+                <div class="metric-label">请求总量</div>
+                <div class="metric-value" id="totalRequests">0</div>
+                <div>今日请求次数</div>
+            </div>
+            
+            <div class="card metric-card">
+                <div class="metric-label">平均响应时间</div>
+                <div class="metric-value" id="avgResponseTime">0 ms</div>
+                <div>过去24小时</div>
+            </div>
+            
+            <div class="card metric-card">
+                <div class="metric-label">缓存命中率</div>
+                <div class="metric-value" id="cacheHitRate">0%</div>
+                <div>静态资源</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>节点性能分布</h2>
+            <div class="chart" id="performanceChart">
+                <!-- 柱状图将在这里动态生成 -->
+            </div>
+            <button class="refresh-btn" onclick="refreshMetrics()">刷新数据</button>
+        </div>
+        
+        <div class="card">
+            <h2>最近请求日志</h2>
+            <table id="logTable">
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>节点</th>
+                        <th>状态</th>
+                        <th>响应时间</th>
+                        <th>缓存状态</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody">
+                    <!-- 日志数据将在这里动态插入 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 模拟数据
+        const nodes = ['节点A', '节点B', '节点C', '节点D', '节点E', '节点F'];
+        const cacheStatuses = ['命中', '未命中', '过期'];
+        
+        // 初始化数据
+        let metrics = {
+            totalRequests: 15678,
+            avgResponseTime: 45,
+            cacheHitRate: 87.3,
+            nodePerformance: nodes.map(() => Math.floor(Math.random() * 100) + 50)
+        };
+        
+        let logs = [];
+        
+        // 渲染指标
+        function renderMetrics() {
+            document.getElementById('totalRequests').textContent = metrics.totalRequests.toLocaleString();
+            document.getElementById('avgResponseTime').textContent = metrics.avgResponseTime + ' ms';
+            document.getElementById('cacheHitRate').textContent = metrics.cacheHitRate.toFixed(1) + '%';
+        }
+        
+        // 渲染性能图表
+        function renderPerformanceChart() {
+            const chart = document.getElementById('performanceChart');
+            chart.innerHTML = '';
+            
+            metrics.nodePerformance.forEach((performance, index) => {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = performance + '%';
+                bar.title = nodes[index] + ': ' + performance + '%';
+                chart.appendChild(bar);
+            });
+        }
+        
+        // 生成随机日志
+        function generateLog() {
+            const now = new Date();
+            const node = nodes[Math.floor(Math.random() * nodes.length)];
+            const status = Math.random() > 0.1 ? '200' : '404';
+            const responseTime = Math.floor(Math.random() * 100) + 10;
+            const cacheStatus = cacheStatuses[Math.floor(Math.random() * cacheStatuses.length)];
+            
+            return {
+                time: now.toLocaleTimeString(),
+                node: node,
+                status: status,
+                responseTime: responseTime,
+                cacheStatus: cacheStatus
+            };
+        }
+        
+        // 渲染日志表格
+        function renderLogs() {
+            const tbody = document.getElementById('logBody');
+            tbody.innerHTML = '';
+            
+            // 显示最近10条日志
+            const recentLogs = logs.slice(-10).reverse();
+            recentLogs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${log.time}</td>
+                    <td>${log.node}</td>
+                    <td><span class="status status-${log.status === '200' ? 'active' : 'inactive'}">${log.status}</span></td>
+                    <td>${log.responseTime} ms</td>
+                    <td>${log.cacheStatus}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // 刷新指标
+        function refreshMetrics() {
+            // 更新指标
+            metrics.totalRequests += Math.floor(Math.random() * 100) + 10;
+            metrics.avgResponseTime = Math.floor(Math.random() * 50) + 20;
+            metrics.cacheHitRate = Math.random() * 20 + 80;
+            metrics.nodePerformance = nodes.map(() => Math.floor(Math.random() * 100) + 50);
+            
+            // 添加新日志
+            logs.push(generateLog());
+            if (logs.length > 100) logs.shift();
+            
+            // 渲染
+            renderMetrics();
+            renderPerformanceChart();
+            renderLogs();
+        }
+        
+        // 初始渲染
+        renderMetrics();
+        renderPerformanceChart();
+        
+        // 生成初始日志
+        for (let i = 0; i < 5; i++) {
+            logs.push(generateLog());
+        }
+        renderLogs();
+        
+        // 每3秒自动刷新
+        setInterval(refreshMetrics, 3000);
+    </script>
+</body>
+</html>

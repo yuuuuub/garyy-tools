@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔽 漏斗分析器</title>
+<meta name="description" content="转化漏斗分析工具，可视化各阶段转化率，定位流失环节">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--orange:#bc4c00;--purple:#8250df;--shadow:0 1px 3px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;--purple:#bc8cff;--shadow:0 1px 3px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);padding:20px}
+.container{max-width:1000px;margin:0 auto}
+h1{color:var(--blue);border-bottom:2px solid var(--blue);padding-bottom:10px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-weight:600;margin-bottom:4px;font-size:13px;color:var(--text2)}
+input,select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:14px}
+button{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600}
+button:hover{opacity:.85}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-orange{background:var(--orange)}
+.theme-toggle{position:fixed;top:20px;right:20px;background:var(--text2);color:var(--bg);border:none;padding:6px 12px;border-radius:6px;cursor:pointer;z-index:100}
+.funnel-viz{display:flex;flex-direction:column;align-items:center;gap:0;margin:20px 0}
+.funnel-stage{position:relative;text-align:center;padding:12px;color:#fff;border-radius:4px;margin:0 auto;transition:width .3s}
+.funnel-stage .stage-name{font-weight:600;font-size:14px}
+.funnel-stage .stage-count{font-size:12px;opacity:.9}
+.funnel-arrow{width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:12px solid var(--border);margin:0 auto}
+.funnel-conv{font-size:12px;color:var(--text2);padding:4px 0}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-box{text-align:center;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px}
+.stat-box .num{font-size:22px;font-weight:700;color:var(--blue)}
+.stat-box .label{font-size:11px;color:var(--text2);margin-top:4px}
+.stage-list{display:flex;flex-direction:column;gap:8px}
+.stage-input{display:flex;gap:8px;align-items:center}
+.stage-input input{flex:1}
+.stage-input input:first-child{flex:2}
+.remove-btn{background:var(--red);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px}
+.add-btn{background:var(--green);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{font-weight:600;color:var(--text2);font-size:12px}
+.bottleneck{background:rgba(207,34,46,.1);border:1px solid var(--red);border-radius:6px;padding:12px;margin-top:12px}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+<div class="container">
+<h1>🔽 漏斗分析器</h1>
+
+<div class="card">
+<h3 style="margin-bottom:12px">定义漏斗步骤</h3>
+<div class="grid-2">
+<div>
+<div class="stage-list" id="stageList"></div>
+<div style="margin-top:8px;display:flex;gap:8px">
+<button class="btn-green btn-sm" onclick="addStage()">+ 添加步骤</button>
+<button class="btn-sm" onclick="loadPreset('ecommerce')">🛒 电商模板</button>
+<button class="btn-sm btn-orange" onclick="loadPreset('saas')">💻 SaaS模板</button>
+<button class="btn-sm" onclick="loadPreset('content')">📝 内容模板</button>
+<button onclick="analyzeFunnel()" style="margin-left:auto">🔍 分析漏斗</button>
+</div>
+</div>
+<div>
+<div class="form-group"><label>漏斗名称</label><input type="text" id="funnelName" placeholder="例：电商购物流程"></div>
+<div class="form-group" style="margin-top:8px"><label>分析时间范围</label><select id="timeRange"><option value="7d">近7天</option><option value="30d" selected>近30天</option><option value="90d">近90天</option></select></div>
+<div class="form-group" style="margin-top:8px"><label>分组维度</label><select id="dimension"><option value="none">不分组</option><option value="device">按设备</option><option value="source">按来源</option><option value="region">按地区</option></select></div>
+</div>
+</div>
+</div>
+
+<div id="resultArea"></div>
+
+<div class="card" id="savedFunnelsCard">
+<h3 style="margin-bottom:12px">已保存的漏斗</h3>
+<div id="savedFunnels"></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var stages=[{name:'页面浏览',count:10000},{name:'加入购物车',count:3500},{name:'开始结算',count:1800},{name:'完成支付',count:900},{name:'确认收货',count:810}];
+var savedFunnels=JSON.parse(localStorage.getItem('funnels')||'[]');
+
+var presets={
+  ecommerce:[{name:'页面浏览',count:10000},{name:'加入购物车',count:3500},{name:'开始结算',count:1800},{name:'完成支付',count:900},{name:'确认收货',count:810}],
+  saas:[{name:'访问落地页',count:5000},{name:'注册账号',count:1200},{name:'完成引导',count:600},{name:'创建项目',count:350},{name:'付费订阅',count:80}],
+  content:[{name:'文章浏览',count:20000},{name:'注册订阅',count:2000},{name:'打开邮件',count:800},{name:'点击链接',count:240},{name:'转化为用户',count:60}]
+};
+
+function loadPreset(type){stages=JSON.parse(JSON.stringify(presets[type]));renderStages();}
+
+function renderStages(){
+  document.getElementById('stageList').innerHTML=stages.map(function(s,i){
+    return '<div class="stage-input"><input type="text" value="'+s.name+'" placeholder="步骤名称" onchange="stages['+i+'].name=this.value"><input type="number" value="'+s.count+'" placeholder="用户数" onchange="stages['+i+'].count=parseInt(this.value)||0"><button class="remove-btn" onclick="removeStage('+i+')">×</button></div>';
+  }).join('');
+}
+
+function addStage(){stages.push({name:'',count:0});renderStages();}
+function removeStage(i){if(stages.length<=2){alert('至少需要2个步骤');return;}stages.splice(i,1);renderStages();}
+
+function analyzeFunnel(){
+  var validStages=stages.filter(s=>s.name&&s.count>0);
+  if(validStages.length<2){alert('至少需要2个有效步骤');return;}
+
+  var totalEntry=validStages[0].count;
+  var totalExit=validStages[validStages.length-1].count;
+  var overallRate=(totalExit/totalEntry*100).toFixed(2);
+
+  var stageRates=[];var maxDrop=0;var maxDropIdx=0;
+  for(var i=0;i<validStages.length-1;i++){
+    var rate=validStages[i].count>0?(validStages[i+1].count/validStages[i].count*100):0;
+    var dropOff=validStages[i].count-validStages[i+1].count;
+    var dropRate=validStages[i].count>0?(dropOff/validStages[i].count*100):0;
+    stageRates.push({from:validStages[i].name,to:validStages[i+1].name,rate:rate,dropOff:dropOff,dropRate:dropRate});
+    if(dropOff>maxDrop){maxDrop=dropOff;maxDropIdx=i;}
+  }
+
+  var colors=['#0969da','#1a7f37','#8250df','#bc4c00','#cf222e','#0969da','#1a7f37','#8250df'];
+
+  var html='<div class="stat-row"><div class="stat-box"><div class="num">'+totalEntry.toLocaleString()+'</div><div class="label">入口用户</div></div><div class="stat-box"><div class="num" style="color:var(--green)">'+totalExit.toLocaleString()+'</div><div class="label">最终转化</div></div><div class="stat-box"><div class="num" style="color:var(--blue)">'+overallRate+'%</div><div class="label">整体转化率</div></div><div class="stat-box"><div class="num" style="color:var(--red)">'+validStages.length+'</div><div class="label">漏斗步骤</div></div></div>';
+
+  html+='<div class="card"><h3 style="margin-bottom:8px">漏斗可视化</h3><div class="funnel-viz">';
+  var maxCount=validStages[0].count;
+  validStages.forEach(function(s,i){
+    var widthPct=Math.max(20,(s.count/maxCount*100));
+    html+='<div class="funnel-stage" style="width:'+widthPct+'%;background:'+colors[i%colors.length]+'"><div class="stage-name">'+s.name+'</div><div class="stage-count">'+s.count.toLocaleString()+' 用户</div></div>';
+    if(i<validStages.length-1){
+      html+='<div class="funnel-conv">↓ 转化率 '+stageRates[i].rate.toFixed(1)+'% · 流失 '+stageRates[i].dropOff.toLocaleString()+' ('+stageRates[i].dropRate.toFixed(1)+'%)</div>';
+    }
+  });
+  html+='</div></div>';
+
+  html+='<div class="card"><h3 style="margin-bottom:8px">各步骤分析</h3><table><thead><tr><th>步骤</th><th>用户数</th><th>步骤转化率</th><th>累计转化率</th><th>流失人数</th><th>流失率</th></tr></thead><tbody>';
+  validStages.forEach(function(s,i){
+    var stepRate=i===0?'—':((s.count/validStages[i-1].count)*100).toFixed(1)+'%';
+    var cumRate=(s.count/totalEntry*100).toFixed(1)+'%';
+    var dropOff=i===0?0:validStages[i-1].count-s.count;
+    var dropRate=i===0?'—':(dropOff/validStages[i-1].count*100).toFixed(1)+'%';
+    var highlight=i===maxDropIdx+1?' style="background:rgba(207,34,46,.05)"':'';
+    html+='<tr'+highlight+'><td><strong>'+s.name+'</strong></td><td>'+s.count.toLocaleString()+'</td><td>'+stepRate+'</td><td>'+cumRate+'</td><td>'+(i===0?'—':dropOff.toLocaleString())+'</td><td>'+(i===0?'—':dropRate)+'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+
+  html+='<div class="bottleneck"><h4 style="color:var(--red);margin-bottom:8px">🔍 瓶颈分析</h4>';
+  html+='<p><strong>最大流失环节：</strong>'+validStages[maxDropIdx].name+' → '+validStages[maxDropIdx+1].name+'</p>';
+  html+='<p style="margin-top:4px">流失 '+maxDrop.toLocaleString()+' 用户 ('+stageRates[maxDropIdx].dropRate.toFixed(1)+'%)，占总流失的 '+Math.round(maxDrop/(totalEntry-totalExit)*100)+'%</p>';
+  html+='<ul style="margin-top:8px;font-size:13px;color:var(--text2)">';
+  if(stageRates[maxDropIdx].dropRate>50)html+='<li>⚠️ 流失率超过50%，建议重点优化此步骤的用户体验</li>';
+  if(stageRates[maxDropIdx].dropRate>30)html+='<li>💡 可考虑简化此步骤的操作流程</li>';
+  html+='<li>📊 建议对流失用户进行细分分析（设备/来源/地区）</li>';
+  html+='<li>🧪 可针对此步骤设计A/B测试进行优化</li>';
+  html+='</ul></div>';
+
+  document.getElementById('resultArea').innerHTML=html;
+
+  savedFunnels.unshift({name:document.getElementById('funnelName').value||'未命名漏斗',stages:JSON.parse(JSON.stringify(validStages)),overallRate:overallRate,created:new Date().toLocaleDateString('zh-CN')});
+  if(savedFunnels.length>10)savedFunnels.pop();
+  localStorage.setItem('funnels',JSON.stringify(savedFunnels));
+  renderSaved();
+}
+
+function renderSaved(){
+  document.getElementById('savedFunnels').innerHTML=savedFunnels.length?savedFunnels.map(function(f,i){
+    return '<div style="padding:12px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><strong>'+f.name+'</strong> <span style="font-size:12px;color:var(--text2)">'+f.overallRate+'%转化 · '+f.stages.length+'步 · '+f.created+'</span></div><div style="display:flex;gap:4px"><button class="btn-sm" onclick="loadFunnel('+i+')">加载</button><button class="btn-sm btn-red" onclick="deleteFunnel('+i+')">删除</button></div></div>';
+  }).join(''):'<p style="color:var(--text2);font-size:13px">暂无保存的漏斗</p>';
+}
+
+function loadFunnel(i){var f=savedFunnels[i];stages=JSON.parse(JSON.stringify(f.stages));document.getElementById('funnelName').value=f.name;renderStages();}
+function deleteFunnel(i){savedFunnels.splice(i,1);localStorage.setItem('funnels',JSON.stringify(savedFunnels));renderSaved();}
+
+function toggleTheme(){var t=document.documentElement.getAttribute('data-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'light':'dark');}
+renderStages();renderSaved();
+</script>
+</body>
+</html>

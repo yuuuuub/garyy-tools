@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>负载均衡配置工具</title>
+    <meta name="description" content="用于配置和管理负载均衡器的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #4caf50;
+            --accent-hover: #66bb6a;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--accent-hover); }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-tertiary); color: var(--text-secondary); }
+        .weight-input { width: 80px; }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>负载均衡配置</h1>
+        
+        <div class="card">
+            <h2>添加服务器</h2>
+            <form id="serverForm">
+                <div class="form-group">
+                    <label>服务器地址</label>
+                    <input type="text" id="address" placeholder="192.168.1.100:8080" required>
+                </div>
+                <div class="form-group">
+                    <label>权重</label>
+                    <input type="number" id="weight" value="1" min="1" max="100" class="weight-input" required>
+                </div>
+                <div class="form-group">
+                    <label>算法</label>
+                    <select id="algorithm">
+                        <option value="round-robin">轮询</option>
+                        <option value="weighted">加权轮询</option>
+                        <option value="least-conn">最少连接</option>
+                        <option value="ip-hash">IP哈希</option>
+                    </select>
+                </div>
+                <button type="submit">添加服务器</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>服务器列表</h2>
+            <table id="serversTable">
+                <thead>
+                    <tr>
+                        <th>地址</th>
+                        <th>权重</th>
+                        <th>算法</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="serversBody">
+                    <!-- 服务器数据将在这里动态插入 -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>负载均衡策略测试</h2>
+            <p>模拟10次请求分配结果：</p>
+            <button onclick="simulateRequests()">模拟请求</button>
+            <div id="simulationResult" style="margin-top: 1rem;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let servers = JSON.parse(localStorage.getItem('loadBalancerServers')) || [];
+        let currentAlgorithm = 'round-robin';
+        let lastIndex = 0;
+        
+        // 渲染服务器表格
+        function renderServers() {
+            const tbody = document.getElementById('serversBody');
+            tbody.innerHTML = '';
+            
+            servers.forEach((server, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${server.address}</td>
+                    <td>${server.weight}</td>
+                    <td>${server.algorithm}</td>
+                    <td><span class="status status-active">在线</span></td>
+                    <td>
+                        <button onclick="editServer(${index})" style="margin-right: 0.5rem; padding: 0.5rem;">编辑</button>
+                        <button onclick="deleteServer(${index})" style="background: var(--danger);">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // 更新当前算法
+            if (servers.length > 0) {
+                currentAlgorithm = servers[0].algorithm;
+            }
+        }
+        
+        // 添加服务器
+        document.getElementById('serverForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newServer = {
+                address: document.getElementById('address').value,
+                weight: parseInt(document.getElementById('weight').value),
+                algorithm: document.getElementById('algorithm').value
+            };
+            servers.push(newServer);
+            localStorage.setItem('loadBalancerServers', JSON.stringify(servers));
+            renderServers();
+            this.reset();
+        });
+        
+        // 编辑服务器
+        function editServer(index) {
+            const server = servers[index];
+            document.getElementById('address').value = server.address;
+            document.getElementById('weight').value = server.weight;
+            document.getElementById('algorithm').value = server.algorithm;
+            servers.splice(index, 1);
+            renderServers();
+        }
+        
+        // 删除服务器
+        function deleteServer(index) {
+            if (confirm('确定要删除此服务器吗？')) {
+                servers.splice(index, 1);
+                localStorage.setItem('loadBalancerServers', JSON.stringify(servers));
+                renderServers();
+            }
+        }
+        
+        // 模拟请求分配
+        function simulateRequests() {
+            if (servers.length === 0) {
+                alert('请先添加服务器');
+                return;
+            }
+            
+            const results = [];
+            for (let i = 0; i < 10; i++) {
+                let selectedServer;
+                switch (currentAlgorithm) {
+                    case 'round-robin':
+                        selectedServer = servers[lastIndex % servers.length];
+                        lastIndex = (lastIndex + 1) % servers.length;
+                        break;
+                    case 'weighted':
+                        const totalWeight = servers.reduce((sum, s) => sum + s.weight, 0);
+                        let random = Math.random() * totalWeight;
+                        for (const server of servers) {
+                            random -= server.weight;
+                            if (random <= 0) {
+                                selectedServer = server;
+                                break;
+                            }
+                        }
+                        break;
+                    case 'least-conn':
+                        // 简化：随机选择
+                        selectedServer = servers[Math.floor(Math.random() * servers.length)];
+                        break;
+                    case 'ip-hash':
+                        // 简化：基于索引哈希
+                        selectedServer = servers[i % servers.length];
+                        break;
+                }
+                results.push(selectedServer.address);
+            }
+            
+            // 显示结果
+            const resultDiv = document.getElementById('simulationResult');
+            resultDiv.innerHTML = '<h3>分配结果：</h3><ul>' + 
+                results.map(r => `<li>${r}</li>`).join('') + '</ul>';
+        }
+        
+        // 初始渲染
+        renderServers();
+    </script>
+</body>
+</html>
