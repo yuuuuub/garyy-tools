@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📋 格子看板 - Trellis Board</title>
+<meta name="description" content="格子看板工具，拖拽式项目管理看板">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📋 格子看板 - Trellis Board">
+<meta property="og:description" content="格子看板工具，拖拽式项目管理看板">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/trellis-board/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.topbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;box-shadow:var(--shadow)}
+.topbar h1{font-size:1rem;color:var(--accent);font-weight:700}
+.topbar button{padding:6px 14px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.8rem}
+.topbar button:hover{border-color:var(--accent)}
+.board{display:flex;gap:16px;padding:68px 16px 16px;overflow-x:auto;min-height:100vh;align-items:flex-start}
+.column{min-width:280px;max-width:320px;flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+.col-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.col-header h2{font-size:.9rem;font-weight:700}
+.col-header .count{background:var(--accent);color:#fff;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600}
+.col-header .dots{font-size:1.2rem;cursor:pointer;color:var(--text2);padding:4px}
+.cards{min-height:60px;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:grab;transition:all .2s}
+.card:hover{border-color:var(--accent)}
+.card.dragging{opacity:.5;transform:rotate(2deg)}
+.card .title{font-size:.85rem;font-weight:600;margin-bottom:6px}
+.card .meta{display:flex;justify-content:space-between;align-items:center}
+.card .date{font-size:.7rem;color:var(--text2)}
+.card .tag{padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:600}
+.tag.high{background:rgba(239,68,68,.2);color:#ef4444}
+.tag.med{background:rgba(245,158,11,.2);color:#f59e0b}
+.tag.low{background:rgba(34,197,94,.2);color:#22c55e}
+.card .actions{display:flex;gap:6px;margin-top:6px}
+.card .actions button{padding:2px 8px;font-size:.7rem;background:var(--card);color:var(--text2);border:1px solid var(--border);border-radius:4px;cursor:pointer}
+.card .actions button:hover{color:var(--danger);border-color:var(--danger)}
+.add-btn{width:100%;padding:8px;background:transparent;color:var(--text2);border:1px dashed var(--border);border-radius:8px;cursor:pointer;font-size:.8rem;margin-top:8px}
+.add-btn:hover{border-color:var(--accent);color:var(--accent)}
+.placeholder{border:2px dashed var(--accent);border-radius:8px;min-height:60px;background:rgba(59,130,246,.05)}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 馜页</a></div>
+
+<div class="topbar">
+<h1>📋 格子看板</h1>
+<button onclick="addCardToColumn('todo')">+ 新卡片</button>
+<button onclick="clearBoard()">🧹 清空</button>
+<button onclick="loadSample()">📝 加载示例</button>
+</div>
+
+<div class="board" id="board"></div>
+
+<script>
+const COLUMNS = [
+  {id:'todo', name:'📋 待办', color:'#3b82f6'},
+  {id:'doing', name:'🔄 进行中', color:'#f59e0b'},
+  {id:'review', name:'👀 评审', color:'#8b5cf6'},
+  {id:'done', name:'✅ 完成', color:'#22c55e'}
+];
+
+let boardData = {todo:[], doing:[], review:[], done:[]};
+let cardId = 0;
+let draggedCard = null;
+let draggedFrom = null;
+
+function save() { localStorage.setItem('trellis-board', JSON.stringify(boardData)); }
+function load() {
+  const d = localStorage.getItem('trellis-board');
+  if(d) { boardData = JSON.parse(d); cardId = Object.values(boardData).flat().reduce((m,c) => Math.max(m, c.id||0), 0)+1; }
+}
+
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = COLUMNS.map(col => {
+    const cards = boardData[col.id] || [];
+    return `<div class="column" data-col="${col.id}">
+      <div class="col-header">
+        <h2>${col.name}</h2>
+        <span class="count">${cards.length}</span>
+      </div>
+      <div class="cards" data-col="${col.id}"
+        ondragover="onDragOver(event)" ondrop="onDrop(event,'${col.id}')" ondragleave="onDragLeave(event)">
+        ${cards.map(c => `<div class="card" draggable="true" data-id="${c.id}"
+          ondragstart="onDragStart(event,${c.id},'${col.id}')" ondragend="onDragEnd(event)">
+          <div class="title">${esc(c.title)}</div>
+          <div class="meta">
+            <span class="date">${c.date}</span>
+            <span class="tag ${c.priority}">${{high:'紧急',med:'中等',low:'普通'}[c.priority]}</span>
+          </div>
+          <div class="actions">
+            <button onclick="editCard(${c.id},'${col.id}')">编辑</button>
+            <button onclick="deleteCard(${c.id},'${col.id}')">删除</button>
+          </div>
+        </div>`).join('')}
+      </div>
+      <button class="add-btn" onclick="addCardToColumn('${col.id}')">+ 添加卡片</button>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addCardToColumn(colId) {
+  const title = prompt('输入卡片标题:');
+  if(!title) return;
+  const priority = prompt('优先级 (high/med/low):', 'med') || 'med';
+  const now = new Date();
+  boardData[colId].push({
+    id: cardId++,
+    title,
+    priority: ['high','med','low'].includes(priority) ? priority : 'med',
+    date: `${now.getMonth()+1}/${now.getDate()}`
+  });
+  save(); render();
+}
+
+function deleteCard(id, colId) {
+  if(!confirm('删除此卡片？')) return;
+  boardData[colId] = boardData[colId].filter(c => c.id !== id);
+  save(); render();
+}
+
+function editCard(id, colId) {
+  const card = boardData[colId].find(c => c.id === id);
+  if(!card) return;
+  const title = prompt('编辑标题:', card.title);
+  if(title) card.title = title;
+  const priority = prompt('优先级 (high/med/low):', card.priority);
+  if(['high','med','low'].includes(priority)) card.priority = priority;
+  save(); render();
+}
+
+function onDragStart(e, id, colId) {
+  draggedCard = id;
+  draggedFrom = colId;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.placeholder').forEach(p => p.remove());
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onDragLeave(e) {}
+
+function onDrop(e, toCol) {
+  e.preventDefault();
+  if(draggedCard === null || !draggedFrom) return;
+  const card = boardData[draggedFrom].find(c => c.id === draggedCard);
+  if(!card) return;
+  boardData[draggedFrom] = boardData[draggedFrom].filter(c => c.id !== draggedCard);
+  boardData[toCol].push(card);
+  draggedCard = null;
+  draggedFrom = null;
+  save(); render();
+}
+
+function clearBoard() {
+  if(!confirm('清空所有卡片？')) return;
+  boardData = {todo:[],doing:[],review:[],done:[]};
+  save(); render();
+}
+
+function loadSample() {
+  boardData = {
+    todo:[
+      {id:cardId++,title:'设计首页UI',priority:'high',date:'6/20'},
+      {id:cardId++,title:'编写API文档',priority:'med',date:'6/21'},
+      {id:cardId++,title:'数据库优化',priority:'low',date:'6/22'}
+    ],
+    doing:[
+      {id:cardId++,title:'用户认证模块',priority:'high',date:'6/18'},
+      {id:cardId++,title:'移动端适配',priority:'med',date:'6/19'}
+    ],
+    review:[
+      {id:cardId++,title:'支付接口联调',priority:'med',date:'6/17'}
+    ],
+    done:[
+      {id:cardId++,title:'项目脚手架搭建',priority:'low',date:'6/15'},
+      {id:cardId++,title:'CI/CD配置',priority:'med',date:'6/16'}
+    ]
+  };
+  save(); render();
+}
+
+load();
+render();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

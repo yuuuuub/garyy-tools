@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🗃️ ER图生成器 - ER Diagram Generator</title>
+<meta name="description" content="ER图生成器，可视化数据库实体关系设计">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗃️</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🗃️ ER图生成器 - ER Diagram Generator">
+<meta property="og:description" content="ER图生成器，可视化数据库实体关系设计">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/er-diagram-generator/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;padding:16px}
+.hdr{text-align:center;margin-bottom:20px}
+.hdr h1{font-size:1.6rem;color:var(--accent)}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;color:var(--accent);margin-bottom:10px}
+textarea{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;min-height:140px;outline:none}
+textarea:focus{border-color:var(--accent)}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+button:hover{opacity:.9}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+#canvas{display:block;width:100%;border-radius:8px;cursor:grab}
+#canvas.dragging{cursor:grabbing}
+#tooltip{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.8rem;pointer-events:none;display:none;z-index:200;box-shadow:var(--shadow)}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+
+<div class="hdr"><h1>🗃️ ER图生成器</h1><p>数据库实体关系图可视化</p></div>
+
+<div class="card">
+<h2>数据定义 (文本格式)</h2>
+<textarea id="dataInput">表: 用户
+- id: INT [PK]
+- 用户名: VARCHAR(50) [NOT NULL]
+- 邮箱: VARCHAR(100) [NOT NULL]
+- 创建时间: DATETIME
+
+表: 订单
+- id: INT [PK]
+- 用户ID: INT [FK]
+- 金额: DECIMAL(10,2)
+- 状态: VARCHAR(20)
+- 创建时间: DATETIME
+
+表: 商品
+- id: INT [PK]
+- 名称: VARCHAR(100)
+- 价格: DECIMAL(10,2)
+- 库存: INT
+
+表: 订单项
+- id: INT [PK]
+- 订单ID: INT [FK]
+- 商品ID: INT [FK]
+- 数量: INT
+- 单价: DECIMAL(10,2)
+
+关系: 用户(1) -> 订单(N)
+关系: 订单(1) -> 订单项(N)
+关系: 商品(1) -> 订单项(N)</textarea>
+<div class="btn-row">
+<button onclick="generate()">生成ER图</button>
+<button class="sec" onclick="loadSample()">加载示例</button>
+<button class="sec" onclick="exportPNG()">💾 导出PNG</button>
+</div>
+</div>
+
+<div class="card">
+<h2>ER图预览</h2>
+<canvas id="canvas" height="500"></canvas>
+<div id="tooltip"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+
+let tables = [];
+let relations = [];
+let dragging = null;
+let dragOff = {x:0,y:0};
+
+function resize() {
+  canvas.width = canvas.parentElement.clientWidth - 32;
+}
+resize();
+window.addEventListener('resize', () => { resize(); draw(); });
+
+function generate() {
+  const text = document.getElementById('dataInput').value;
+  tables = [];
+  relations = [];
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  let currentTable = null;
+
+  lines.forEach(line => {
+    if(line.startsWith('表:') || line.startsWith('Table:')) {
+      const name = line.split(':')[1].trim();
+      currentTable = { name, columns: [], x: 100 + tables.length * 200, y: 80 + (tables.length % 3) * 160 };
+      tables.push(currentTable);
+    } else if(line.startsWith('-') && currentTable) {
+      const parts = line.substring(1).split(':');
+      if(parts.length >= 2) {
+        const colName = parts[0].trim();
+        const rest = parts.slice(1).join(':').trim();
+        const typeMatch = rest.match(/^(\S+)/);
+        const type = typeMatch ? typeMatch[1] : 'TEXT';
+        const constraints = [];
+        if(rest.includes('PK')) constraints.push('PK');
+        if(rest.includes('FK')) constraints.push('FK');
+        if(rest.includes('NOT NULL')) constraints.push('NOT NULL');
+        currentTable.columns.push({ name: colName, type, constraints });
+      }
+    } else if(line.startsWith('关系:') || line.startsWith('Relation:')) {
+      const match = line.match(/关系:\s*(\S+)\((\d+)\)\s*(->|<-)\s*(\S+)\((\d+)\)/);
+      if(match) {
+        relations.push({ from: match[1], fromCard: match[2], to: match[3], toCard: match[5], type: match[4] });
+      }
+    }
+  });
+
+  canvas.height = Math.max(500, Math.ceil(tables.length/3) * 200 + 100);
+  draw();
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const headerH = 32;
+  const rowH = 24;
+  const colW = 180;
+
+  // Draw relations
+  relations.forEach(rel => {
+    const fromT = tables.find(t => t.name === rel.from);
+    const toT = tables.find(t => t.name === rel.to);
+    if(!fromT || !toT) return;
+
+    const fromX = fromT.x + colW/2;
+    const fromY = fromT.y + headerH + fromT.columns.length * rowH;
+    const toX = toT.x + colW/2;
+    const toY = toT.y;
+
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    const midY = (fromY + toY) / 2;
+    ctx.bezierCurveTo(fromX, midY, toX, midY, toX, toY);
+    ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Crow's foot on "many" side
+    const endSide = parseInt(rel.toCard) > 1 ? toT : (parseInt(rel.fromCard) > 1 ? fromT : null);
+    const startSide = endSide === toT ? fromT : toT;
+
+    if(parseInt(rel.toCard) > 1) {
+      drawCrowFoot(toX, toY, Math.PI/2);
+    } else {
+      // One marker - small circle
+      ctx.beginPath();
+      ctx.arc(toX, toY, 4, 0, Math.PI*2);
+      ctx.fillStyle = '#3b82f6';
+      ctx.fill();
+    }
+
+    if(parseInt(rel.fromCard) > 1) {
+      drawCrowFoot(fromX, fromY, -Math.PI/2);
+    } else {
+      ctx.beginPath();
+      ctx.arc(fromX, fromY, 4, 0, Math.PI*2);
+      ctx.fillStyle = '#3b82f6';
+      ctx.fill();
+    }
+  });
+
+  // Draw tables
+  tables.forEach(t => {
+    const totalH = headerH + t.columns.length * rowH + 4;
+
+    // Table box shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    roundRect(ctx, t.x+2, t.y+2, colW, totalH, 6);
+
+    // Table box
+    ctx.fillStyle = '#161b22';
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    roundRect(ctx, t.x, t.y, colW, totalH, 6);
+
+    // Header
+    ctx.fillStyle = '#3b82f6';
+    roundRectTop(ctx, t.x, t.y, colW, headerH, 6);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('📋 ' + t.name, t.x + colW/2, t.y + headerH/2);
+
+    // Columns
+    t.columns.forEach((col, i) => {
+      const cy = t.y + headerH + i * rowH + rowH/2;
+      const isPK = col.constraints.includes('PK');
+      const isFK = col.constraints.includes('FK');
+
+      ctx.fillStyle = isPK ? 'rgba(245,158,11,0.1)' : (isFK ? 'rgba(139,92,246,0.1)' : 'transparent');
+      ctx.fillRect(t.x+1, t.y + headerH + i*rowH, colW-2, rowH);
+
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      const prefix = isPK ? '🔑 ' : (isFK ? '🔗 ' : '   ');
+      ctx.fillText(prefix + col.name, t.x + 8, cy);
+
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(col.type, t.x + colW - 8, cy);
+    });
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+
+function roundRectTop(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h); ctx.lineTo(x,y+h); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawCrowFoot(x, y, angle) {
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 10*Math.cos(angle-0.5), y + 10*Math.sin(angle-0.5));
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 10*Math.cos(angle+0.5), y + 10*Math.sin(angle+0.5));
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 10*Math.cos(angle), y + 10*Math.sin(angle));
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// Drag support
+canvas.addEventListener('mousedown', e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  for(let i = tables.length-1; i >= 0; i--) {
+    const t = tables[i];
+    const totalH = headerH + t.columns.length * rowH + 4;
+    if(mx >= t.x && mx <= t.x+180 && my >= t.y && my <= t.y+totalH) {
+      dragging = t;
+      dragOff = {x: mx-t.x, y: my-t.y};
+      canvas.classList.add('dragging');
+      break;
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if(!dragging) return;
+  const r = canvas.getBoundingClientRect();
+  dragging.x = e.clientX - r.left - dragOff.x;
+  dragging.y = e.clientY - r.top - dragOff.y;
+  draw();
+});
+
+canvas.addEventListener('mouseup', () => { dragging=null; canvas.classList.remove('dragging'); });
+
+function loadSample() {
+  document.getElementById('dataInput').value = `表: 用户
+- id: INT [PK]
+- 用户名: VARCHAR(50) [NOT NULL]
+- 邮箱: VARCHAR(100) [NOT NULL]
+- 密码: VARCHAR(255) [NOT NULL]
+- 创建时间: DATETIME
+
+表: 文章
+- id: INT [PK]
+- 标题: VARCHAR(200) [NOT NULL]
+- 内容: TEXT
+- 作者ID: INT [FK]
+- 分类ID: INT [FK]
+- 发布时间: DATETIME
+
+表: 分类
+- id: INT [PK]
+- 名称: VARCHAR(50) [NOT NULL]
+- 描述: TEXT
+
+表: 评论
+- id: INT [PK]
+- 内容: TEXT [NOT NULL]
+- 用户ID: INT [FK]
+- 文章ID: INT [FK]
+- 创建时间: DATETIME
+
+表: 标签
+- id: INT [PK]
+- 名称: VARCHAR(30) [NOT NULL]
+
+关系: 用户(1) -> 文章(N)
+关系: 用户(1) -> 评论(N)
+关系: 文章(1) -> 评论(N)
+关系: 分类(1) -> 文章(N)`;
+  generate();
+}
+
+function exportPNG() {
+  const link = document.createElement('a');
+  link.download = 'er-diagram.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+generate();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

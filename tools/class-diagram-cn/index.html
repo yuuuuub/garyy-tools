@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📐 类图 - Class Diagram</title>
+<meta name="description" content="创建UML类图，可视化类的属性、方法和关系">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📐</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📐 类图 - Class Diagram">
+<meta property="og:description" content="创建UML类图，可视化类的属性、方法和关系">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/class-diagram-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;padding:16px}
+.hdr{text-align:center;margin-bottom:20px}
+.hdr h1{font-size:1.6rem;color:var(--accent)}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;color:var(--accent);margin-bottom:10px}
+textarea{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;min-height:140px;outline:none}
+textarea:focus{border-color:var(--accent)}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+button:hover{opacity:.9}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+#canvas{display:block;width:100%;border-radius:8px;cursor:grab}
+#canvas.dragging{cursor:grabbing}
+.help{font-size:.75rem;color:var(--text2);margin-top:8px;line-height:1.8}
+.help code{background:var(--bg);padding:1px 6px;border-radius:4px;font-size:.75rem}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+
+<div class="hdr"><h1>📐 类图</h1><p>UML类图可视化</p></div>
+
+<div class="card">
+<h2>数据定义</h2>
+<textarea id="dataInput">类: 动物
++ 名称: 字符串
++ 年龄: 整数
++ 叫声(): 字符串
+
+类: 狗
+- 品种: 字符串
++ 叫声(): 字符串
++ 摇尾巴(): 无
+
+类: 猫
+- 颜色: 字符串
++ 叫声(): 字符串
++ 跳跃(): 无
+
+类: 宠物接口
++ 吃(): 无
++ 睡(): 无
+
+类: 饲养员
+- 姓名: 字符串
++ 喂食(动物): 无
++ 清洁(动物): 无
+
+继承: 狗 -> 动物
+继承: 猫 -> 动物
+实现: 狗 ..> 宠物接口
+实现: 猫 ..> 宠物接口
+关联: 饲养员 -> 动物
+聚合: 动物 o-> 饲养员</textarea>
+<div class="help">
+语法：<code>类: 名称</code> | <code>+ 属性: 类型</code> (公共) | <code>- 属性: 类型</code> (私有) | <code>+ 方法(): 返回</code> | <code>继承: 子 -> 父</code> | <code>实现: 子 ..> 接口</code> | <code>关联: A -> B</code> | <code>聚合: A o-> B</code> | <code>组合: A *-> B</code>
+</div>
+<div class="btn-row">
+<button onclick="generate()">生成类图</button>
+<button class="sec" onclick="loadSample()">加载示例</button>
+<button class="sec" onclick="exportPNG()">💾 导出PNG</button>
+</div>
+</div>
+
+<div class="card">
+<h2>类图预览</h2>
+<canvas id="canvas" height="500"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let classes = [];
+let relations = [];
+let dragging = null;
+let dragOff = {x:0,y:0};
+
+function resize() {
+  canvas.width = canvas.parentElement.clientWidth - 32;
+}
+resize();
+window.addEventListener('resize', () => { resize(); draw(); });
+
+function generate() {
+  const text = document.getElementById('dataInput').value;
+  classes = [];
+  relations = [];
+  let currentClass = null;
+
+  text.split('\n').map(l => l.trim()).filter(l => l).forEach(line => {
+    if(line.startsWith('类:') || line.startsWith('Class:')) {
+      currentClass = { name: line.split(':')[1].trim(), attrs: [], methods: [], x: 80 + classes.length % 3 * 220, y: 60 + Math.floor(classes.length / 3) * 200 };
+      classes.push(currentClass);
+    } else if(line.startsWith('继承:') || line.startsWith('extends:')) {
+      const match = line.match(/继承:\s*(\S+)\s*->\s*(\S+)/);
+      if(match) relations.push({from:match[1], to:match[2], type:'inherit'});
+    } else if(line.startsWith('实现:') || line.startsWith('implements:')) {
+      const match = line.match(/实现:\s*(\S+)\s*\.\.\.\s*>\s*(\S+)/);
+      if(match) relations.push({from:match[1], to:match[2], type:'implement'});
+    } else if(line.startsWith('关联:') || line.startsWith('association:')) {
+      const match = line.match(/关联:\s*(\S+)\s*->\s*(\S+)/);
+      if(match) relations.push({from:match[1], to:match[2], type:'association'});
+    } else if(line.startsWith('聚合:') || line.startsWith('aggregation:')) {
+      const match = line.match(/聚合:\s*(\S+)\s*o\s*->\s*(\S+)/);
+      if(match) relations.push({from:match[1], to:match[2], type:'aggregation'});
+    } else if(line.startsWith('组合:') || line.startsWith('composition:')) {
+      const match = line.match(/组合:\s*(\S+)\s*\*\s*->\s*(\S+)/);
+      if(match) relations.push({from:match[1], to:match[2], type:'composition'});
+    } else if(currentClass) {
+      const isMethod = /\(|\)/.test(line);
+      if(isMethod) {
+        currentClass.methods.push(line);
+      } else if(line.startsWith('+') || line.startsWith('-') || line.startsWith('#')) {
+        currentClass.attrs.push(line);
+      }
+    }
+  });
+
+  canvas.height = Math.max(500, Math.ceil(classes.length / 3) * 220 + 60);
+  draw();
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const w = 180, headerH = 30, lineH = 22, padding = 6;
+
+  // Draw relations first
+  relations.forEach(rel => {
+    const from = classes.find(c => c.name === rel.from);
+    const to = classes.find(c => c.name === rel.to);
+    if(!from || !to) return;
+
+    const fromCx = from.x + w/2;
+    const toCx = to.x + w/2;
+    const fromTotalH = headerH + from.attrs.length*lineH + from.methods.length*lineH + padding*2;
+    const toTotalH = headerH + to.attrs.length*lineH + to.methods.length*lineH + padding*2;
+    const fromCy = from.y + fromTotalH/2;
+    const toCy = to.y + toTotalH/2;
+
+    ctx.beginPath();
+    ctx.moveTo(fromCx, fromCy);
+    ctx.lineTo(toCx, toCy);
+
+    if(rel.type === 'inherit') {
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+    } else if(rel.type === 'implement') {
+      ctx.setLineDash([8,4]);
+      ctx.strokeStyle = '#8b5cf6';
+      ctx.lineWidth = 2;
+    } else if(rel.type === 'aggregation' || rel.type === 'composition') {
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+    } else {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrow markers
+    const angle = Math.atan2(toCy-fromCy, toCx-fromCx);
+    const endX = toCx, endY = toCy;
+
+    if(rel.type === 'inherit') {
+      // Hollow triangle
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 14*Math.cos(angle-0.35), endY - 14*Math.sin(angle-0.35));
+      ctx.lineTo(endX - 14*Math.cos(angle+0.35), endY - 14*Math.sin(angle+0.35));
+      ctx.closePath();
+      ctx.fillStyle = '#0d1117';
+      ctx.fill();
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if(rel.type === 'implement') {
+      // Hollow triangle (dashed)
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 14*Math.cos(angle-0.35), endY - 14*Math.sin(angle-0.35));
+      ctx.lineTo(endX - 14*Math.cos(angle+0.35), endY - 14*Math.sin(angle+0.35));
+      ctx.closePath();
+      ctx.fillStyle = '#0d1117';
+      ctx.fill();
+      ctx.strokeStyle = '#8b5cf6';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if(rel.type === 'aggregation') {
+      // Empty diamond
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 10*Math.cos(angle-0.5), endY - 10*Math.sin(angle-0.5));
+      ctx.lineTo(endX - 18*Math.cos(angle), endY - 18*Math.sin(angle));
+      ctx.lineTo(endX - 10*Math.cos(angle+0.5), endY - 10*Math.sin(angle+0.5));
+      ctx.closePath();
+      ctx.fillStyle = '#0d1117';
+      ctx.fill();
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if(rel.type === 'composition') {
+      // Filled diamond
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 10*Math.cos(angle-0.5), endY - 10*Math.sin(angle-0.5));
+      ctx.lineTo(endX - 18*Math.cos(angle), endY - 18*Math.sin(angle));
+      ctx.lineTo(endX - 10*Math.cos(angle+0.5), endY - 10*Math.sin(angle+0.5));
+      ctx.closePath();
+      ctx.fillStyle = '#22c55e';
+      ctx.fill();
+    } else {
+      // Simple arrow
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 10*Math.cos(angle-0.4), endY - 10*Math.sin(angle-0.4));
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - 10*Math.cos(angle+0.4), endY - 10*Math.sin(angle+0.4));
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  });
+
+  // Draw classes
+  classes.forEach(c => {
+    const totalH = headerH + Math.max(c.attrs.length, 0)*lineH + Math.max(c.methods.length, 0)*lineH + padding*2;
+    const hasSections = c.attrs.length > 0 && c.methods.length > 0;
+    const attrH = c.attrs.length * lineH;
+    const methH = c.methods.length * lineH;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    roundRect(ctx, c.x+2, c.y+2, w, totalH, 6);
+
+    // Box
+    ctx.fillStyle = '#161b22';
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    roundRect(ctx, c.x, c.y, w, totalH, 6);
+
+    // Header
+    ctx.fillStyle = '#3b82f6';
+    roundRectTop(ctx, c.x, c.y, w, headerH, 6);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c.name, c.x + w/2, c.y + headerH/2);
+
+    // Attributes
+    let y = c.y + headerH + padding;
+    c.attrs.forEach(attr => {
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(attr, c.x + 8, y + lineH/2);
+      y += lineH;
+    });
+
+    // Divider
+    if(hasSections) {
+      ctx.beginPath();
+      ctx.moveTo(c.x, y);
+      ctx.lineTo(c.x + w, y);
+      ctx.strokeStyle = 'rgba(59,130,246,0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      y += 4;
+    }
+
+    // Methods
+    c.methods.forEach(m => {
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(m, c.x + 8, y + lineH/2);
+      y += lineH;
+    });
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+
+function roundRectTop(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h); ctx.lineTo(x,y+h); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath(); ctx.fill();
+}
+
+// Drag support
+canvas.addEventListener('mousedown', e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  for(let i = classes.length-1; i >= 0; i--) {
+    const c = classes[i];
+    const totalH = headerH + c.attrs.length*lineH + c.methods.length*lineH + padding*2;
+    if(mx >= c.x && mx <= c.x+w && my >= c.y && my <= c.y+totalH) {
+      dragging = c;
+      dragOff = {x: mx-c.x, y: my-c.y};
+      canvas.classList.add('dragging');
+      break;
+    }
+  }
+});
+canvas.addEventListener('mousemove', e => {
+  if(!dragging) return;
+  const r = canvas.getBoundingClientRect();
+  dragging.x = e.clientX - r.left - dragOff.x;
+  dragging.y = e.clientY - r.top - dragOff.y;
+  draw();
+});
+canvas.addEventListener('mouseup', () => { dragging=null; canvas.classList.remove('dragging'); });
+
+function loadSample() {
+  document.getElementById('dataInput').value = `类: 形状
+# 颜色: 字符串
+# 边框宽度: 整数
++ 面积(): 浮点数
++ 周长(): 浮点数
++ 绘制(): 无
+
+类: 圆形
+- 半径: 浮点数
++ 面积(): 浮点数
++ 周长(): 浮点数
+
+类: 矩形
+- 宽度: 浮点数
+- 高度: 浮点数
++ 面积(): 浮点数
++ 周长(): 浮点数
+
+类: 三角形
+- 底边: 浮点数
+- 高: 浮点数
++ 面积(): 浮点数
++ 周长(): 浮点数
+
+类: 画布
+- 宽度: 整数
+- 高度: 整数
++ 添加形状(形状): 无
++ 清除(): 无
++ 导出(): 字符串
+
+类: 可序列化
++ 序列化(): 字符串
++ 反序列化(字符串): 无
+
+继承: 圆形 -> 形状
+继承: 矩形 -> 形状
+继承: 三角形 -> 形状
+实现: 圆形 ..> 可序列化
+实现: 矩形 ..> 可序列化
+关联: 画布 -> 形状
+聚合: 画布 o-> 形状`;
+  generate();
+}
+
+function exportPNG() {
+  const link = document.createElement('a');
+  link.download = 'class-diagram.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+generate();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

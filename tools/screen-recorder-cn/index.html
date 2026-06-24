@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖥️ 屏幕录制器</title>
+<meta name="description" content="在线屏幕录制器，录制屏幕、窗口或标签页，支持音频录制和下载">
+<style>
+:root{--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:540px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.recorder-center{display:flex;flex-direction:column;align-items:center;padding:30px 0}
+.rec-btn{width:100px;height:100px;border-radius:50%;border:none;font-size:40px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;box-shadow:0 4px 20px rgba(99,102,241,.3)}
+.rec-btn:hover{transform:scale(1.05)}
+.rec-btn:active{transform:scale(.95)}
+.rec-btn.recording{background:#ef4444;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 20px rgba(239,68,68,0)}}
+.timer{font-size:36px;font-weight:700;font-family:monospace;margin:16px 0}
+.status-badge{padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px}
+.status-idle{background:var(--tag-bg);color:var(--tag-text)}
+.status-recording{background:#fef2f2;color:#dc2626}
+.status-paused{background:#fefce8;color:#ca8a04}
+.control-row{display:flex;gap:10px;margin-top:16px;justify-content:center}
+.ctrl-btn{width:48px;height:48px;border-radius:50%;border:2px solid var(--border);background:var(--card-bg);font-size:20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.ctrl-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+.ctrl-btn:active{transform:scale(.95)}
+.ctrl-btn:disabled{opacity:.4;cursor:not-allowed}
+.tag-grid{display:flex;flex-wrap:wrap;gap:8px}
+.tag{padding:8px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:13px;transition:all .2s;user-select:none}
+.tag:hover{border-color:var(--accent);transform:translateY(-1px)}
+.tag.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:60px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;color:var(--text-secondary);min-width:36px;text-align:right}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border:none}
+.toggle-label{font-size:14px}
+.toggle{position:relative;width:48px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;transition:background .2s}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on::after{transform:translateX(22px)}
+.recording-list{margin-top:12px}
+.rec-item{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:var(--preview-bg);margin-bottom:8px}
+.rec-item .info{flex:1}
+.rec-item .name{font-size:14px;font-weight:600}
+.rec-item .meta{font-size:12px;color:var(--text-secondary)}
+.rec-item .actions{display:flex;gap:6px}
+.rec-item .act-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.rec-item .act-btn:hover{border-color:var(--accent)}
+.preview-wrap{display:flex;justify-content:center;border-radius:12px;overflow:hidden;background:#000}
+.preview-wrap video{width:100%;max-height:200px;display:block}
+.btn{padding:10px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn:active{transform:scale(.97)}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--card-bg);color:var(--text);padding:10px 24px;border-radius:12px;font-size:14px;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow);border:1px solid var(--border)}
+.toast.show{opacity:1}
+footer{text-align:center;padding:24px 0;color:var(--text-secondary);font-size:12px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖥️</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🖥️ 屏幕录制器">
+<meta property="og:description" content="在线屏幕录制器，录制屏幕支持音频">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/screen-recorder-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text-secondary);font-size:.75rem;background:var(--card-bg);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>🖥️ 屏幕录制器</h1>
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+  </header>
+
+  <div class="card">
+    <div class="card-title">🎛️ 录制控制</div>
+    <div class="recorder-center">
+      <div class="status-badge status-idle" id="statusBadge">待录制</div>
+      <div class="timer" id="timer">00:00:00</div>
+      <button class="rec-btn" id="recBtn" onclick="startRec()">🔴</button>
+      <div class="control-row">
+        <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()" disabled>⏸️</button>
+        <button class="ctrl-btn" id="stopBtn" onclick="stopRec()" disabled>⏹️</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚙️ 录制设置</div>
+    <div class="tag-grid" id="qualityGrid" style="margin-bottom:12px"></div>
+    <div class="toggle-row"><span class="toggle-label">录制系统音频</span><div class="toggle on" id="audioToggle" onclick="this.classList.toggle('on')"></div></div>
+    <div class="toggle-row"><span class="toggle-label">录制麦克风</span><div class="toggle" id="micToggle" onclick="this.classList.toggle('on')"></div></div>
+    <div class="toggle-row"><span class="toggle-label">显示鼠标指针</span><div class="toggle on" id="cursorToggle" onclick="this.classList.toggle('on')"></div></div>
+  </div>
+
+  <div class="card hidden" id="previewCard">
+    <div class="card-title">👁️ 录制预览</div>
+    <div class="preview-wrap"><video id="previewVideo" controls></video></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📁 录制列表</div>
+    <div class="recording-list" id="recList">
+      <div style="text-align:center;color:var(--text-secondary);font-size:13px;padding:10px">暂无录制</div>
+    </div>
+  </div>
+
+  <footer>屏幕录制器 · 录制数据仅保存在本地浏览器中</footer>
+</div>
+<div class="toast" id="toast"></div>
+<script src="../i18n.js" defer></script>
+<script>
+let mediaRecorder = null, displayStream = null, chunks = [];
+let recordings = [], isRecording = false, isPaused = false;
+let timerInterval = null, elapsed = 0;
+let currentStream = null;
+
+const qualities = [
+  { name: '720p', id: '720', width: 1280, height: 720 },
+  { name: '1080p', id: '1080', width: 1920, height: 1080 },
+  { name: '原始', id: 'original', width: 0, height: 0 }
+];
+let currentQuality = '1080';
+
+function init() {
+  document.getElementById('qualityGrid').innerHTML = qualities.map(q => `<div class="tag${q.id===currentQuality?' active':''}" data-id="${q.id}" onclick="setQuality('${q.id}')">${q.name}</div>`).join('');
+}
+
+function setQuality(id) {
+  currentQuality = id;
+  document.querySelectorAll('#qualityGrid .tag').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+}
+
+async function startRec() {
+  try {
+    const videoConstraints = {};
+    const q = qualities.find(q => q.id === currentQuality);
+    if (q.id !== 'original') {
+      videoConstraints.width = { ideal: q.width };
+      videoConstraints.height = { ideal: q.height };
+    }
+
+    displayStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { ...videoConstraints, cursor: document.getElementById('cursorToggle').classList.contains('on') ? 'always' : 'never' },
+      audio: document.getElementById('audioToggle').classList.contains('on')
+    });
+
+    // mic
+    if (document.getElementById('micToggle').classList.contains('on')) {
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioCtx = new AudioContext();
+        const dest = audioCtx.createMediaStreamDestination();
+        if (displayStream.getAudioTracks().length > 0) {
+          const src1 = audioCtx.createMediaStreamSource(displayStream);
+          src1.connect(dest);
+        }
+        const src2 = audioCtx.createMediaStreamSource(micStream);
+        src2.connect(dest);
+        const combined = new MediaStream([...displayStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+        currentStream = combined;
+      } catch (e) {
+        currentStream = displayStream;
+      }
+    } else {
+      currentStream = displayStream;
+    }
+
+    mediaRecorder = new MediaRecorder(currentStream, { mimeType: 'video/webm;codecs=vp9' });
+    chunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = () => saveRecording();
+
+    displayStream.getVideoTracks()[0].onended = () => { if (isRecording) stopRec(); };
+
+    mediaRecorder.start(100);
+    isRecording = true; elapsed = 0;
+    updateUI('recording');
+    timerInterval = setInterval(updateTimer, 1000);
+    showToast('开始录制...');
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('录制失败: ' + err.message);
+  }
+}
+
+function togglePause() {
+  if (!isRecording) return;
+  if (isPaused) {
+    mediaRecorder.resume();
+    isPaused = false;
+    updateUI('recording');
+    timerInterval = setInterval(updateTimer, 1000);
+  } else {
+    mediaRecorder.pause();
+    isPaused = true;
+    updateUI('paused');
+    clearInterval(timerInterval);
+  }
+}
+
+function stopRec() {
+  if (!isRecording) return;
+  mediaRecorder.stop();
+  isRecording = false; isPaused = false;
+  clearInterval(timerInterval);
+  updateUI('idle');
+  showToast('录制已停止');
+}
+
+function saveRecording() {
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+  if (displayStream) displayStream.getTracks().forEach(t => t.stop());
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  const name = `屏幕录制 ${recordings.length + 1}`;
+  const duration = formatTime(elapsed);
+  recordings.push({ name, blob, duration, time: new Date().toLocaleTimeString(), size: (blob.size / 1024 / 1024).toFixed(1) + 'MB' });
+  renderRecordings();
+}
+
+function renderRecordings() {
+  const el = document.getElementById('recList');
+  if (recordings.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:13px;padding:10px">暂无录制</div>'; return; }
+  el.innerHTML = recordings.map((r, i) => `
+    <div class="rec-item">
+      <div class="info"><div class="name">${r.name}</div><div class="meta">${r.duration} · ${r.size} · ${r.time}</div></div>
+      <div class="actions">
+        <button class="act-btn" onclick="playRec(${i})">▶️</button>
+        <button class="act-btn" onclick="downloadRec(${i})">💾</button>
+        <button class="act-btn" onclick="deleteRec(${i})">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function playRec(i) {
+  const v = document.getElementById('previewVideo');
+  v.src = URL.createObjectURL(recordings[i].blob);
+  document.getElementById('previewCard').classList.remove('hidden');
+  v.play();
+}
+
+function downloadRec(i) {
+  const a = document.createElement('a');
+  a.download = `${recordings[i].name}.webm`;
+  a.href = URL.createObjectURL(recordings[i].blob);
+  a.click();
+  showToast('已下载！');
+}
+
+function deleteRec(i) { recordings.splice(i, 1); renderRecordings(); showToast('已删除'); }
+
+function updateUI(state) {
+  const badge = document.getElementById('statusBadge');
+  const recBtn = document.getElementById('recBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  badge.className = 'status-badge';
+  recBtn.classList.remove('recording');
+
+  if (state === 'recording') {
+    badge.textContent = '🔴 录制中...';
+    badge.classList.add('status-recording');
+    recBtn.classList.add('recording');
+    pauseBtn.disabled = false;
+    stopBtn.disabled = false;
+  } else if (state === 'paused') {
+    badge.textContent = '⏸️ 已暂停';
+    badge.classList.add('status-paused');
+    pauseBtn.disabled = false;
+    stopBtn.disabled = false;
+  } else {
+    badge.textContent = '待录制';
+    badge.classList.add('status-idle');
+    pauseBtn.disabled = true;
+    stopBtn.disabled = true;
+  }
+}
+
+function updateTimer() {
+  elapsed++;
+  document.getElementById('timer').textContent = formatTime(elapsed);
+}
+
+function formatTime(s) {
+  const h = String(Math.floor(s / 3600)).padStart(2, '0');
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const sec = String(s % 60).padStart(2, '0');
+  return `${h}:${m}:${sec}`;
+}
+
+function toggleTheme() {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  document.querySelector('.theme-toggle').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+init();
+</script>
+</body>
+</html>

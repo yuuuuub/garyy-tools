@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏊 泳道图 - Swimlane Diagram</title>
+<meta name="description" content="泳道图工具，创建跨职能流程图，可视化协作流程">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏊</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🏊 泳道图 - Swimlane Diagram">
+<meta property="og:description" content="泳道图工具，创建跨职能流程图">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/swimlane-diagram/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;padding:16px}
+.hdr{text-align:center;margin-bottom:20px}
+.hdr h1{font-size:1.6rem;color:var(--accent)}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;color:var(--accent);margin-bottom:10px}
+textarea{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;min-height:140px;outline:none}
+textarea:focus{border-color:var(--accent)}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+button:hover{opacity:.9}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+#canvas{display:block;width:100%;border-radius:8px}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+
+<div class="hdr"><h1>🏊 泳道图</h1><p>跨职能流程图可视化</p></div>
+
+<div class="card">
+<h2>数据输入</h2>
+<textarea id="dataInput">泳道: 客户
+泳道: 销售
+泳道: 技术支持
+步骤: 客户: 提交需求
+步骤: 销售: 接收需求
+步骤: 销售: 评估报价
+步骤: 技术支持: 技术评估
+步骤: 销售: 发送报价
+步骤: 客户: 确认订单
+步骤: 技术支持: 执行交付</textarea>
+<div class="btn-row">
+<button onclick="generate()">生成泳道图</button>
+<button class="sec" onclick="loadSample()">加载示例</button>
+<button class="sec" onclick="exportPNG()">💾 导出PNG</button>
+</div>
+</div>
+
+<div class="card">
+<h2>泳道图预览</h2>
+<canvas id="canvas" height="400"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const LANE_COLORS = ['rgba(59,130,246,0.15)','rgba(34,197,94,0.15)','rgba(245,158,11,0.15)','rgba(139,92,246,0.15)','rgba(236,72,153,0.15)'];
+const LANE_BORDERS = ['#3b82f6','#22c55e','#f59e0b','#8b5cf6','#ec4899'];
+
+function resize() {
+  canvas.width = canvas.parentElement.clientWidth - 32;
+}
+resize();
+window.addEventListener('resize', () => { resize(); generate(); });
+
+function generate() {
+  const lines = document.getElementById('dataInput').value.split('\n').map(l => l.trim()).filter(l => l);
+  const lanes = [];
+  const steps = [];
+
+  lines.forEach(line => {
+    if(line.startsWith('泳道:') || line.startsWith('Lane:')) {
+      lanes.push(line.split(':')[1].trim());
+    } else if(line.startsWith('步骤:') || line.startsWith('Step:')) {
+      const parts = line.split(':');
+      if(parts.length >= 3) {
+        steps.push({ lane: parts[1].trim(), label: parts.slice(2).join(':').trim() });
+      }
+    }
+  });
+
+  if(!lanes.length) { alert('请定义至少一个泳道'); return; }
+
+  const laneH = 80;
+  const labelW = 100;
+  const boxW = 120;
+  const boxH = 40;
+  const gap = 40;
+  const totalW = labelW + lanes.length * (boxW + gap) + 20;
+  const totalH = 60 + lanes.length * laneH + 20;
+
+  canvas.width = Math.max(canvas.width, totalW);
+  canvas.height = totalH;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Draw lane backgrounds
+  lanes.forEach((lane, i) => {
+    const y = 60 + i * laneH;
+    ctx.fillStyle = LANE_COLORS[i % LANE_COLORS.length];
+    ctx.fillRect(labelW, y, canvas.width - labelW, laneH);
+    ctx.strokeStyle = LANE_BORDERS[i % LANE_BORDERS.length];
+    ctx.lineWidth = 1;
+    ctx.strokeRect(labelW, y, canvas.width - labelW, laneH);
+
+    // Lane label
+    ctx.save();
+    ctx.translate(50, y + laneH/2);
+    ctx.fillStyle = LANE_BORDERS[i % LANE_BORDERS.length];
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(lane, 0, 0);
+    ctx.restore();
+  });
+
+  // Group steps by lane
+  const laneSteps = {};
+  lanes.forEach(l => laneSteps[l] = []);
+  steps.forEach(s => {
+    if(laneSteps[s.lane]) laneSteps[s.lane].push(s);
+  });
+
+  // Draw steps and arrows
+  let prevPos = null;
+  const allPositions = [];
+
+  // Collect all steps in order
+  const orderedSteps = [];
+  lanes.forEach(lane => {
+    laneSteps[lane].forEach((s, idx) => {
+      orderedSteps.push({ ...s, laneIdx: lanes.indexOf(lane), stepIdx: idx });
+    });
+  });
+
+  // Re-order: interleave by original step order
+  const stepOrder = steps.map((s,i) => ({...s, order:i}));
+  stepOrder.forEach((s, i) => {
+    const laneIdx = lanes.indexOf(s.lane);
+    const stepIdx = laneSteps[s.lane].indexOf(laneSteps[s.lane].find(st => st.label === s.label));
+    if(laneIdx < 0) return;
+
+    const x = labelW + laneIdx * (boxW + gap) + gap/2 + (boxW/2);
+    const y = 60 + laneIdx * laneH + laneH/2;
+
+    // Draw box
+    ctx.fillStyle = '#161b22';
+    ctx.strokeStyle = LANE_BORDERS[laneIdx % LANE_BORDERS.length];
+    ctx.lineWidth = 2;
+    roundRect(ctx, x - boxW/2, y - boxH/2, boxW, boxH, 8);
+
+    // Draw start/end circles
+    if(i === 0) {
+      ctx.beginPath();
+      ctx.arc(x - boxW/2 - 12, y, 6, 0, Math.PI*2);
+      ctx.fillStyle = '#22c55e';
+      ctx.fill();
+    }
+    if(i === stepOrder.length - 1) {
+      ctx.beginPath();
+      ctx.arc(x + boxW/2 + 12, y, 6, 0, Math.PI*2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+    }
+
+    // Label
+    ctx.fillStyle = '#e6edf3';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lbl = s.label.length > 10 ? s.label.slice(0,10)+'..' : s.label;
+    ctx.fillText(lbl, x, y);
+
+    // Arrow from previous
+    if(prevPos) {
+      ctx.beginPath();
+      ctx.moveTo(prevPos.x + boxW/2 + 4, prevPos.y);
+      ctx.lineTo(x - boxW/2 - 4, y);
+      ctx.strokeStyle = 'rgba(139,148,158,0.6)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Arrowhead
+      const angle = Math.atan2(y - prevPos.y, x - prevPos.x);
+      const ax = x - boxW/2 - 4, ay = y;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax - 8*Math.cos(angle-0.4), ay - 8*Math.sin(angle-0.4));
+      ctx.lineTo(ax - 8*Math.cos(angle+0.4), ay - 8*Math.sin(angle+0.4));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(139,148,158,0.6)';
+      ctx.fill();
+    }
+
+    prevPos = {x, y};
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+function loadSample() {
+  document.getElementById('dataInput').value = `泳道: 客户
+泳道: 销售
+泳道: 技术支持
+泳道: 财务
+步骤: 客户: 提交需求
+步骤: 销售: 需求分析
+步骤: 技术支持: 技术评估
+步骤: 销售: 制定报价
+步骤: 财务: 审核报价
+步骤: 客户: 确认订单
+步骤: 技术支持: 项目执行
+步骤: 财务: 开具发票
+步骤: 客户: 验收付款`;
+  generate();
+}
+
+function exportPNG() {
+  const link = document.createElement('a');
+  link.download = 'swimlane-diagram.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+generate();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
