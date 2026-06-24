@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>打砖块</title>
+<meta name="description" content="经典打砖块游戏，控制挡板反弹球击碎所有砖块得分">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation;padding:16px;scroll-behavior:smooth}
+h1{font-size:1.5rem;margin-bottom:10px;color:#3b82f6;text-shadow:0 0 10px #3b82f644}
+canvas{background:var(--bg);border:2px solid #30363d;border-radius:8px;touch-action:none}
+.hud{display:flex;gap:20px;margin-top:10px;font-size:0.9rem;color:#8b949e}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧱</text></svg>">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<h1>🧱 打砖块</h1>
+<canvas id="game" width="480" height="400"></canvas>
+<div class="hud"><span>分数: <b id="score">0</b></span><span>生命: <b id="lives">❤️❤️❤️</b></span><span>关卡: <b id="level">1</b></span></div>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+const colors=['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6'];
+let paddle={x:W/2-40,y:H-30,w:80,h:12};
+let ball={x:W/2,y:H-45,r:6,vx:3.5,vy:-3.5};
+let bricks=[],score=0,lives=3,level=1,running=false,over=false;
+
+function createBricks(){
+bricks=[];
+const cols=8,rows=4+Math.min(level,3),bw=W/cols-4,bh=18;
+for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)
+bricks.push({x:c*(bw+4)+2,y:r*(bh+4)+40,w:bw,h:bh,alive:true,color:colors[r%colors.length],pts:(rows-r)*10});
+}
+function resetBall(){ball={x:paddle.x+paddle.w/2,y:paddle.y-ball.r-1,r:6,vx:3.5*((Math.random()>0.5)?1:-1),vy:-3.5};running=false}
+function resetAll(){score=0;lives=3;level=1;over=false;createBricks();paddle.x=W/2-40;resetBall();updateHUD()}
+
+canvas.addEventListener('pointermove',e=>{
+e.preventDefault();
+const rect=canvas.getBoundingClientRect(),scaleX=W/rect.width;
+paddle.x=((e.clientX||0)-rect.left)*scaleX-paddle.w/2;
+paddle.x=Math.max(0,Math.min(W-paddle.w,paddle.x));
+});
+canvas.addEventListener('pointerdown',e=>{
+e.preventDefault();
+if(over){resetAll();return}
+if(!running&&lives>0)running=true;
+});
+
+function draw(){
+ctx.fillStyle='#161b22';ctx.fillRect(0,0,W,H);
+ctx.fillStyle='#3b82f6';ctx.beginPath();ctx.roundRect(paddle.x,paddle.y,paddle.w,paddle.h,4);ctx.fill();
+ctx.fillStyle='#e6edf3';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();
+bricks.forEach(b=>{if(!b.alive)return;ctx.fillStyle=b.color;ctx.beginPath();ctx.roundRect(b.x,b.y,b.w,b.h,3);ctx.fill()});
+if(!running&&!over){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e6edf3';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('点击开始',W/2,H/2)}
+if(over){ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#ef4444';ctx.font='bold 28px system-ui';ctx.textAlign='center';ctx.fillText('游戏结束',W/2,H/2-20);ctx.fillStyle='#e6edf3';ctx.font='18px system-ui';ctx.fillText('最终分数: '+score,W/2,H/2+20);ctx.fillStyle='#8b949e';ctx.font='16px system-ui';ctx.fillText('点击重新开始',W/2,H/2+55)}
+if(bricks.every(b=>!b.alive)){ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#22c55e';ctx.font='bold 24px system-ui';ctx.textAlign='center';ctx.fillText('关卡通过!',W/2,H/2)}
+}
+
+function update(){
+if(!running||over)return;
+ball.x+=ball.vx;ball.y+=ball.vy;
+if(ball.x-ball.r<0||ball.x+ball.r>W)ball.vx*=-1;
+if(ball.y-ball.r<0)ball.vy*=-1;
+if(ball.y+ball.r>H){lives--;resetBall();updateHUD();if(lives<=0)over=true;return}
+if(ball.vy>0&&ball.y+ball.r>=paddle.y&&ball.y+ball.r<=paddle.y+paddle.h&&ball.x>=paddle.x&&ball.x<=paddle.x+paddle.w){
+ball.vy=-Math.abs(ball.vy);ball.vx=((ball.x-(paddle.x+paddle.w/2))/(paddle.w/2))*5;
+}
+bricks.forEach(b=>{if(!b.alive)return;
+if(ball.x+ball.r>b.x&&ball.x-ball.r<b.x+b.w&&ball.y+ball.r>b.y&&ball.y-ball.r<b.y+b.h){
+b.alive=false;ball.vy*=-1;score+=b.pts}});
+if(bricks.every(b=>!b.alive)){level++;createBricks();resetBall();updateHUD()}
+updateHUD();
+}
+function updateHUD(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent='❤️'.repeat(lives);document.getElementById('level').textContent=level}
+function loop(){update();draw();requestAnimationFrame(loop)}
+createBricks();resetBall();loop();
+</script>
+</body>
+</html>
