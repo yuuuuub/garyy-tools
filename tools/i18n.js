@@ -411,6 +411,16 @@ function applyLang(lang){
 
 window.garyyApplyLang = applyLang;
 window.garyyEsc = function(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');};
+window.garyyToast = function(msg, type){
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:999999;padding:12px 24px;border-radius:10px;font-size:.9rem;font-weight:500;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3);transition:opacity .3s;max-width:90vw;text-align:center;';
+  if(type==='error'){t.style.background='#ef4444';t.style.color='#fff';}
+  else if(type==='success'){t.style.background='#238636';t.style.color='#fff';}
+  else{t.style.background='#1f2937';t.style.color='#e5e7eb';}
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove()},300);},2500);
+};
 
 function createToggle(){
   var langBtn = document.getElementById('lang-toggle');
