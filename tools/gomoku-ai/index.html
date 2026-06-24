@@ -76,23 +76,23 @@ text-align: center}
 </head>
 <body>
     <h1>♟️ AI五子棋</h1>
-    
+
     <div class="info">
         <span class="black">玩家：黑棋</span>
         <span class="white">AI：白棋</span>
     </div>
-    
+
     <div id="board">
         <canvas id="canvas"></canvas>
     </div>
-    
+
     <div class="controls">
         <button onclick="undoMove()">悔棋</button>
         <button onclick="restartGame()">重新开始</button>
     </div>
-    
+
     <div class="status" id="status">轮到你下棋（黑棋）</div>
-    
+
     <div class="win-overlay" id="win-overlay">
         <div class="win-dialog">
             <h2 id="win-text"></h2>
@@ -105,23 +105,19 @@ text-align: center}
         const CELL_SIZE = 36;
         const PADDING = 20;
         const STONE_RADIUS = 15;
-        
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const status = document.getElementById('status');
         const winOverlay = document.getElementById('win-overlay');
         const winText = document.getElementById('win-text');
-        
         let board = [];
         let currentPlayer = 1;
         let gameOver = false;
         let moveHistory = [];
         let isThinking = false;
-        
         const CANVAS_SIZE = (BOARD_SIZE - 1) * CELL_SIZE + PADDING * 2;
         canvas.width = CANVAS_SIZE;
         canvas.height = CANVAS_SIZE;
-        
         function init() {
             board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
             currentPlayer = 1;
@@ -132,26 +128,21 @@ text-align: center}
             status.textContent = '轮到你下棋（黑棋）';
             winOverlay.classList.remove('show');
         }
-        
         function drawBoard() {
             ctx.fillStyle = '#dcb35c';
             ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 1;
-            
             for (let i = 0; i < BOARD_SIZE; i++) {
                 ctx.beginPath();
                 ctx.moveTo(PADDING + i * CELL_SIZE, PADDING);
                 ctx.lineTo(PADDING + i * CELL_SIZE, CANVAS_SIZE - PADDING);
                 ctx.stroke();
-                
                 ctx.beginPath();
                 ctx.moveTo(PADDING, PADDING + i * CELL_SIZE);
                 ctx.lineTo(CANVAS_SIZE - PADDING, PADDING + i * CELL_SIZE);
                 ctx.stroke();
             }
-            
             const starPoints = [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];
             starPoints.forEach(([x, y]) => {
                 ctx.beginPath();
@@ -159,7 +150,6 @@ text-align: center}
                 ctx.fillStyle = '#000';
                 ctx.fill();
             });
-            
             for (let i = 0; i < BOARD_SIZE; i++) {
                 for (let j = 0; j < BOARD_SIZE; j++) {
                     if (board[i][j] !== 0) {
@@ -168,14 +158,11 @@ text-align: center}
                 }
             }
         }
-        
         function drawStone(row, col, player) {
             const x = PADDING + col * CELL_SIZE;
             const y = PADDING + row * CELL_SIZE;
-            
             ctx.beginPath();
             ctx.arc(x, y, STONE_RADIUS, 0, Math.PI * 2);
-            
             const gradient = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, STONE_RADIUS);
             if (player === 1) {
                 gradient.addColorStop(0, '#666');
@@ -186,87 +173,67 @@ text-align: center}
             }
             ctx.fillStyle = gradient;
             ctx.fill();
-            
             ctx.strokeStyle = player === 1 ? '#000' : '#999';
             ctx.lineWidth = 1;
             ctx.stroke();
         }
-        
         canvas.addEventListener('click', (e) => {
             if (gameOver || currentPlayer !== 1 || isThinking) return;
-            
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            
             const col = Math.round((x - PADDING) / CELL_SIZE);
             const row = Math.round((y - PADDING) / CELL_SIZE);
-            
             if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) return;
             if (board[row][col] !== 0) return;
-            
             makeMove(row, col, 1);
-            
             if (checkWin(row, col, 1)) {
                 endGame('你赢了！');
                 return;
             }
-            
             if (isBoardFull()) {
                 endGame('平局！');
                 return;
             }
-            
             currentPlayer = 2;
             status.textContent = 'AI思考中...';
             isThinking = true;
-            
             setTimeout(() => {
                 const aiMove = findBestMove();
                 makeMove(aiMove.row, aiMove.col, 2);
-                
                 if (checkWin(aiMove.row, aiMove.col, 2)) {
                     endGame('AI赢了！');
                     return;
                 }
-                
                 if (isBoardFull()) {
                     endGame('平局！');
                     return;
                 }
-                
                 currentPlayer = 1;
                 isThinking = false;
                 status.textContent = '轮到你下棋（黑棋）';
             }, 300);
         });
-        
         function makeMove(row, col, player) {
             board[row][col] = player;
             moveHistory.push({ row, col, player });
             drawBoard();
         }
-        
         function undoMove() {
             if (moveHistory.length < 2 || gameOver) return;
-            
             for (let i = 0; i < 2; i++) {
                 const last = moveHistory.pop();
                 board[last.row][last.col] = 0;
             }
-            
             currentPlayer = 1;
             isThinking = false;
             drawBoard();
             status.textContent = '轮到你下棋（黑棋）';
         }
-        
         function checkWin(row, col, player) {
             const directions = [[1,0],[0,1],[1,1],[1,-1]];
-            
             for (const [dx, dy] of directions) {
                 let count = 1;
-                
                 for (let i = 1; i < 5; i++) {
                     const r = row + dx * i;
                     const c = col + dy * i;
@@ -274,7 +241,6 @@ text-align: center}
                         count++;
                     } else break;
                 }
-                
                 for (let i = 1; i < 5; i++) {
                     const r = row - dx * i;
                     const c = col - dy * i;
@@ -282,39 +248,31 @@ text-align: center}
                         count++;
                     } else break;
                 }
-                
                 if (count >= 5) return true;
             }
             return false;
         }
-        
         function isBoardFull() {
             return board.every(row => row.every(cell => cell !== 0));
         }
-        
         function findBestMove() {
             const candidates = getCandidates();
             let bestScore = -Infinity;
             let bestMove = candidates[0];
-            
             for (const move of candidates) {
                 board[move.row][move.col] = 2;
                 const score = evaluatePosition() + Math.random() * 10;
                 board[move.row][move.col] = 0;
-                
                 if (score > bestScore) {
                     bestScore = score;
                     bestMove = move;
                 }
             }
-            
             return bestMove;
         }
-        
         function getCandidates() {
             const candidates = [];
             const range = 2;
-            
             for (let i = 0; i < BOARD_SIZE; i++) {
                 for (let j = 0; j < BOARD_SIZE; j++) {
                     if (board[i][j] !== 0) {
@@ -332,17 +290,13 @@ text-align: center}
                     }
                 }
             }
-            
             if (candidates.length === 0) {
                 return [{ row: 7, col: 7 }];
             }
-            
             return candidates;
         }
-        
         function evaluatePosition() {
             let score = 0;
-            
             for (let i = 0; i < BOARD_SIZE; i++) {
                 for (let j = 0; j < BOARD_SIZE; j++) {
                     if (board[i][j] === 2) {
@@ -352,18 +306,14 @@ text-align: center}
                     }
                 }
             }
-            
             return score;
         }
-        
         function evaluatePoint(row, col, player) {
             const directions = [[1,0],[0,1],[1,1],[1,-1]];
             let totalScore = 0;
-            
             for (const [dx, dy] of directions) {
                 let count = 1;
                 let open = 0;
-                
                 for (let i = 1; i < 5; i++) {
                     const r = row + dx * i;
                     const c = col + dy * i;
@@ -373,7 +323,6 @@ text-align: center}
                         else break;
                     }
                 }
-                
                 for (let i = 1; i < 5; i++) {
                     const r = row - dx * i;
                     const c = col - dy * i;
@@ -383,7 +332,6 @@ text-align: center}
                         else break;
                     }
                 }
-                
                 if (count >= 5) totalScore += 100000;
                 else if (count === 4 && open === 2) totalScore += 10000;
                 else if (count === 4 && open === 1) totalScore += 1000;
@@ -392,21 +340,17 @@ text-align: center}
                 else if (count === 2 && open === 2) totalScore += 100;
                 else if (count === 2 && open === 1) totalScore += 10;
             }
-            
             return totalScore;
         }
-        
         function endGame(msg) {
             gameOver = true;
             status.textContent = msg;
             winText.textContent = msg;
             winOverlay.classList.add('show');
         }
-        
         function restartGame() {
             init();
         }
-        
         init();
     </script>
 <script src="../i18n.js" defer></script>

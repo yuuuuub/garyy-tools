@@ -113,16 +113,16 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth.uid == userId;
-      allow delete: if request.auth != null && 
+      allow delete: if request.auth != null &&
         request.auth.uid == userId;
-      
+
       // 子集合
       match /posts/{postId} {
         allow read: if true;
         allow write: if request.auth.uid == userId;
       }
     }
-    
+
     // 公共集合
     match /public/{document} {
       allow read: if true;
@@ -167,13 +167,11 @@ service cloud.firestore {
 <script>
 let currentOp = 'get';
 let store = {users: {}};
-
 function switchOp(op, el) {
     currentOp = op;
     document.querySelectorAll('.card:first-child .tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
 }
-
 function generateSample() {
     const samples = [
         {name:'张三',email:'zhang@test.com',age:28,tags:['admin','user']},
@@ -187,12 +185,10 @@ function generateSample() {
     renderTree();
     showResult(`已生成 ${samples.length} 个示例文档`, true);
 }
-
 function executeOp() {
     const path = document.getElementById('collectionPath').value;
     const docId = document.getElementById('docId').value;
     const dataStr = document.getElementById('dataInput').value;
-    
     let data;
     try {
         data = dataStr ? JSON.parse(dataStr) : null;
@@ -200,10 +196,8 @@ function executeOp() {
         showResult(`JSON解析错误: ${e.message}`, false);
         return;
     }
-    
     if (!store[path]) store[path] = {};
     let result;
-    
     switch(currentOp) {
         case 'get':
             if (docId) {
@@ -252,7 +246,6 @@ function executeOp() {
     }
     renderTree();
 }
-
 function renderTree() {
     const tree = document.getElementById('collectionTree');
     let html = '';
@@ -265,13 +258,11 @@ function renderTree() {
     }
     tree.innerHTML = html || '<p style="color:#8b949e;font-size:13px">暂无数据，点击"生成示例"创建</p>';
 }
-
 function selectDoc(col, id) {
     document.getElementById('collectionPath').value = col;
     document.getElementById('docId').value = id;
     document.getElementById('dataInput').value = JSON.stringify(store[col][id], null, 2);
 }
-
 function validateRules() {
     const rules = document.getElementById('rulesInput').value;
     if (rules.includes('match') && rules.includes('allow')) {
@@ -280,96 +271,69 @@ function validateRules() {
         showResult('规则格式有误', false);
     }
 }
-
 function switchSDK(type, el) {
     document.querySelectorAll('.card:last-child .tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    
     const code = {
-        web: `// Web SDK - JavaScript
+        web: `
 import { getFirestore, collection, getDocs, addDoc, doc, setDoc } from 'firebase/firestore';
-
 const db = getFirestore();
-
-// 获取集合
 const querySnapshot = await getDocs(collection(db, 'users'));
 querySnapshot.forEach(doc => {
   console.log(doc.id, doc.data());
 });
-
-// 添加文档
 await addDoc(collection(db, 'users'), {
   name: '张三',
   email: 'zhangsan@example.com',
   age: 25
 });
-
-// 设置文档 (指定ID)
 await setDoc(doc(db, 'users', 'user123'), {
   name: '李四',
   email: 'lisi@example.com'
 });
-
-// 查询
-const q = query(collection(db, 'users'), 
+const q = query(collection(db, 'users'),
   where('age', '>=', 18),
   orderBy('age', 'desc'),
   limit(10)
 );`,
-        admin: `// Admin SDK - Node.js
+        admin: `
 const admin = require('firebase-admin');
 admin.initializeApp();
-
 const db = admin.firestore();
-
-// 获取文档
 const docRef = db.collection('users').doc('user123');
 const doc = await docRef.get();
 if (doc.exists) {
   console.log('文档数据:', doc.data());
 }
-
-// 批量写入
 const batch = db.batch();
 batch.set(db.collection('users').doc('user1'), {name: '张三'});
 batch.update(db.collection('users').doc('user2'), {age: 30});
 batch.delete(db.collection('users').doc('user3'));
 await batch.commit();
-
-// 事务
 await db.runTransaction(async (transaction) => {
   const doc = await transaction.get(db.collection('counters').doc('likes'));
   transaction.update(doc.ref, { count: doc.data().count + 1 });
 });`,
-        security: `// 安全规则最佳实践
-
+        security: `
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // 1. 用户数据 - 仅自己可读写
     match /users/{userId} {
-      allow read, write: if request.auth != null 
+      allow read, write: if request.auth != null
         && request.auth.uid == userId;
     }
-    
-    // 2. 公共帖子 - 所有人可读，作者可写
     match /posts/{postId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null 
+      allow update, delete: if request.auth != null
         && request.auth.uid == resource.data.authorId;
     }
-    
-    // 3. 聊天室 - 成员可访问
     match /chats/{chatId} {
-      allow read, write: if request.auth != null 
+      allow read, write: if request.auth != null
         && request.auth.uid in resource.data.members;
     }
-    
-    // 4. 管理员操作
     match /admin/{doc} {
-      allow read, write: if request.auth != null 
+      allow read, write: if request.auth != null
         && request.auth.token.admin == true;
     }
   }
@@ -377,13 +341,11 @@ service cloud.firestore {
     };
     document.getElementById('sdkCode').textContent = code[type] || '';
 }
-
 function showResult(text, success) {
     const area = document.getElementById('resultArea');
     area.textContent = text;
     area.className = 'result ' + (success ? 'result-success' : 'result-error');
 }
-
 renderTree();
 </script>
 <script src="../i18n.js" defer></script>

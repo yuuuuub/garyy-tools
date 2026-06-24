@@ -199,7 +199,7 @@ box-shadow: 0 0 24px rgba(0, 229, 255, 0.3)}
 </head>
 <body>
 <div id="app">
-  <!-- 顶部状态栏 -->
+
   <div id="top-bar">
     <div class="stat"><div class="label">分数</div><div class="value" id="score-val">0</div></div>
     <div class="stat"><div class="label">连击</div><div class="value" id="combo-val">0</div></div>
@@ -207,7 +207,7 @@ box-shadow: 0 0 24px rgba(0, 229, 255, 0.3)}
     <div class="stat"><div class="label">最大连击</div><div class="value" id="max-combo-val">0</div></div>
   </div>
 
-  <!-- 游戏主区域 -->
+
   <div id="game-area">
     <canvas id="game-canvas"></canvas>
     <div id="lane-hints">
@@ -217,7 +217,7 @@ box-shadow: 0 0 24px rgba(0, 229, 255, 0.3)}
       <div class="key" data-lane="3">K</div>
     </div>
 
-    <!-- 模式选择 -->
+
     <div id="mode-select">
       <h2>🎵 节奏感训练</h2>
       <button class="mode-btn" data-mode="song1">难度 ★ - 基础节奏</button>
@@ -226,7 +226,7 @@ box-shadow: 0 0 24px rgba(0, 229, 255, 0.3)}
       <button class="mode-btn" data-mode="free">自由模式 (Free Play)</button>
     </div>
 
-    <!-- 结算面板 -->
+
     <div id="result-overlay">
       <h2>演奏结束</h2>
       <div class="result-stat">最终分数: <span id="result-score">0</span></div>
@@ -237,7 +237,7 @@ box-shadow: 0 0 24px rgba(0, 229, 255, 0.3)}
     </div>
   </div>
 
-  <!-- 底部控制栏 -->
+
   <div id="bottom-bar">
     <div class="ctrl-group">
       <label>BPM</label>
@@ -258,14 +258,8 @@ box-shadow: 0 0 24px rgba(0, 229, 255, 0.3)}
 </div>
 
 <script>
-// ============================================================
-// 节奏感训练游戏 - Rhythm Trainer
-// ============================================================
-
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
-
-// --- DOM 元素 ---
 const scoreEl = document.getElementById('score-val');
 const comboEl = document.getElementById('combo-val');
 const accuracyEl = document.getElementById('accuracy-val');
@@ -279,8 +273,6 @@ const modeSelect = document.getElementById('mode-select');
 const resultOverlay = document.getElementById('result-overlay');
 const restartBtn = document.getElementById('restart-btn');
 const laneKeys = document.querySelectorAll('#lane-hints .key');
-
-// --- 游戏常数 ---
 const LANE_COUNT = 4;
 const LANE_COLORS = ['#00e5ff', '#ff4081', '#ffd600', '#76ff03'];
 const LANE_COLORS_GLOW = [
@@ -291,13 +283,11 @@ const LANE_COLORS_GLOW = [
 ];
 const KEY_MAP = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
 const LANE_KEYS = ['D', 'F', 'J', 'K'];
-
-// --- 游戏状态 ---
-let gameState = 'menu'; // menu | playing | paused | result
+let gameState = 'menu';
 let bpm = 120;
 let difficulty = 'normal';
-let gameMode = 'free'; // song1 | song2 | song3 | free
-let scrollSpeed = 300; // px per second at BPM=120
+let gameMode = 'free';
+let scrollSpeed = 300;
 let score = 0;
 let combo = 0;
 let maxCombo = 0;
@@ -316,8 +306,8 @@ let noteInterval = 0;
 let gameStartTime = 0;
 let pauseStartTime = 0;
 let totalPauseTime = 0;
-let hitZoneY = 0; // 判定线 Y 坐标
-let laneX = []; // 每个轨道的 X 坐标
+let hitZoneY = 0;
+let laneX = [];
 let laneWidth = 0;
 let lastFrameTime = 0;
 let animationId = null;
@@ -325,8 +315,6 @@ let feedbackFlash = new Array(LANE_COUNT).fill(0);
 let beatPulse = 0;
 let beatTimer = 0;
 let renderedNoteIndex = 0;
-
-// --- Canvas 尺寸适配 ---
 function resizeCanvas() {
   const area = document.getElementById('game-area');
   canvas.width = area.clientWidth;
@@ -337,8 +325,6 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
-
-// --- BPM / 难度变更 ---
 function updateBPM(val) {
   bpm = val;
   bpmDisplay.textContent = val;
@@ -348,18 +334,15 @@ function updateBPM(val) {
   }
 }
 bpmSlider.addEventListener('input', () => updateBPM(parseInt(bpmSlider.value)));
-
 difficultySelect.addEventListener('change', () => {
   difficulty = difficultySelect.value;
 });
-
 function getBeatDivision() {
   if (gameMode === 'song1') return 2;
   if (gameMode === 'song2') return 4;
   if (gameMode === 'song3') return 4;
   return 2;
 }
-
 function getTimingWindows() {
   switch (difficulty) {
     case 'easy': return { perfect: 80, good: 160 };
@@ -368,12 +351,8 @@ function getTimingWindows() {
     default: return { perfect: 50, good: 110 };
   }
 }
-
-// --- 预设歌曲模式 ---
 const SONG_PATTERNS = {
-  // 基础四拍
   song1: { lanes: [0,1,2,3,0,1,2,3,1,0,2,3,0,1,2,3,0,1,2,3], desc: '基础节奏' },
-  // 经典节拍: 四分音符 + 部分八分
   song2: {
     lanes: [
       0, 2, 1, 3, 0, 0, 2, 2,
@@ -389,7 +368,6 @@ const SONG_PATTERNS = {
     ],
     desc: '经典节拍'
   },
-  // 复杂律动: 三连音、切分音
   song3: {
     lanes: [
       0, -1, 1, 2, -1, 3, 0, 1,
@@ -408,37 +386,28 @@ const SONG_PATTERNS = {
     desc: '复杂律动'
   }
 };
-
-// --- Note 类 ---
 class Note {
   constructor(lane, y, beatTime) {
     this.lane = lane;
     this.y = y;
-    this.beatTime = beatTime; // 预计到达判定线的时间
+    this.beatTime = beatTime;
     this.hit = false;
     this.missed = false;
     this.width = laneWidth * 0.7;
     this.height = 28;
   }
-
   draw() {
     if (this.hit || this.missed) return;
     const x = laneX[this.lane] - this.width / 2;
     const color = LANE_COLORS[this.lane];
     const glow = LANE_COLORS_GLOW[this.lane];
-
-    // 发光效果
     ctx.save();
     ctx.shadowColor = glow;
     ctx.shadowBlur = 15;
-
-    // 音符主体
     const gradient = ctx.createLinearGradient(x, this.y, x, this.y + this.height);
     gradient.addColorStop(0, color);
     gradient.addColorStop(1, 'rgba(0,0,0,0.3)');
     ctx.fillStyle = gradient;
-
-    // 圆角矩形音符
     const r = 6;
     ctx.beginPath();
     ctx.moveTo(x + r, this.y);
@@ -452,16 +421,11 @@ class Note {
     ctx.quadraticCurveTo(x, this.y, x + r, this.y);
     ctx.closePath();
     ctx.fill();
-
-    // 高光
     ctx.fillStyle = 'rgba(255,255,255,0.25)';
     ctx.fillRect(x + 4, this.y + 3, this.width - 8, 5);
-
     ctx.restore();
   }
 }
-
-// --- Particle 类 (打击特效) ---
 class Particle {
   constructor(x, y, color) {
     this.x = x;
@@ -473,13 +437,11 @@ class Particle {
     this.size = 2 + Math.random() * 5;
     this.color = color;
   }
-
   update() {
     this.x += this.vx;
     this.y += this.vy;
     this.life -= this.decay;
   }
-
   draw() {
     ctx.save();
     ctx.globalAlpha = this.life;
@@ -491,11 +453,8 @@ class Particle {
     ctx.fill();
     ctx.restore();
   }
-
   get dead() { return this.life <= 0; }
 }
-
-// --- JudgmentText 类 (判定文字) ---
 class JudgmentText {
   constructor(x, y, text, color) {
     this.x = x;
@@ -505,12 +464,10 @@ class JudgmentText {
     this.life = 1;
     this.decay = 0.025;
   }
-
   update() {
     this.y -= 2;
     this.life -= this.decay;
   }
-
   draw() {
     ctx.save();
     ctx.globalAlpha = this.life;
@@ -522,17 +479,11 @@ class JudgmentText {
     ctx.fillText(this.text, this.x, this.y);
     ctx.restore();
   }
-
   get dead() { return this.life <= 0; }
 }
-
-// --- 绘制背景和轨道 ---
 function drawBackground() {
-  // 暗色背景网格
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // 网格线
   ctx.strokeStyle = 'rgba(255,255,255,0.03)';
   ctx.lineWidth = 0.5;
   const gridSpacing = 40;
@@ -542,8 +493,6 @@ function drawBackground() {
     ctx.lineTo(canvas.width, y);
     ctx.stroke();
   }
-
-  // 轨道分隔线
   for (let i = 1; i < LANE_COUNT; i++) {
     const x = i * laneWidth;
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
@@ -553,20 +502,14 @@ function drawBackground() {
     ctx.lineTo(x, canvas.height);
     ctx.stroke();
   }
-
-  // 轨道底色交替
   for (let i = 0; i < LANE_COUNT; i++) {
     ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0)';
     ctx.fillRect(i * laneWidth, 0, laneWidth, canvas.height);
   }
-
-  // 节拍脉冲背景
   if (beatPulse > 0) {
     ctx.fillStyle = `rgba(0, 229, 255, ${beatPulse * 0.06})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-
-  // 判定线
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 5]);
@@ -575,16 +518,12 @@ function drawBackground() {
   ctx.lineTo(canvas.width, hitZoneY);
   ctx.stroke();
   ctx.setLineDash([]);
-
-  // 判定线发光
   const glowGradient = ctx.createLinearGradient(0, hitZoneY - 20, 0, hitZoneY + 20);
   glowGradient.addColorStop(0, 'rgba(255,255,255,0)');
   glowGradient.addColorStop(0.5, 'rgba(255,255,255,0.08)');
   glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = glowGradient;
   ctx.fillRect(0, hitZoneY - 20, canvas.width, 40);
-
-  // 命中区域指示 (每个轨道的判定线位置)
   for (let i = 0; i < LANE_COUNT; i++) {
     const x = laneX[i];
     const flash = feedbackFlash[i];
@@ -599,7 +538,6 @@ function drawBackground() {
       ctx.fill();
       ctx.restore();
     } else {
-      // 静态命中区指示
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.beginPath();
       ctx.arc(x, hitZoneY, 20, 0, Math.PI * 2);
@@ -610,20 +548,15 @@ function drawBackground() {
     }
   }
 }
-
-// --- 生成音符 (自由模式) ---
 function generateFreeNote() {
   const lane = Math.floor(Math.random() * LANE_COUNT);
-  // 随机间隙，避免太密集
   const note = new Note(lane, -40, 0);
   notes.push(note);
 }
-
-// --- 加载歌曲模式 ---
 function loadSong(songKey) {
   const song = SONG_PATTERNS[songKey];
   songNotes = [];
-  let time = 2000; // 2 秒前导
+  let time = 2000;
   for (let i = 0; i < song.lanes.length; i++) {
     const lane = song.lanes[i];
     if (lane >= 0) {
@@ -632,10 +565,8 @@ function loadSong(songKey) {
     const interval = (song.intervals ? song.intervals[i] : 1) * (60 / bpm) * 1000;
     time += interval;
   }
-  return time + 2000; // 尾部留 2 秒
+  return time + 2000;
 }
-
-// --- 开始游戏 ---
 function startGame(mode) {
   gameMode = mode;
   score = 0;
@@ -655,28 +586,21 @@ function startGame(mode) {
   noteInterval = 0;
   totalPauseTime = 0;
   renderedNoteIndex = 0;
-
   updateBPM(bpm);
-
   modeSelect.style.display = 'none';
   resultOverlay.classList.remove('show');
   gameState = 'playing';
   btnPause.textContent = '暂停';
   gameStartTime = performance.now();
   lastFrameTime = gameStartTime;
-
   if (gameMode === 'free') {
     noteInterval = (60 / bpm) * 1000;
   } else {
     const duration = loadSong(gameMode);
-    noteInterval = duration; // 仅用于标记歌曲总时长
-    // 将 songNotes 按时间排好
+    noteInterval = duration;
   }
-
   updateScoreUI();
 }
-
-// --- 更新分数 UI ---
 function updateScoreUI() {
   scoreEl.textContent = score;
   comboEl.textContent = combo;
@@ -687,26 +611,18 @@ function updateScoreUI() {
     accuracyEl.textContent = '--';
   }
 }
-
-// --- 打击判定 ---
 function hitLane(lane) {
   if (gameState !== 'playing') return;
-
   feedbackFlash[lane] = 1;
   laneKeys[lane].classList.add('pressed');
   setTimeout(() => laneKeys[lane].classList.remove('pressed'), 100);
-
   const now = performance.now();
   const gameTime = now - gameStartTime - totalPauseTime;
   const tw = getTimingWindows();
-
-  // 找最近未命中的音符
   let bestNote = null;
   let bestDist = Infinity;
-
   for (const note of notes) {
     if (note.lane !== lane || note.hit || note.missed) continue;
-    // 计算音符到达判定线的实际时间 vs 当前时间
     const noteArrivalTime = note.beatTime;
     const dist = Math.abs(gameTime - noteArrivalTime);
     if (dist < bestDist) {
@@ -714,17 +630,14 @@ function hitLane(lane) {
       bestNote = note;
     }
   }
-
   if (bestNote && bestDist <= tw.good) {
     bestNote.hit = true;
     const x = laneX[lane];
-
     if (bestDist <= tw.perfect) {
       score += 100 * (1 + Math.floor(combo / 10));
       combo++;
       perfectCount++;
       judgmentTexts.push(new JudgmentText(x, hitZoneY - 30, 'PERFECT', '#ffd600'));
-      // 完美粒子
       for (let i = 0; i < 20; i++) {
         particles.push(new Particle(x, hitZoneY, LANE_COLORS[lane]));
       }
@@ -737,20 +650,16 @@ function hitLane(lane) {
         particles.push(new Particle(x, hitZoneY, LANE_COLORS[lane]));
       }
     }
-
     if (combo > maxCombo) maxCombo = combo;
     totalHit++;
     totalNotes++;
     updateScoreUI();
   }
 }
-
-// --- Miss 检测 ---
 function checkMissedNotes() {
   const now = performance.now();
   const gameTime = now - gameStartTime - totalPauseTime;
   const tw = getTimingWindows();
-
   for (const note of notes) {
     if (note.hit || note.missed) continue;
     const arrival = note.beatTime;
@@ -765,50 +674,37 @@ function checkMissedNotes() {
     }
   }
 }
-
-// --- 粒子/文字更新 ---
 function updateEffects() {
   for (const p of particles) p.update();
   for (const t of judgmentTexts) t.update();
   particles = particles.filter(p => !p.dead);
   judgmentTexts = judgmentTexts.filter(t => !t.dead);
-
   for (let i = 0; i < LANE_COUNT; i++) {
     if (feedbackFlash[i] > 0) {
       feedbackFlash[i] -= 0.06;
       if (feedbackFlash[i] < 0) feedbackFlash[i] = 0;
     }
   }
-
   if (beatPulse > 0) {
     beatPulse -= 0.03;
     if (beatPulse < 0) beatPulse = 0;
   }
 }
-
-// --- 主循环 ---
 function gameLoop(timestamp) {
   if (!lastFrameTime) lastFrameTime = timestamp;
   const dt = (timestamp - lastFrameTime) / 1000;
   lastFrameTime = timestamp;
-
   animationId = requestAnimationFrame(gameLoop);
   resizeCanvas();
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBackground();
-
   if (gameState === 'playing') {
     const gameTime = timestamp - gameStartTime - totalPauseTime;
-
-    // 更新音符位置
     for (const note of notes) {
       const arrival = note.beatTime;
       const timeUntilArrival = arrival - gameTime;
       note.y = hitZoneY - (timeUntilArrival / 1000) * scrollSpeed;
     }
-
-    // 歌曲模式下生成音符
     if (gameMode !== 'free') {
       while (currentSongIndex < songNotes.length) {
         const sn = songNotes[currentSongIndex];
@@ -822,11 +718,9 @@ function gameLoop(timestamp) {
         }
       }
     } else {
-      // 自由模式
       noteTimer += dt * 1000;
       if (noteTimer >= noteInterval || notes.length === 0) {
         noteTimer -= noteInterval;
-        // 随机选择节奏型
         const patterns = [
           { lane: Math.floor(Math.random() * LANE_COUNT), delay: 0 },
           { lane: Math.floor(Math.random() * LANE_COUNT), delay: 0 },
@@ -841,56 +735,37 @@ function gameLoop(timestamp) {
         noteInterval = (60 / bpm) * 1000 * (0.5 + Math.random());
       }
     }
-
-    // 检测 Miss
     checkMissedNotes();
-
-    // 节拍脉冲
     beatTimer += dt;
     const beatInterval = 60 / bpm;
     if (beatTimer >= beatInterval) {
       beatTimer -= beatInterval;
       beatPulse = 1;
     }
-
-    // 清理超出屏幕的音符
     notes = notes.filter(n => !n.hit && !n.missed && n.y < canvas.height + 60);
-
-    // 歌曲结束检测
     if (gameMode !== 'free' && currentSongIndex >= songNotes.length &&
         notes.every(n => n.hit || n.missed)) {
       showResult();
     }
   }
-
-  // 绘制音符
   for (const note of notes) {
     note.draw();
   }
-
-  // 绘制粒子
   for (const p of particles) {
     p.draw();
   }
-
-  // 绘制判定文字
   for (const t of judgmentTexts) {
     t.draw();
   }
-
-  // 绘制轨道文字 (移动端提示)
   for (let i = 0; i < LANE_COUNT; i++) {
     ctx.font = '11px "PingFang SC", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = `rgba(255,255,255,${0.3 + feedbackFlash[i] * 0.5})`;
     ctx.fillText(LANE_KEYS[i], laneX[i], hitZoneY + 38);
   }
-
   updateEffects();
   renderedNoteIndex = notes.length;
 }
-
-// --- 结算 ---
 function showResult() {
   gameState = 'result';
   resultOverlay.classList.add('show');
@@ -902,8 +777,6 @@ function showResult() {
   document.getElementById('result-good').textContent = goodCount;
   document.getElementById('result-miss').textContent = missCount;
 }
-
-// --- 暂停 / 继续 ---
 btnPause.addEventListener('click', () => {
   if (gameState === 'playing') {
     gameState = 'paused';
@@ -916,8 +789,6 @@ btnPause.addEventListener('click', () => {
     lastFrameTime = performance.now();
   }
 });
-
-// --- 返回模式选择 ---
 btnBack.addEventListener('click', () => {
   gameState = 'menu';
   modeSelect.style.display = 'flex';
@@ -930,34 +801,25 @@ btnBack.addEventListener('click', () => {
   perfectCount = 0; goodCount = 0; missCount = 0;
   updateScoreUI();
 });
-
-// --- 重新开始 ---
 restartBtn.addEventListener('click', () => {
   startGame(gameMode);
 });
-
-// --- 模式选择 ---
 document.querySelectorAll('#mode-select .mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     startGame(btn.dataset.mode);
   });
 });
-
-// --- 键盘输入 ---
 document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (KEY_MAP[key] !== undefined) {
     e.preventDefault();
     hitLane(KEY_MAP[key]);
   }
-  // 空格键暂停
   if (e.key === ' ' && gameState !== 'menu' && gameState !== 'result') {
     e.preventDefault();
     btnPause.click();
   }
 });
-
-// --- 触控输入 ---
 canvas.addEventListener('touchstart', (e) => {
   e.preventDefault();
   if (gameState !== 'playing') return;
@@ -970,7 +832,6 @@ canvas.addEventListener('touchstart', (e) => {
     }
   }
 });
-
 canvas.addEventListener('click', (e) => {
   if (gameState !== 'playing') return;
   const rect = canvas.getBoundingClientRect();
@@ -980,13 +841,9 @@ canvas.addEventListener('click', (e) => {
     hitLane(lane);
   }
 });
-
-// --- 防止双击缩放 ---
 document.addEventListener('dblclick', (e) => {
   if (e.target.closest('#app')) e.preventDefault();
 }, { passive: false });
-
-// --- 初始化 ---
 updateBPM(bpm);
 animationId = requestAnimationFrame(gameLoop);
 </script>

@@ -222,7 +222,7 @@ transition: width 0.1s}
                 <div class="stat">🏁 <span id="lap">0</span>/3</div>
             </div>
         </div>
-        
+
         <div class="game-canvas" id="game-canvas">
             <div class="track" id="track">
                 <div class="track-border border-left"></div>
@@ -238,7 +238,7 @@ transition: width 0.1s}
                     <div class="car-wheel wheel-br"></div>
                 </div>
             </div>
-            
+
             <div class="menu-overlay" id="menu-overlay">
                 <div class="menu-title">极速狂飙</div>
                 <div class="menu-subtitle">避开其他车辆，完成3圈比赛！</div>
@@ -246,7 +246,7 @@ transition: width 0.1s}
                     <button class="menu-btn start-btn" onclick="startGame()">开始比赛</button>
                 </div>
             </div>
-            
+
             <div class="menu-overlay hidden" id="result-overlay">
                 <div class="result-content">
                     <div class="result-title" id="result-title">比赛完成！</div>
@@ -263,14 +263,14 @@ transition: width 0.1s}
                 </div>
             </div>
         </div>
-        
+
         <div class="speed-bar">
             <div class="speed-label">速度: <span id="speed-value">0</span> km/h</div>
             <div class="speed-meter">
                 <div class="speed-fill" id="speed-fill" style="width: 0%"></div>
             </div>
         </div>
-        
+
         <div class="control-info">
             使用方向键或 WASD 控制车辆
             <div class="controls-hint">
@@ -279,7 +279,7 @@ transition: width 0.1s}
                 <span class="key">← → 转向</span>
             </div>
         </div>
-        
+
         <div class="mobile-controls">
             <div class="mobile-row">
                 <button class="mobile-btn" id="btn-up" ontouchstart="mobileInput('up', true)" ontouchend="mobileInput('up', false)">↑</button>
@@ -296,7 +296,6 @@ transition: width 0.1s}
         const canvas = document.getElementById('game-canvas');
         const track = document.getElementById('track');
         const playerCar = document.getElementById('player-car');
-        
         let game = {
             running: false,
             speed: 0,
@@ -315,18 +314,15 @@ transition: width 0.1s}
             overtakes: 0,
             maxSpeedReached: 0
         };
-        
         let keys = {
             up: false,
             down: false,
             left: false,
             right: false
         };
-        
         function startGame() {
             document.getElementById('menu-overlay').classList.add('hidden');
             document.getElementById('result-overlay').classList.add('hidden');
-            
             game.running = true;
             game.speed = 0;
             game.position = { x: 0, y: 0 };
@@ -338,30 +334,18 @@ transition: width 0.1s}
             game.overtakes = 0;
             game.maxSpeedReached = 0;
             game.trackHeight = track.scrollHeight;
-            
-            // 重置玩家位置
             playerCar.style.transform = 'translateX(-50%) rotate(0deg)';
-            
-            // 生成敌方车辆
             spawnEnemies();
-            
-            // 开始游戏循环
             requestAnimationFrame(gameLoop);
-            
-            // 开始计时
             game.timerInterval = setInterval(() => {
                 game.time += 100;
                 updateTimeDisplay();
             }, 100);
         }
-        
         function spawnEnemies() {
-            // 清除现有敌人
             document.querySelectorAll('.enemy-car').forEach(e => e.remove());
             game.enemies = [];
-            
             const colors = ['#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'];
-            
             for (let i = 0; i < 5; i++) {
                 const enemy = {
                     x: 80 + Math.random() * (canvas.offsetWidth - 160),
@@ -369,7 +353,6 @@ transition: width 0.1s}
                     speed: 2 + Math.random() * 3,
                     color: colors[i % colors.length]
                 };
-                
                 const el = document.createElement('div');
                 el.className = 'enemy-car';
                 el.innerHTML = `<div class="enemy-body" style="background: linear-gradient(180deg, ${enemy.color}, ${enemy.color}dd)">
@@ -377,26 +360,20 @@ transition: width 0.1s}
                 </div>`;
                 el.style.left = enemy.x + 'px';
                 el.style.top = enemy.y + 'px';
-                
                 track.appendChild(el);
                 game.enemies.push({ ...enemy, element: el });
             }
         }
-        
         function gameLoop() {
             if (!game.running) return;
-            
             updatePlayer();
             updateEnemies();
             checkCollisions();
             checkLap();
             updateUI();
-            
             requestAnimationFrame(gameLoop);
         }
-        
         function updatePlayer() {
-            // 加速
             if (keys.up) {
                 game.speed = Math.min(game.maxSpeed, game.speed + game.acceleration);
             } else if (keys.down) {
@@ -404,115 +381,83 @@ transition: width 0.1s}
             } else {
                 game.speed *= game.friction;
             }
-            
-            // 转向
             if (keys.left) {
                 game.position.x -= game.turnSpeed * (game.speed / game.maxSpeed);
             }
             if (keys.right) {
                 game.position.x += game.turnSpeed * (game.speed / game.maxSpeed);
             }
-            
-            // 限制在赛道内
             const trackLeft = 70;
             const trackRight = canvas.offsetWidth - 70;
             game.position.x = Math.max(trackLeft, Math.min(trackRight, game.position.x));
-            
-            // 更新位置
             game.position.y += game.speed;
-            
-            // 更新最大速度
             game.maxSpeedReached = Math.max(game.maxSpeedReached, Math.abs(game.speed));
-            
-            // 更新玩家车辆位置
             playerCar.style.left = game.position.x + 'px';
             track.style.transform = `translateY(${-game.position.y}px)`;
         }
-        
         function updateEnemies() {
             const playerY = game.position.y;
-            
             game.enemies.forEach((enemy, i) => {
-                // 敌人向下移动（模拟向上）
                 enemy.y += enemy.speed - game.speed * 0.5;
                 enemy.element.style.top = enemy.y + 'px';
-                
-                // 重新生成超出屏幕的敌人
                 if (enemy.y > canvas.offsetHeight + 100) {
                     enemy.y = -300 - Math.random() * 500;
                     enemy.x = 80 + Math.random() * (canvas.offsetWidth - 160);
                     enemy.element.style.left = enemy.x + 'px';
                 }
-                
-                // 检查超越
                 if (enemy.y < -50 && enemy.y > -100) {
                     game.overtakes++;
                 }
             });
         }
-        
         function checkCollisions() {
             const playerRect = playerCar.getBoundingClientRect();
-            
             game.enemies.forEach(enemy => {
                 const enemyRect = enemy.element.getBoundingClientRect();
-                
                 if (isColliding(playerRect, enemyRect)) {
                     game.crashes++;
                     game.speed *= 0.5;
-                    
-                    // 简单的碰撞反馈
                     playerCar.style.filter = 'brightness(1.5)';
                     setTimeout(() => playerCar.style.filter = '', 100);
                 }
             });
         }
-        
         function isColliding(rect1, rect2) {
-            return !(rect1.right < rect2.left || 
-                     rect1.left > rect2.right || 
-                     rect1.bottom < rect2.top || 
+            return !(rect1.right < rect2.left ||
+                     rect1.left > rect2.right ||
+                     rect1.bottom < rect2.top ||
                      rect1.top > rect2.bottom);
         }
-        
         function checkLap() {
             const finishLine = document.getElementById('finish-line');
             const finishRect = finishLine.getBoundingClientRect();
             const playerRect = playerCar.getBoundingClientRect();
-            
-            // 简化的圈数检测
             if (game.position.y > 0 && game.position.y < 20) {
                 if (!game.lastLapTime || Date.now() - game.lastLapTime > 3000) {
                     game.lap++;
                     game.lastLapTime = Date.now();
-                    
                     if (game.lap >= game.laps) {
                         endGame(true);
                     }
                 }
             }
         }
-        
         function updateUI() {
             document.getElementById('lap').textContent = Math.min(game.lap, game.laps);
-            
             const speedKmh = Math.round(Math.abs(game.speed) * 20);
             document.getElementById('speed-value').textContent = speedKmh;
             document.getElementById('speed-fill').style.width = (speedKmh / 300 * 100) + '%';
         }
-        
         function updateTimeDisplay() {
             const minutes = Math.floor(game.time / 60000);
             const seconds = Math.floor((game.time % 60000) / 1000);
             const ms = Math.floor((game.time % 1000) / 100);
-            document.getElementById('time').textContent = 
+            document.getElementById('time').textContent =
                 `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${ms}`;
         }
-        
         function endGame(success) {
             game.running = false;
             clearInterval(game.timerInterval);
-            
             document.getElementById('result-overlay').classList.remove('hidden');
             document.getElementById('result-title').textContent = success ? '比赛完成！' : '比赛结束';
             document.getElementById('result-time').textContent = `用时: ${document.getElementById('time').textContent}`;
@@ -520,29 +465,20 @@ transition: width 0.1s}
             document.getElementById('crash-count').textContent = game.crashes;
             document.getElementById('overtake-count').textContent = Math.floor(game.overtakes / 2);
         }
-        
         function backToMenu() {
             document.getElementById('result-overlay').classList.add('hidden');
             document.getElementById('menu-overlay').classList.remove('hidden');
-            
-            // 重置游戏状态
             game.running = false;
             game.speed = 0;
             game.position = { x: 0, y: 0 };
             track.style.transform = 'translateY(0)';
-            
-            // 清除敌人
             document.querySelectorAll('.enemy-car').forEach(e => e.remove());
             game.enemies = [];
-            
-            // 重置显示
             document.getElementById('time').textContent = '00:00.0';
             document.getElementById('lap').textContent = '0';
             document.getElementById('speed-value').textContent = '0';
             document.getElementById('speed-fill').style.width = '0%';
         }
-        
-        // 键盘控制
         document.addEventListener('keydown', (e) => {
             switch(e.key) {
                 case 'ArrowUp':
@@ -571,7 +507,6 @@ transition: width 0.1s}
                     break;
             }
         });
-        
         document.addEventListener('keyup', (e) => {
             switch(e.key) {
                 case 'ArrowUp':
@@ -596,13 +531,9 @@ transition: width 0.1s}
                     break;
             }
         });
-        
-        // 移动端控制
         function mobileInput(direction, pressed) {
             keys[direction] = pressed;
         }
-        
-        // 生成赛道线
         function generateTrackLines() {
             for (let i = 0; i < 50; i++) {
                 const line = document.createElement('div');
@@ -611,7 +542,6 @@ transition: width 0.1s}
                 track.appendChild(line);
             }
         }
-        
         generateTrackLines();
     </script>
 <script src="../i18n.js" defer></script>

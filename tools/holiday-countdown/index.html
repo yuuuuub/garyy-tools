@@ -122,8 +122,6 @@ border-top: 1px solid rgba(255, 255, 255, 0.06)}
 </div>
 
 <script>
-// ========== 节日数据 ==========
-// 固定公历节日
 const FIXED_HOLIDAYS = [
   { name: '元旦', emoji: '🎆', month: 1, day: 1, desc: '新的一年，新的开始！' },
   { name: '情人节', emoji: '💕', month: 2, day: 14, desc: '浪漫的节日' },
@@ -131,8 +129,6 @@ const FIXED_HOLIDAYS = [
   { name: '国庆节', emoji: '🇨🇳', month: 10, day: 1, desc: '祖国生日快乐' },
   { name: '圣诞节', emoji: '🎄', month: 12, day: 25, desc: 'Merry Christmas!' },
 ];
-
-// 农历节日（需年份对应日期表）
 const LUNAR_HOLIDAY_TABLE = {
   spring_festival: {
     name: '春节', emoji: '🧧', desc: '阖家团圆，辞旧迎新',
@@ -149,26 +145,18 @@ const LUNAR_HOLIDAY_TABLE = {
     }
   },
 };
-
-// 清明（节气，通常在4月4日或5日）
 const qingmingDates = {
   2025: [4, 4], 2026: [4, 5], 2027: [4, 5],
   2028: [4, 4], 2029: [4, 4], 2030: [4, 5],
 };
-
-// 端午（五月初五）
 const duanwuDates = {
   2025: [5, 31], 2026: [6, 19], 2027: [6, 9],
   2028: [5, 28], 2029: [6, 16], 2030: [6, 5],
 };
-
-// 中秋（八月十五）
 const zhongqiuDates = {
   2025: [10, 6], 2026: [9, 25], 2027: [9, 15],
   2028: [10, 3], 2029: [9, 22], 2030: [9, 12],
 };
-
-// ========== 工具函数 ==========
 function getHolidayDate(holiday, year) {
   if (holiday.month !== undefined) {
     return new Date(year, holiday.month - 1, holiday.day);
@@ -200,87 +188,59 @@ function getHolidayDate(holiday, year) {
   }
   return null;
 }
-
 function formatDate(date) {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   const d = date.getDate();
   return `${y}年${m}月${d}日`;
 }
-
 function getDaysUntil(targetDate, now) {
   const diff = targetDate.getTime() - now.getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
-
-// ========== 构建所有节日列表 ==========
 function buildAllHolidays() {
   const holidays = [];
-
-  // 固定公历节日
   FIXED_HOLIDAYS.forEach(h => {
     holidays.push({ ...h, type: 'fixed' });
   });
-
-  // 清明
   holidays.push({ name: '清明节', emoji: '🌿', type: 'qingming', desc: '踏青祭祖，缅怀先人' });
-
-  // 端午
   holidays.push({ name: '端午节', emoji: '🐉', type: 'duanwu', desc: '赛龙舟，吃粽子' });
-
-  // 中秋
   holidays.push({ name: '中秋节', emoji: '🥮', type: 'zhongqiu', desc: '月圆人团圆' });
-
-  // 春节
   holidays.push({
     name: LUNAR_HOLIDAY_TABLE.spring_festival.name,
     emoji: LUNAR_HOLIDAY_TABLE.spring_festival.emoji,
     type: 'spring_festival',
     desc: LUNAR_HOLIDAY_TABLE.spring_festival.desc,
   });
-
-  // 七夕
   holidays.push({
     name: LUNAR_HOLIDAY_TABLE.qixi.name,
     emoji: LUNAR_HOLIDAY_TABLE.qixi.emoji,
     type: 'qixi',
     desc: LUNAR_HOLIDAY_TABLE.qixi.desc,
   });
-
   return holidays;
 }
-
-// ========== 渲染 ==========
 function render() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const holidays = buildAllHolidays();
-
-  // 计算每个节日在当前或下一年的日期
   const items = holidays.map(h => {
     let date = getHolidayDate(h, currentYear);
     let year = currentYear;
-
     if (!date) {
-      // 如果今年没有此节日数据，尝试明年
       date = getHolidayDate(h, currentYear + 1);
       year = currentYear + 1;
       if (!date) return null;
     }
-
     const daysUntil = getDaysUntil(date, now);
-
-    // 如果今年的节日已过，使用明年的
     if (daysUntil < 0) {
       const nextYearDate = getHolidayDate(h, currentYear + 1);
       if (!nextYearDate) return null;
       date = nextYearDate;
       year = currentYear + 1;
     }
-
     const daysUntilFinal = getDaysUntil(date, now);
     const isPastToday = daysUntilFinal <= 0 && getDaysUntil(date, now) < 0;
-
     return {
       ...h,
       date,
@@ -290,14 +250,8 @@ function render() {
       isToday: daysUntilFinal === 0,
     };
   }).filter(Boolean);
-
-  // 按剩余天数升序排列（最近的在前）
   items.sort((a, b) => a.daysUntil - b.daysUntil);
-
-  // 找出下一个节日（第一个未过去的）
   const nextHoliday = items.find(h => !h.isPast);
-
-  // 渲染大卡片
   const hero = document.getElementById('hero');
   if (nextHoliday) {
     hero.innerHTML = `
@@ -322,8 +276,6 @@ function render() {
       </div>
     `;
   }
-
-  // 鼓励语
   const encourage = document.getElementById('encourage');
   if (nextHoliday && !nextHoliday.isToday) {
     encourage.innerHTML = `你离下一个假期还有 <span>${nextHoliday.daysUntil}</span> 天，撑住！`;
@@ -332,8 +284,6 @@ function render() {
   } else {
     encourage.innerHTML = '';
   }
-
-  // 渲染节日列表（不包含大卡片中的下一个节日）
   const grid = document.getElementById('holidayGrid');
   const listItems = items.filter(h => h.name !== (nextHoliday ? nextHoliday.name : ''));
   grid.innerHTML = listItems.map(h => {
@@ -357,11 +307,7 @@ function render() {
     `;
   }).join('');
 }
-
-// 立即渲染
 render();
-
-// 每天凌晨刷新（不需要那么频繁，但为了及时反映"今天"的变化）
 const now = new Date();
 const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
 setTimeout(() => {

@@ -62,7 +62,7 @@ textarea{width:100%;padding:12px;background:#0d1117;border:1px solid var(--borde
 DELIMITER //
 CREATE PROCEDURE get_user_stats()
 BEGIN
-    SELECT 
+    SELECT
         department,
         COUNT(*) as user_count,
         AVG(age) as avg_age,
@@ -149,8 +149,7 @@ CALL get_user_stats();</textarea>
 </div>
 <script>
 const templates = {
-    procedure: `DELIMITER //
-CREATE PROCEDURE search_users(
+    procedure: `DELIMITER
     IN p_keyword VARCHAR(100),
     IN p_limit INT
 )
@@ -158,43 +157,34 @@ BEGIN
     IF p_limit IS NULL THEN
         SET p_limit = 10;
     END IF;
-    
     SELECT id, name, email, created_at
     FROM users
     WHERE name LIKE CONCAT('%', p_keyword, '%')
        OR email LIKE CONCAT('%', p_keyword, '%')
     ORDER BY created_at DESC
     LIMIT p_limit;
-END //
-DELIMITER ;
-
+END
 -- 调用
 CALL search_users('张', 5);`,
-    function: `DELIMITER //
-CREATE FUNCTION calculate_age(birth_date DATE)
+    function: `DELIMITER
 RETURNS INT
 DETERMINISTIC
 BEGIN
     DECLARE age INT;
     SET age = TIMESTAMPDIFF(YEAR, birth_date, CURDATE());
     RETURN age;
-END //
-DELIMITER ;
-
+END
 -- 使用
 SELECT name, calculate_age(birth_date) as age FROM users;`,
-    cursor: `DELIMITER //
-CREATE PROCEDURE process_orders()
+    cursor: `DELIMITER
 BEGIN
     DECLARE done INT DEFAULT FALSE;
     DECLARE o_id INT;
     DECLARE o_amount DECIMAL(10,2);
     DECLARE total DECIMAL(10,2) DEFAULT 0;
-    
-    DECLARE cur CURSOR FOR 
+    DECLARE cur CURSOR FOR
         SELECT id, amount FROM orders WHERE status = 'pending';
     DECLARE CONT HANDLER FOR NOT FOUND SET done = TRUE;
-    
     OPEN cur;
     read_loop: LOOP
         FETCH cur INTO o_id, o_amount;
@@ -205,26 +195,22 @@ BEGIN
         UPDATE orders SET status = 'processed' WHERE id = o_id;
     END LOOP;
     CLOSE cur;
-    
     SELECT total as total_amount;
-END //
-DELIMITER ;`,
+END
     event: `-- 创建定时事件
 CREATE EVENT cleanup_old_logs
 ON SCHEDULE EVERY 1 DAY
 STARTS CURRENT_TIMESTAMP
 DO
 BEGIN
-    DELETE FROM logs 
+    DELETE FROM logs
     WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY);
-    
     INSERT INTO log_stats (date, count)
     SELECT DATE(created_at), COUNT(*)
     FROM logs
     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
     GROUP BY DATE(created_at);
 END;
-
 -- 查看事件
 SHOW EVENTS;
 -- 启动事件调度器
@@ -238,9 +224,7 @@ CREATE TABLE order_audit (
     new_status VARCHAR(20),
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-DELIMITER //
-CREATE TRIGGER order_status_change
+DELIMITER
 AFTER UPDATE ON orders
 FOR EACH ROW
 BEGIN
@@ -248,36 +232,31 @@ BEGIN
         INSERT INTO order_audit (order_id, action, old_status, new_status)
         VALUES (NEW.id, 'UPDATE', OLD.status, NEW.status);
     END IF;
-END //
-DELIMITER ;`,
+END
     json: `-- JSON 操作示例
 CREATE TABLE products (
     id INT PRIMARY KEY,
     name VARCHAR(100),
     attributes JSON
 );
-
 INSERT INTO products VALUES
 (1, 'iPhone 15', '{"color":"黑色","storage":"256GB","features":["5G","FaceID"]}');
-
 -- 提取JSON值
-SELECT 
+SELECT
     name,
     attributes->>'$.color' as color,
     attributes->>'$.storage' as storage,
     JSON_LENGTH(attributes->'$.features') as feature_count
 FROM products;
-
 -- JSON数组查询
 SELECT * FROM products
 WHERE JSON_CONTAINS(attributes->'$.features', '"5G"');
-
 -- 更新JSON
 UPDATE products
 SET attributes = JSON_SET(attributes, '$.price', 7999)
 WHERE id = 1;`,
     window: `-- 窗口函数示例
-SELECT 
+SELECT
     name,
     department,
     salary,
@@ -289,31 +268,23 @@ SELECT
 FROM employees
 ORDER BY salary DESC;`,
     optimize: `-- 查询优化示例
-
 -- 创建复合索引
 CREATE INDEX idx_users_dept_status ON users(department, status);
-
 -- EXPLAIN 分析
 EXPLAIN SELECT * FROM users WHERE department = 'tech' AND status = 'active';
-
 -- 使用覆盖索引
-EXPLAIN SELECT id, name, department FROM users 
+EXPLAIN SELECT id, name, department FROM users
 WHERE department = 'tech';
-
 -- 查看索引使用
 SHOW INDEX FROM users;
-
 -- 分析表
 ANALYZE TABLE users;
-
 -- 查看查询缓存
 SHOW STATUS LIKE 'Qcache%';`
 };
-
 function useTemplate(type) {
     document.getElementById('sqlInput').value = templates[type] || '';
 }
-
 const sampleData = {
     users: [
         {id:1, name:'张三', email:'zhang@test.com', department:'tech', salary:15000, status:'active', created_at:'2024-01-15'},
@@ -322,10 +293,8 @@ const sampleData = {
         {id:4, name:'赵六', email:'zhao@test.com', department:'ops', salary:10000, status:'inactive', created_at:'2024-04-05'}
     ]
 };
-
 function executeSQL() {
     const sql = document.getElementById('sqlInput').value.trim().toUpperCase();
-    
     if (sql.includes('SELECT') || sql.includes('SHOW')) {
         if (sql.includes('DEPARTMENT') || sql.includes('GROUP BY')) {
             showResult(formatTable([
@@ -349,7 +318,6 @@ function executeSQL() {
         showResult('Query OK, 0 rows affected', true);
     }
 }
-
 function explainQuery() {
     showResult(`+----+-------------+-------+------+---------------+------+---------+------+------+-------------+
 | id | select_type | table | type | possible_keys | key  | key_len | ref  | rows | Extra       |
@@ -358,7 +326,6 @@ function explainQuery() {
 +----+-------------+-------+------+---------------+------+---------+------+------+-------------+
 1 row in set (0.00 sec)`, true);
 }
-
 function showCreateTable() {
     showResult(`CREATE TABLE \`users\` (
   \`id\` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -373,11 +340,9 @@ function showCreateTable() {
   KEY \`idx_dept_status\` (\`department\`,\`status\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`, true);
 }
-
 function clearSQL() {
     document.getElementById('sqlInput').value = '';
 }
-
 function formatTable(data) {
     if (!data || data.length === 0) return '-- 无数据';
     const headers = Object.keys(data[0]);
@@ -387,7 +352,6 @@ function formatTable(data) {
     });
     return html + '</table>';
 }
-
 function showResult(text, success) {
     const area = document.getElementById('resultArea');
     area.innerHTML = text;

@@ -315,7 +315,7 @@ font-size: 0.75rem}
     <p>输入 Cron 表达式，实时解析并查看下次执行时间</p>
   </div>
 
-  <!-- Input -->
+
   <div class="input-section">
     <div class="input-row">
       <div class="cron-input-wrap">
@@ -333,32 +333,32 @@ font-size: 0.75rem}
       </div>
     </div>
 
-    <!-- Presets -->
+
     <div class="preset-label">快速预设</div>
     <div class="presets" id="presetsContainer"></div>
   </div>
 
-  <!-- Result -->
+
   <div class="result-section" id="resultSection">
-    <!-- Explanation -->
+
     <div class="card">
       <div class="card-title">&#128269; 解析结果</div>
       <div class="explanation" id="explanation"></div>
     </div>
 
-    <!-- Field Breakdown -->
+
     <div class="card">
       <div class="card-title">&#128203; 字段明细</div>
       <div class="field-grid" id="fieldGrid"></div>
     </div>
 
-    <!-- Next Executions -->
+
     <div class="card">
       <div class="card-title">&#9200; 后续执行时间</div>
       <div class="exec-list" id="execList"></div>
     </div>
 
-    <!-- Mini Timeline -->
+
     <div class="card">
       <div class="card-title">&#128200; 时间线预览</div>
       <div class="timeline-wrap" id="timelineWrap">
@@ -367,7 +367,7 @@ font-size: 0.75rem}
     </div>
   </div>
 
-  <!-- History -->
+
   <div class="card history" id="historyPanel">
     <div class="card-title">&#128337; 历史记录</div>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;" id="historyList">
@@ -375,7 +375,7 @@ font-size: 0.75rem}
     </div>
   </div>
 
-  <!-- Cheatsheet -->
+
   <button class="cheatsheet-toggle" id="cheatsheetToggle" onclick="toggleCheatsheet()">
     &#128218; Cron 语法速查表 <span id="cheatsheetArrow">&#9660;</span>
   </button>
@@ -421,8 +421,6 @@ font-size: 0.75rem}
 
 <script>
 "use strict";
-
-// ===== 常量 =====
 const PRESETS_5 = [
   { label: '每分钟', expr: '* * * * *' },
   { label: '每小时', expr: '0 * * * *' },
@@ -443,24 +441,15 @@ const PRESETS_6 = [
   { label: '每周一 8am', expr: '0 0 8 * * 1' },
   { label: '每月1号', expr: '0 0 0 1 * *' },
 ];
-
 const WEEKDAY_NAMES = ['周日','周一','周二','周三','周四','周五','周六'];
 const FIELD_NAMES_5 = ['分钟','小时','日','月','星期'];
 const FIELD_NAMES_6 = ['秒','分钟','小时','日','月','星期'];
-
 let isSixField = false;
 let currentExpr = '0 9 * * 1-5';
-
-// ===== 工具函数 =====
 function $(id) { return document.getElementById(id); }
-
-// ===== Cron 字段解析 =====
-// 解析单个 cron 字段，返回所有匹配值的 Set
 function parseField(field, minVal, maxVal) {
   const values = new Set();
   if (!field || field.trim() === '') return values;
-
-  // 按逗号分割
   const parts = field.split(',');
   for (let part of parts) {
     part = part.trim();
@@ -472,8 +461,6 @@ function parseField(field, minVal, maxVal) {
       for (let v = minVal; v <= maxVal; v++) values.add(v);
       continue;
     }
-
-    // 处理步长
     let step = 1;
     let basePart = part;
     if (part.includes('/')) {
@@ -482,7 +469,6 @@ function parseField(field, minVal, maxVal) {
       step = parseInt(s, 10);
       if (isNaN(step) || step < 1) continue;
     }
-
     let rangeStart, rangeEnd;
     if (basePart === '*' || basePart === '?') {
       rangeStart = minVal;
@@ -496,32 +482,23 @@ function parseField(field, minVal, maxVal) {
       rangeStart = v;
       rangeEnd = v;
     }
-
     if (isNaN(rangeStart) || isNaN(rangeEnd)) continue;
     rangeStart = Math.max(rangeStart, minVal);
     rangeEnd = Math.min(rangeEnd, maxVal);
-
     for (let v = rangeStart; v <= rangeEnd; v += step) {
       values.add(v);
     }
   }
   return values;
 }
-
-// 生成字段的人类可读描述（中文）
 function describeField(field, name, minVal, maxVal, specialMap) {
   const values = parseField(field, minVal, maxVal);
   const sorted = [...values].sort((a, b) => a - b);
-
   if (sorted.length === 0) return '无效';
   if (sorted.length === maxVal - minVal + 1) return '任意值';
-
-  // 特殊映射（如星期 0->周日）
   if (specialMap) {
     return sorted.map(v => specialMap[v] !== undefined ? specialMap[v] : v).join(', ');
   }
-
-  // 检测连续范围
   const ranges = [];
   let start = sorted[0], end = sorted[0];
   for (let i = 1; i < sorted.length; i++) {
@@ -531,18 +508,13 @@ function describeField(field, name, minVal, maxVal, specialMap) {
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
   return ranges.join(', ');
 }
-
-// ===== 验证 Cron 表达式 =====
 function validateCron(expr) {
   const parts = expr.trim().split(/\s+/);
   const expectedFields = isSixField ? 6 : 5;
-
   if (parts.length !== expectedFields) {
     return { valid: false, error: `需要 ${expectedFields} 个字段，当前输入了 ${parts.length} 个字段` };
   }
-
   const startIdx = isSixField ? 0 : -1;
-
   const fieldConfigs = isSixField
     ? [
         { field: parts[0], name: '秒', min: 0, max: 59 },
@@ -559,7 +531,6 @@ function validateCron(expr) {
         { field: parts[3], name: '月', min: 1, max: 12 },
         { field: parts[4], name: '星期', min: 0, max: 7 },
       ];
-
   for (let cfg of fieldConfigs) {
     const regex = /^(\*|\?|[0-9]+(-[0-9]+)?)(\/([0-9]+))?(,(\*|\?|[0-9]+(-[0-9]+)?)(\/([0-9]+))?)*$/;
     if (!regex.test(cfg.field)) {
@@ -570,74 +541,57 @@ function validateCron(expr) {
       return { valid: false, error: `"${cfg.name}" 字段没有匹配的有效值` };
     }
   }
-
   return { valid: true };
 }
-
-// ===== 计算下次执行时间 =====
 function findNext(date, expr) {
   const parts = expr.trim().split(/\s+/);
   const fieldCount = parts.length;
   const hasSec = fieldCount === 6;
-
   const secField = hasSec ? parts[0] : '0';
   const minField = hasSec ? parts[1] : parts[0];
   const hourField = hasSec ? parts[2] : parts[1];
   const dayField = hasSec ? parts[3] : parts[2];
   const monthField = hasSec ? parts[4] : parts[3];
   const wdayField = hasSec ? parts[5] : parts[4];
-
-  const now = new Date(date.getTime() + 60000); // 从下一分钟开始
+  const now = new Date(date.getTime() + 60000);
   now.setSeconds(hasSec ? now.getSeconds() + 1 : 0);
   now.setMilliseconds(0);
-
-  const limit = new Date(date.getTime() + 365 * 24 * 60 * 60 * 1000); // 最多找一年
-
+  const limit = new Date(date.getTime() + 365 * 24 * 60 * 60 * 1000);
   while (now.getTime() <= limit.getTime()) {
-    const month = now.getMonth() + 1;  // 1-12
+    const month = now.getMonth() + 1;
     const day = now.getDate();
     const hour = now.getHours();
     const minute = now.getMinutes();
     const second = now.getSeconds();
-    const wday = now.getDay();  // 0=Sun
-
+    const wday = now.getDay();
     const months = parseField(monthField, 1, 12);
     const days = parseField(dayField, 1, 31);
     const wdays = parseField(wdayField, 0, 7);
     const hours = parseField(hourField, 0, 23);
     const minutes = parseField(minField, 0, 59);
     const seconds = parseField(secField, 0, 59);
-
-    // 检查月份
     if (!months.has(month)) {
       now.setMonth(now.getMonth() + 1, 1);
       now.setHours(0, 0, 0, 0);
       continue;
     }
-
-    // 检查星期和日期（两者为 OR 关系：两者都非 * 时，满足其一即可）
     let dayMatch = false;
     const dayFieldAny = dayField === '*' || dayField === '?';
     const wdayFieldAny = wdayField === '*' || wdayField === '?';
-
     if (!dayFieldAny && !wdayFieldAny) {
-      // 两者都指定了：OR 关系
       dayMatch = days.has(day) || wdays.has(wday);
     } else if (!dayFieldAny) {
       dayMatch = days.has(day);
     } else if (!wdayFieldAny) {
       dayMatch = wdays.has(wday);
     } else {
-      dayMatch = true; // 两者都是 *，任意一天
+      dayMatch = true;
     }
-
     if (!dayMatch) {
       now.setDate(now.getDate() + 1);
       now.setHours(0, 0, 0, 0);
       continue;
     }
-
-    // 检查小时
     const hourSorted = [...hours].sort((a, b) => a - b);
     let foundHour = null;
     for (let h of hourSorted) {
@@ -649,12 +603,9 @@ function findNext(date, expr) {
       continue;
     }
     now.setHours(foundHour);
-
-    // 如果小时变了，分钟和秒重置
     if (foundHour > hour) {
       now.setMinutes(0, 0, 0);
     }
-
     const curMinute = foundHour > hour ? 0 : minute;
     const minSorted = [...minutes].sort((a, b) => a - b);
     let foundMin = null;
@@ -662,7 +613,6 @@ function findNext(date, expr) {
       if (m >= curMinute) { foundMin = m; break; }
     }
     if (foundMin === null) {
-      // 小时前进
       const nextHourSorted = [...hours].sort((a, b) => a - b);
       let nextH = null;
       for (let h of nextHourSorted) {
@@ -678,12 +628,9 @@ function findNext(date, expr) {
       continue;
     }
     now.setMinutes(foundMin);
-
-    // 如果分钟变了，秒重置
     if (foundMin > curMinute || foundHour > hour) {
       now.setSeconds(0, 0);
     }
-
     if (hasSec) {
       const curSec = (foundMin > curMinute || foundHour > hour) ? 0 : second;
       const secSorted = [...seconds].sort((a, b) => a - b);
@@ -700,12 +647,10 @@ function findNext(date, expr) {
     } else {
       now.setSeconds(0, 0);
     }
-
     return new Date(now.getTime());
   }
   return null;
 }
-
 function calcNextExecutions(expr, count) {
   const results = [];
   let cursor = new Date();
@@ -717,8 +662,6 @@ function calcNextExecutions(expr, count) {
   }
   return results;
 }
-
-// ===== 格式化 =====
 function fmtDateTime(d) {
   const y = d.getFullYear();
   const mo = String(d.getMonth() + 1).padStart(2, '0');
@@ -728,7 +671,6 @@ function fmtDateTime(d) {
   const s = String(d.getSeconds()).padStart(2, '0');
   return `${y}-${mo}-${day} ${h}:${mi}:${s}`;
 }
-
 function fmtRelative(d) {
   const now = new Date();
   const diffMs = d.getTime() - now.getTime();
@@ -744,8 +686,6 @@ function fmtRelative(d) {
   const months = Math.floor(days / 30);
   return `${months}个月后`;
 }
-
-// ===== 生成自然语言解释 =====
 function generateExplanation(expr) {
   const parts = expr.trim().split(/\s+/);
   const hasSec = parts.length === 6;
@@ -754,22 +694,17 @@ function generateExplanation(expr) {
   const dayPart = hasSec ? parts[3] : parts[2];
   const monthPart = hasSec ? parts[4] : parts[3];
   const wdayPart = hasSec ? parts[5] : parts[4];
-
   const months = parseField(monthPart, 1, 12);
   const days = parseField(dayPart, 1, 31);
   const wdays = parseField(wdayPart, 0, 7);
   const hours = parseField(hourPart, 0, 23);
   const minutes = parseField(minPart, 0, 59);
-
   const monthAll = months.size === 12;
   const dayAll = days.size === 31 && (dayPart === '*' || dayPart === '?');
   const wdayAll = wdays.size === 8 && (wdayPart === '*' || wdayPart === '?');
   const hourAll = hours.size === 24;
   const minAll = minutes.size === 60;
-
   let result = '';
-
-  // 时间部分
   if (minAll && hourAll) {
     result += '每分钟';
     if (hasSec) result = '每秒';
@@ -800,18 +735,13 @@ function generateExplanation(expr) {
       result += '每日指定时间';
     }
   }
-
-  // 日期/星期部分
   const dayFieldAny = dayPart === '*' || dayPart === '?';
   const wdayFieldAny = wdayPart === '*' || wdayPart === '?';
-
   if (!monthAll) {
     const monthSorted = [...months].sort((a, b) => a - b);
     result += `，仅在 ${monthSorted.map(m => m + '月').join('、')}`;
   }
-
   if (!dayFieldAny && !wdayFieldAny) {
-    // 两者都指定：OR
     const daySorted = [...days].sort((a, b) => a - b);
     const wdaySorted = [...wdays].sort((a, b) => a - b);
     let parts_list = [];
@@ -829,12 +759,10 @@ function generateExplanation(expr) {
   } else if (monthAll) {
     result += '，每天';
   }
-
   if (hasSec) {
     const secPart = parts[0];
     const secs = parseField(secPart, 0, 59);
     if (secs.size === 60) {
-      // 每秒，already handled
     } else {
       const secSorted = [...secs].sort((a, b) => a - b);
       if (secSorted.length === 1) {
@@ -844,22 +772,16 @@ function generateExplanation(expr) {
       }
     }
   }
-
   return result;
 }
-
-// ===== 渲染 =====
 function render() {
   const expr = $('cronInput').value.trim();
   currentExpr = expr;
-
   const validation = validateCron(expr);
   const inputEl = $('cronInput');
   const errorEl = $('errorMsg');
   const errorText = $('errorText');
   const resultSection = $('resultSection');
-
-  // Validation UI
   if (!validation.valid) {
     inputEl.classList.add('error');
     inputEl.classList.remove('valid');
@@ -868,16 +790,11 @@ function render() {
     resultSection.classList.remove('show');
     return;
   }
-
   inputEl.classList.remove('error');
   inputEl.classList.add('valid');
   errorEl.classList.remove('show');
   resultSection.classList.add('show');
-
-  // Explanation
   $('explanation').textContent = generateExplanation(expr);
-
-  // Field breakdown
   const parts = expr.split(/\s+/);
   const fieldNames = isSixField ? FIELD_NAMES_6 : FIELD_NAMES_5;
   const hasSec = parts.length === 6;
@@ -897,7 +814,6 @@ function render() {
         { raw: parts[3], name: '月', min: 1, max: 12 },
         { raw: parts[4], name: '星期', min: 0, max: 7, special: WEEKDAY_NAMES },
       ];
-
   let fieldHTML = '';
   for (let cfg of fieldConfigs) {
     const desc = describeField(cfg.raw, cfg.name, cfg.min, cfg.max, cfg.special || null);
@@ -909,8 +825,6 @@ function render() {
       </div>`;
   }
   $('fieldGrid').innerHTML = fieldHTML;
-
-  // Next executions
   const execCount = 10;
   const executions = calcNextExecutions(expr, execCount);
   let execHTML = '';
@@ -927,40 +841,29 @@ function render() {
     execHTML = '<div style="color:var(--text-dim);text-align:center;padding:16px;">无法计算执行时间</div>';
   }
   $('execList').innerHTML = execHTML;
-
-  // Timeline
   renderTimeline(executions);
 }
-
 function renderTimeline(executions) {
   const wrap = $('timelineWrap');
   if (executions.length === 0) {
     wrap.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:16px;">暂无数据</div>';
     return;
   }
-
   const now = new Date().getTime();
   const lastExec = executions[executions.length - 1].getTime();
   const totalSpan = lastExec - now;
-
   let html = '<div class="timeline-bar" id="timelineBar">';
-
-  // Now marker
   html += '<div class="timeline-now" style="left:0%;"></div>';
   html += '<div class="timeline-now-label" style="left:0%;">现在</div>';
-
   executions.forEach((d, i) => {
     const pos = totalSpan > 0 ? ((d.getTime() - now) / totalSpan) * 100 : 0;
     const clamped = Math.min(100, Math.max(0, pos));
     html += `<div class="timeline-dot" style="left:${clamped.toFixed(1)}%;" title="第${i+1}次: ${fmtDateTime(d)}"></div>`;
     html += `<div class="timeline-dot-label" style="left:${clamped.toFixed(1)}%;">#${i+1}</div>`;
   });
-
   html += '</div>';
   wrap.innerHTML = html;
 }
-
-// ===== Presets 渲染 =====
 function renderPresets() {
   const presets = isSixField ? PRESETS_6 : PRESETS_5;
   let html = '';
@@ -969,19 +872,15 @@ function renderPresets() {
   });
   $('presetsContainer').innerHTML = html;
 }
-
 function applyPreset(expr) {
   $('cronInput').value = expr;
   render();
   addToHistory(expr);
   updateSixFieldBtn(expr.trim().split(/\s+/).length === 6);
 }
-
-// ===== 六字段切换 =====
 function toggleSixField() {
   isSixField = !isSixField;
   updateSixFieldBtn(isSixField);
-  // 尝试转换当前表达式
   const expr = $('cronInput').value.trim();
   const parts = expr.split(/\s+/);
   if (isSixField && parts.length === 5) {
@@ -992,7 +891,6 @@ function toggleSixField() {
   renderPresets();
   render();
 }
-
 function updateSixFieldBtn(active) {
   const btn = $('sixFieldBtn');
   if (active) {
@@ -1003,8 +901,6 @@ function updateSixFieldBtn(active) {
     $('sixFieldIcon').textContent = '\u23F2';
   }
 }
-
-// ===== 复制 =====
 function copyExpression() {
   const expr = $('cronInput').value.trim();
   navigator.clipboard.writeText(expr).then(() => {
@@ -1016,32 +912,25 @@ function copyExpression() {
       btn.classList.remove('copied');
     }, 1500);
   }).catch(() => {
-    // fallback
     const input = $('cronInput');
     input.select();
     document.execCommand('copy');
   });
 }
-
-// ===== 速查表 =====
 function toggleCheatsheet() {
   const sheet = $('cheatsheet');
   const arrow = $('cheatsheetArrow');
   sheet.classList.toggle('show');
   arrow.textContent = sheet.classList.contains('show') ? '\u25B2' : '\u25BC';
 }
-
-// ===== 历史记录 =====
 function loadHistory() {
   try {
     return JSON.parse(localStorage.getItem('cron_history') || '[]');
   } catch { return []; }
 }
-
 function saveHistory(history) {
   localStorage.setItem('cron_history', JSON.stringify(history));
 }
-
 function addToHistory(expr) {
   if (!expr.trim()) return;
   let history = loadHistory();
@@ -1051,24 +940,20 @@ function addToHistory(expr) {
   saveHistory(history);
   renderHistory();
 }
-
 function removeFromHistory(expr) {
   let history = loadHistory();
   history = history.filter(h => h !== expr);
   saveHistory(history);
   renderHistory();
 }
-
 function clearHistory() {
   localStorage.removeItem('cron_history');
   renderHistory();
 }
-
 function renderHistory() {
   const history = loadHistory();
   const panel = $('historyPanel');
   const list = $('historyList');
-
   if (history.length === 0) {
     panel.classList.remove('show');
   } else {
@@ -1081,8 +966,6 @@ function renderHistory() {
     list.innerHTML = html;
   }
 }
-
-// ===== 事件监听 =====
 $('cronInput').addEventListener('input', function() {
   const expr = this.value.trim();
   const parts = expr.split(/\s+/);
@@ -1096,29 +979,23 @@ $('cronInput').addEventListener('input', function() {
     renderPresets();
   }
   render();
-  // 只在有效时加入历史
   if (validateCron(expr).valid) {
     addToHistoryDebounced(expr);
   }
 });
-
 let debounceTimer = null;
 function addToHistoryDebounced(expr) {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => addToHistory(expr), 1500);
 }
-
-// ===== 初始化 =====
 function init() {
   renderPresets();
   updateSixFieldBtn(false);
   isSixField = false;
   render();
   renderHistory();
-  // 初始化 history 中加入默认表达式
   addToHistory('0 9 * * 1-5');
 }
-
 init();
 </script>
 <script src="../i18n.js" defer>

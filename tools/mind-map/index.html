@@ -168,7 +168,7 @@ vertical-align: middle}
 </head>
 <body>
 
-<!-- 顶部工具栏 -->
+
 <div id="toolbar">
   <span class="brand">思维导图</span>
   <button onclick="addChildNode()" title="Tab">添加子节点</button>
@@ -201,17 +201,17 @@ vertical-align: middle}
   <button onclick="clearAll()" style="color:#e94560;">清空</button>
 </div>
 
-<!-- 画布 -->
+
 <div id="canvas-wrap">
   <svg id="svg-canvas"></svg>
 </div>
 
-<!-- 底部提示 -->
+
 <div id="hint-bar">
   Tab 添加子节点 | Enter 添加同级 | Delete 删除 | 双击编辑 | 拖拽移动 | 滚轮缩放 | 拖拽空白平移 | Ctrl+Z 撤销
 </div>
 
-<!-- 模板选择弹窗 -->
+
 <div id="template-modal">
   <div class="modal-box">
     <h2>选择模板</h2>
@@ -239,14 +239,8 @@ vertical-align: middle}
 </div>
 
 <script>
-/* ================================================================
-   思维导图 - Mind Map (Canvas/SVG 渲染)
-   ================================================================ */
-
-// ==================== 核心数据结构 ====================
 let nodeIdCounter = 0;
-const nodesMap = new Map();  // id -> node
-
+const nodesMap = new Map();
 function createNode(text, parentId = null, color = null) {
   const id = ++nodeIdCounter;
   const node = {
@@ -256,9 +250,7 @@ function createNode(text, parentId = null, color = null) {
     children: [],
     collapsed: false,
     color: color || null,
-    // 布局坐标（自动计算）
     x: 0, y: 0,
-    // 手动偏移（拖拽产生的偏移量，自动布局会重置）
     offsetX: 0, offsetY: 0,
   };
   nodesMap.set(id, node);
@@ -268,23 +260,18 @@ function createNode(text, parentId = null, color = null) {
   }
   return node;
 }
-
 function getRoot() {
-  // 第一个没有 parent 的节点就是根节点
   for (const [, node] of nodesMap) {
     if (node.parentId === null) return node;
   }
   return null;
 }
-
 function deleteNodeById(id) {
   const node = nodesMap.get(id);
   if (!node) return;
-  // 递归删除子节点
   for (const childId of [...node.children]) {
     deleteNodeById(childId);
   }
-  // 从父节点的 children 列表中移除
   if (node.parentId !== null) {
     const parent = nodesMap.get(node.parentId);
     if (parent) {
@@ -293,7 +280,6 @@ function deleteNodeById(id) {
   }
   nodesMap.delete(id);
 }
-
 function isDescendantOf(nodeId, ancestorId) {
   let current = nodeId;
   while (current !== null) {
@@ -304,21 +290,16 @@ function isDescendantOf(nodeId, ancestorId) {
   }
   return false;
 }
-
-// ==================== 颜色主题 ====================
 const nodeThemes = [
   '#e94560', '#f39c12', '#f1c40f', '#2ecc71',
   '#3498db', '#9b59b6', '#1abc9c', '#e74c3c',
   '#e67e22', '#2980b9', '#27ae60', '#8e44ad'
 ];
-
 function getNodeColor(node) {
   if (node.color) return node.color;
-  // 根据层级自动分配颜色
   const depth = getDepth(node);
   return nodeThemes[depth % nodeThemes.length];
 }
-
 function getDepth(node) {
   let depth = 0;
   let current = node;
@@ -329,62 +310,43 @@ function getDepth(node) {
   }
   return depth;
 }
-
-// ==================== SVG 渲染 ====================
 const svgEl = document.getElementById('svg-canvas');
 const svgNS = 'http://www.w3.org/2000/svg';
-
-// 视图变换
 let viewScale = 1;
 let viewTranslateX = 0;
 let viewTranslateY = 0;
-
-let svgRootGroup; // 根 <g> 元素用于整体变换
-
+let svgRootGroup;
 function initSvg() {
   svgEl.innerHTML = '';
   svgRootGroup = document.createElementNS(svgNS, 'g');
   svgEl.appendChild(svgRootGroup);
   updateSvgTransform();
 }
-
 function updateSvgTransform() {
   if (!svgRootGroup) return;
   svgRootGroup.setAttribute('transform',
     `translate(${viewTranslateX}, ${viewTranslateY}) scale(${viewScale})`
   );
 }
-
-// 节点渲染尺寸
 const NODE_WIDTH = 120;
 const NODE_HEIGHT = 40;
 const NODE_RX = 12;
 const COLLAPSE_RADIUS = 10;
-
 function renderAll() {
   const root = getRoot();
   if (!root) return;
-
-  // 清除旧内容
   while (svgRootGroup.firstChild) {
     svgRootGroup.removeChild(svgRootGroup.firstChild);
   }
-
-  // 先画连线，再画节点（节点在上层便于点击）
   const linesGroup = document.createElementNS(svgNS, 'g');
   const nodesGroup = document.createElementNS(svgNS, 'g');
   svgRootGroup.appendChild(linesGroup);
   svgRootGroup.appendChild(nodesGroup);
-
   function renderNode(node, parentNode) {
     const color = getNodeColor(node);
     const hasChildren = node.children.length > 0;
-
-    // 节点坐标 = 自动布局坐标 + 手动偏移
     const nx = (node.x || 0) + (node.offsetX || 0);
     const ny = (node.y || 0) + (node.offsetY || 0);
-
-    // 画连线到父节点
     if (parentNode) {
       const px = (parentNode.x || 0) + (parentNode.offsetX || 0);
       const py = (parentNode.y || 0) + (parentNode.offsetY || 0);
@@ -397,16 +359,12 @@ function renderAll() {
       line.setAttribute('opacity', '0.5');
       linesGroup.appendChild(line);
     }
-
-    // 画节点组
     const g = document.createElementNS(svgNS, 'g');
     g.setAttribute('class', 'node-group');
     if (node.parentId === null) g.classList.add('node-root');
     g.setAttribute('data-id', node.id);
     g.setAttribute('transform', `translate(${nx - NODE_WIDTH/2}, ${ny - NODE_HEIGHT/2})`);
     g.style.cursor = 'pointer';
-
-    // 节点背景
     const rect = document.createElementNS(svgNS, 'rect');
     rect.setAttribute('class', 'node-rect');
     rect.setAttribute('width', NODE_WIDTH);
@@ -415,8 +373,6 @@ function renderAll() {
     rect.setAttribute('fill-opacity', '0.25');
     rect.setAttribute('stroke', color);
     g.appendChild(rect);
-
-    // 节点文字
     const text = document.createElementNS(svgNS, 'text');
     text.setAttribute('class', 'node-text');
     text.setAttribute('x', NODE_WIDTH / 2);
@@ -424,8 +380,6 @@ function renderAll() {
     const displayText = node.text.length > 10 ? node.text.substring(0, 10) + '…' : node.text;
     text.textContent = displayText;
     g.appendChild(text);
-
-    // 折叠/展开按钮（有子节点时显示）
     if (hasChildren) {
       const cg = document.createElementNS(svgNS, 'g');
       cg.setAttribute('class', 'collapse-btn');
@@ -442,15 +396,10 @@ function renderAll() {
       });
       g.appendChild(cg);
     }
-
-    // 节点点击事件
     g.addEventListener('click', (e) => selectNode(node.id));
     g.addEventListener('dblclick', (e) => startInlineEdit(node.id, e));
     g.addEventListener('mousedown', (e) => startNodeDrag(node.id, e));
-
     nodesGroup.appendChild(g);
-
-    // 递归渲染子节点（未折叠状态）
     if (!node.collapsed) {
       for (const childId of node.children) {
         const child = nodesMap.get(childId);
@@ -458,53 +407,37 @@ function renderAll() {
       }
     }
   }
-
   renderNode(root, null);
 }
-
-// ==================== 自动布局（径向树） ====================
 function autoLayout() {
   const root = getRoot();
   if (!root) return;
-
-  // 重置所有手动偏移
   for (const [, node] of nodesMap) {
     node.offsetX = 0;
     node.offsetY = 0;
   }
-
-  // 径向布局参数
   const RADIUS_STEP = 140;
   const ROOT_X = svgEl.clientWidth / 2;
   const ROOT_Y = svgEl.clientHeight / 2;
-
   root.x = ROOT_X;
   root.y = ROOT_Y;
-
   function layoutSubtree(nodeId, depth) {
     const node = nodesMap.get(nodeId);
     if (!node || node.collapsed) return;
-
     const children = node.children.map(cid => nodesMap.get(cid)).filter(Boolean);
     if (children.length === 0) return;
-
     const radius = RADIUS_STEP * depth;
     const angleStep = (2 * Math.PI) / children.length;
-
-    // 按顺序均匀分布
     children.forEach((child, i) => {
-      const angle = angleStep * i - Math.PI / 2; // 从顶部开始
+      const angle = angleStep * i - Math.PI / 2;
       child.x = node.x + radius * Math.cos(angle);
       child.y = node.y + radius * Math.sin(angle);
       layoutSubtree(child.id, depth + 1);
     });
   }
-
   layoutSubtree(root.id, 1);
   renderAll();
 }
-
-// ==================== 折叠/展开 ====================
 function toggleCollapse(nodeId) {
   pushUndo();
   const node = nodesMap.get(nodeId);
@@ -512,17 +445,12 @@ function toggleCollapse(nodeId) {
   node.collapsed = !node.collapsed;
   renderAll();
 }
-
-// ==================== 选中状态 ====================
 let selectedNodeId = null;
-
 function selectNode(nodeId) {
   selectedNodeId = nodeId;
   renderAll();
-  // 重新标记选中
   markSelected();
 }
-
 function markSelected() {
   if (selectedNodeId === null) return;
   const allGroups = svgRootGroup.querySelectorAll('.node-group');
@@ -535,11 +463,8 @@ function markSelected() {
     }
   });
 }
-
-// ==================== 节点操作 ====================
 function addChildNode() {
   if (selectedNodeId === null) {
-    // 没有选中节点时，创建根节点
     pushUndo();
     createNode('中心主题');
     selectedNodeId = nodeIdCounter;
@@ -551,7 +476,6 @@ function addChildNode() {
   selectedNodeId = newNode.id;
   autoLayout();
 }
-
 function addSiblingNode() {
   const root = getRoot();
   if (!root) {
@@ -562,7 +486,6 @@ function addSiblingNode() {
     return;
   }
   if (selectedNodeId === null || selectedNodeId === root.id) {
-    // 根节点没有同级，给它加子节点
     addChildNode();
     return;
   }
@@ -574,13 +497,11 @@ function addSiblingNode() {
     autoLayout();
   }
 }
-
 function deleteNode() {
   if (selectedNodeId === null) return;
   const node = nodesMap.get(selectedNodeId);
   if (!node) return;
   if (node.parentId === null) {
-    // 删除根节点则清空全部
     clearAll();
     return;
   }
@@ -590,7 +511,6 @@ function deleteNode() {
   selectedNodeId = parentId;
   autoLayout();
 }
-
 function clearAll() {
   if (nodesMap.size === 0) return;
   pushUndo();
@@ -599,19 +519,15 @@ function clearAll() {
   selectedNodeId = null;
   svgRootGroup.innerHTML = '';
 }
-
-// ==================== 撤销/重做 ====================
 const undoStack = [];
 const redoStack = [];
 const MAX_UNDO = 50;
-
 function pushUndo() {
   const snapshot = serializeState();
   undoStack.push(snapshot);
   if (undoStack.length > MAX_UNDO) undoStack.shift();
   redoStack.length = 0;
 }
-
 function serializeState() {
   const data = [];
   for (const [, node] of nodesMap) {
@@ -630,7 +546,6 @@ function serializeState() {
   }
   return JSON.stringify({ nodes: data, nodeIdCounter, selectedNodeId });
 }
-
 function restoreState(json) {
   const state = JSON.parse(json);
   nodesMap.clear();
@@ -654,54 +569,41 @@ function restoreState(json) {
   renderAll();
   markSelected();
 }
-
 function undoAction() {
   if (undoStack.length === 0) return;
   redoStack.push(serializeState());
   const snapshot = undoStack.pop();
   restoreState(snapshot);
 }
-
 function redoAction() {
   if (redoStack.length === 0) return;
   undoStack.push(serializeState());
   const snapshot = redoStack.pop();
   restoreState(snapshot);
 }
-
-// ==================== 行内编辑 ====================
 function startInlineEdit(nodeId, event) {
   const node = nodesMap.get(nodeId);
   if (!node) return;
-
   const nx = (node.x || 0) + (node.offsetX || 0);
   const ny = (node.y || 0) + (node.offsetY || 0);
-
-  // 转换为屏幕坐标
   const screenX = nx * viewScale + viewTranslateX;
   const screenY = ny * viewScale + viewTranslateY;
-
-  // 移除已有编辑器
   removeInlineEditor();
-
   const input = document.createElement('input');
   input.className = 'inline-editor';
   input.value = node.text;
   input.style.left = (screenX - 60) + 'px';
   input.style.top = (screenY - 12) + 'px';
-
   input.addEventListener('blur', () => finishInlineEdit(nodeId, input));
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); finishInlineEdit(nodeId, input); }
     if (e.key === 'Escape') { removeInlineEditor(); }
     e.stopPropagation();
   });
-
   document.body.appendChild(input);
   input.focus();
   input.select();
 }
-
 function finishInlineEdit(nodeId, input) {
   const newText = input.value.trim();
   removeInlineEditor();
@@ -715,23 +617,18 @@ function finishInlineEdit(nodeId, input) {
     }
   }
 }
-
 function removeInlineEditor() {
   const existing = document.querySelector('.inline-editor');
   if (existing) existing.remove();
 }
-
-// ==================== 节点拖拽 ====================
 let isDraggingNode = false;
 let dragNodeId = null;
 let dragStartX, dragStartY;
 let dragOrigOffsetX, dragOrigOffsetY;
-
 function startNodeDrag(nodeId, event) {
   if (event.button !== 0) return;
   event.preventDefault();
   event.stopPropagation();
-
   isDraggingNode = true;
   dragNodeId = nodeId;
   const node = nodesMap.get(nodeId);
@@ -739,33 +636,24 @@ function startNodeDrag(nodeId, event) {
   dragOrigOffsetY = node.offsetY;
   dragStartX = event.clientX;
   dragStartY = event.clientY;
-
   document.getElementById('canvas-wrap').classList.add('dragging-node');
 }
-
-// ==================== 画布平移与缩放 ====================
 const canvasWrap = document.getElementById('canvas-wrap');
 let isPanning = false;
 let panStartX, panStartY;
 let panOrigTX, panOrigTY;
-
 canvasWrap.addEventListener('wheel', (e) => {
   e.preventDefault();
   const delta = e.deltaY > 0 ? 0.9 : 1.1;
   const newScale = Math.max(0.2, Math.min(3, viewScale * delta));
-
-  // 以鼠标位置为中心缩放
   const rect = canvasWrap.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
-
   viewTranslateX = mx - (mx - viewTranslateX) * (newScale / viewScale);
   viewTranslateY = my - (my - viewTranslateY) * (newScale / viewScale);
   viewScale = newScale;
-
   updateSvgTransform();
 }, { passive: false });
-
 canvasWrap.addEventListener('mousedown', (e) => {
   if (e.target === canvasWrap || e.target === svgEl) {
     isPanning = true;
@@ -775,7 +663,6 @@ canvasWrap.addEventListener('mousedown', (e) => {
     panOrigTY = viewTranslateY;
   }
 });
-
 window.addEventListener('mousemove', (e) => {
   if (isDraggingNode) {
     const dx = (e.clientX - dragStartX) / viewScale;
@@ -793,7 +680,6 @@ window.addEventListener('mousemove', (e) => {
     updateSvgTransform();
   }
 });
-
 window.addEventListener('mouseup', () => {
   if (isDraggingNode) {
     document.getElementById('canvas-wrap').classList.remove('dragging-node');
@@ -804,31 +690,23 @@ window.addEventListener('mouseup', () => {
     isPanning = false;
   }
 });
-
-// ==================== 缩放按钮 ====================
 function zoomIn() {
   viewScale = Math.min(3, viewScale * 1.2);
   updateSvgTransform();
 }
-
 function zoomOut() {
   viewScale = Math.max(0.2, viewScale * 0.8);
   updateSvgTransform();
 }
-
 function resetZoom() {
   viewScale = 1;
   viewTranslateX = 0;
   viewTranslateY = 0;
   updateSvgTransform();
 }
-
-// ==================== 全局键盘快捷键 ====================
 window.addEventListener('keydown', (e) => {
-  // 在输入框中不处理快捷键
   if (document.querySelector('.inline-editor')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
   if (e.key === 'Tab') {
     e.preventDefault();
     addChildNode();
@@ -857,14 +735,10 @@ window.addEventListener('keydown', (e) => {
     removeInlineEditor();
   }
 });
-
-// ==================== 导出功能 ====================
 function exportPNG() {
   const svgClone = svgEl.cloneNode(true);
-  // 获取完整 SVG 的边界
   const allNodes = Array.from(nodesMap.values());
   if (allNodes.length === 0) return;
-
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   allNodes.forEach(node => {
     const nx = (node.x || 0) + (node.offsetX || 0);
@@ -874,28 +748,22 @@ function exportPNG() {
     maxX = Math.max(maxX, nx + NODE_WIDTH + 40);
     maxY = Math.max(maxY, ny + NODE_HEIGHT + 40);
   });
-
   const w = maxX - minX + 80;
   const h = maxY - minY + 80;
-
   const svgData = new XMLSerializer().serializeToString(svgEl);
   const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(svgBlob);
-
   const canvas = document.createElement('canvas');
   canvas.width = w * 2;
   canvas.height = h * 2;
   const ctx = canvas.getContext('2d');
   ctx.scale(2, 2);
-
   const img = new Image();
   img.onload = () => {
-    // 绘制深色背景
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, -minX + 40, -minY + 40, img.width, img.height);
     URL.revokeObjectURL(url);
-
     const link = document.createElement('a');
     link.download = '思维导图_' + new Date().toISOString().slice(0, 10) + '.png';
     link.href = canvas.toDataURL('image/png');
@@ -903,7 +771,6 @@ function exportPNG() {
   };
   img.src = url;
 }
-
 function exportSVG() {
   const svgData = new XMLSerializer().serializeToString(svgEl);
   const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
@@ -914,22 +781,17 @@ function exportSVG() {
   link.click();
   URL.revokeObjectURL(url);
 }
-
-// ==================== 模板 ====================
 function showTemplates() {
   document.getElementById('template-modal').classList.add('show');
 }
-
 function closeTemplates() {
   document.getElementById('template-modal').classList.remove('show');
 }
-
 function loadTemplate(type) {
   pushUndo();
   nodesMap.clear();
   nodeIdCounter = 0;
   selectedNodeId = null;
-
   let root;
   if (type === 'project') {
     root = createNode('项目规划');
@@ -995,20 +857,16 @@ function loadTemplate(type) {
     createNode('思维框架', n4.id);
     createNode('易错点', n4.id);
   }
-
   selectedNodeId = root.id;
   closeTemplates();
   autoLayout();
 }
-
-// ==================== 节点主题色 ====================
 function changeTheme(color) {
   if (!color || selectedNodeId === null) return;
   pushUndo();
   const node = nodesMap.get(selectedNodeId);
   if (node) {
     node.color = color;
-    // 递归给选中节点的子树都设置这个颜色
     function applyColor(nId) {
       const n = nodesMap.get(nId);
       if (!n) return;
@@ -1020,12 +878,8 @@ function changeTheme(color) {
     markSelected();
   }
 }
-
-// ==================== 初始化 ====================
 function init() {
   initSvg();
-
-  // 创建默认根节点
   const root = createNode('中心主题');
   const child1 = createNode('分支一', root.id);
   createNode('叶子 1', child1.id);
@@ -1036,21 +890,15 @@ function init() {
   const child3 = createNode('分支三', root.id);
   createNode('叶子 5', child3.id);
   createNode('叶子 6', child3.id);
-
   selectedNodeId = root.id;
   autoLayout();
-
-  // 窗口大小变化时重新布局
   window.addEventListener('resize', () => {
     autoLayout();
   });
-
-  // 点击弹窗背景关闭
   document.getElementById('template-modal').addEventListener('click', function(e) {
     if (e.target === this) closeTemplates();
   });
 }
-
 init();
 </script>
 <script src="../i18n.js" defer></script>

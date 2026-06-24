@@ -232,13 +232,10 @@ color: var(--text-secondary)}
 </div>
 
 <script>
-// ============ 农历计算引擎 ============
 const TIAN_GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
 const DI_ZHI  = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
 const SHENG_XIAO = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
 const LUNAR_MONTH_NAMES = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
-
-// 农历日名称
 function lunarDayName(d) {
   const prefix = ['','初','初','初','初','初','初','初','初','初','初'];
   const tens   = ['','十','廿','三十'];
@@ -251,10 +248,6 @@ function lunarDayName(d) {
   const uStr = ['','一','二','三','四','五','六','七','八','九'];
   return tens[t] + (u > 0 ? uStr[u] : '');
 }
-
-// 农历数据 [公历春节月, 春节日, 闰月位置(0=无), 每月天数(12或13个)]
-// 月份天数数组已展开闰月（若闰月=2，数组中第2个位置是闰二月，第3个是三月...）
-// 数据来源: 香港天文台 + 验证，覆盖 2023-2030
 const LUNAR_DATA = {
   2023: [1, 22, 2, [30,29,29,30,29,30,29,30,29,30,29,30,29]],
   2024: [2, 10, 0, [30,29,30,29,30,29,30,29,30,29,30,30]],
@@ -265,12 +258,9 @@ const LUNAR_DATA = {
   2029: [2, 13, 0, [30,29,30,29,30,29,30,29,30,29,30,30]],
   2030: [2, 3,  0, [30,29,30,29,30,29,30,29,30,29,30,29]],
 };
-
 function isLeapYear(y) {
   return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
 }
-
-// 计算某年某月某日是该年第几天 (1-based)
 function dayOfYear(y, m, d) {
   const md = [0,31,28,31,30,31,30,31,31,30,31,30,31];
   if (isLeapYear(y)) md[2] = 29;
@@ -278,44 +268,31 @@ function dayOfYear(y, m, d) {
   for (let i = 1; i < m; i++) doy += md[i];
   return doy;
 }
-
-// 两个公历日期间的天数（date2 - date1）
 function daysBetween(y1, m1, d1, y2, m2, d2) {
-  // 使用 JS Date 计算绝对天数
   const dt1 = new Date(y1, m1 - 1, d1);
   const dt2 = new Date(y2, m2 - 1, d2);
   return Math.round((dt2 - dt1) / 86400000);
 }
-
 function gregorianToLunar(y, m, d) {
-  // 1. 确定农历年
   let lunarYear = y;
   let data = LUNAR_DATA[lunarYear];
   if (!data) return fallbackLunar(y, m, d);
-
   let [cnyM, cnyD, leapMonth, monthDays] = data;
-  // 使用 daysBetween 而非 dayOfYear 差值，自动处理跨年
   let daysFromCNY = daysBetween(lunarYear, cnyM, cnyD, y, m, d);
-
   if (daysFromCNY < 0) {
-    // 日期在春节之前，属于上一农历年
     lunarYear--;
     data = LUNAR_DATA[lunarYear];
     if (!data) return fallbackLunar(y, m, d);
     [cnyM, cnyD, leapMonth, monthDays] = data;
     daysFromCNY = daysBetween(lunarYear, cnyM, cnyD, y, m, d);
   }
-
-  // 2. 遍历农历月份找到对应月和日
   let displayMonth = 1;
   let isLeapMonth = false;
   let lDay = 1;
   let cumDays = 0;
-
   for (let i = 0; i < monthDays.length; i++) {
     if (cumDays + monthDays[i] > daysFromCNY) {
       lDay = daysFromCNY - cumDays + 1;
-      // 映射数组索引到显示月份
       if (leapMonth > 0 && i === leapMonth) {
         displayMonth = leapMonth;
         isLeapMonth = true;
@@ -330,29 +307,20 @@ function gregorianToLunar(y, m, d) {
     }
     cumDays += monthDays[i];
   }
-
-  // 3. 天干地支年
   const tgIndex = ((lunarYear - 4) % 10 + 10) % 10;
   const dzIndex = ((lunarYear - 4) % 12 + 12) % 12;
   const yearName = TIAN_GAN[tgIndex] + DI_ZHI[dzIndex];
   const zodiac = SHENG_XIAO[dzIndex];
-
-  // 4. 月份干支 (年上起月法：甲己之年丙作首)
-  const monthDzIndex = (displayMonth + 1) % 12; // 寅月=正月 index 1
-  const monthTgBase = tgIndex * 2; // 甲年丙寅(tg=2), 乙年戊寅(tg=4)...
+  const monthDzIndex = (displayMonth + 1) % 12;
+  const monthTgBase = tgIndex * 2;
   const monthTgIndex = (monthTgBase + displayMonth - 1) % 10;
   const monthName = TIAN_GAN[monthTgIndex] + DI_ZHI[monthDzIndex];
-
-  // 5. 日期干支 (基于已知参考点: 2023-01-22 = 庚辰日, tg=6, dz=4)
   const refDays = daysBetween(2023, 1, 22, y, m, d);
   const dayTgIndex = ((6 + refDays) % 10 + 10) % 10;
   const dayDzIndex = ((4 + refDays) % 12 + 12) % 12;
   const dayName = TIAN_GAN[dayTgIndex] + DI_ZHI[dayDzIndex];
-
-  // 6. 农历日名称
   const lDayStr = lunarDayName(lDay);
   const lMonthStr = (isLeapMonth ? '闰' : '') + LUNAR_MONTH_NAMES[displayMonth - 1] + '月';
-
   return {
     yearName, zodiac, monthName, dayName,
     lMonthStr, lDayStr, lDay,
@@ -364,7 +332,6 @@ function gregorianToLunar(y, m, d) {
     dayDzIndex,
   };
 }
-
 function fallbackLunar(y, m, d) {
   const tgIndex = ((y - 4) % 10 + 10) % 10;
   const dzIndex = ((y - 4) % 12 + 12) % 12;
@@ -375,11 +342,9 @@ function fallbackLunar(y, m, d) {
   const approxDay = Math.max(1, Math.min(30, Math.floor(((doy + 10) % 29.5)) + 1));
   const monthDzIndex = (approxMonth + 1) % 12;
   const monthTgIndex = (tgIndex * 2 + approxMonth - 1) % 10;
-
   const refDays = daysBetween(2023, 1, 22, y, m, d);
   const dayTgIndex = ((6 + refDays) % 10 + 10) % 10;
   const dayDzIndex = ((4 + refDays) % 12 + 12) % 12;
-
   return {
     yearName, zodiac,
     monthName: TIAN_GAN[monthTgIndex] + DI_ZHI[monthDzIndex],
@@ -395,12 +360,9 @@ function fallbackLunar(y, m, d) {
     dayDzIndex,
   };
 }
-
-// ============ 伪随机生成器 (基于日期 hash) ============
 function dateHash(y, m, d) {
   return y * 535 + m * 37 + d * 13 + (y ^ m ^ d) * 7;
 }
-
 function seededRandom(seed) {
   let s = seed;
   return function() {
@@ -408,8 +370,6 @@ function seededRandom(seed) {
     return s / 0x7fffffff;
   };
 }
-
-// ============ 宜忌条目库 ============
 const YI_POOL = [
   '嫁娶','祭祀','祈福','求嗣','开光','出行','解除','出火','拆卸',
   '修造','动土','进人口','入宅','移徙','安床','开市','交易','立券',
@@ -420,7 +380,6 @@ const YI_POOL = [
   '开厕','破屋坏垣','沐浴','剃头','整手足甲','求医疗病','疗目',
   '针刺','畋猎','取鱼','结网','习艺','酝酿','开仓','出货财','置产',
 ];
-
 const JI_POOL = [
   '嫁娶','入宅','安床','开光','出行','伐木','作灶','安葬','行丧',
   '开市','交易','立券','动土','破土','上梁','安门','作梁','修造',
@@ -431,7 +390,6 @@ const JI_POOL = [
   '安碓硙','归宁','远回','针刺','疗目','剃头','整手足甲','破土',
   '谢土','赴任','临政','亲民','袭爵','受封','求嗣','上册受封',
 ];
-
 const WU_XING = ['金','木','水','火','土'];
 const WU_XING_DIR = ['西方','东方','北方','南方','中央'];
 const ZODIAC_CLASH = {
@@ -446,7 +404,6 @@ const FETAL_GOD = [
   '门鸡栖外西南','厨灶碓外正西','仓库床外西北','房床门外正东',
   '占房床内南','占门炉外北','占大门外西','占厨灶外东',
 ];
-
 function pickRandom(arr, count, rng) {
   const pool = [...arr];
   const result = [];
@@ -456,92 +413,62 @@ function pickRandom(arr, count, rng) {
   }
   return result;
 }
-
-// ============ 渲染 ============
 function render(date) {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   const d = date.getDate();
-
-  // 公历日期
   const weekdays = ['日','一','二','三','四','五','六'];
   const wd = weekdays[date.getDay()];
   document.getElementById('gregorianDate').textContent =
     `${y}年${m}月${d}日 星期${wd}`;
-
-  // 农历
   const lunar = gregorianToLunar(y, m, d);
   document.getElementById('lunarDay').textContent = lunar.lDayStr;
   document.getElementById('lunarYear').textContent =
     `${lunar.yearName}年 【${lunar.zodiac}年】`;
   document.getElementById('lunarInfo').textContent =
     `${lunar.lMonthStr}${lunar.lDayStr} · ${lunar.monthName}月 · ${lunar.dayName}日`;
-
-  // 伪随机
   const seed = dateHash(y, m, d);
   const rng = seededRandom(seed);
-
-  // 宜 (10-15条)
   const yiCount = 10 + Math.floor(rng() * 6);
   const yi = pickRandom(YI_POOL, yiCount, rng);
   document.getElementById('yiList').innerHTML = yi
     .map(item => `<span class="tag yi">${item}</span>`).join('');
-
-  // 忌 (10-15条)
   const jiCount = 10 + Math.floor(rng() * 6);
   const ji = pickRandom(JI_POOL, jiCount, rng);
   document.getElementById('jiList').innerHTML = ji
     .map(item => `<span class="tag ji">${item}</span>`).join('');
-
-  // 五行
   const wxIdx = (lunar.dayTgIndex + lunar.dayDzIndex) % 5;
   document.getElementById('fiveElements').textContent =
     `纳音${WU_XING[(seed + wxIdx) % 5]} · 日${WU_XING[wxIdx]}`;
-
-  // 冲煞
   const clashZodiac = ZODIAC_CLASH[lunar.dayDzIndex] || '午马';
   document.getElementById('clash').textContent = `冲${clashZodiac} · 煞${DIRECTIONS[lunar.dayDzIndex % 8]}`;
-
-  // 吉神方位
   const luckyDirIdx = (lunar.dayTgIndex * 3 + lunar.dayDzIndex * 7 + seed) % DIRECTIONS.length;
   document.getElementById('luckyDir').textContent =
     `喜神${DIRECTIONS[(lunar.dayTgIndex) % 8]} · 财神${DIRECTIONS[(lunar.dayTgIndex * 3) % 8]} · 福神${DIRECTIONS[(lunar.dayDzIndex * 2) % 8]}`;
-
-  // 胎神
   document.getElementById('fetalGod').textContent =
     FETAL_GOD[(lunar.dayDzIndex * 7 + lunar.dayTgIndex) % FETAL_GOD.length];
-
-  // 更新 date picker
   const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   document.getElementById('datePicker').value = dateStr;
 }
-
-// ============ 事件处理 ============
 let currentDate = new Date();
-
 document.getElementById('datePicker').addEventListener('change', function(e) {
   if (e.target.value) {
     currentDate = new Date(e.target.value + 'T00:00:00');
     render(currentDate);
   }
 });
-
 document.getElementById('prevDay').addEventListener('click', function() {
   currentDate.setDate(currentDate.getDate() - 1);
   render(currentDate);
 });
-
 document.getElementById('nextDay').addEventListener('click', function() {
   currentDate.setDate(currentDate.getDate() + 1);
   render(currentDate);
 });
-
 document.getElementById('btnToday').addEventListener('click', function() {
   currentDate = new Date();
   render(currentDate);
 });
-
-// 暗色模式
 const themeToggle = document.getElementById('themeToggle');
 const savedTheme = localStorage.getItem('almanac-theme');
 if (savedTheme === 'dark') {
@@ -560,8 +487,6 @@ themeToggle.addEventListener('click', function() {
     localStorage.setItem('almanac-theme', 'dark');
   }
 });
-
-// 初始渲染
 render(currentDate);
 </script>
 <script src="../i18n.js" defer></script>

@@ -82,7 +82,6 @@ color: #8b949e}
         const lapsEl = document.getElementById('laps');
         const positionEl = document.getElementById('position');
         const overtakesEl = document.getElementById('overtakes');
-        
         let gameRunning = false;
         let laps = 0;
         let overtakes = 0;
@@ -92,8 +91,6 @@ color: #8b949e}
         let opponents = [];
         let checkpoints = [0, 0, 0, 0];
         let lastCheckpoint = -1;
-        
-        // NASCAR椭圆赛道
         const track = [
             { x: 400, y: 500, type: 'start' },
             { x: 400, y: 400, type: 'straight' },
@@ -109,8 +106,6 @@ color: #8b949e}
             { x: 500, y: 400, type: 'curve' },
             { x: 400, y: 500, type: 'finish' }
         ];
-        
-        // 初始化对手
         function initOpponents() {
             opponents = [];
             for (let i = 0; i < 7; i++) {
@@ -126,16 +121,12 @@ color: #8b949e}
                 });
             }
         }
-        
         function drawTrack() {
-            // 椭圆赛道
             ctx.strokeStyle = '#30363d';
             ctx.lineWidth = 80;
             ctx.beginPath();
             ctx.ellipse(400, 300, 300, 200, 0, 0, Math.PI * 2);
             ctx.stroke();
-            
-            // 赛道边线
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2;
             ctx.setLineDash([10, 10]);
@@ -143,8 +134,6 @@ color: #8b949e}
             ctx.ellipse(400, 300, 300, 200, 0, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
-            
-            // 起点线
             ctx.strokeStyle = '#ff6b6b';
             ctx.lineWidth = 4;
             ctx.beginPath();
@@ -152,39 +141,28 @@ color: #8b949e}
             ctx.lineTo(400, 500);
             ctx.stroke();
         }
-        
         function drawCar() {
             ctx.save();
             ctx.translate(car.x, car.y);
             ctx.rotate(car.angle);
-            
-            // NASCAR车身
             ctx.fillStyle = #3b82f6;
             ctx.fillRect(-car.width/2, -car.height/2, car.width, car.height);
-            
-            // 车窗
             ctx.fillStyle = '#1a1e24';
             ctx.fillRect(-car.width/2 + 3, -car.height/2 + 3, car.width - 6, car.height/3);
-            
             ctx.restore();
         }
-        
         function drawOpponents() {
             opponents.forEach(opponent => {
                 ctx.save();
                 ctx.translate(opponent.x, opponent.y);
                 ctx.rotate(opponent.angle);
-                
                 ctx.fillStyle = opponent.color;
                 ctx.fillRect(-opponent.width/2, -opponent.height/2, opponent.width, opponent.height);
-                
                 ctx.fillStyle = '#1a1e24';
                 ctx.fillRect(-opponent.width/2 + 3, -opponent.height/2 + 3, opponent.width - 6, opponent.height/3);
-                
                 ctx.restore();
             });
         }
-        
         function updateCar(deltaTime) {
             if (keys['ArrowUp'] || keys['w']) {
                 car.speed = Math.min(car.speed + 0.1, 8);
@@ -193,134 +171,99 @@ color: #8b949e}
             } else {
                 car.speed *= 0.98;
             }
-            
             if (keys['ArrowLeft'] || keys['a']) {
                 car.angle -= 0.05 * car.speed;
             }
             if (keys['ArrowRight'] || keys['d']) {
                 car.angle += 0.05 * car.speed;
             }
-            
             car.x += Math.sin(car.angle) * car.speed;
             car.y -= Math.cos(car.angle) * car.speed;
-            
-            // 边界检查
             car.x = Math.max(20, Math.min(canvas.width - 20, car.x));
             car.y = Math.max(20, Math.min(canvas.height - 20, car.y));
-            
-            // 更新对手
             opponents.forEach(opponent => {
                 opponent.angle += 0.02;
                 opponent.x = 400 + Math.cos(opponent.angle) * (250 + opponent.y % 100);
                 opponent.y = 300 + Math.sin(opponent.angle) * (150 + opponent.x % 100);
-                
-                // 超车检测
                 if (!opponent.overtaken && car.y < opponent.y - 50) {
                     opponent.overtaken = true;
                     overtakes++;
                     overtakesEl.textContent = overtakes;
                 }
             });
-            
-            // 圈数计算
             if (car.y > 490 && car.y < 510 && car.x > 350 && car.x < 450) {
                 if (lastCheckpoint !== 0) {
                     lastCheckpoint = 0;
                     checkpoints[0] = 1;
                 }
             }
-            
-            // 检查是否完成一圈
             if (checkpoints.every(c => c === 1)) {
                 laps++;
                 lapsEl.textContent = laps;
                 checkpoints = [0, 0, 0, 0];
                 lastCheckpoint = -1;
-                
                 if (laps >= 10) {
                     gameOver();
                 }
             }
-            
-            // 更新位置
             const position = 8 - overtakes;
             positionEl.textContent = position + getOrdinal(position);
         }
-        
         function getOrdinal(n) {
             const s = ["th", "st", "nd", "rd"];
             const v = n % 100;
             return s[(v - 20) % 10] || s[v] || s[0];
         }
-        
         function updateGame(timestamp) {
             if (!gameRunning) return;
-            
             const deltaTime = (timestamp - lastTime) / 1000;
             lastTime = timestamp;
-            
             updateCar(deltaTime);
-            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawTrack();
             drawOpponents();
             drawCar();
-            
             requestAnimationFrame(updateGame);
         }
-        
         function gameOver() {
             gameRunning = false;
             garyyToast('比赛完成！最终位置: ' + positionEl.textContent + '\n超车: ' + overtakes);
         }
-        
         function startGame() {
             if (gameRunning) return;
-            
             car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 30 };
             laps = 0;
             overtakes = 0;
-            
             initOpponents();
-            
             lapsEl.textContent = '0';
             positionEl.textContent = '8th';
             overtakesEl.textContent = '0';
-            
             gameRunning = true;
             lastTime = performance.now();
             requestAnimationFrame(updateGame);
         }
-        
         function resetGame() {
             gameRunning = false;
             car = { x: 400, y: 500, angle: 0, speed: 0, width: 20, height: 30 };
             laps = 0;
             overtakes = 0;
-            
             initOpponents();
-            
             lapsEl.textContent = '0';
             positionEl.textContent = '8th';
             overtakesEl.textContent = '0';
-            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawTrack();
             drawCar();
         }
-        
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
         });
-        
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
-        
-        // 初始绘制
         initOpponents();
         drawTrack();
         drawCar();

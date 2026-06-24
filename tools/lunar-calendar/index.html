@@ -227,53 +227,53 @@ font-size: 11px}
 <body>
 
 <div class="container">
-  <!-- Header -->
+
   <div class="header">
     <h1>农 历 万 年 历</h1>
     <div class="subtitle">中国农历</div>
   </div>
 
-  <!-- Current Date Display -->
+
   <div class="current-date-box" id="currentDateBox"></div>
 
-  <!-- Date Picker -->
+
   <div class="date-picker-row">
     <input type="date" id="datePicker" title="选择日期跳转">
     <button onclick="jumpToDate()">跳转</button>
     <button onclick="goToToday()">今天</button>
   </div>
 
-  <!-- View Toggle -->
+
   <div class="view-toggle">
     <button id="btnMonthView" class="active" onclick="switchView('month')">月视图</button>
     <button id="btnWeekView" onclick="switchView('week')">周视图</button>
     <button id="btnYearView" onclick="switchView('year')">年概览</button>
   </div>
 
-  <!-- Month Navigation -->
+
   <div class="nav-row">
     <button class="nav-btn" onclick="changeMonth(-1)">&lt; 上月</button>
     <span class="nav-title" id="navTitle" onclick="switchView('month')"></span>
     <button class="nav-btn" onclick="changeMonth(1)">下月 &gt;</button>
   </div>
 
-  <!-- Month View Calendar -->
+
   <div id="monthView">
     <div class="calendar-grid" id="calendarGrid"></div>
   </div>
 
-  <!-- Week View -->
+
   <div id="weekView">
     <div class="calendar-grid" id="weekGrid"></div>
   </div>
 
-  <!-- Year Overview -->
+
   <div class="year-overview" id="yearOverview">
     <h2 id="yearOverviewTitle"></h2>
     <div class="term-grid" id="termGrid"></div>
   </div>
 
-  <!-- Daily Info Panel -->
+
   <div class="info-panel" id="infoPanel">
     <h2 id="infoTitle">今日详情</h2>
     <div id="festivalInfo"></div>
@@ -292,13 +292,6 @@ font-size: 11px}
 </div>
 
 <script>
-// ==================== LUNAR CALENDAR ENGINE ====================
-
-// Lunar year data encoding (1900-2100)
-// Each entry: (leapDays << 16) | (leapMonth << 12) | (monthData)
-// monthData: 12 bits, bit i = 1 -> month i+1 has 30 days
-// leapMonth: 0xF bits, 0 = no leap, 1-12 = which month
-// leapDays: 1 bit, 0 = 29d, 1 = 30d
 const LUNAR_INFO = [
   0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
   0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
@@ -322,16 +315,10 @@ const LUNAR_INFO = [
   0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a4d0,0x0d150,0x0f252,
   0x0d520
 ];
-
-// 天干地支
 const TIAN_GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
 const DI_ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
 const SHENG_XIAO = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
-
-// 农历月份名
 const LUNAR_MONTHS = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
-
-// 农历日名 (1-30)
 function getLunarDayName(d) {
   const prefix = d <= 10 ? '初' : d <= 19 ? '十' : d <= 20 ? '廿' : d <= 29 ? '廿' : '三';
   if (d === 10) return '初十';
@@ -343,8 +330,6 @@ function getLunarDayName(d) {
   if (d < 30) return '廿' + nums[d - 20];
   return '三十';
 }
-
-// 中文字数字
 function getChineseNum(n) {
   const nums = ['零','一','二','三','四','五','六','七','八','九','十'];
   if (n <= 10) return nums[n];
@@ -353,17 +338,12 @@ function getChineseNum(n) {
   const ones = n % 10;
   return nums[tens] + '十' + (ones ? nums[ones] : '');
 }
-
-// 日期计算辅助
 function daysInMonth(y, m) {
   return new Date(y, m, 0).getDate();
 }
-
 function daysBetween(y1, m1, d1, y2, m2, d2) {
   return Math.floor((new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1)) / 86400000);
 }
-
-// 农历年天数
 function lunarYearDays(y) {
   const data = LUNAR_INFO[y - 1900];
   let days = 0;
@@ -376,46 +356,30 @@ function lunarYearDays(y) {
   }
   return days;
 }
-
-// 农历某月天数
 function lunarMonthDays(y, m) {
   const data = LUNAR_INFO[y - 1900];
   return (data & (1 << (m - 1))) ? 30 : 29;
 }
-
-// 农历闰月 (0=无)
 function getLeapMonth(y) {
   return (LUNAR_INFO[y - 1900] >> 12) & 0xF;
 }
-
-// 农历闰月天数
 function getLeapMonthDays(y) {
   const data = LUNAR_INFO[y - 1900];
   return (data >> 16) & 1 ? 30 : 29;
 }
-
-// 公历 -> 农历 转换 (基准: 1900-01-31 = 正月初一)
 function solarToLunar(y, m, d) {
   let offset = daysBetween(1900, 1, 31, y, m, d);
-
   let ly = 1900, lm, ld, isLeap = false;
-
-  // 查找年份
   while (ly <= 2100) {
     const yd = lunarYearDays(ly);
     if (offset < yd) break;
     offset -= yd;
     ly++;
   }
-
   if (ly > 2100) { ly = 2100; offset = 0; }
-
-  // 查找月份
   const leap = getLeapMonth(ly);
   let leapUsed = false;
-
   for (lm = 1; lm <= 12; lm++) {
-    // 检查是否需要在当前月之前插入闰月
     if (leap > 0 && lm === leap + 1 && !leapUsed) {
       const ld2 = getLeapMonthDays(ly);
       if (offset < ld2) { isLeap = true; lm = leap; break; }
@@ -426,21 +390,15 @@ function solarToLunar(y, m, d) {
     if (offset < md) break;
     offset -= md;
   }
-
   if (lm > 12) { lm = 12; offset = lunarMonthDays(ly, 12) - 1; }
   ld = offset + 1;
-
   return { lunarYear: ly, lunarMonth: lm, lunarDay: ld, isLeap };
 }
-
-// 农历 -> 公历 转换
 function lunarToSolar(ly, lm, ld, isLeap) {
   let offset = 0;
   for (let y = 1900; y < ly; y++) offset += lunarYearDays(y);
-
   const leap = getLeapMonth(ly);
   let leapUsed = false;
-
   for (let m = 1; m < lm; m++) {
     if (leap > 0 && m === leap + 1 && !leapUsed) {
       offset += getLeapMonthDays(ly);
@@ -448,24 +406,16 @@ function lunarToSolar(ly, lm, ld, isLeap) {
     }
     offset += lunarMonthDays(ly, m);
   }
-
-  // 如果目标月是闰月
   if (isLeap && leap > 0 && lm === leap && !leapUsed) {
-    // 已经在闰月前计算了该月的天数，不需要额外加
   } else if (leap > 0 && lm > leap && !leapUsed) {
     offset += getLeapMonthDays(ly);
     leapUsed = true;
   }
-
   offset += ld - 1;
-
   const base = new Date(1900, 0, 31);
   const target = new Date(base.getTime() + offset * 86400000);
   return { year: target.getFullYear(), month: target.getMonth() + 1, day: target.getDate() };
 }
-
-// ==================== 节气计算 ====================
-
 const SOLAR_TERMS = [
   {name:'小寒', pinyin:'Xiaohan', month:1, baseDay:5, desc:'一年中最寒冷时段的开始'},
   {name:'大寒', pinyin:'Dahan', month:1, baseDay:20, desc:'一年中最冷的时候'},
@@ -492,13 +442,10 @@ const SOLAR_TERMS = [
   {name:'大雪', pinyin:'Daxue', month:12, baseDay:7, desc:'降雪量增大'},
   {name:'冬至', pinyin:'Dongzhi', month:12, baseDay:22, desc:'白昼最短，阳气始生'}
 ];
-
 function getSolarTermDate(year, idx) {
   const t = SOLAR_TERMS[idx];
-  // 简化的节气日期计算
   const yOff = year - 1900;
   let day = t.baseDay + Math.floor(0.2422 * yOff) - Math.floor(yOff / 4);
-  // 21世纪修正
   if (year >= 2000) {
     const adj = {
       0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,
@@ -509,7 +456,6 @@ function getSolarTermDate(year, idx) {
   }
   return new Date(year, t.month - 1, day);
 }
-
 function getSolarTermsForYear(year) {
   return SOLAR_TERMS.map((t, i) => {
     const d = getSolarTermDate(year, i);
@@ -522,21 +468,16 @@ function getSolarTermsForYear(year) {
     };
   });
 }
-
 function getSolarTermsForMonth(year, month) {
   return getSolarTermsForYear(year).filter(t => t.month === month);
 }
-
 function getCurrentSolarTerm(d) {
   const y = d.getFullYear();
   let terms = getSolarTermsForYear(y);
-  // 也包含上一年的冬至
   const prevTerms = getSolarTermsForYear(y - 1);
   terms = [...prevTerms.filter(t => t.index === 23), ...terms];
-
   const m = d.getMonth() + 1;
   const day = d.getDate();
-
   let current = null;
   for (let i = terms.length - 1; i >= 0; i--) {
     const t = terms[i];
@@ -547,21 +488,14 @@ function getCurrentSolarTerm(d) {
   }
   return current;
 }
-
-// ==================== 天干地支纪年 ====================
-
 function getYearGanZhi(year) {
   const g = TIAN_GAN[(year - 4) % 10];
   const z = DI_ZHI[(year - 4) % 12];
   return g + z;
 }
-
 function getShengXiao(year) {
   return SHENG_XIAO[(year - 4) % 12];
 }
-
-// ==================== 节日数据 ====================
-
 const LUNAR_FESTIVALS = {
   '1-1': '春节',
   '1-15': '元宵节',
@@ -575,9 +509,8 @@ const LUNAR_FESTIVALS = {
   '12-23': '小年(北)',
   '12-24': '小年(南)',
   '12-30': '除夕',
-  '12-29': null // 小月除夕 (handled in code)
+  '12-29': null
 };
-
 const SOLAR_FESTIVALS = {
   '1-1': '元旦',
   '2-14': '情人节',
@@ -593,54 +526,41 @@ const SOLAR_FESTIVALS = {
   '10-1': '国庆节',
   '12-25': '圣诞节'
 };
-
 function getLunarFestival(lm, ld, ly) {
   const key = lm + '-' + ld;
   if (LUNAR_FESTIVALS[key]) return LUNAR_FESTIVALS[key];
-  // 除夕特殊处理
   if (lm === 12) {
     const totalDays = lunarMonthDays(ly, 12);
     if (ld === totalDays) return '除夕';
   }
   return null;
 }
-
 function getSolarFestival(m, d) {
   return SOLAR_FESTIVALS[m + '-' + d] || null;
 }
-
-// ==================== 宜忌 (黄历) ====================
-
 const YI_POOL = [
   '嫁娶','出行','开业','动土','安床','祭祀','祈福','搬家','入宅','纳采',
   '订盟','会友','安葬','修造','交易','纳财','开市','立券','入学','求嗣',
   '栽种','牧养','纳畜','破屋','坏垣','理发','沐浴','捕捉','畋猎','移徙',
   '赴任','签约','拆卸','扫舍','安香','谢土','上梁','安门','作灶','修坟'
 ];
-
 const JI_POOL = [
   '安葬','行丧','词讼','伐木','作灶','上梁','破土','针灸','开仓','置产',
   '穿井','安门','诸事不宜','哭泣','移徙','远行','开渠','合帐','苫盖','出货财',
   '分居','栽种','掘井','新船下水','畋猎','余事勿取'
 ];
-
-// 基于日期生成确定性的宜忌
 function seedFromDate(y, m, d) {
   return (y * 10000 + m * 100 + d) * 2654435761;
 }
-
 function pseudoRandom(seed) {
   seed = Math.abs(Math.floor(seed));
   seed = (seed * 1103515245 + 12345) & 0x7fffffff;
   return seed / 0x7fffffff;
 }
-
 function getYiJiForDate(y, m, d) {
   const seed = seedFromDate(y, m, d);
   const yi = [];
   const ji = [];
-
-  // 生成3-5个宜
   let r = seed;
   const yiCount = 3 + Math.floor(pseudoRandom(r) * 3);
   r += 12345;
@@ -652,8 +572,6 @@ function getYiJiForDate(y, m, d) {
       usedYi.add(idx);
     }
   }
-
-  // 生成2-4个忌
   r += 54321;
   const jiCount = 2 + Math.floor(pseudoRandom(r) * 3);
   const usedJi = new Set();
@@ -664,28 +582,21 @@ function getYiJiForDate(y, m, d) {
       usedJi.add(idx);
     }
   }
-
   return { yi, ji };
 }
-
-// ==================== UI STATE ====================
-
 let currentYear, currentMonth, currentDay;
 let selectedYear, selectedMonth, selectedDay;
 let currentView = 'month';
 let selectedDate = new Date();
-
 function init() {
   const now = new Date();
   currentYear = selectedYear = now.getFullYear();
   currentMonth = selectedMonth = now.getMonth() + 1;
   currentDay = selectedDay = now.getDate();
   selectedDate = new Date(now);
-
   document.getElementById('datePicker').valueAsDate = now;
   renderAll();
 }
-
 function goToToday() {
   const now = new Date();
   selectedYear = now.getFullYear();
@@ -698,7 +609,6 @@ function goToToday() {
   document.getElementById('datePicker').valueAsDate = now;
   renderAll();
 }
-
 function jumpToDate() {
   const dp = document.getElementById('datePicker');
   if (!dp.value) return;
@@ -712,14 +622,12 @@ function jumpToDate() {
   currentDay = selectedDay;
   renderAll();
 }
-
 function changeMonth(delta) {
   selectedMonth += delta;
   if (selectedMonth > 12) { selectedMonth = 1; selectedYear++; }
   if (selectedMonth < 1) { selectedMonth = 12; selectedYear--; }
   renderAll();
 }
-
 function switchView(view) {
   currentView = view;
   document.getElementById('btnMonthView').classList.toggle('active', view === 'month');
@@ -727,9 +635,6 @@ function switchView(view) {
   document.getElementById('btnYearView').classList.toggle('active', view === 'year');
   renderAll();
 }
-
-// ==================== RENDER ====================
-
 function renderAll() {
   renderCurrentDate();
   renderNavTitle();
@@ -738,72 +643,56 @@ function renderAll() {
   renderYearOverview();
   toggleViews();
 }
-
 function renderCurrentDate() {
   const box = document.getElementById('currentDateBox');
   const d = selectedDate;
   const y = d.getFullYear();
   const m = d.getMonth() + 1;
   const day = d.getDate();
-
   const lunar = solarToLunar(y, m, day);
   const gz = getYearGanZhi(lunar.lunarYear);
   const sx = getShengXiao(lunar.lunarYear);
-
   const weekNames = ['日','一','二','三','四','五','六'];
   const w = d.getDay();
-
   const lunarStr = (lunar.isLeap ? '闰' : '') +
     LUNAR_MONTHS[lunar.lunarMonth - 1] + '月' + getLunarDayName(lunar.lunarDay);
-
   const lFest = getLunarFestival(lunar.lunarMonth, lunar.lunarDay, lunar.lunarYear);
   const sFest = getSolarFestival(m, day);
-
   let extraStr = `${gz}年 【${sx}】 · 星期${weekNames[w]}`;
   if (sFest) extraStr += ' · ' + sFest;
   if (lFest) extraStr += ' · ' + lFest;
-
   box.innerHTML = `
     <div class="solar-date">${y}年${m}月${day}日</div>
     <div class="lunar-date">${lunarStr}</div>
     <div class="extra-info">${extraStr}</div>
   `;
 }
-
 function renderNavTitle() {
   document.getElementById('navTitle').textContent = `${selectedYear}年 ${selectedMonth}月`;
 }
-
 function toggleViews() {
   document.getElementById('monthView').style.display = currentView === 'month' ? 'block' : 'none';
   document.getElementById('weekView').style.display = currentView === 'week' ? 'block' : 'none';
   document.getElementById('yearOverview').style.display = currentView === 'year' ? 'block' : 'none';
 }
-
 function renderCalendar() {
   if (currentView === 'month') renderMonthView();
   else if (currentView === 'week') renderWeekView();
 }
-
 function renderMonthView() {
   const grid = document.getElementById('calendarGrid');
   const weekHeaders = ['日','一','二','三','四','五','六'];
-
   let html = '';
   weekHeaders.forEach((h, i) => {
     const cls = (i === 0 || i === 6) ? 'day-header weekend' : 'day-header';
     html += `<div class="${cls}">${h}</div>`;
   });
-
   const y = selectedYear, m = selectedMonth;
   const firstDay = new Date(y, m - 1, 1).getDay();
   const totalDays = daysInMonth(y, m);
-  const prevMonthDays = daysInMonth(y, m - 1); // previous month
-
+  const prevMonthDays = daysInMonth(y, m - 1);
   const now = new Date();
   const todayY = now.getFullYear(), todayM = now.getMonth() + 1, todayD = now.getDate();
-
-  // Previous month padding
   for (let i = firstDay - 1; i >= 0; i--) {
     const d = prevMonthDays - i;
     const dispM = m === 1 ? 12 : m - 1;
@@ -811,19 +700,14 @@ function renderMonthView() {
     const lunar = solarToLunar(dispY, dispM, d);
     html += buildDayCell(dispY, dispM, d, lunar, 'empty', todayY, todayM, todayD);
   }
-
-  // Current month days
   for (let d = 1; d <= totalDays; d++) {
     const dow = new Date(y, m - 1, d).getDay();
     const isWeekend = dow === 0 || dow === 6;
     const isToday = (y === todayY && m === todayM && d === todayD);
     const cls = isToday ? 'today' : (isWeekend ? 'weekend' : '');
-
     const lunar = solarToLunar(y, m, d);
     html += buildDayCell(y, m, d, lunar, cls, todayY, todayM, todayD);
   }
-
-  // Next month padding
   const remaining = 42 - firstDay - totalDays;
   for (let d = 1; d <= remaining; d++) {
     const dispM = m === 12 ? 1 : m + 1;
@@ -831,10 +715,7 @@ function renderMonthView() {
     const lunar = solarToLunar(dispY, dispM, d);
     html += buildDayCell(dispY, dispM, d, lunar, 'empty', todayY, todayM, todayD);
   }
-
   grid.innerHTML = html;
-
-  // Add click handlers
   grid.querySelectorAll('.calendar-cell:not(.empty)').forEach(cell => {
     cell.addEventListener('click', function() {
       const data = JSON.parse(this.dataset.date);
@@ -850,37 +731,29 @@ function renderMonthView() {
     });
   });
 }
-
 function buildDayCell(y, m, d, lunar, extraCls, todayY, todayM, todayD) {
   const data = JSON.stringify({y, m, d});
   const lunarStr = lunar.lunarDay === 1
     ? LUNAR_MONTHS[lunar.lunarMonth - 1] + '月'
     : getLunarDayName(lunar.lunarDay);
-
   const lFest = getLunarFestival(lunar.lunarMonth, lunar.lunarDay, lunar.lunarYear);
   const sFest = getSolarFestival(m, d);
-
   let festHtml = '';
   if (lFest) festHtml += `<div class="festival-dot">${lFest}</div>`;
   else if (sFest) festHtml += `<div class="festival-dot">${sFest}</div>`;
-
-  // Check solar term
   const terms = getSolarTermsForMonth(y, m);
   const term = terms.find(t => t.day === d);
   if (term && !festHtml) {
     festHtml += `<div class="term-dot">${term.name}</div>`;
   }
-
   const isOtherMonth = extraCls === 'empty';
   const cls = 'calendar-cell' + (extraCls ? ' ' + extraCls : '');
-
   return `<div class="${cls}" data-date='${data}'>
     <span class="solar-num">${d}</span>
     <span class="lunar-num">${lunarStr}</span>
     ${festHtml}
   </div>`;
 }
-
 function renderWeekView() {
   const grid = document.getElementById('weekGrid');
   const weekHeaders = ['日','一','二','三','四','五','六'];
@@ -889,15 +762,12 @@ function renderWeekView() {
     const cls = (i === 0 || i === 6) ? 'day-header weekend' : 'day-header';
     html += `<div class="${cls}">${h}</div>`;
   });
-
   const d = selectedDate;
   const dayOfWeek = d.getDay();
   const monday = new Date(d);
   monday.setDate(d.getDate() - dayOfWeek);
-
   const now = new Date();
   const todayY = now.getFullYear(), todayM = now.getMonth() + 1, todayD = now.getDate();
-
   for (let i = 0; i < 7; i++) {
     const wd = new Date(monday);
     wd.setDate(monday.getDate() + i);
@@ -908,9 +778,7 @@ function renderWeekView() {
     const lunar = solarToLunar(wy, wm, wday);
     html += buildDayCell(wy, wm, wday, lunar, cls, todayY, todayM, todayD);
   }
-
   grid.innerHTML = html;
-
   grid.querySelectorAll('.calendar-cell:not(.empty)').forEach(cell => {
     cell.addEventListener('click', function() {
       const data = JSON.parse(this.dataset.date);
@@ -926,30 +794,22 @@ function renderWeekView() {
     });
   });
 }
-
 function renderInfoPanel() {
   const y = selectedYear, m = selectedMonth, d = selectedDay;
   const lunar = solarToLunar(y, m, d);
-
   document.getElementById('infoTitle').textContent =
     `${selectedYear}年${selectedMonth}月${selectedDay}日 · 农历${
       lunar.isLeap ? '闰' : ''}${LUNAR_MONTHS[lunar.lunarMonth - 1]}月${getLunarDayName(lunar.lunarDay)}`;
-
-  // 节日信息
   const lFest = getLunarFestival(lunar.lunarMonth, lunar.lunarDay, lunar.lunarYear);
   const sFest = getSolarFestival(m, d);
   let festHtml = '';
   if (lFest) festHtml = `<div class="festival-highlight">🎊 农历节日：${lFest}</div>`;
   if (sFest) festHtml += `<div class="festival-highlight">🎉 公历节日：${sFest}</div>`;
-
-  // 节气信息
   const term = getCurrentSolarTerm(new Date(y, m - 1, d));
   let termHtml = '';
   if (term) {
     termHtml = `<div class="term-highlight">🌿 当前节气：${term.name}
       <span style="font-size:12px;color:#a09080;font-weight:400;"> — ${term.desc}</span></div>`;
-
-    // 显示当月所有节气
     const monthTerms = getSolarTermsForMonth(y, m);
     if (monthTerms.length > 0) {
       termHtml += '<div style="margin-top:4px;font-size:12px;color:#6a9a6a;">当月节气：';
@@ -957,23 +817,17 @@ function renderInfoPanel() {
       termHtml += '</div>';
     }
   }
-
   document.getElementById('festivalInfo').innerHTML = festHtml;
   document.getElementById('termInfo').innerHTML = termHtml;
-
-  // 宜忌
   const yj = getYiJiForDate(y, m, d);
   document.getElementById('yiItems').textContent = yj.yi.join(' · ') || '诸事皆宜';
   document.getElementById('jiItems').textContent = yj.ji.join(' · ') || '无特别禁忌';
 }
-
 function renderYearOverview() {
   if (currentView !== 'year') return;
-
   const y = selectedYear;
   document.getElementById('yearOverviewTitle').textContent =
     `${y}年 · ${getYearGanZhi(y)}年 【${getShengXiao(y)}年】 · 二十四节气`;
-
   const terms = getSolarTermsForYear(y);
   let html = '';
   terms.forEach(t => {
@@ -984,8 +838,6 @@ function renderYearOverview() {
   });
   document.getElementById('termGrid').innerHTML = html;
 }
-
-// ==================== INIT ====================
 init();
 </script>
 <script src="../i18n.js" defer></script>

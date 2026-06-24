@@ -202,20 +202,18 @@ h1 { font-size: 1.5rem; }
 
 <script>
 (function() {
-  // --- Game State ---
   const DIFFICULTY_CONFIG = {
     easy:   { label: '简单', given: 40, name: 'easy' },
     medium: { label: '中等', given: 33, name: 'medium' },
     hard:   { label: '困难', given: 27, name: 'hard' },
     expert: { label: '专家', given: 22, name: 'expert' },
   };
-
   let difficulty = 'medium';
-  let solution = [];          // 9x9 complete solution
-  let puzzle = [];            // 9x9 puzzle with blanks (0 = blank)
-  let board = [];             // 9x9 current board state
-  let givenMask = [];         // 9x9 boolean - true if given cell
-  let notes = [];             // 9x9 array of Sets
+  let solution = [];
+  let puzzle = [];
+  let board = [];
+  let givenMask = [];
+  let notes = [];
   let selectedRow = -1;
   let selectedCol = -1;
   let mistakes = 0;
@@ -224,10 +222,8 @@ h1 { font-size: 1.5rem; }
   let timerInterval = null;
   let paused = false;
   let notesMode = false;
-  let history = [];           // undo stack
-  let bestTimes = {};         // { easy: seconds, medium: seconds, hard: seconds, expert: seconds }
-
-  // --- DOM ---
+  let history = [];
+  let bestTimes = {};
   const boardEl = document.getElementById('board');
   const timerEl = document.getElementById('timer');
   const mistakesEl = document.getElementById('mistakes');
@@ -235,8 +231,6 @@ h1 { font-size: 1.5rem; }
   const numberPadEl = document.getElementById('numberPad');
   const pauseOverlayEl = document.getElementById('pauseOverlay');
   const timesListEl = document.getElementById('timesList');
-
-  // --- Load best times from localStorage ---
   function loadBestTimes() {
     try {
       const saved = localStorage.getItem('sudoku_best_times');
@@ -246,13 +240,11 @@ h1 { font-size: 1.5rem; }
       bestTimes = { easy: null, medium: null, hard: null, expert: null };
     }
   }
-
   function saveBestTimes() {
     try {
       localStorage.setItem('sudoku_best_times', JSON.stringify(bestTimes));
     } catch(e) {}
   }
-
   function updateBestTime(diff, seconds) {
     if (!bestTimes[diff] || seconds < bestTimes[diff]) {
       bestTimes[diff] = seconds;
@@ -260,14 +252,12 @@ h1 { font-size: 1.5rem; }
       renderBestTimes();
     }
   }
-
   function formatTime(s) {
     if (s === null || s === undefined) return '--:--';
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
   }
-
   function renderBestTimes() {
     const diffs = ['easy', 'medium', 'hard', 'expert'];
     const labels = { easy: '简单', medium: '中等', hard: '困难', expert: '专家' };
@@ -278,11 +268,8 @@ h1 { font-size: 1.5rem; }
       </div>`
     ).join('');
   }
-
   loadBestTimes();
   renderBestTimes();
-
-  // --- Timer ---
   function startTimer() {
     stopTimer();
     timerSeconds = 0;
@@ -294,32 +281,25 @@ h1 { font-size: 1.5rem; }
       }
     }, 1000);
   }
-
   function stopTimer() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   }
-
   function pauseTimer() {
     paused = true;
     pauseOverlayEl.style.display = 'flex';
   }
-
   function resumeTimer() {
     paused = false;
     pauseOverlayEl.style.display = 'none';
   }
-
   function togglePause() {
     if (paused) { resumeTimer(); } else { pauseTimer(); }
   }
-
   function updateTimerDisplay() {
     const m = Math.floor(timerSeconds / 60);
     const s = timerSeconds % 60;
     timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
-
-  // --- Sudoku Solver/Generator ---
   function isValid(board, row, col, num) {
     for (let x = 0; x < 9; x++) {
       if (board[row][x] === num) return false;
@@ -334,13 +314,11 @@ h1 { font-size: 1.5rem; }
     }
     return true;
   }
-
   function solve(board) {
     for (let row = 0; row < 9; row++) {
       for (let col = 0; col < 9; col++) {
         if (board[row][col] === 0) {
           const nums = [1,2,3,4,5,6,7,8,9];
-          // Shuffle for variety
           for (let i = nums.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [nums[i], nums[j]] = [nums[j], nums[i]];
@@ -358,10 +336,8 @@ h1 { font-size: 1.5rem; }
     }
     return true;
   }
-
   function generateSolution() {
     const board = Array.from({ length: 9 }, () => Array(9).fill(0));
-    // Fill diagonal 3x3 boxes first (they don't share rows/cols)
     for (let box = 0; box < 9; box += 3) {
       const nums = [1,2,3,4,5,6,7,8,9];
       for (let i = nums.length - 1; i > 0; i--) {
@@ -378,28 +354,22 @@ h1 { font-size: 1.5rem; }
     solve(board);
     return board;
   }
-
   function generatePuzzle(solution, difficultyName) {
     const config = DIFFICULTY_CONFIG[difficultyName];
     const puzzle = solution.map(row => [...row]);
     const given = config.given;
     const totalCells = 81;
     const cellsToRemove = totalCells - given;
-
-    // Create list of all cell positions
     const positions = [];
     for (let i = 0; i < 9; i++) {
       for (let j = 0; j < 9; j++) {
         positions.push([i, j]);
       }
     }
-
-    // Shuffle positions
     for (let i = positions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [positions[i], positions[j]] = [positions[j], positions[i]];
     }
-
     let removed = 0;
     for (const [row, col] of positions) {
       if (removed >= cellsToRemove) break;
@@ -407,16 +377,12 @@ h1 { font-size: 1.5rem; }
       puzzle[row][col] = 0;
       removed++;
     }
-
     return puzzle;
   }
-
-  // --- Game Logic ---
   function initGame() {
     stopTimer();
     const config = DIFFICULTY_CONFIG[difficulty];
     diffLabelEl.textContent = config.label;
-
     solution = generateSolution();
     puzzle = generatePuzzle(solution, difficulty);
     board = puzzle.map(row => [...row]);
@@ -428,14 +394,12 @@ h1 { font-size: 1.5rem; }
     maxMistakes = 3;
     history = [];
     notesMode = false;
-
     updateMistakesDisplay();
     document.getElementById('notesBtn').classList.remove('active');
     renderBoard();
     renderNumberPad();
     startTimer();
   }
-
   function isComplete() {
     for (let i = 0; i < 9; i++) {
       for (let j = 0; j < 9; j++) {
@@ -444,12 +408,10 @@ h1 { font-size: 1.5rem; }
     }
     return true;
   }
-
   function onVictory() {
     stopTimer();
     const config = DIFFICULTY_CONFIG[difficulty];
     updateBestTime(config.name, timerSeconds);
-
     const overlay = document.createElement('div');
     overlay.className = 'victory-overlay';
     overlay.innerHTML = `
@@ -476,22 +438,18 @@ h1 { font-size: 1.5rem; }
       }
     });
   }
-
   function cellValue(row, col) {
     return board[row][col];
   }
-
   function pushHistory() {
-    // Deep clone current state
     const state = {
       board: board.map(r => [...r]),
       notes: notes.map(r => r.map(s => new Set(s))),
       mistakes: mistakes,
     };
     history.push(state);
-    if (history.length > 200) history.shift(); // limit
+    if (history.length > 200) history.shift();
   }
-
   function undo() {
     if (history.length === 0) return;
     const state = history.pop();
@@ -502,30 +460,23 @@ h1 { font-size: 1.5rem; }
     renderBoard();
     renderNumberPad();
   }
-
   function setCellValue(row, col, num) {
     if (givenMask[row][col]) return;
-    if (board[row][col] === num) return; // same value, no change
-
+    if (board[row][col] === num) return;
     pushHistory();
     board[row][col] = num;
     notes[row][col] = new Set();
-
-    // Check if this move is wrong
     if (num !== 0 && num !== solution[row][col]) {
       mistakes++;
       updateMistakesDisplay();
       renderBoard();
       renderNumberPad();
-
-      // Highlight error cell briefly
       const idx = row * 9 + col;
       const cellEl = boardEl.children[idx];
       if (cellEl) {
         cellEl.classList.add('error');
         setTimeout(() => cellEl.classList.remove('error'), 400);
       }
-
       if (mistakes >= maxMistakes) {
         stopTimer();
         setTimeout(() => {
@@ -538,16 +489,13 @@ h1 { font-size: 1.5rem; }
       renderBoard();
       renderNumberPad();
     }
-
     if (isComplete()) {
       setTimeout(onVictory, 300);
     }
   }
-
   function toggleNote(row, col, num) {
     if (givenMask[row][col]) return;
-    if (board[row][col] !== 0) return; // only notes on empty cells
-
+    if (board[row][col] !== 0) return;
     pushHistory();
     if (notes[row][col].has(num)) {
       notes[row][col].delete(num);
@@ -557,9 +505,7 @@ h1 { font-size: 1.5rem; }
     renderBoard();
     renderNumberPad();
   }
-
   function hint() {
-    // Find all empty or wrong cells
     const candidates = [];
     for (let i = 0; i < 9; i++) {
       for (let j = 0; j < 9; j++) {
@@ -569,13 +515,10 @@ h1 { font-size: 1.5rem; }
       }
     }
     if (candidates.length === 0) return;
-
-    // Pick a random incorrect cell
     const [row, col] = candidates[Math.floor(Math.random() * candidates.length)];
     pushHistory();
     board[row][col] = solution[row][col];
     notes[row][col] = new Set();
-    // Mark as hint
     const idx = row * 9 + col;
     renderBoard();
     renderNumberPad();
@@ -584,16 +527,13 @@ h1 { font-size: 1.5rem; }
       cellEl.classList.add('hint');
       setTimeout(() => cellEl.classList.remove('hint'), 600);
     }
-
     if (isComplete()) {
       setTimeout(onVictory, 300);
     }
   }
-
   function updateMistakesDisplay() {
     mistakesEl.textContent = mistakes + '/' + maxMistakes;
   }
-
   function countNumberOnBoard(num) {
     let count = 0;
     for (let i = 0; i < 9; i++) {
@@ -603,20 +543,15 @@ h1 { font-size: 1.5rem; }
     }
     return count;
   }
-
-  // --- Rendering ---
   function renderBoard() {
     boardEl.innerHTML = '';
     const selVal = selectedRow >= 0 && selectedCol >= 0 ? board[selectedRow][selectedCol] : -1;
-
     for (let i = 0; i < 9; i++) {
       for (let j = 0; j < 9; j++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
         cell.dataset.row = i;
         cell.dataset.col = j;
-
-        // Cell classes
         const val = board[i][j];
         if (givenMask[i][j]) {
           cell.classList.add('given');
@@ -626,25 +561,18 @@ h1 { font-size: 1.5rem; }
             cell.classList.add('error');
           }
         }
-
-        // Highlight selected cell
         if (i === selectedRow && j === selectedCol) {
           cell.classList.add('selected');
         } else if (selectedRow >= 0 && selectedCol >= 0) {
-          // Highlight row, column, box
           if (i === selectedRow || j === selectedCol ||
               (Math.floor(i/3) === Math.floor(selectedRow/3) &&
                Math.floor(j/3) === Math.floor(selectedCol/3))) {
             cell.classList.add('highlight');
           }
         }
-
-        // Highlight same number
         if (selVal > 0 && val === selVal && !(i === selectedRow && j === selectedCol)) {
           cell.classList.add('same-num');
         }
-
-        // Content
         if (val !== 0) {
           cell.textContent = val;
         } else if (notes[i][j].size > 0) {
@@ -657,13 +585,11 @@ h1 { font-size: 1.5rem; }
           }
           cell.appendChild(notesDiv);
         }
-
         cell.addEventListener('click', () => onCellClick(i, j));
         boardEl.appendChild(cell);
       }
     }
   }
-
   function renderNumberPad() {
     numberPadEl.innerHTML = '';
     for (let n = 1; n <= 9; n++) {
@@ -676,8 +602,6 @@ h1 { font-size: 1.5rem; }
       btn.addEventListener('click', () => onNumberClick(n));
       numberPadEl.appendChild(btn);
     }
-
-    // Erase button
     const eraseBtn = document.createElement('button');
     eraseBtn.textContent = '⌫';
     eraseBtn.style.width = '38px';
@@ -686,35 +610,27 @@ h1 { font-size: 1.5rem; }
     eraseBtn.addEventListener('click', () => onNumberClick(0));
     numberPadEl.appendChild(eraseBtn);
   }
-
   function onCellClick(row, col) {
     if (paused) return;
     if (givenMask[row][col] && selectedRow === row && selectedCol === col) return;
-
     selectedRow = row;
     selectedCol = col;
     renderBoard();
   }
-
   function onNumberClick(num) {
     if (paused) return;
     if (selectedRow < 0 || selectedCol < 0) return;
     if (givenMask[selectedRow][selectedCol]) {
-      // Clicking on a given cell - just move selection, no action
       return;
     }
-
     if (notesMode && num !== 0) {
       toggleNote(selectedRow, selectedCol, num);
     } else {
       setCellValue(selectedRow, selectedCol, num);
     }
   }
-
-  // --- Keyboard ---
   function onKeyDown(e) {
     if (paused) { resumeTimer(); return; }
-
     if (e.key >= '1' && e.key <= '9') {
       onNumberClick(parseInt(e.key));
     } else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
@@ -738,7 +654,6 @@ h1 { font-size: 1.5rem; }
       togglePause();
     }
   }
-
   function toggleNotesMode() {
     notesMode = !notesMode;
     const btn = document.getElementById('notesBtn');
@@ -750,40 +665,29 @@ h1 { font-size: 1.5rem; }
       btn.textContent = '✏️ 笔记';
     }
   }
-
-  // --- Event Listeners ---
   document.getElementById('difficultySelect').addEventListener('change', (e) => {
     difficulty = e.target.value;
     initGame();
   });
-
   document.getElementById('newGameBtn').addEventListener('click', () => {
     initGame();
   });
-
   document.getElementById('undoBtn').addEventListener('click', () => {
     if (!paused) undo();
   });
-
   document.getElementById('hintBtn').addEventListener('click', () => {
     if (!paused) hint();
   });
-
   document.getElementById('notesBtn').addEventListener('click', () => {
     if (!paused) toggleNotesMode();
   });
-
   document.getElementById('pauseBtn').addEventListener('click', () => {
     togglePause();
   });
-
   document.addEventListener('keydown', onKeyDown);
-
   pauseOverlayEl.addEventListener('click', () => {
     resumeTimer();
   });
-
-  // --- Init ---
   initGame();
 })();
 </script>

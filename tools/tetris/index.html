@@ -165,7 +165,6 @@ margin-top: 4px}
 </div>
 
 <script>
-// ==================== 常量 ====================
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 30;
@@ -177,8 +176,6 @@ const GLOW_COLORS = {
   I: '#00e5ff88', O: '#ffeb3b88', T: '#d500f988',
   S: '#76ff0388', Z: '#ff174488', J: '#2979ff88', L: '#ff910088'
 };
-
-// 7 个标准俄罗斯方块形状
 const SHAPES = {
   I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
   O: [[1,1],[1,1]],
@@ -188,10 +185,7 @@ const SHAPES = {
   J: [[1,0,0],[1,1,1],[0,0,0]],
   L: [[0,0,1],[1,1,1],[0,0,0]]
 };
-
 const PIECE_NAMES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
-
-// ==================== DOM 元素 ====================
 const boardCanvas = document.getElementById('board');
 const boardCtx = boardCanvas.getContext('2d');
 const nextCanvas = document.getElementById('nextPiece');
@@ -207,14 +201,10 @@ const gameOverOverlay = document.getElementById('gameOverOverlay');
 const finalScore = document.getElementById('finalScore');
 const gameArea = document.getElementById('gameArea');
 const touchControls = document.getElementById('touchControls');
-
-// ==================== 画布尺寸 ====================
 boardCanvas.width = COLS * BLOCK_SIZE;
 boardCanvas.height = ROWS * BLOCK_SIZE;
 nextCanvas.width = 6 * BLOCK_SIZE;
 nextCanvas.height = 4 * BLOCK_SIZE;
-
-// ==================== 游戏状态 ====================
 let board = [];
 let currentPiece = null;
 let nextPiece = null;
@@ -229,19 +219,15 @@ let lastDropTime = 0;
 let animationId = null;
 let particles = [];
 let highScore = 0;
-
-// ==================== 初始化 ====================
 function initBoard() {
   board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 }
-
 function loadHighScore() {
   const saved = localStorage.getItem('tetrisHighScore');
   highScore = saved ? parseInt(saved, 10) : 0;
   highScoreDisplay.textContent = highScore;
   hsBadge.textContent = highScore > 0 ? `历史最高: ${highScore}` : '';
 }
-
 function saveHighScore() {
   if (score > highScore) {
     highScore = score;
@@ -250,14 +236,11 @@ function saveHighScore() {
     hsBadge.textContent = `历史最高: ${highScore}`;
   }
 }
-
-// ==================== 方块逻辑 ====================
 function randomPiece() {
   const name = PIECE_NAMES[Math.floor(Math.random() * PIECE_NAMES.length)];
   const shape = SHAPES[name].map(row => [...row]);
   return { name, shape, x: Math.floor((COLS - shape[0].length) / 2), y: 0 };
 }
-
 function rotateShape(shape) {
   const N = shape.length;
   const rotated = Array.from({ length: N }, () => Array(N).fill(0));
@@ -266,7 +249,6 @@ function rotateShape(shape) {
       rotated[j][N - 1 - i] = shape[i][j];
   return rotated;
 }
-
 function isValidPosition(shape, x, y) {
   for (let r = 0; r < shape.length; r++) {
     for (let c = 0; c < shape[r].length; c++) {
@@ -279,7 +261,6 @@ function isValidPosition(shape, x, y) {
   }
   return true;
 }
-
 function placePiece() {
   const { shape, x, y, name } = currentPiece;
   for (let r = 0; r < shape.length; r++) {
@@ -295,15 +276,12 @@ function placePiece() {
     }
   }
 }
-
 function getGhostY() {
   const { shape, x, y } = currentPiece;
   let ghostY = y;
   while (isValidPosition(shape, x, ghostY + 1)) ghostY++;
   return ghostY;
 }
-
-// ==================== 行消除 ====================
 function clearLines() {
   let cleared = 0;
   const clearedRows = [];
@@ -314,7 +292,6 @@ function clearLines() {
     }
   }
   if (cleared > 0) {
-    // 粒子效果
     for (const row of clearedRows) {
       for (let c = 0; c < COLS; c++) {
         const color = board[row][c];
@@ -332,13 +309,11 @@ function clearLines() {
         }
       }
     }
-    // 从底部移除行
     clearedRows.sort((a, b) => b - a);
     for (const row of clearedRows) {
       board.splice(row, 1);
       board.unshift(Array(COLS).fill(null));
     }
-    // 计分：1行100分, 2行300分, 3行500分, 4行800分
     const basePoints = { 1: 100, 2: 300, 3: 500, 4: 800 };
     score += (basePoints[cleared] || cleared * 200) * level;
     lines += cleared;
@@ -350,22 +325,18 @@ function clearLines() {
     updateDisplay();
   }
 }
-
-// ==================== 移动操作 ====================
 function moveLeft() {
   if (!currentPiece || !gameRunning || gamePaused) return;
   if (isValidPosition(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
     currentPiece.x--;
   }
 }
-
 function moveRight() {
   if (!currentPiece || !gameRunning || gamePaused) return;
   if (isValidPosition(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
     currentPiece.x++;
   }
 }
-
 function softDrop() {
   if (!currentPiece || !gameRunning || gamePaused) return;
   if (isValidPosition(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
@@ -373,9 +344,8 @@ function softDrop() {
     score += 1;
     updateDisplay();
   }
-  lastDropTime = 0; // 重置下落计时器
+  lastDropTime = 0;
 }
-
 function hardDrop() {
   if (!currentPiece || !gameRunning || gamePaused) return;
   const dropDist = getGhostY() - currentPiece.y;
@@ -384,11 +354,9 @@ function hardDrop() {
   updateDisplay();
   lockPiece();
 }
-
 function rotate() {
   if (!currentPiece || !gameRunning || gamePaused) return;
   const rotated = rotateShape(currentPiece.shape);
-  // 尝试旋转，必要时踢墙
   const kicks = [0, -1, 1, -2, 2];
   for (const dx of kicks) {
     if (isValidPosition(rotated, currentPiece.x + dx, currentPiece.y)) {
@@ -397,7 +365,6 @@ function rotate() {
       return;
     }
   }
-  // 尝试上移
   for (const dy of [-1, -2]) {
     for (const dx of kicks) {
       if (isValidPosition(rotated, currentPiece.x + dx, currentPiece.y + dy)) {
@@ -409,8 +376,6 @@ function rotate() {
     }
   }
 }
-
-// ==================== 游戏流程 ====================
 function spawnPiece() {
   if (nextPiece) {
     currentPiece = nextPiece;
@@ -418,12 +383,10 @@ function spawnPiece() {
     currentPiece = randomPiece();
   }
   nextPiece = randomPiece();
-
   if (!isValidPosition(currentPiece.shape, currentPiece.x, currentPiece.y)) {
     triggerGameOver();
   }
 }
-
 function lockPiece() {
   placePiece();
   if (gameOver) return;
@@ -432,7 +395,6 @@ function lockPiece() {
   updateDisplay();
   lastDropTime = performance.now();
 }
-
 function triggerGameOver() {
   gameOver = true;
   gameRunning = false;
@@ -443,39 +405,29 @@ function triggerGameOver() {
     finalScore.textContent += '  新纪录！';
   }
 }
-
 function updateDisplay() {
   scoreDisplay.textContent = score;
   levelDisplay.textContent = level;
   linesDisplay.textContent = lines;
 }
-
-// ==================== 渲染 ====================
 function drawBlock(ctx, x, y, color, size, alpha = 1) {
   const px = x * size, py = y * size;
   ctx.globalAlpha = alpha;
-  // 主体
   ctx.fillStyle = color;
   ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-  // 高光
   ctx.fillStyle = `rgba(255,255,255,0.3)`;
   ctx.fillRect(px + 1, py + 1, size - 2, 4);
   ctx.fillRect(px + 1, py + 1, 4, size - 2);
-  // 阴影
   ctx.fillStyle = `rgba(0,0,0,0.35)`;
   ctx.fillRect(px + 1, py + size - 5, size - 2, 4);
   ctx.fillRect(px + size - 5, py + 1, 4, size - 2);
-  // 边框
   ctx.strokeStyle = `rgba(255,255,255,0.15)`;
   ctx.lineWidth = 0.5;
   ctx.strokeRect(px + 1, py + 1, size - 2, size - 2);
   ctx.globalAlpha = 1;
 }
-
 function drawBoard() {
   boardCtx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
-
-  // 网格线
   boardCtx.strokeStyle = '#ffffff08';
   boardCtx.lineWidth = 0.5;
   for (let i = 0; i <= COLS; i++) {
@@ -490,13 +442,10 @@ function drawBoard() {
     boardCtx.lineTo(COLS * BLOCK_SIZE, i * BLOCK_SIZE);
     boardCtx.stroke();
   }
-
-  // 已放置的方块
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (board[r][c]) {
         drawBlock(boardCtx, c, r, COLORS[board[r][c]], BLOCK_SIZE);
-        // 发光效果
         if (GLOW_COLORS[board[r][c]]) {
           boardCtx.shadowColor = GLOW_COLORS[board[r][c]];
           boardCtx.shadowBlur = 6;
@@ -508,8 +457,6 @@ function drawBoard() {
       }
     }
   }
-
-  // Ghost piece (投影)
   if (currentPiece && gameRunning && !gameOver) {
     const ghostY = getGhostY();
     if (ghostY !== currentPiece.y) {
@@ -533,8 +480,6 @@ function drawBoard() {
       }
     }
   }
-
-  // 当前方块
   if (currentPiece && gameRunning && !gameOver) {
     const { shape, x, y, name } = currentPiece;
     for (let r = 0; r < shape.length; r++) {
@@ -546,7 +491,6 @@ function drawBoard() {
     }
   }
 }
-
 function drawNext() {
   nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
   if (!nextPiece) return;
@@ -576,7 +520,6 @@ function drawNext() {
     }
   }
 }
-
 function drawParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -601,14 +544,11 @@ function drawParticles() {
   }
   boardCtx.globalAlpha = 1;
 }
-
-// ==================== 游戏循环 ====================
 function gameLoop(timestamp) {
   if (!gameRunning) {
     animationId = requestAnimationFrame(gameLoop);
     return;
   }
-
   if (!gamePaused && !gameOver) {
     if (timestamp - lastDropTime > dropInterval) {
       if (isValidPosition(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
@@ -620,14 +560,11 @@ function gameLoop(timestamp) {
       lastDropTime = timestamp;
     }
   }
-
   drawBoard();
   drawParticles();
   drawNext();
   animationId = requestAnimationFrame(gameLoop);
 }
-
-// ==================== 开始/暂停/结束 ====================
 function startGame() {
   initBoard();
   score = 0;
@@ -647,7 +584,6 @@ function startGame() {
   spawnPiece();
   lastDropTime = performance.now();
 }
-
 function togglePause() {
   if (!gameRunning) return;
   gamePaused = !gamePaused;
@@ -658,8 +594,6 @@ function togglePause() {
     lastDropTime = performance.now();
   }
 }
-
-// ==================== 输入处理 ====================
 document.addEventListener('keydown', (e) => {
   if (e.key === 'p' || e.key === 'P') {
     e.preventDefault();
@@ -681,7 +615,6 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault(); hardDrop(); break;
   }
 });
-
 function handleTouch(event, action) {
   event.preventDefault();
   if (!gameRunning || gamePaused || gameOver) return;
@@ -693,8 +626,6 @@ function handleTouch(event, action) {
     case 'drop': hardDrop(); break;
   }
 }
-
-// ==================== 启动 ====================
 loadHighScore();
 initBoard();
 drawBoard();

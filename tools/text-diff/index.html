@@ -219,7 +219,7 @@ textarea { min-height: 140px; }
 <body>
 
 <div class="container">
-  <!-- 头部 -->
+
   <div class="header">
     <h1>📝 文本差异对比</h1>
     <button class="theme-toggle" id="themeToggle" title="切换暗色/亮色模式">
@@ -228,7 +228,7 @@ textarea { min-height: 140px; }
     </button>
   </div>
 
-  <!-- 输入区 -->
+
   <div class="panel">
     <div class="editor-row">
       <div class="editor-col">
@@ -253,12 +253,12 @@ textarea { min-height: 140px; }
     </div>
   </div>
 
-  <!-- 统计信息 -->
+
   <div class="panel" id="statsPanel" style="display:none;">
     <div class="stats-row" id="statsRow"></div>
   </div>
 
-  <!-- 差异结果 -->
+
   <div class="panel" id="diffPanel" style="display:none;">
     <div class="diff-container" id="diffOutput">
       <div class="diff-empty">请输入两段文本并点击"对比差异"</div>
@@ -270,25 +270,19 @@ textarea { min-height: 140px; }
 (function() {
   const $ = id => document.getElementById(id);
   let theme = 'dark';
-
-  // ===== 行计数更新 =====
   function updateLineCounts() {
     const leftLines = $('leftEditor').value.split('\n').length;
     const rightLines = $('rightEditor').value.split('\n').length;
     $('leftCount').textContent = leftLines + ' 行';
     $('rightCount').textContent = rightLines + ' 行';
   }
-
   $('leftEditor').addEventListener('input', updateLineCounts);
   $('rightEditor').addEventListener('input', updateLineCounts);
-
-  // ===== 相似度计算 =====
   function similarity(a, b) {
     if (a === b) return 1;
     if (!a || !b) return 0;
     const maxLen = Math.max(a.length, b.length);
     if (maxLen === 0) return 1;
-    // 简单编辑距离
     const m = a.length, n = b.length;
     let prev = new Array(n + 1);
     let curr = new Array(n + 1);
@@ -306,8 +300,6 @@ textarea { min-height: 140px; }
     }
     return 1 - prev[n] / maxLen;
   }
-
-  // ===== LCS 长度矩阵 =====
   function buildLCSTable(a, b) {
     const m = a.length, n = b.length;
     const dp = new Array(m + 1);
@@ -325,14 +317,10 @@ textarea { min-height: 140px; }
     }
     return dp;
   }
-
-  // ===== 回溯LCS得到diff操作 =====
   function backtrackDiff(a, b) {
     const dp = buildLCSTable(a, b);
-    const ops = []; // {type: 'same'|'add'|'del'|'mod', leftIdx?, rightIdx?, content?}
+    const ops = [];
     let i = a.length, j = b.length;
-
-    // 先反向收集
     const rev = [];
     while (i > 0 || j > 0) {
       if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
@@ -347,16 +335,11 @@ textarea { min-height: 140px; }
         i--;
       }
     }
-
-    // 反转得到正序
     for (let k = rev.length - 1; k >= 0; k--) {
       ops.push(rev[k]);
     }
-
     return ops;
   }
-
-  // ===== 合并相邻的删除+新增为修改 =====
   function mergeModifiedOps(ops, a, b) {
     const merged = [];
     let i = 0;
@@ -366,7 +349,6 @@ textarea { min-height: 140px; }
         const addLine = ops[i + 1].content;
         const sim = similarity(delLine, addLine);
         if (sim > 0.3) {
-          // 视为修改：显示两行（删除→新增）
           merged.push({
             type: 'mod-del',
             content: delLine,
@@ -388,8 +370,6 @@ textarea { min-height: 140px; }
     }
     return merged;
   }
-
-  // ===== 计算统计 =====
   function computeStats(diffOps) {
     let added = 0, deleted = 0, modified = 0;
     let seenModPair = false;
@@ -402,15 +382,12 @@ textarea { min-height: 140px; }
           seenModPair = true;
         }
       } else if (diffOps[i].type === 'mod-add') {
-        // mod-add 和 mod-del 成对，已在 mod-del 中计数
       } else {
         seenModPair = false;
       }
     }
     return { added, deleted, modified };
   }
-
-  // ===== 渲染统计 =====
   function renderStats(stats) {
     const row = $('statsRow');
     const hasChanges = stats.added > 0 || stats.deleted > 0 || stats.modified > 0;
@@ -425,21 +402,17 @@ textarea { min-height: 140px; }
     }
     $('statsPanel').style.display = '';
   }
-
-  // ===== 渲染差异 =====
   function renderDiff(diffOps) {
     const output = $('diffOutput');
     if (diffOps.length === 0) {
       output.innerHTML = '<div class="diff-empty">请输入两段文本并点击"对比差异"</div>';
       return;
     }
-
     const allSame = diffOps.every(op => op.type === 'same');
     if (allSame) {
       output.innerHTML = '<div class="diff-empty">✨ 两段文本完全相同</div>';
       return;
     }
-
     let html = '';
     for (const op of diffOps) {
       let cssClass, prefix;
@@ -473,7 +446,6 @@ textarea { min-height: 140px; }
     }
     output.innerHTML = html;
   }
-
   function escapeHtml(str) {
     return str
       .replace(/&/g, '&amp;')
@@ -481,40 +453,30 @@ textarea { min-height: 140px; }
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
-
-  // ===== 执行对比 =====
   function doCompare() {
     const leftText = $('leftEditor').value;
     const rightText = $('rightEditor').value;
     const leftLines = leftText.split('\n');
     const rightLines = rightText.split('\n');
-
     if (!leftText.trim() && !rightText.trim()) {
       $('diffOutput').innerHTML = '<div class="diff-empty">请输入两段文本并点击"对比差异"</div>';
       $('statsPanel').style.display = 'none';
       return;
     }
-
     let ops = backtrackDiff(leftLines, rightLines);
     ops = mergeModifiedOps(ops, leftLines, rightLines);
-
     const stats = computeStats(ops);
     renderStats(stats);
     renderDiff(ops);
     $('diffPanel').style.display = '';
   }
-
   $('compareBtn').addEventListener('click', doCompare);
-
-  // Ctrl+Enter 快捷键
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       doCompare();
     }
   });
-
-  // ===== 交换 =====
   $('swapBtn').addEventListener('click', () => {
     const left = $('leftEditor').value;
     const right = $('rightEditor').value;
@@ -523,8 +485,6 @@ textarea { min-height: 140px; }
     updateLineCounts();
     doCompare();
   });
-
-  // ===== 清空 =====
   $('clearBtn').addEventListener('click', () => {
     $('leftEditor').value = '';
     $('rightEditor').value = '';
@@ -533,8 +493,6 @@ textarea { min-height: 140px; }
     $('statsPanel').style.display = 'none';
     $('diffPanel').style.display = 'none';
   });
-
-  // ===== 主题切换 =====
   $('themeToggle').addEventListener('click', () => {
     const html = document.documentElement;
     theme = theme === 'dark' ? 'light' : 'dark';
@@ -542,8 +500,6 @@ textarea { min-height: 140px; }
     $('themeIcon').textContent = theme === 'dark' ? '🌙' : '☀️';
     $('themeLabel').textContent = theme === 'dark' ? '暗色' : '亮色';
   });
-
-  // ===== 初始化 =====
   updateLineCounts();
 })();
 </script>

@@ -240,7 +240,7 @@ padding: 8px 0}
     <div class="subtitle">双人 Chess Clock / Game Timer</div>
   </div>
 
-  <!-- Presets -->
+
   <div class="presets" id="presets">
     <button class="preset-btn" data-time="300" data-inc="3" data-delay="0">快棋 5+3</button>
     <button class="preset-btn" data-time="180" data-inc="2" data-delay="0">闪电 3+2</button>
@@ -250,7 +250,7 @@ padding: 8px 0}
     <button class="preset-btn" id="custom-preset-btn">自定义</button>
   </div>
 
-  <!-- Custom time row -->
+
   <div class="custom-row" id="customRow" style="display:none;">
     <label>初始时间 <input type="number" id="customTimeMin" value="5" min="0" max="120"> 分
       <input type="number" id="customTimeSec" value="0" min="0" max="59"> 秒</label>
@@ -258,7 +258,7 @@ padding: 8px 0}
     <button class="apply-custom" id="applyCustom">应用</button>
   </div>
 
-  <!-- Increment / Delay toggle -->
+
   <div class="settings-row">
     <div class="inc-delay-toggle" id="modeToggle">
       <span class="active" data-mode="inc">加秒制</span>
@@ -266,7 +266,7 @@ padding: 8px 0}
     </div>
   </div>
 
-  <!-- Two player timers -->
+
   <div class="timers">
     <div class="player-panel p1 active" id="panel1">
       <div class="player-name">&#9679; 玩家一</div>
@@ -285,7 +285,7 @@ padding: 8px 0}
     </div>
   </div>
 
-  <!-- Controls -->
+
   <div class="controls">
     <button class="ctrl-btn start" id="btnStart">开始计时</button>
     <button class="ctrl-btn" id="btnPause" disabled>暂停</button>
@@ -296,7 +296,7 @@ padding: 8px 0}
     </div>
   </div>
 
-  <!-- Stats -->
+
   <div class="stats">
     <span>总步数 <strong id="totalMoves">0</strong></span>
     <span>状态 <strong id="statusText">等待开始</strong></span>
@@ -308,20 +308,17 @@ padding: 8px 0}
 
 <script>
 (function() {
-  // ===== State =====
   let player1 = { remaining: 300, increment: 3, delay: 0, moves: 0, isActive: true };
   let player2 = { remaining: 300, increment: 3, delay: 0, moves: 0, isActive: false };
   let running = false;
   let paused = false;
   let intervalId = null;
   let soundEnabled = true;
-  let mode = 'inc'; // 'inc' or 'delay'
+  let mode = 'inc';
   let currentPreset = '快棋 5+3';
-  let delayRunningFor = null; // which player is in delay phase, null = none
+  let delayRunningFor = null;
   let delayStartTime = 0;
   let delayRemaining = 0;
-
-  // ===== Audio =====
   let audioCtx = null;
   function getAudioCtx() {
     if (!audioCtx) {
@@ -329,7 +326,6 @@ padding: 8px 0}
     }
     return audioCtx;
   }
-
   function playBeep(freq, duration, type = 'square') {
     if (!soundEnabled) return;
     try {
@@ -344,9 +340,8 @@ padding: 8px 0}
       gain.connect(ctx.destination);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + duration);
-    } catch(e) { /* ignore audio errors */ }
+    } catch(e) {  }
   }
-
   function playSwitchSound() { playBeep(800, 0.08, 'sine'); }
   function playWarningSound() { playBeep(600, 0.12, 'square'); }
   function playDangerSound() { playBeep(400, 0.18, 'square'); }
@@ -354,8 +349,6 @@ padding: 8px 0}
     playBeep(200, 0.5, 'sawtooth');
     setTimeout(() => playBeep(150, 0.5, 'sawtooth'), 300);
   }
-
-  // ===== DOM refs =====
   const panel1 = document.getElementById('panel1');
   const panel2 = document.getElementById('panel2');
   const time1 = document.getElementById('time1');
@@ -376,8 +369,6 @@ padding: 8px 0}
   const customPresetBtn = document.getElementById('custom-preset-btn');
   const modeToggle = document.getElementById('modeToggle');
   const presetBtns = document.querySelectorAll('.preset-btn:not(#custom-preset-btn)');
-
-  // ===== Helpers =====
   function fmtTime(seconds) {
     const abs = Math.abs(seconds);
     const m = Math.floor(abs / 60);
@@ -385,7 +376,6 @@ padding: 8px 0}
     const prefix = seconds < 0 ? '-' : '';
     return prefix + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
-
   function getIncLabel(player) {
     if (player.delay > 0 && mode === 'delay') {
       return '延时 ' + player.delay + 's';
@@ -395,7 +385,6 @@ padding: 8px 0}
     }
     return '无加秒';
   }
-
   function updateDisplay() {
     time1.textContent = fmtTime(player1.remaining);
     time2.textContent = fmtTime(player2.remaining);
@@ -404,8 +393,6 @@ padding: 8px 0}
     moves1.textContent = '步数 ' + player1.moves;
     moves2.textContent = '步数 ' + player2.moves;
     totalMoves.textContent = player1.moves + player2.moves;
-
-    // Active panel
     if (player1.isActive) {
       panel1.classList.add('active');
       panel2.classList.remove('active');
@@ -413,14 +400,10 @@ padding: 8px 0}
       panel2.classList.add('active');
       panel1.classList.remove('active');
     }
-
-    // Warning/danger classes
     [panel1, panel2].forEach(p => { p.classList.remove('warning', 'danger'); });
     [time1, time2].forEach(t => { t.classList.remove('negative'); });
-
     const activePanel = player1.isActive ? panel1 : panel2;
     const activeTime = player1.isActive ? player1.remaining : player2.remaining;
-
     if (activeTime < 0) {
       activePanel.classList.add('danger');
       (player1.isActive ? time1 : time2).classList.add('negative');
@@ -429,8 +412,6 @@ padding: 8px 0}
     } else if (activeTime <= 30) {
       activePanel.classList.add('warning');
     }
-
-    // Button states
     if (running && !paused) {
       btnStart.textContent = '进行中';
       btnStart.disabled = true;
@@ -444,8 +425,6 @@ padding: 8px 0}
       btnStart.disabled = false;
       btnPause.disabled = true;
     }
-
-    // Status text
     if (!running) {
       statusText.textContent = '等待开始';
     } else if (paused) {
@@ -458,7 +437,6 @@ padding: 8px 0}
       statusText.textContent = (player1.isActive ? '玩家一' : '玩家二') + ' 回合中';
     }
   }
-
   function applyPreset(totalSecs, inc, delay) {
     running = false;
     paused = false;
@@ -466,23 +444,19 @@ padding: 8px 0}
     delayRunningFor = null;
     delayStartTime = 0;
     delayRemaining = 0;
-
     player1.remaining = totalSecs;
     player1.increment = inc;
     player1.delay = delay;
     player1.moves = 0;
     player1.isActive = true;
-
     player2.remaining = totalSecs;
     player2.increment = inc;
     player2.delay = delay;
     player2.moves = 0;
     player2.isActive = false;
-
     updateDisplay();
     updatePresetButtons();
   }
-
   function updatePresetButtons() {
     const p1 = player1;
     presetBtns.forEach(btn => {
@@ -497,19 +471,13 @@ padding: 8px 0}
       }
     });
   }
-
   function togglePlayer() {
     if (!running || paused) return;
-
     const departing = player1.isActive ? player1 : player2;
     const arriving = player1.isActive ? player2 : player1;
-
-    // Apply increment to departing player (only in increment mode)
     if (mode === 'inc' && departing.increment > 0) {
       departing.remaining += departing.increment;
     }
-
-    // Apply delay to arriving player (in delay mode)
     delayRunningFor = null;
     delayRemaining = 0;
     if (mode === 'delay' && arriving.delay > 0) {
@@ -517,38 +485,26 @@ padding: 8px 0}
       delayRemaining = arriving.delay;
       delayStartTime = Date.now();
     }
-
     departing.moves++;
-
     player1.isActive = !player1.isActive;
     player2.isActive = !player2.isActive;
-
     playSwitchSound();
     updateDisplay();
   }
-
   function tick() {
     if (!running || paused) return;
-
     const active = player1.isActive ? player1 : player2;
-
-    // Handle delay first
     if (delayRunningFor === active && delayRemaining > 0) {
       const elapsed = (Date.now() - delayStartTime) / 1000;
       delayRemaining = Math.max(0, active.delay - elapsed);
       updateDisplay();
-      // If delay still running, don't deduct main time
       if (delayRemaining > 0) return;
-      // Delay finished, reset
       delayRunningFor = null;
       delayRemaining = 0;
       delayStartTime = 0;
       return;
     }
-
     active.remaining -= 1;
-
-    // Warning sounds
     if (active.remaining === 30 || active.remaining === 20) {
       playWarningSound();
     } else if (active.remaining === 10 || active.remaining === 5) {
@@ -560,20 +516,15 @@ padding: 8px 0}
     } else if (active.remaining < 0 && active.remaining % 5 === 0) {
       playDangerSound();
     }
-
     if (active.remaining <= -120) {
-      // Auto-stop after 2 minutes overtime
       running = false;
       if (intervalId) { clearInterval(intervalId); intervalId = null; }
     }
-
     updateDisplay();
   }
-
   function startTimer() {
-    if (running && !paused) return; // already running
+    if (running && !paused) return;
     if (paused) {
-      // Resume
       paused = false;
       if (delayRunningFor && delayRemaining > 0) {
         delayStartTime = Date.now();
@@ -581,24 +532,19 @@ padding: 8px 0}
       updateDisplay();
       return;
     }
-
-    // Fresh start
     running = true;
     paused = false;
     delayRunningFor = null;
     delayRemaining = 0;
     updateDisplay();
-
     if (intervalId) clearInterval(intervalId);
     intervalId = setInterval(tick, 1000);
   }
-
   function pauseTimer() {
     if (!running || paused) return;
     paused = true;
     updateDisplay();
   }
-
   function resetTimer() {
     running = false;
     paused = false;
@@ -609,7 +555,6 @@ padding: 8px 0}
     applyPreset(player1.remaining, player1.increment, player1.delay);
     updateDisplay();
   }
-
   function toggleSound() {
     soundEnabled = !soundEnabled;
     if (soundEnabled) {
@@ -622,26 +567,20 @@ padding: 8px 0}
       soundLabel.textContent = '音效关';
     }
   }
-
-  // ===== Event bindings =====
   panel1.addEventListener('click', () => {
     if (running && !paused && !player1.isActive) {
       togglePlayer();
     }
   });
-
   panel2.addEventListener('click', () => {
     if (running && !paused && player1.isActive) {
       togglePlayer();
     }
   });
-
   btnStart.addEventListener('click', startTimer);
   btnPause.addEventListener('click', pauseTimer);
   btnReset.addEventListener('click', resetTimer);
   soundToggle.addEventListener('click', toggleSound);
-
-  // Preset buttons
   presetBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const total = parseInt(btn.dataset.time);
@@ -653,15 +592,11 @@ padding: 8px 0}
       btn.classList.add('active');
     });
   });
-
-  // Custom preset button
   customPresetBtn.addEventListener('click', () => {
     customRow.style.display = customRow.style.display === 'none' ? 'flex' : 'none';
     presetBtns.forEach(b => b.classList.remove('active'));
     customPresetBtn.classList.add('active');
   });
-
-  // Apply custom
   document.getElementById('applyCustom').addEventListener('click', () => {
     const min = parseInt(document.getElementById('customTimeMin').value) || 0;
     const sec = parseInt(document.getElementById('customTimeSec').value) || 0;
@@ -670,8 +605,6 @@ padding: 8px 0}
     applyPreset(total, inc, inc);
     currentPreset = '自定义';
   });
-
-  // Mode toggle: increment vs delay
   modeToggle.querySelectorAll('span').forEach(el => {
     el.addEventListener('click', () => {
       modeToggle.querySelectorAll('span').forEach(s => s.classList.remove('active'));
@@ -680,8 +613,6 @@ padding: 8px 0}
       updateDisplay();
     });
   });
-
-  // Keyboard shortcuts
   document.addEventListener('keydown', e => {
     if (e.code === 'Space') {
       e.preventDefault();
@@ -699,12 +630,9 @@ padding: 8px 0}
       resetTimer();
     }
   });
-
-  // Initial preset highlight
   updatePresetButtons();
   presetBtns[0]?.classList.add('active');
   updateDisplay();
-
 })();
 </script>
 <script src="../i18n.js" defer></script>

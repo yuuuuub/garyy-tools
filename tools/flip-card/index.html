@@ -259,13 +259,13 @@ transform: translateY(-1px)}
 <body>
 
 <div class="container">
-  <!-- Header -->
+
   <div class="header">
     <h1 class="title">记忆翻牌</h1>
     <p class="subtitle">翻牌记忆游戏</p>
   </div>
 
-  <!-- Controls -->
+
   <div class="controls-bar">
     <div class="select-group">
       <label for="theme-select">主题</label>
@@ -285,7 +285,7 @@ transform: translateY(-1px)}
     </div>
   </div>
 
-  <!-- Stats -->
+
   <div class="stats-bar">
     <div class="stat">
       <span class="stat-value moves" id="move-count">0</span>
@@ -301,14 +301,14 @@ transform: translateY(-1px)}
     </div>
   </div>
 
-  <!-- Game Board -->
+
   <div class="game-board cols-4" id="game-board"></div>
 
-  <!-- New Game Button -->
+
   <button class="btn-new-game" id="btn-new-game">新游戏</button>
 </div>
 
-<!-- Win Overlay -->
+
 <div class="overlay hidden" id="win-overlay">
   <div class="win-dialog">
     <div class="win-title">恭喜通关！</div>
@@ -319,15 +319,12 @@ transform: translateY(-1px)}
 </div>
 
 <script>
-// ===== Theme Data =====
 const THEMES = {
   animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🦄','🐙','🐳','🦋'],
   food: ['🍎','🍊','🍋','🍇','🍓','🍒','🥝','🍑','🥭','🍍','🍕','🍔','🌮','🍦','🍩','🎂','🍪','🍫','🥐','🧁','🍉','🍜'],
   flags: ['🇨🇳','🇺🇸','🇬🇧','🇫🇷','🇩🇪','🇯🇵','🇰🇷','🇧🇷','🇦🇺','🇨🇦','🇮🇹','🇪🇸','🇷🇺','🇮🇳','🇳🇱','🇨🇭','🇸🇪','🇲🇽','🇦🇷','🇿🇦','🇵🇹','🇹🇷'],
   symbols: ['❤️','⭐','🌈','🔥','💎','🎵','🚀','🌙','☀️','⚡','🌸','🎯','🏆','💡','🎨','🔮','🎭','🧩','🎪','✨','🌟','🎲']
 };
-
-// ===== Game State =====
 const state = {
   theme: 'animals',
   difficulty: 'easy',
@@ -343,8 +340,6 @@ const state = {
   isLocked: false,
   isGameOver: false
 };
-
-// ===== DOM Elements =====
 const $board = document.getElementById('game-board');
 const $moveCount = document.getElementById('move-count');
 const $timer = document.getElementById('timer');
@@ -357,8 +352,6 @@ const $btnPlayAgain = document.getElementById('btn-play-again');
 const $winOverlay = document.getElementById('win-overlay');
 const $winStars = document.getElementById('win-stars');
 const $winSummary = document.getElementById('win-summary');
-
-// ===== Shuffle Helper =====
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -367,10 +360,7 @@ function shuffle(arr) {
   }
   return a;
 }
-
-// ===== Initialize Game =====
 function initGame() {
-  // Reset state
   clearInterval(state.timerInterval);
   state.timerInterval = null;
   state.timerSeconds = 0;
@@ -379,56 +369,41 @@ function initGame() {
   state.flippedCards = [];
   state.isLocked = false;
   state.isGameOver = false;
-
-  // Set difficulty
   if (state.difficulty === 'easy') {
     state.cols = 4; state.rows = 4; state.totalPairs = 8;
   } else {
     state.cols = 6; state.rows = 6; state.totalPairs = 18;
   }
-
-  // Pick emojis and create pairs
   const emojiPool = THEMES[state.theme];
   const selected = shuffle(emojiPool).slice(0, state.totalPairs);
   const cardValues = shuffle([...selected, ...selected]);
-
   state.cards = cardValues.map((emoji, index) => ({
     id: index,
     emoji,
     isFlipped: false,
     isMatched: false
   }));
-
-  // Render
   renderBoard();
   updateStats();
   $winOverlay.classList.add('hidden');
 }
-
-// ===== Render Board =====
 function renderBoard() {
   $board.innerHTML = '';
   $board.className = 'game-board ' + (state.cols === 4 ? 'cols-4' : 'cols-6');
-
   state.cards.forEach((card) => {
     const container = document.createElement('div');
     container.className = 'card-container';
     container.dataset.cardId = card.id;
-
     const inner = document.createElement('div');
     inner.className = 'card';
-
     const front = document.createElement('div');
     front.className = 'card-front';
     front.textContent = card.emoji;
-
     const back = document.createElement('div');
     back.className = 'card-back';
-
     inner.appendChild(front);
     inner.appendChild(back);
     container.appendChild(inner);
-
     if (card.isMatched) {
       inner.classList.add('matched');
       container.classList.add('matched-card');
@@ -436,44 +411,30 @@ function renderBoard() {
     if (card.isFlipped) {
       inner.classList.add('flipped');
     }
-
     container.addEventListener('click', () => onCardClick(card, container, inner));
     $board.appendChild(container);
   });
 }
-
-// ===== Card Click Handler =====
 function onCardClick(card, container, inner) {
-  // Guard conditions
   if (state.isLocked) return;
   if (card.isFlipped || card.isMatched) return;
   if (state.flippedCards.length >= 2) return;
   if (state.isGameOver) return;
-
-  // Start timer on first move
   if (state.moves === 0 && !state.timerInterval) {
     startTimer();
   }
-
-  // Flip card
   card.isFlipped = true;
   inner.classList.add('flipped');
   state.flippedCards.push({ card, container, inner });
-
-  // Check match when two cards are flipped
   if (state.flippedCards.length === 2) {
     state.moves++;
     updateStats();
     checkMatch();
   }
 }
-
-// ===== Check Match =====
 function checkMatch() {
   const [first, second] = state.flippedCards;
-
   if (first.card.emoji === second.card.emoji) {
-    // Match!
     setTimeout(() => {
       first.inner.classList.add('matched');
       second.inner.classList.add('matched');
@@ -484,13 +445,11 @@ function checkMatch() {
       state.matchedPairs++;
       state.flippedCards = [];
       updateStats();
-
       if (state.matchedPairs === state.totalPairs) {
         gameWin();
       }
     }, 400);
   } else {
-    // No match - flip back
     state.isLocked = true;
     setTimeout(() => {
       first.inner.classList.remove('flipped');
@@ -502,43 +461,34 @@ function checkMatch() {
     }, 700);
   }
 }
-
-// ===== Timer =====
 function startTimer() {
   state.timerInterval = setInterval(() => {
     state.timerSeconds++;
     updateTimerDisplay();
   }, 1000);
 }
-
 function updateTimerDisplay() {
   const m = Math.floor(state.timerSeconds / 60).toString().padStart(2, '0');
   const s = (state.timerSeconds % 60).toString().padStart(2, '0');
   $timer.textContent = m + ':' + s;
 }
-
-// ===== Update Stats =====
 function updateStats() {
   $moveCount.textContent = state.moves;
   $pairsFound.textContent = state.matchedPairs;
   $totalPairs.textContent = state.totalPairs;
   updateTimerDisplay();
 }
-
-// ===== Star Rating =====
 function calculateStars() {
   const minMoves = state.totalPairs;
   const maxMoves = state.totalPairs * 4;
   const moveRatio = (state.moves - minMoves) / (maxMoves - minMoves);
   const maxTime = state.totalPairs * 20;
   const timeRatio = Math.min(state.timerSeconds / maxTime, 1);
-
   const score = 1 - (moveRatio * 0.6 + timeRatio * 0.4);
   if (score >= 0.7) return 3;
   if (score >= 0.4) return 2;
   return 1;
 }
-
 function renderStars(count) {
   let html = '';
   for (let i = 0; i < 3; i++) {
@@ -546,43 +496,32 @@ function renderStars(count) {
   }
   return html;
 }
-
-// ===== Win Handler =====
 function gameWin() {
   state.isGameOver = true;
   clearInterval(state.timerInterval);
   const stars = calculateStars();
-
   const m = Math.floor(state.timerSeconds / 60);
   const s = state.timerSeconds % 60;
   const timeStr = m > 0
     ? m + ' 分 ' + s + ' 秒'
     : s + ' 秒';
-
   $winStars.innerHTML = renderStars(stars);
   $winSummary.innerHTML =
     '用时 <strong>' + timeStr + '</strong><br>' +
     '步数 <strong>' + state.moves + '</strong> 步<br>' +
     '获得 <strong>' + stars + ' 星</strong> 评价';
-
   $winOverlay.classList.remove('hidden');
 }
-
-// ===== Event Listeners =====
 $themeSelect.addEventListener('change', (e) => {
   state.theme = e.target.value;
   initGame();
 });
-
 $difficultySelect.addEventListener('change', (e) => {
   state.difficulty = e.target.value;
   initGame();
 });
-
 $btnNewGame.addEventListener('click', initGame);
 $btnPlayAgain.addEventListener('click', initGame);
-
-// ===== Initialize =====
 updateTimerDisplay();
 $totalPairs.textContent = state.totalPairs;
 initGame();

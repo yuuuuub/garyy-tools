@@ -44,7 +44,6 @@ const W=600,H=350,GRAVITY=0.5,JUMP=-11;
 let player,obstacles,coins,ground,scrollSpeed,distance,coinCount,score,gameState='idle',animFrame;
 let lastTime=0,groundOffset=0;
 const overlay=document.getElementById('overlay');
-
 function init(){
   ground=H-50;
   obstacles=[];coins=[];
@@ -52,12 +51,10 @@ function init(){
   scrollSpeed=3;distance=0;coinCount=0;score=0;
   spawnInitial();
 }
-
 function spawnInitial(){
   for(let i=0;i<5;i++)spawnObstacle(600+i*200+Math.random()*100);
   for(let i=0;i<8;i++)spawnCoin(600+i*120+Math.random()*60);
 }
-
 function spawnObstacle(x){
   const types=['wall','spike','box'];
   const t=types[Math.floor(Math.random()*types.length)];
@@ -65,35 +62,28 @@ function spawnObstacle(x){
   else if(t==='spike')obstacles.push({x,y:ground-18,w:30,h:18,type:'spike'});
   else obstacles.push({x,y:ground-30,w:28,h:30,type:'box'});
 }
-
 function spawnCoin(x){
   coins.push({x,y:ground-60-Math.random()*80,r:8,collected:false});
 }
-
 function startGame(){
   init();gameState='playing';overlay.style.display='none';
   lastTime=performance.now();
   if(animFrame)cancelAnimationFrame(animFrame);
   loop();
 }
-
 function update(dt){
   const p=player;
   p.vy+=GRAVITY;p.y+=p.vy;
   if(p.y>=ground-p.h){p.y=ground-p.h;p.vy=0;p.onGround=true;p.jumps=1}
-  // scroll
   const spd=scrollSpeed+distance*0.0005;
   distance+=spd*dt*0.06;score=Math.floor(distance);
   for(const o of obstacles){o.x-=spd}
   for(const c of coins){c.x-=spd}
   groundOffset=(groundOffset+spd)%40;
-  // spawn
   if(obstacles.length===0||obstacles[obstacles.length-1].x<400)spawnObstacle(650+Math.random()*150);
   if(coins.length<5||coins[coins.length-1].x<400)spawnCoin(650+Math.random()*100);
-  // cleanup
   while(obstacles.length&&obstacles[0].x<-60)obstacles.shift();
   while(coins.length&&coins[0].x<-30)coins.shift();
-  // collision
   for(const o of obstacles){
     if(p.x+p.w>o.x+4&&p.x<o.x+o.w-4&&p.y+p.h>o.y+4&&p.y<o.y+o.h-4){
       gameState='dead';showOverlay('游戏结束','距离: '+score+'m | 金币: '+coinCount,'重新开始');return;
@@ -107,22 +97,17 @@ function update(dt){
   coins=coins.filter(c=>!c.collected);
   p.runFrame=(p.runFrame+dt*0.01)%1;
 }
-
 function draw(){
   ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
-  // bg layers
   ctx.fillStyle='#161b22';
   for(let i=0;i<W;i+=80){
     const h=30+Math.sin((i+groundOffset*0.3)*0.02)*15;
     ctx.fillRect(i,ground-h-10,60,h);
   }
-  // ground
   ctx.fillStyle='#21262d';ctx.fillRect(0,ground,W,50);
   ctx.strokeStyle='#30363d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,ground);ctx.lineTo(W,ground);ctx.stroke();
-  // ground lines
   ctx.strokeStyle='#1a1f27';
   for(let i=-groundOffset;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,ground+10);ctx.lineTo(i-20,ground+50);ctx.stroke()}
-  // obstacles
   for(const o of obstacles){
     if(o.type==='spike'){
       ctx.fillStyle='#f85149';ctx.beginPath();
@@ -135,37 +120,31 @@ function draw(){
       ctx.strokeStyle='#d29922';ctx.strokeRect(o.x,o.y,o.w,o.h);
     }
   }
-  // coins
   ctx.fillStyle='#f0c000';
   for(const c of coins){
     ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#0d1117';ctx.font='bold 10px sans-serif';ctx.fillText('$',c.x-4,c.y+4);ctx.fillStyle='#f0c000';
   }
-  // player
   const p=player;
   ctx.fillStyle='#3b82f6';ctx.fillRect(p.x,p.y,p.w,p.h);
   ctx.fillStyle='#fff';
   ctx.fillRect(p.x+5,p.y+5,5,5);ctx.fillRect(p.x+17,p.y+5,5,5);
-  // legs
   if(!p.onGround){
     ctx.fillRect(p.x+4,p.y+p.h,4,6);ctx.fillRect(p.x+p.w-8,p.y+p.h-2,4,6);
   }else{
     const legOff=Math.sin(p.runFrame*Math.PI*2)*4;
     ctx.fillRect(p.x+4,p.y+p.h,4,6+legOff);ctx.fillRect(p.x+p.w-8,p.y+p.h,4,6-legOff);
   }
-  // UI
   document.getElementById('scoreText').textContent='分数: '+score;
   document.getElementById('coinText').textContent='金币: '+coinCount;
   document.getElementById('distText').textContent='距离: '+Math.floor(distance)+'m';
 }
-
 function showOverlay(title,desc,btnText){
   overlay.querySelector('h2').textContent=title;
   overlay.querySelector('p').textContent=desc;
   overlay.querySelector('.btn').textContent=btnText;
   overlay.style.display='flex';
 }
-
 let lastJump=0;
 function jump(){
   if(gameState!=='playing')return;
@@ -173,20 +152,17 @@ function jump(){
   if(player.onGround){player.vy=JUMP;player.onGround=false;player.jumps=1;lastJump=now}
   else if(player.jumps>0&&now-lastJump>100){player.vy=JUMP*0.85;player.jumps=0;lastJump=now}
 }
-
 function loop(ts){
   if(gameState!=='playing')return;
   const dt=Math.min(ts-lastTime,30);lastTime=ts;
   update(dt);draw();
   animFrame=requestAnimationFrame(loop);
 }
-
 document.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();jump()}
 });
 canvas.addEventListener('click',jump);
 canvas.addEventListener('touchstart',e=>{e.preventDefault();jump()});
-
 init();draw();
 </script>
 <script src="../i18n.js" defer></script>

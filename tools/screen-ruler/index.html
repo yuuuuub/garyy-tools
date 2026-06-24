@@ -193,7 +193,7 @@ white-space: nowrap}
 </head>
 <body>
 
-<!-- Toolbar -->
+
 <div id="toolbar">
   <button id="btn-measure" class="active" title="拖拽测量距离">📏 测量</button>
   <button id="btn-clear" class="danger" title="清除所有测量线">🗑 全部清除</button>
@@ -211,7 +211,7 @@ white-space: nowrap}
   <button id="btn-fullscreen" title="全屏模式">⛶ 全屏</button>
 </div>
 
-<!-- Main area -->
+
 <div id="main-area">
   <canvas id="ruler-left"></canvas>
   <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
@@ -225,14 +225,14 @@ white-space: nowrap}
 </div>
 <div id="ctx-menu"></div>
 
-<!-- Status bar -->
+
 <div id="status-bar">
   <span>鼠标位置: <span class="coord" id="coord-pos">--</span></span>
   <span>测量线条数: <span id="coord-count">0</span></span>
   <span id="coord-detail">--</span>
 </div>
 
-<!-- Calibration modal -->
+
 <div class="modal-overlay hidden" id="cal-modal-overlay">
   <div class="modal">
     <h2>🔧 屏幕 DPI 校准</h2>
@@ -273,39 +273,31 @@ white-space: nowrap}
 </div>
 
 <script>
-// ==================== STATE ====================
 const state = {
   dpi: 96,
-  mode: 'measure', // 'measure' | 'calibrating'
+  mode: 'measure',
   calibrationType: null,
   calibrationRealMM: 0,
   calibrationStart: null,
   calibrationEnd: null,
-
   showGrid: false,
   showRulers: false,
   snapEnabled: false,
   fullscreen: false,
   rulerColor: '#00ff88',
-
   mouseX: 0,
   mouseY: 0,
-
   measuring: false,
   measureStart: null,
   measureCurrent: null,
-
-  lines: [], // { x1, y1, x2, y2, color, id }
+  lines: [],
   nextLineId: 1,
   hoveredLineId: null,
-
   gridSize: 50,
   rulerTickMajor: 50,
   rulerTickMinor: 10,
-
   ctxMenuLineId: null,
 };
-
 function saveState() {
   try {
     localStorage.setItem('screen-ruler-state', JSON.stringify({
@@ -318,7 +310,6 @@ function saveState() {
     }));
   } catch(e) {}
 }
-
 function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem('screen-ruler-state'));
@@ -333,8 +324,6 @@ function loadState() {
   } catch(e) {}
 }
 loadState();
-
-// ==================== DOM REFS ====================
 const canvasWrap = document.getElementById('canvas-wrap');
 const measureCanvas = document.getElementById('measure-canvas');
 const measureCtx = measureCanvas.getContext('2d');
@@ -347,8 +336,6 @@ const rulerLeftCtx = rulerLeftCanvas.getContext('2d');
 const cursorInfo = document.getElementById('cursor-info');
 const ctxMenu = document.getElementById('ctx-menu');
 const calModalOverlay = document.getElementById('cal-modal-overlay');
-
-// Buttons
 const btnMeasure = document.getElementById('btn-measure');
 const btnClear = document.getElementById('btn-clear');
 const btnGrid = document.getElementById('btn-grid');
@@ -358,43 +345,34 @@ const btnCalibrate = document.getElementById('btn-calibrate');
 const btnFullscreen = document.getElementById('btn-fullscreen');
 const colorPicker = document.getElementById('color-picker');
 const dpiDisplay = document.getElementById('dpi-display');
-
-// ==================== INIT ====================
 function resizeCanvases() {
   const dpr = window.devicePixelRatio || 1;
   const wrapW = canvasWrap.clientWidth;
   const wrapH = canvasWrap.clientHeight;
-
   [measureCanvas, gridCanvas].forEach(c => {
     c.width = wrapW * dpr;
     c.height = wrapH * dpr;
     c.style.width = wrapW + 'px';
     c.style.height = wrapH + 'px';
   });
-
   measureCtx.setTransform(1, 0, 0, 1, 0, 0);
   measureCtx.scale(dpr, dpr);
   gridCtx.setTransform(1, 0, 0, 1, 0, 0);
   gridCtx.scale(dpr, dpr);
-
-  // Rulers
   rulerTopCanvas.width = wrapW * dpr;
   rulerTopCanvas.height = 28 * dpr;
   rulerTopCanvas.style.width = wrapW + 'px';
   rulerTopCanvas.style.height = '28px';
   rulerTopCtx.setTransform(1, 0, 0, 1, 0, 0);
   rulerTopCtx.scale(dpr, dpr);
-
   rulerLeftCanvas.width = 28 * dpr;
   rulerLeftCanvas.height = wrapH * dpr;
   rulerLeftCanvas.style.width = '28px';
   rulerLeftCanvas.style.height = wrapH + 'px';
   rulerLeftCtx.setTransform(1, 0, 0, 1, 0, 0);
   rulerLeftCtx.scale(dpr, dpr);
-
   drawAll();
 }
-
 function initUI() {
   colorPicker.value = state.rulerColor;
   dpiDisplay.textContent = `DPI: ${state.dpi}`;
@@ -403,21 +381,17 @@ function initUI() {
   if (state.snapEnabled) btnSnap.classList.add('active');
   updateRulerVisibility();
 }
-
-// ==================== DRAWING ====================
 function drawAll() {
   drawGrid();
   drawMeasurements();
   drawRulers();
   updateStatusBar();
 }
-
 function drawGrid() {
   const w = canvasWrap.clientWidth;
   const h = canvasWrap.clientHeight;
   gridCtx.clearRect(0, 0, w, h);
   if (!state.showGrid) return;
-
   const gs = state.gridSize;
   gridCtx.strokeStyle = state.rulerColor.replace(')', ',0.15)').replace('rgb', 'rgba');
   if (state.rulerColor.startsWith('#')) {
@@ -427,7 +401,6 @@ function drawGrid() {
     gridCtx.strokeStyle = `rgba(${r},${g},${b},0.12)`;
   }
   gridCtx.lineWidth = 0.5;
-
   for (let x = gs; x < w; x += gs) {
     gridCtx.beginPath();
     gridCtx.moveTo(x, 0);
@@ -441,20 +414,14 @@ function drawGrid() {
     gridCtx.stroke();
   }
 }
-
 function drawMeasurements() {
   const w = canvasWrap.clientWidth;
   const h = canvasWrap.clientHeight;
   measureCtx.clearRect(0, 0, w, h);
-
-  // Dash pattern
   measureCtx.setLineDash([6, 4]);
-
   state.lines.forEach(line => {
     drawLine(line, line.id === state.hoveredLineId);
   });
-
-  // Active measuring line
   if (state.measuring && state.measureStart && state.measureCurrent) {
     drawLine({
       x1: state.measureStart.x,
@@ -464,8 +431,6 @@ function drawMeasurements() {
       color: state.rulerColor,
     }, true);
   }
-
-  // Calibration line
   if (state.mode === 'calibrating' && state.calibrationStart) {
     const end = state.calibrationEnd || state.measureCurrent;
     if (end) {
@@ -476,7 +441,6 @@ function drawMeasurements() {
       measureCtx.moveTo(state.calibrationStart.x, state.calibrationStart.y);
       measureCtx.lineTo(end.x, end.y);
       measureCtx.stroke();
-
       measureCtx.fillStyle = '#ffaa00';
       measureCtx.beginPath();
       measureCtx.arc(state.calibrationStart.x, state.calibrationStart.y, 5, 0, Math.PI * 2);
@@ -488,10 +452,8 @@ function drawMeasurements() {
       }
     }
   }
-
   measureCtx.setLineDash([]);
 }
-
 function drawLine(line, highlighted) {
   const dx = line.x2 - line.x1;
   const dy = line.y2 - line.y1;
@@ -499,15 +461,12 @@ function drawLine(line, highlighted) {
   const distMM = (distPx / state.dpi) * 25.4;
   const lw = highlighted ? 2.5 : 2;
   const color = line.color || state.rulerColor;
-
   measureCtx.strokeStyle = color;
   measureCtx.lineWidth = lw;
   measureCtx.beginPath();
   measureCtx.moveTo(line.x1, line.y1);
   measureCtx.lineTo(line.x2, line.y2);
   measureCtx.stroke();
-
-  // Endpoints
   measureCtx.fillStyle = color;
   [{ x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }].forEach((p, i) => {
     measureCtx.beginPath();
@@ -519,45 +478,34 @@ function drawLine(line, highlighted) {
     measureCtx.lineWidth = 1.5;
     measureCtx.stroke();
   });
-
-  // Label
   const midX = (line.x1 + line.x2) / 2;
   const midY = (line.y1 + line.y2) / 2;
   const labelText = `${distPx} px  |  ${distMM.toFixed(1)} mm  (${(distMM / 10).toFixed(2)} cm)`;
-
   measureCtx.font = `${highlighted ? 'bold ' : ''}12px "SF Mono","Cascadia Code","Fira Code",monospace`;
   const textW = measureCtx.measureText(labelText).width;
-
   const padX = 8, padY = 6;
   measureCtx.fillStyle = 'rgba(0,0,0,0.82)';
   measureCtx.fillRect(midX - textW / 2 - padX, midY - 18, textW + padX * 2, 22);
-
   measureCtx.strokeStyle = color;
   measureCtx.lineWidth = 1;
   measureCtx.strokeRect(midX - textW / 2 - padX, midY - 18, textW + padX * 2, 22);
-
   measureCtx.fillStyle = color;
   measureCtx.textAlign = 'center';
   measureCtx.textBaseline = 'middle';
   measureCtx.fillText(labelText, midX, midY - 7);
 }
-
 function drawRulers() {
   const show = state.showRulers;
   document.getElementById('ruler-top').style.display = show ? 'block' : 'none';
   document.getElementById('ruler-left').style.display = show ? 'block' : 'none';
   if (!show) return;
-
   const wrapW = canvasWrap.clientWidth;
   const wrapH = canvasWrap.clientHeight;
   const tickStep = state.rulerTickMinor;
   const majorStep = state.rulerTickMajor;
-
-  // Top ruler
   rulerTopCtx.clearRect(0, 0, wrapW, 28);
   rulerTopCtx.fillStyle = '#1e1e36';
   rulerTopCtx.fillRect(0, 0, wrapW, 28);
-
   for (let x = 0; x < wrapW; x += tickStep) {
     const isMajor = (x % majorStep === 0);
     const tickH = isMajor ? 14 : 7;
@@ -567,7 +515,6 @@ function drawRulers() {
     rulerTopCtx.moveTo(x, 28);
     rulerTopCtx.lineTo(x, 28 - tickH);
     rulerTopCtx.stroke();
-
     if (isMajor) {
       rulerTopCtx.fillStyle = '#aaaacc';
       rulerTopCtx.font = '9px monospace';
@@ -575,12 +522,9 @@ function drawRulers() {
       rulerTopCtx.fillText(x, x, 13);
     }
   }
-
-  // Left ruler
   rulerLeftCtx.clearRect(0, 0, 28, wrapH);
   rulerLeftCtx.fillStyle = '#1e1e36';
   rulerLeftCtx.fillRect(0, 0, 28, wrapH);
-
   for (let y = 0; y < wrapH; y += tickStep) {
     const isMajor = (y % majorStep === 0);
     const tickW = isMajor ? 14 : 7;
@@ -590,7 +534,6 @@ function drawRulers() {
     rulerLeftCtx.moveTo(28, y);
     rulerLeftCtx.lineTo(28 - tickW, y);
     rulerLeftCtx.stroke();
-
     if (isMajor) {
       rulerLeftCtx.save();
       rulerLeftCtx.fillStyle = '#aaaacc';
@@ -602,10 +545,7 @@ function drawRulers() {
       rulerLeftCtx.restore();
     }
   }
-
-  // Cursor indicators
   if (state.mouseX > 0 && state.mouseY > 0) {
-    // Top ruler cursor
     rulerTopCtx.fillStyle = state.rulerColor;
     rulerTopCtx.beginPath();
     rulerTopCtx.moveTo(state.mouseX, 28);
@@ -613,8 +553,6 @@ function drawRulers() {
     rulerTopCtx.lineTo(state.mouseX + 4, 22);
     rulerTopCtx.closePath();
     rulerTopCtx.fill();
-
-    // Left ruler cursor
     rulerLeftCtx.fillStyle = state.rulerColor;
     rulerLeftCtx.beginPath();
     rulerLeftCtx.moveTo(28, state.mouseY);
@@ -624,14 +562,11 @@ function drawRulers() {
     rulerLeftCtx.fill();
   }
 }
-
 function updateRulerVisibility() {
   const show = state.showRulers;
   document.getElementById('ruler-top').style.display = show ? 'block' : 'none';
   document.getElementById('ruler-left').style.display = show ? 'block' : 'none';
 }
-
-// ==================== MOUSE / POINTER EVENTS ====================
 function getPos(e) {
   const rect = canvasWrap.getBoundingClientRect();
   return {
@@ -639,35 +574,27 @@ function getPos(e) {
     y: e.clientY - rect.top,
   };
 }
-
 function snapToEdges(pos) {
   if (!state.snapEnabled) return pos;
   const threshold = 8;
   const w = canvasWrap.clientWidth;
   const h = canvasWrap.clientHeight;
   let { x, y } = pos;
-
-  // Snap to canvas edges
   if (Math.abs(x) < threshold) x = 0;
   if (Math.abs(x - w) < threshold) x = w;
   if (Math.abs(y) < threshold) y = 0;
   if (Math.abs(y - h) < threshold) y = h;
-
-  // Snap to other measurement line endpoints
   state.lines.forEach(line => {
     [{ x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }].forEach(pt => {
       const d = Math.hypot(x - pt.x, y - pt.y);
       if (d < threshold) { x = pt.x; y = pt.y; }
     });
   });
-
-  // Snap to 45 degree angles from start point
   if (state.measuring && state.measureStart) {
     const dx = x - state.measureStart.x;
     const dy = y - state.measureStart.y;
     const angle = Math.atan2(dy, dx);
     const deg = (angle * 180) / Math.PI;
-    // Snap to horizontal, vertical, 45-degree
     const snapAngles = [0, 45, 90, 135, 180, -45, -90, -135];
     for (const sa of snapAngles) {
       const diff = ((deg - sa + 540) % 360) - 180;
@@ -680,10 +607,8 @@ function snapToEdges(pos) {
       }
     }
   }
-
   return { x, y };
 }
-
 measureCanvas.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   if (state.mode === 'calibrating') {
@@ -697,24 +622,19 @@ measureCanvas.addEventListener('pointerdown', (e) => {
     drawAll();
     return;
   }
-
   const pos = snapToEdges(getPos(e));
   state.measuring = true;
   state.measureStart = pos;
   state.measureCurrent = pos;
   cursorInfo.style.display = 'none';
 });
-
 measureCanvas.addEventListener('pointermove', (e) => {
   const pos = getPos(e);
   state.mouseX = pos.x;
   state.mouseY = pos.y;
-
   if (state.measuring) {
     state.measureCurrent = snapToEdges(pos);
   }
-
-  // Check hover on lines
   const threshold = 8;
   let found = null;
   for (let i = state.lines.length - 1; i >= 0; i--) {
@@ -724,8 +644,6 @@ measureCanvas.addEventListener('pointermove', (e) => {
   }
   state.hoveredLineId = found;
   measureCanvas.style.cursor = (found || state.measuring) ? 'crosshair' : 'crosshair';
-
-  // Update cursor info
   if (!state.measuring) {
     let infoText = `X: ${Math.round(pos.x)}  Y: ${Math.round(pos.y)}`;
     if (found) {
@@ -741,19 +659,15 @@ measureCanvas.addEventListener('pointermove', (e) => {
     cursorInfo.style.left = (pos.x + 15) + 'px';
     cursorInfo.style.top = (pos.y - 30) + 'px';
   }
-
   drawAll();
 });
-
 measureCanvas.addEventListener('pointerup', (e) => {
   if (!state.measuring) return;
   state.measuring = false;
-
   const distPx = Math.round(Math.hypot(
     state.measureCurrent.x - state.measureStart.x,
     state.measureCurrent.y - state.measureStart.y
   ));
-  // Minimum distance to create a line
   if (distPx >= 3) {
     state.lines.push({
       x1: state.measureStart.x,
@@ -769,21 +683,16 @@ measureCanvas.addEventListener('pointerup', (e) => {
   state.measureCurrent = null;
   drawAll();
 });
-
 measureCanvas.addEventListener('pointerleave', () => {
   cursorInfo.style.display = 'none';
   if (state.measuring) {
-    // Don't cancel measure on leave
   }
   state.hoveredLineId = null;
   drawAll();
 });
-
-// Right click context menu
 measureCanvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   const pos = getPos(e);
-  // Check if click is on a line
   const threshold = 8;
   let foundLine = null;
   for (let i = state.lines.length - 1; i >= 0; i--) {
@@ -791,11 +700,9 @@ measureCanvas.addEventListener('contextmenu', (e) => {
     if (d < threshold) { foundLine = state.lines[i]; break; }
   }
   if (foundLine) {
-    // Check if near endpoint
     const d1 = Math.hypot(pos.x - foundLine.x1, pos.y - foundLine.y1);
     const d2 = Math.hypot(pos.x - foundLine.x2, pos.y - foundLine.y2);
     state.ctxMenuLineId = foundLine.id;
-
     let menuHTML = '';
     if (d1 < 12 || d2 < 12) {
       menuHTML += `<div class="item" onclick="nudgeEndpoint(${foundLine.id},${d1<d2?1:2},-1,0)">← 左移 1px</div>`;
@@ -805,7 +712,6 @@ measureCanvas.addEventListener('contextmenu', (e) => {
     }
     menuHTML += `<div class="item" onclick="duplicateLine(${foundLine.id})">📋 复制测量线</div>`;
     menuHTML += `<div class="item danger" onclick="deleteLine(${foundLine.id})">🗑 删除此线</div>`;
-
     ctxMenu.innerHTML = menuHTML;
     ctxMenu.style.display = 'block';
     ctxMenu.style.left = e.clientX + 'px';
@@ -814,11 +720,9 @@ measureCanvas.addEventListener('contextmenu', (e) => {
     ctxMenu.style.display = 'none';
   }
 });
-
 document.addEventListener('click', () => {
   ctxMenu.style.display = 'none';
 });
-
 function nudgeEndpoint(lineId, endpointNum, dx, dy) {
   const line = state.lines.find(l => l.id === lineId);
   if (!line) return;
@@ -828,7 +732,6 @@ function nudgeEndpoint(lineId, endpointNum, dx, dy) {
   drawAll();
   ctxMenu.style.display = 'none';
 }
-
 function duplicateLine(lineId) {
   const line = state.lines.find(l => l.id === lineId);
   if (!line) return;
@@ -842,14 +745,12 @@ function duplicateLine(lineId) {
   drawAll();
   ctxMenu.style.display = 'none';
 }
-
 function deleteLine(lineId) {
   state.lines = state.lines.filter(l => l.id !== lineId);
   saveLines();
   drawAll();
   ctxMenu.style.display = 'none';
 }
-
 function distToSegment(p, line) {
   const { x: px, y: py } = p;
   const { x1, y1, x2, y2 } = line;
@@ -864,8 +765,6 @@ function distToSegment(p, line) {
   else { xx = x1 + param * C; yy = y1 + param * D; }
   return Math.hypot(px - xx, py - yy);
 }
-
-// ==================== BUTTON HANDLERS ====================
 btnMeasure.addEventListener('click', () => {
   state.mode = 'measure';
   btnMeasure.classList.add('active');
@@ -874,14 +773,12 @@ btnMeasure.addEventListener('click', () => {
   closeCalibration();
   drawAll();
 });
-
 btnClear.addEventListener('click', () => {
   state.lines = [];
   state.nextLineId = 1;
   saveLines();
   drawAll();
 });
-
 btnGrid.addEventListener('click', () => {
   state.showGrid = !state.showGrid;
   btnGrid.classList.toggle('active', state.showGrid);
@@ -889,20 +786,17 @@ btnGrid.addEventListener('click', () => {
   saveState();
   drawAll();
 });
-
 btnRuler.addEventListener('click', () => {
   state.showRulers = !state.showRulers;
   btnRuler.classList.toggle('active', state.showRulers);
   saveState();
   drawAll();
 });
-
 btnSnap.addEventListener('click', () => {
   state.snapEnabled = !state.snapEnabled;
   btnSnap.classList.toggle('active', state.snapEnabled);
   saveState();
 });
-
 btnFullscreen.addEventListener('click', () => {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(() => {});
@@ -912,20 +806,16 @@ btnFullscreen.addEventListener('click', () => {
     btnFullscreen.classList.remove('active');
   }
 });
-
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) {
     btnFullscreen.classList.remove('active');
   }
 });
-
 colorPicker.addEventListener('input', () => {
   state.rulerColor = colorPicker.value;
   saveState();
   drawAll();
 });
-
-// ==================== CALIBRATION ====================
 function startCalibration(type) {
   state.mode = 'calibrating';
   state.calibrationType = type;
@@ -934,20 +824,15 @@ function startCalibration(type) {
   state.measuring = false;
   state.measureStart = null;
   state.measureCurrent = null;
-
   const realMM = {
     'credit-card': 85.60,
     'a4-width': 210,
     'a4-height': 297,
   }[type];
   state.calibrationRealMM = realMM;
-
   closeCalibration();
-
-  // Show instruction overlay briefly
   showToast(`请将 ${type === 'credit-card' ? '信用卡' : type === 'a4-width' ? 'A4纸宽度' : 'A4纸高度'} 贴在屏幕上，点击并拖拽测量其像素长度`);
 }
-
 function promptCustomCalibration() {
   const mm = parseFloat(prompt('请输入实际长度（毫米）：'));
   if (mm && mm > 0) {
@@ -961,7 +846,6 @@ function promptCustomCalibration() {
     showToast(`请在屏幕上拖拽测量 ${mm} mm 的长度`);
   }
 }
-
 function finishCalibration() {
   const dx = state.calibrationEnd.x - state.calibrationStart.x;
   const dy = state.calibrationEnd.y - state.calibrationStart.y;
@@ -972,20 +856,17 @@ function finishCalibration() {
     state.calibrationEnd = null;
     return;
   }
-  // DPI = pixels / inches = pixels / (mm / 25.4)
   const newDPI = Math.round((distPx / state.calibrationRealMM) * 25.4);
   state.dpi = newDPI;
   dpiDisplay.textContent = `DPI: ${state.dpi}`;
   saveState();
   showToast(`校准完成！新的 DPI 值: ${state.dpi}`);
-
   state.mode = 'measure';
   state.calibrationStart = null;
   state.calibrationEnd = null;
   btnMeasure.classList.add('active');
   drawAll();
 }
-
 function resetDPI() {
   state.dpi = 96;
   dpiDisplay.textContent = `DPI: ${state.dpi}`;
@@ -994,20 +875,15 @@ function resetDPI() {
   showToast('已恢复默认 DPI: 96');
   drawAll();
 }
-
 btnCalibrate.addEventListener('click', () => {
   calModalOverlay.classList.remove('hidden');
 });
-
 function closeCalibration() {
   calModalOverlay.classList.add('hidden');
 }
-
 calModalOverlay.addEventListener('click', (e) => {
   if (e.target === calModalOverlay) closeCalibration();
 });
-
-// ==================== TOAST ====================
 let toastTimeout;
 function showToast(msg) {
   let toast = document.getElementById('toast');
@@ -1028,11 +904,8 @@ function showToast(msg) {
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
 }
-
-// ==================== KEYBOARD SHORTCUTS ====================
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
-
   switch(e.key.toLowerCase()) {
     case 'g':
       state.showGrid = !state.showGrid;
@@ -1091,13 +964,10 @@ document.addEventListener('keydown', (e) => {
       break;
   }
 });
-
-// ==================== STATUS BAR ====================
 function updateStatusBar() {
   document.getElementById('coord-pos').textContent =
     `X: ${Math.round(state.mouseX)}, Y: ${Math.round(state.mouseY)}`;
   document.getElementById('coord-count').textContent = state.lines.length;
-
   let detail = '';
   if (state.mode === 'calibrating') {
     detail = '校准模式 - 点击拖拽测量实物';
@@ -1117,15 +987,12 @@ function updateStatusBar() {
   }
   document.getElementById('coord-detail').textContent = detail;
 }
-
-// ==================== LOCAL STORAGE FOR LINES ====================
 function saveLines() {
   try {
     localStorage.setItem('screen-ruler-lines', JSON.stringify(state.lines));
     localStorage.setItem('screen-ruler-nextId', state.nextLineId);
   } catch(e) {}
 }
-
 function loadLines() {
   try {
     const data = JSON.parse(localStorage.getItem('screen-ruler-lines'));
@@ -1136,20 +1003,13 @@ function loadLines() {
   } catch(e) {}
 }
 loadLines();
-
-// ==================== STARTUP ====================
 window.addEventListener('resize', () => {
   resizeCanvases();
 });
-
 initUI();
 resizeCanvases();
 requestAnimationFrame(() => drawAll());
-
-// Prevent drag on the whole page
 document.addEventListener('dragstart', e => e.preventDefault());
-
-
 </script>
 
 <script src="../i18n.js" defer></script>

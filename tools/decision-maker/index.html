@@ -311,13 +311,13 @@ opacity: 0}}
 </head>
 <body>
 <div class="container">
-  <!-- Header -->
+
   <div class="header">
     <h1>🎯 选择困难症神器</h1>
     <button class="theme-toggle" id="themeToggle" title="切换暗色模式">🌙</button>
   </div>
 
-  <!-- Input Area -->
+
   <div class="section-label">
     📝 输入你的选项
     <span class="count" id="optionCount">0 个</span>
@@ -327,7 +327,7 @@ opacity: 0}}
     placeholder="每行一个选项，例如：&#10;火锅&#10;日料&#10;烧烤&#10;麻辣烫&#10;螺蛳粉"
   ></textarea>
 
-  <!-- Quick Templates -->
+
   <div class="templates">
     <button class="template-btn" data-template="today-eat">🍜 今天吃什么</button>
     <button class="template-btn" data-template="weekend">🎡 周末去哪玩</button>
@@ -335,14 +335,14 @@ opacity: 0}}
     <button class="template-btn" data-template="color">🎨 买哪个颜色</button>
   </div>
 
-  <!-- Action Buttons -->
+
   <div class="btn-row">
     <button class="btn btn-primary" id="btnDecide" disabled>
       <span id="btnDecideText">🎲 帮我决定</span>
     </button>
   </div>
 
-  <!-- Display -->
+
   <div class="display" id="display">
     <div class="idle-text" id="idleIcon">🎯</div>
     <div class="idle-hint" id="idleHint">输入选项后点击 帮我决定</div>
@@ -350,13 +350,13 @@ opacity: 0}}
     <div id="resultArea" style="display:none;"></div>
   </div>
 
-  <!-- Post-result buttons -->
+
   <div class="btn-row" id="postResultBtns" style="display:none;">
     <button class="btn btn-primary" id="btnReroll">🎲 再摇一次</button>
     <button class="btn btn-outline" id="btnUnsatisfied">👎 都不满意</button>
   </div>
 
-  <!-- History -->
+
   <div class="history-section" id="historySection">
     <div class="history-header">
       <div class="section-label" style="margin-bottom:0;">
@@ -371,15 +371,14 @@ opacity: 0}}
   </div>
 </div>
 
-<!-- Toast -->
+
 <div class="toast" id="toast"></div>
 
-<!-- Confetti -->
+
 <div class="confetti-container" id="confettiContainer"></div>
 
 <script>
 (() => {
-  // ========== DOM 引用 ==========
   const $ = id => document.getElementById(id);
   const optionInput = $('optionInput');
   const optionCount = $('optionCount');
@@ -399,15 +398,11 @@ opacity: 0}}
   const themeToggle = $('themeToggle');
   const toast = $('toast');
   const confettiContainer = $('confettiContainer');
-
-  // ========== 状态 ==========
   let spinning = false;
   let currentResult = null;
   let spinTimer = null;
-  let unsatisfiedResults = []; // 本次"都不满意"的记录，用于避免重复
+  let unsatisfiedResults = [];
   let history = [];
-
-  // ========== 模板数据 ==========
   const templates = {
     'today-eat': {
       options: ['火锅', '日料', '烧烤', '麻辣烫', '螺蛳粉', '黄焖鸡', '披萨', '汉堡', '兰州拉面', '沙县小吃', '麻辣香锅', '酸菜鱼', '煲仔饭', '米线'],
@@ -455,11 +450,8 @@ opacity: 0}}
       ]
     }
   };
-
-  // ========== LocalStorage ==========
   const LS_KEY = 'decision_maker_data';
   const LS_KEY_THEME = 'decision_maker_theme';
-
   function loadData() {
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -472,7 +464,6 @@ opacity: 0}}
       }
     } catch(e) {}
   }
-
   function saveData() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
@@ -483,46 +474,36 @@ opacity: 0}}
       }));
     } catch(e) {}
   }
-
   function loadTheme() {
     try {
       const saved = localStorage.getItem(LS_KEY_THEME);
       return saved !== null ? JSON.parse(saved) : window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch(e) { return true; }
   }
-
   function saveTheme(dark) {
     try { localStorage.setItem(LS_KEY_THEME, JSON.stringify(dark)); } catch(e) {}
   }
-
-  // ========== 主题 ==========
   function setTheme(dark) {
     document.documentElement.classList.toggle('dark', dark);
     themeToggle.textContent = dark ? '☀️' : '🌙';
     saveTheme(dark);
   }
-
-  // ========== 助手函数 ==========
   function getOptions() {
     const raw = optionInput.value.trim();
     if (!raw) return [];
     return raw.split(/[\n,;，；]+/).map(s => s.trim()).filter(Boolean);
   }
-
   function getAvailableOptions() {
     const all = getOptions();
     const excluded = new Set(unsatisfiedResults);
     return all.filter(o => !excluded.has(o));
   }
-
   function updateOptionCount() {
     const count = getOptions().length;
     optionCount.textContent = `${count} 个`;
     btnDecide.disabled = count === 0;
   }
-
   function getReason(option) {
-    // 检查是否是模板数据，生成对应原因
     const activeTemplate = Object.values(templates).find(t =>
       t.options.some(o => o === option || option.includes(o))
     );
@@ -538,21 +519,16 @@ opacity: 0}}
     const reason = reasons[Math.floor(Math.random() * reasons.length)];
     return reason.replace('{option}', option);
   }
-
   function getResultIcon() {
     const icons = ['🎉', '✨', '🌟', '💫', '🎯', '🔥', '💎', '🏆', '🎪', '🎨'];
     return icons[Math.floor(Math.random() * icons.length)];
   }
-
-  // ========== Toast ==========
   function showToast(msg) {
     toast.textContent = msg;
     toast.classList.add('show');
     clearTimeout(toast._timeout);
     toast._timeout = setTimeout(() => toast.classList.remove('show'), 2000);
   }
-
-  // ========== Confetti ==========
   function showConfetti() {
     const colors = ['#6366f1','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899','#06b6d4','#84cc16'];
     const fragment = document.createDocumentFragment();
@@ -571,8 +547,6 @@ opacity: 0}}
     confettiContainer.appendChild(fragment);
     setTimeout(() => { confettiContainer.innerHTML = ''; }, 3500);
   }
-
-  // ========== 滚动动画 ==========
   function startSpin(onComplete) {
     const pool = getAvailableOptions();
     if (pool.length === 0) {
@@ -583,14 +557,11 @@ opacity: 0}}
       }
       return;
     }
-
     spinning = true;
     btnDecide.disabled = true;
     btnDecideText.textContent = '🌀 正在决定...';
     btnReroll.disabled = true;
     btnUnsatisfied.disabled = true;
-
-    // 隐藏结果，进入滚动模式
     display.classList.remove('result');
     display.classList.add('spinning');
     idleIcon.style.display = 'none';
@@ -598,37 +569,29 @@ opacity: 0}}
     resultArea.style.display = 'none';
     rollText.style.display = 'block';
     postResultBtns.style.display = 'none';
-
     let interval = 50;
     let step = 0;
     const totalSteps = 28;
     const slowSteps = 8;
-
     function tick() {
       if (step >= totalSteps) {
-        // 定格
         const final = pool[Math.floor(Math.random() * pool.length)];
         rollText.textContent = final;
         finishSpin(final);
         if (onComplete) onComplete(final);
         return;
       }
-
       const idx = Math.floor(Math.random() * pool.length);
       rollText.textContent = pool[idx];
       step++;
-
       if (step >= totalSteps - slowSteps) {
         const prog = (step - (totalSteps - slowSteps)) / slowSteps;
         interval = 50 + 80 * prog;
       }
-
       spinTimer = setTimeout(tick, interval);
     }
-
     spinTimer = setTimeout(tick, interval);
   }
-
   function finishSpin(option) {
     if (spinTimer) { clearTimeout(spinTimer); spinTimer = null; }
     spinning = false;
@@ -636,14 +599,11 @@ opacity: 0}}
     btnDecideText.textContent = '🎲 帮我决定';
     btnReroll.disabled = false;
     btnUnsatisfied.disabled = false;
-
     display.classList.remove('spinning');
     display.classList.add('result');
     rollText.style.display = 'none';
-
     const reason = getReason(option);
     const icon = getResultIcon();
-
     resultArea.innerHTML = `
       <div class="result-icon">${icon}</div>
       <div class="result-choice">${option}</div>
@@ -651,11 +611,8 @@ opacity: 0}}
     `;
     resultArea.style.display = 'block';
     postResultBtns.style.display = 'flex';
-
     currentResult = option;
     unsatisfiedResults = [];
-
-    // 记录历史
     history.unshift({
       choice: option,
       reason: reason,
@@ -663,34 +620,23 @@ opacity: 0}}
       unsatisfied: false
     });
     if (history.length > 30) history.length = 30;
-
     saveData();
     renderHistory();
     showConfetti();
   }
-
-  // ========== 再摇一次 ==========
   function reroll() {
     if (spinning) return;
-    // 保持 unsatisfiedResults 不变，允许相同结果出现
     startSpin();
   }
-
-  // ========== 都不满意 ==========
   function markUnsatisfied() {
     if (!currentResult) return;
     if (spinning) return;
-
-    // 把当前结果加入 unsatisfactory 列表
     if (!unsatisfiedResults.includes(currentResult)) {
       unsatisfiedResults.push(currentResult);
     }
-
-    // 更新最后一条历史记录
     if (history.length > 0 && history[0].choice === currentResult) {
       history[0].unsatisfied = true;
     }
-
     const remaining = getAvailableOptions();
     if (remaining.length === 0) {
       showToast('所有选项都不满意？换一批新选项试试吧~');
@@ -698,27 +644,21 @@ opacity: 0}}
       renderHistory();
       return;
     }
-
     saveData();
     renderHistory();
     showToast(`已排除「${currentResult}」，重新随机中...`);
     startSpin();
   }
-
-  // ========== 历史记录 ==========
   function renderHistory() {
     historyList.innerHTML = '';
     historyCount.textContent = history.length;
-
     if (history.length === 0) {
       historyList.innerHTML = '<div class="history-empty">还没有决定记录</div>';
       return;
     }
-
     history.forEach((h, i) => {
       const time = new Date(h.time);
       const timeStr = `${time.getHours().toString().padStart(2,'0')}:${time.getMinutes().toString().padStart(2,'0')}`;
-
       const item = document.createElement('div');
       item.className = 'history-item';
       item.innerHTML = `
@@ -731,14 +671,12 @@ opacity: 0}}
       historyList.appendChild(item);
     });
   }
-
   function clearHistory() {
     history = [];
     unsatisfiedResults = [];
     currentResult = null;
     saveData();
     renderHistory();
-
     display.classList.remove('result', 'spinning');
     display.classList.add('');
     idleIcon.style.display = 'block';
@@ -746,16 +684,12 @@ opacity: 0}}
     rollText.style.display = 'none';
     resultArea.style.display = 'none';
     postResultBtns.style.display = 'none';
-
     showToast('历史记录已清空');
   }
-
-  // ========== 事件绑定 ==========
   optionInput.addEventListener('input', () => {
     updateOptionCount();
     saveData();
   });
-
   btnDecide.addEventListener('click', () => {
     if (spinning) return;
     const options = getAvailableOptions();
@@ -769,12 +703,9 @@ opacity: 0}}
     }
     startSpin();
   });
-
   btnReroll.addEventListener('click', reroll);
   btnUnsatisfied.addEventListener('click', markUnsatisfied);
   btnClearHistory.addEventListener('click', clearHistory);
-
-  // Quick Templates
   document.querySelectorAll('.template-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.template;
@@ -784,7 +715,6 @@ opacity: 0}}
         unsatisfiedResults = [];
         updateOptionCount();
         saveData();
-        // 清除当前结果
         display.classList.remove('result', 'spinning');
         idleIcon.style.display = 'block';
         idleHint.style.display = 'block';
@@ -796,21 +726,15 @@ opacity: 0}}
       }
     });
   });
-
-  // Theme
   themeToggle.addEventListener('click', () => {
     const isDark = document.documentElement.classList.contains('dark');
     setTheme(!isDark);
   });
-
-  // ========== 初始化 ==========
   function init() {
     setTheme(loadTheme());
     loadData();
     updateOptionCount();
     renderHistory();
-
-    // 恢复之前的结果展示
     if (currentResult) {
       btnReroll.disabled = false;
       btnUnsatisfied.disabled = false;
@@ -830,7 +754,6 @@ opacity: 0}}
       postResultBtns.style.display = 'flex';
     }
   }
-
   init();
 })();
 </script>

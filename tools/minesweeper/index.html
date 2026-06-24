@@ -248,17 +248,14 @@ line-height: 36px}}
 
 <script>
 "use strict";
-
-// ---------- 配置 ----------
 const CONFIG = {
   easy:   { rows: 9,  cols: 9,  mines: 10, label: '初级' },
   medium: { rows: 16, cols: 16, mines: 40, label: '中级' },
   hard:   { rows: 30, cols: 16, mines: 99, label: '高级' },
 };
-
 let difficulty = 'easy';
 let rows, cols, totalMines;
-let board = [];        // board[r][c] = { mine, revealed, flagged, question, adjacentMines }
+let board = [];
 let gameOver = false;
 let gameWon = false;
 let firstClickDone = false;
@@ -267,17 +264,13 @@ let revealedCount = 0;
 let timerInterval = null;
 let seconds = 0;
 let questionMode = false;
-let lastCell = null;   // 长按追踪
-
-// ---------- DOM ----------
+let lastCell = null;
 const gridEl = document.getElementById('grid');
 const mineCounterEl = document.getElementById('mineCounter');
 const timerEl = document.getElementById('timer');
 const faceBtn = document.getElementById('faceBtn');
 const questionToggle = document.getElementById('questionToggle');
 const highscoresEl = document.getElementById('highscores');
-
-// ---------- 初始化 ----------
 function init() {
   const cfg = CONFIG[difficulty];
   rows = cfg.rows;
@@ -294,22 +287,17 @@ function init() {
   updateTimer();
   updateMineCounter();
   faceBtn.textContent = '😊';
-
-  // 创建空棋盘
   for (let r = 0; r < rows; r++) {
     board[r] = [];
     for (let c = 0; c < cols; c++) {
       board[r][c] = { mine: false, revealed: false, flagged: false, question: false, adjacentMines: 0 };
     }
   }
-
   updateDifficultyButtons();
   renderGrid();
   updateHighscores();
 }
-
 function placeMines(safeR, safeC) {
-  // 收集安全区域（首次点击位置及其周围）
   const safeZone = new Set();
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
@@ -320,8 +308,6 @@ function placeMines(safeR, safeC) {
       }
     }
   }
-
-  // 生成所有可用位置
   const available = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -330,20 +316,15 @@ function placeMines(safeR, safeC) {
       }
     }
   }
-
-  // Fisher-Yates 洗牌然后用前 totalMines 个位置
   const total = available.length;
   const needed = Math.min(totalMines, total);
   for (let i = 0; i < needed; i++) {
     const j = i + Math.floor(Math.random() * (total - i));
     [available[i], available[j]] = [available[j], available[i]];
   }
-
   for (let i = 0; i < needed; i++) {
     board[available[i].r][available[i].c].mine = true;
   }
-
-  // 计算每个格子的相邻雷数
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (board[r][c].mine) continue;
@@ -355,7 +336,6 @@ function placeMines(safeR, safeC) {
     }
   }
 }
-
 function forEachNeighbor(r, c, fn) {
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
@@ -368,8 +348,6 @@ function forEachNeighbor(r, c, fn) {
     }
   }
 }
-
-// ---------- 渲染 ----------
 function renderGrid() {
   gridEl.innerHTML = '';
   for (let r = 0; r < rows; r++) {
@@ -384,7 +362,6 @@ function renderGrid() {
     gridEl.appendChild(tr);
   }
 }
-
 function updateCellAppearance(td, cell, gold) {
   td.className = '';
   if (cell.revealed) {
@@ -406,17 +383,13 @@ function updateCellAppearance(td, cell, gold) {
     }
   }
 }
-
 function updateCellAt(r, c, gold) {
   const td = gridEl.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
   if (td) updateCellAppearance(td, board[r][c], gold);
 }
-
-// ---------- 事件处理 ----------
 let touchStartTime = 0;
 let touchStartPos = null;
 const LONG_PRESS_DURATION = 500;
-
 gridEl.addEventListener('click', (e) => {
   if (gameOver) return;
   const td = e.target.closest('td');
@@ -424,19 +397,15 @@ gridEl.addEventListener('click', (e) => {
   const r = parseInt(td.dataset.r);
   const c = parseInt(td.dataset.c);
   if (isNaN(r) || isNaN(c)) return;
-
   const cell = board[r][c];
   if (cell.revealed) {
-    // 双击已翻开的数字格自动翻开周围（chord）
     chordReveal(r, c);
     return;
   }
   if (cell.flagged) return;
   if (cell.question) return;
-
   revealCell(r, c);
 });
-
 gridEl.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (gameOver) return;
@@ -445,13 +414,10 @@ gridEl.addEventListener('contextmenu', (e) => {
   const r = parseInt(td.dataset.r);
   const c = parseInt(td.dataset.c);
   if (isNaN(r) || isNaN(c)) return;
-
   const cell = board[r][c];
   if (cell.revealed) return;
   toggleFlag(r, c);
 });
-
-// 移动端触摸支持
 gridEl.addEventListener('touchstart', (e) => {
   if (e.touches.length !== 1) return;
   const td = e.target.closest('td');
@@ -460,7 +426,6 @@ gridEl.addEventListener('touchstart', (e) => {
   touchStartTime = Date.now();
   touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
 }, { passive: true });
-
 gridEl.addEventListener('touchend', (e) => {
   if (!lastCell) return;
   const td = lastCell;
@@ -468,45 +433,31 @@ gridEl.addEventListener('touchend', (e) => {
   const dx = e.changedTouches[0] ? Math.abs(e.changedTouches[0].clientX - (touchStartPos?.x || 0)) : 0;
   const dy = e.changedTouches[0] ? Math.abs(e.changedTouches[0].clientY - (touchStartPos?.y || 0)) : 0;
   const moved = dx > 10 || dy > 10;
-
   lastCell = null;
-
   if (gameOver) return;
   if (moved) return;
-
   const r = parseInt(td.dataset.r);
   const c = parseInt(td.dataset.c);
   if (isNaN(r) || isNaN(c)) return;
-
   if (elapsed >= LONG_PRESS_DURATION) {
-    // 长按 = 插旗
     const cell = board[r][c];
     if (!cell.revealed) {
       toggleFlag(r, c);
     }
   }
-  // 短按由 click 事件处理
 });
-
-// 防止移动端双击缩放
 gridEl.addEventListener('dblclick', (e) => e.preventDefault());
-
 function revealCell(r, c) {
   const cell = board[r][c];
   if (cell.revealed || cell.flagged || cell.question || gameOver) return;
-
-  // 首次点击——放置雷并启动计时器
   if (!firstClickDone) {
     firstClickDone = true;
     placeMines(r, c);
     startTimer();
   }
-
   cell.revealed = true;
   revealedCount++;
-
   if (cell.mine) {
-    // 踩雷
     gameOver = true;
     gameWon = false;
     faceBtn.textContent = '😵';
@@ -515,22 +466,16 @@ function revealCell(r, c) {
     revealAllMines(r, c);
     return;
   }
-
   updateCellAt(r, c, false);
-
-  // 如果周围无雷，自动展开（flood fill BFS）
   if (cell.adjacentMines === 0) {
     floodFill(r, c);
   }
-
   checkWin();
 }
-
 function floodFill(startR, startC) {
   const queue = [[startR, startC]];
   const visited = new Set();
   visited.add(`${startR},${startC}`);
-
   while (queue.length > 0) {
     const [cr, cc] = queue.shift();
     forEachNeighbor(cr, cc, (nr, nc) => {
@@ -538,31 +483,23 @@ function floodFill(startR, startC) {
       if (visited.has(`${nr},${nc}`)) return;
       if (ncell.revealed || ncell.flagged || ncell.question || ncell.mine) return;
       visited.add(`${nr},${nc}`);
-
       ncell.revealed = true;
       revealedCount++;
       updateCellAt(nr, nc, false);
-
       if (ncell.adjacentMines === 0) {
         queue.push([nr, nc]);
       }
     });
   }
 }
-
 function chordReveal(r, c) {
   const cell = board[r][c];
   if (!cell.revealed || cell.adjacentMines === 0) return;
-
-  // 统计周围旗子数量
   let adjFlags = 0;
   forEachNeighbor(r, c, (nr, nc) => {
     if (board[nr][nc].flagged) adjFlags++;
   });
-
   if (adjFlags !== cell.adjacentMines) return;
-
-  // 翻开周围未翻开的格子
   forEachNeighbor(r, c, (nr, nc) => {
     const ncell = board[nr][nc];
     if (!ncell.revealed && !ncell.flagged && !ncell.question) {
@@ -570,13 +507,10 @@ function chordReveal(r, c) {
     }
   });
 }
-
 function toggleFlag(r, c) {
   const cell = board[r][c];
   if (cell.revealed || gameOver) return;
-
   if (questionMode) {
-    // 循环：flag -> question -> none -> flag
     if (cell.flagged) {
       cell.flagged = false;
       cell.question = true;
@@ -596,22 +530,19 @@ function toggleFlag(r, c) {
       flaggedCount++;
     }
   }
-
   updateCellAt(r, c, false);
   updateMineCounter();
   checkWin();
 }
-
 function revealAllMines(hitR, hitC) {
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = board[r][c];
       if (cell.mine && !cell.revealed && !cell.flagged) {
         updateCellAt(r, c, false);
-        cell.revealed = true; // 标记已展示，避免后续操作
+        cell.revealed = true;
       }
       if (cell.flagged && !cell.mine) {
-        // 错误插旗
         const td = gridEl.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
         if (td) {
           td.classList.add('wrong-flag');
@@ -621,12 +552,9 @@ function revealAllMines(hitR, hitC) {
     }
   }
 }
-
 function checkWin() {
-  // 所有非雷格子都被翻开即为胜利
   const totalCells = rows * cols;
   if (revealedCount === totalCells - totalMines) {
-    // 补充：所有雷都被正确标记（可选，这里只要求所有安全格被揭开）
     gameOver = true;
     gameWon = true;
     faceBtn.textContent = '😎';
@@ -635,8 +563,6 @@ function checkWin() {
     updateHighscores();
   }
 }
-
-// ---------- 计时器 ----------
 function startTimer() {
   if (timerInterval) return;
   timerInterval = setInterval(() => {
@@ -644,47 +570,35 @@ function startTimer() {
     updateTimer();
   }, 1000);
 }
-
 function stopTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
 }
-
 function updateTimer() {
   timerEl.textContent = String(seconds).padStart(3, '0');
 }
-
 function updateMineCounter() {
   const remaining = totalMines - flaggedCount;
   mineCounterEl.textContent = String(Math.max(0, remaining)).padStart(3, '0');
 }
-
-// ---------- 难度切换 ----------
 function setDifficulty(d) {
   if (difficulty === d && firstClickDone) return;
   difficulty = d;
   init();
 }
-
 function updateDifficultyButtons() {
   document.querySelectorAll('.difficulty-bar button').forEach(b => b.classList.remove('active'));
   document.getElementById('btn-' + difficulty)?.classList.add('active');
 }
-
 function resetGame() {
   init();
 }
-
-// ---------- question mode ----------
 questionToggle.addEventListener('change', () => {
   questionMode = questionToggle.checked;
 });
-
-// ---------- 高分榜 ----------
 function getHighscoreKey() {
   return `minesweeper_highscore_${difficulty}`;
 }
-
 function saveHighscore() {
   const key = getHighscoreKey();
   const stored = JSON.parse(localStorage.getItem(key) || '[]');
@@ -695,11 +609,9 @@ function saveHighscore() {
   const top = stored.slice(0, 5);
   localStorage.setItem(key, JSON.stringify(top));
 }
-
 function updateHighscores() {
   const levels = ['easy', 'medium', 'hard'];
   let html = '<h3>🏆 最佳纪录</h3>';
-
   for (const lv of levels) {
     const key = `minesweeper_highscore_${lv}`;
     const stored = JSON.parse(localStorage.getItem(key) || '[]');
@@ -716,18 +628,13 @@ function updateHighscores() {
     }
     html += '</div>';
   }
-
   highscoresEl.innerHTML = html;
 }
-
-// ---------- 键盘支持取消标记 ----------
 document.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') {
     resetGame();
   }
 });
-
-// ---------- 启动 ----------
 init();
 </script>
 <script src="../i18n.js" defer></script>

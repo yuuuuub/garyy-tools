@@ -69,22 +69,15 @@ canvas{display:block;margin:auto;image-rendering:pixelated}
 <script>
 (function(){
 'use strict';
-
 const $ = id => document.getElementById(id);
 const canvas = $('qr-canvas');
 const ctx = canvas.getContext('2d');
 const input = $('qr-input');
 let currentSize = 300;
-
-// QR Code generation using a simplified algorithm
-// Based on the QR code specification with proper data encoding
-
-// Galois Field and Reed-Solomon helpers
 const GF256 = {
   exp: new Array(512),
   log: new Array(256)
 };
-
 (function() {
   let v = 1;
   for(let i=0; i<255; i++) {
@@ -94,18 +87,14 @@ const GF256 = {
   }
   for(let i=255; i<512; i++) GF256.exp[i] = GF256.exp[i-255];
 })();
-
 function gfMul(a, b) {
   if(a === 0 || b === 0) return 0;
   return GF256.exp[(GF256.log[a] + GF256.log[b]) % 255];
 }
-
 function gfPow(a, n) {
   return GF256.exp[(GF256.log[a] * n) % 255];
 }
-
 function reedSolomonEncode(data, eccCount) {
-  // Generate generator polynomial
   let gen = [1];
   for(let i=0; i<eccCount; i++) {
     const term = [1, gfPow(2, i)];
@@ -116,7 +105,6 @@ function reedSolomonEncode(data, eccCount) {
     }
     gen = newGen;
   }
-
   const msg = [...data, ...new Array(eccCount).fill(0)];
   for(let i=0; i<data.length; i++) {
     if(msg[i] !== 0) {
@@ -128,14 +116,9 @@ function reedSolomonEncode(data, eccCount) {
   }
   return msg.slice(data.length);
 }
-
-// QR Code matrix generation
 function generateQRMatrix(text) {
-  // Encode as byte mode
   const data = [];
   const str = String(text);
-
-  // Convert to bytes (UTF-8)
   for(let i=0; i<str.length; i++) {
     const code = str.charCodeAt(i);
     if(code < 128) {
@@ -149,9 +132,6 @@ function generateQRMatrix(text) {
       data.push(0x80 | (code & 0x3f));
     }
   }
-
-  // Determine version based on data length
-  // Version 2-6 for simple use cases
   const versions = [
     { ver: 2, total: 44, ecc: 18, blocks: 1 },
     { ver: 3, total: 70, ecc: 26, blocks: 1 },
@@ -163,21 +143,17 @@ function generateQRMatrix(text) {
     { ver: 9, total: 292, ecc: 110, blocks: 5 },
     { ver: 10, total: 346, ecc: 130, blocks: 5 }
   ];
-
   let verInfo = versions[versions.length-1];
   for(const v of versions) {
-    const capacity = Math.floor((v.total - v.ecc) / 2); // rough estimate for byte mode
+    const capacity = Math.floor((v.total - v.ecc) / 2);
     if(data.length + 3 <= capacity) {
       verInfo = v;
       break;
     }
   }
-
   const { ver, total, ecc, blocks } = verInfo;
   const matrixSize = 17 + ver * 4;
-
-  // Build data with mode indicator and length
-  const modeByte = 0x40; // Byte mode
+  const modeByte = 0x40;
   const lengthBits = ver < 10 ? 8 : 16;
   const encoded = [];
   encoded.push(modeByte);
@@ -188,15 +164,11 @@ function generateQRMatrix(text) {
     encoded.push(data.length & 0xff);
   }
   data.forEach(b => encoded.push(b));
-
-  // Pad
   const totalData = total - ecc * blocks;
   while(encoded.length < totalData) {
     encoded.push(0xec);
     if(encoded.length < totalData) encoded.push(0x11);
   }
-
-  // RS error correction per block
   const allData = [];
   const blockSize = Math.ceil(encoded.length / blocks);
   for(let b=0; b<blocks; b++) {
@@ -206,8 +178,6 @@ function generateQRMatrix(text) {
     const eccData = reedSolomonEncode(blockData, ecc);
     allData.push({ data: blockData, ecc: eccData });
   }
-
-  // Interleave data
   const finalBits = [];
   const maxLen = Math.max(...allData.map(b => b.data.length));
   for(let i=0; i<maxLen; i++) {
@@ -220,15 +190,11 @@ function generateQRMatrix(text) {
       if(i < blk.ecc.length) finalBits.push(blk.ecc[i]);
     }
   }
-
-  // Create matrix
   const size = matrixSize;
   const matrix = [];
   for(let i=0; i<size; i++) {
     matrix[i] = new Array(size).fill(0);
   }
-
-  // Finder patterns (7x7)
   function addFinderPattern(x, y) {
     for(let r=-1; r<=7; r++) {
       for(let c=-1; c<=7; c++) {
@@ -243,21 +209,14 @@ function generateQRMatrix(text) {
       }
     }
   }
-
   addFinderPattern(0, 0);
   addFinderPattern(size-7, 0);
   addFinderPattern(0, size-7);
-
-  // Timing patterns
   for(let i=8; i<size-8; i++) {
     matrix[6][i] = i % 2 === 0 ? 1 : 0;
     matrix[i][6] = i % 2 === 0 ? 1 : 0;
   }
-
-  // Dark module
   matrix[size-8][8] = 1;
-
-  // Reserve format info areas (simplified)
   for(let i=0; i<9; i++) {
     if(i !== 6) {
       matrix[8][i] = 0;
@@ -270,8 +229,6 @@ function generateQRMatrix(text) {
   for(let i=size-8; i<size; i++) {
     matrix[i][8] = 0;
   }
-
-  // Place data bits
   let bitIdx = 0;
   let dir = -1;
   for(let col = size-1; col > 0; col -= 2) {
@@ -282,12 +239,10 @@ function generateQRMatrix(text) {
         if(x < 0) continue;
         if(matrix[row][x] !== 0) continue;
         if(row === 8 || x === 8) continue;
-        // Skip finder patterns and timing
         const inFinder1 = row < 8 && x < 8;
         const inFinder2 = row < 8 && x >= size-8;
         const inFinder3 = row >= size-8 && x < 8;
         if(inFinder1 || inFinder2 || inFinder3) continue;
-
         if(bitIdx < finalBits.length * 8) {
           const byteIdx = Math.floor(bitIdx / 8);
           const bitPos = 7 - (bitIdx % 8);
@@ -300,23 +255,14 @@ function generateQRMatrix(text) {
     }
     dir = -dir;
   }
-
-  // Apply mask pattern (mask 0: (row + column) % 2 == 0)
-  // XOR mask with all data/ECC cells (skip reserved areas)
   for(let r=0; r<size; r++) {
     for(let c=0; c<size; c++) {
-      // Skip reserved areas that should not be masked
       if(isReserved(r, c, size)) continue;
-      // XOR with mask pattern 0
       if((r + c) % 2 === 0) {
         matrix[r][c] = matrix[r][c] === 0 ? 1 : 0;
       }
     }
   }
-
-  // Format info bits for error correction level M (00), mask 0 (000)
-  // BCH-encoded 15-bit format string: 001011010010110
-  // Arranged per QR spec layout
   const formatBits = [0,0,1,0,1,1,0,1,0,0,1,0,1,1,0];
   for(let i=0; i<6; i++) {
     matrix[8][i] = formatBits[i];
@@ -327,48 +273,36 @@ function generateQRMatrix(text) {
   for(let i=0; i<6; i++) {
     matrix[5-i][8] = formatBits[9+i];
   }
-  // Right side format info (vertical)
   for(let i=0; i<7; i++) {
     if(size-8+i < size) matrix[8][size-8+i] = formatBits[i];
   }
   for(let i=0; i<8; i++) {
     if(size-8+i < size) matrix[size-8+i][8] = formatBits[7+i];
   }
-
   return matrix;
-
   function isReserved(r, c, s) {
-    // Finder patterns (top-left, top-right, bottom-left) with separators
     if(r < 9 && c < 9) return true;
     if(r < 9 && c >= s-8) return true;
     if(r >= s-8 && c < 9) return true;
-    // Timing patterns
     if(r === 6 || c === 6) return true;
-    // Format info areas (around timing)
     if(r === 8 || c === 8) return true;
     return false;
   }
 }
-
 function drawQR() {
   const text = input.value.trim();
   if(!text) return;
-
   const matrix = generateQRMatrix(text);
   const matrixSize = matrix.length;
   const cellSize = currentSize / matrixSize;
   const padding = 4;
-
   const totalSize = currentSize + padding * 2;
   if(canvas.width !== totalSize) {
     canvas.width = totalSize;
     canvas.height = totalSize;
   }
-
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Draw QR modules
   const offset = padding;
   for(let r=0; r<matrixSize; r++) {
     for(let c=0; c<matrixSize; c++) {
@@ -383,20 +317,15 @@ function drawQR() {
       }
     }
   }
-
   canvas.style.width = currentSize + 'px';
   canvas.style.height = currentSize + 'px';
 }
-
 function resizeCanvas(size) {
   currentSize = size;
   drawQR();
 }
-
-// Events
 input.addEventListener('input', drawQR);
 $('generate-btn').addEventListener('click', drawQR);
-
 document.querySelectorAll('.size-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
@@ -404,27 +333,21 @@ document.querySelectorAll('.size-btn').forEach(function(btn) {
     resizeCanvas(parseInt(this.dataset.size));
   });
 });
-
 $('download-btn').addEventListener('click', function() {
   const text = input.value.trim();
   if(!text) return;
-
-  // Draw at high resolution
   const hiResSize = 800;
   const matrix = generateQRMatrix(text);
   const matrixSize = matrix.length;
   const cellSize = hiResSize / matrixSize;
   const padding = 20;
   const totalSize = hiResSize + padding * 2;
-
   const tmpCanvas = document.createElement('canvas');
   tmpCanvas.width = totalSize;
   tmpCanvas.height = totalSize;
   const tmpCtx = tmpCanvas.getContext('2d');
-
   tmpCtx.fillStyle = '#ffffff';
   tmpCtx.fillRect(0, 0, totalSize, totalSize);
-
   for(let r=0; r<matrixSize; r++) {
     for(let c=0; c<matrixSize; c++) {
       if(matrix[r][c]) {
@@ -438,16 +361,12 @@ $('download-btn').addEventListener('click', function() {
       }
     }
   }
-
   const link = document.createElement('a');
   link.download = 'qrcode.png';
   link.href = tmpCanvas.toDataURL('image/png');
   link.click();
 });
-
-// Init
 drawQR();
-
 })();
 </script>
 <script src="../i18n.js" defer></script>

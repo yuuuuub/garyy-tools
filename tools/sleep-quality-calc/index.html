@@ -225,7 +225,7 @@ cursor: pointer}
           <input type="number" id="awakenings" value="1" min="0" max="30" placeholder="醒来次数">
         </div>
       </div>
-      <!-- 趣味换算 age input, initially hidden -->
+
       <div class="form-group age-input-wrap" id="ageWrap">
         <label>你的年龄（用于趣味换算）</label>
         <input type="number" id="age" value="25" min="1" max="120" placeholder="输入年龄">
@@ -234,7 +234,7 @@ cursor: pointer}
     </div>
 
     <div class="results" id="results">
-      <!-- Score -->
+
       <div class="card" style="text-align:center;">
         <div class="score-circle" id="scoreCircle">
           <span class="score-value" id="scoreValue">--</span>
@@ -260,7 +260,7 @@ cursor: pointer}
           </div>
         </div>
 
-        <!-- Cycle visualization -->
+
         <div class="cycle-bar-wrap" id="cycleBarWrap" style="display:none;">
           <div class="cycle-bar-label">睡眠周期可视化（每块 = 90 分钟）</div>
           <div class="cycle-bar" id="cycleBar"></div>
@@ -268,13 +268,13 @@ cursor: pointer}
         </div>
       </div>
 
-      <!-- 健康建议 -->
+
       <div class="card" id="adviceCard">
         <div class="card-title">💡 改善建议</div>
         <ul class="advice-list" id="adviceList"></ul>
       </div>
 
-      <!-- 趣味换算 -->
+
       <div class="card" id="funCard">
         <div class="card-title">📊 趣味数据</div>
         <div class="fun-stats" id="funStats"></div>
@@ -289,7 +289,6 @@ cursor: pointer}
       const [h, m] = t.split(':').map(Number);
       return h * 60 + m;
     }
-
     function fmtDuration(totalMin) {
       const h = Math.floor(totalMin / 60);
       const m = totalMin % 60;
@@ -297,7 +296,6 @@ cursor: pointer}
       if (m === 0) return h + ' 小时';
       return h + ' 小时 ' + m + ' 分钟';
     }
-
     function seededRandom(seed) {
       let s = seed;
       return function() {
@@ -305,97 +303,65 @@ cursor: pointer}
         return (s - 1) / 2147483646;
       };
     }
-
     function calculate() {
       const bedtime = document.getElementById('bedtime').value;
       const waketime = document.getElementById('waketime').value;
       const latency = parseInt(document.getElementById('sleepLatency').value) || 0;
       const awakenings = parseInt(document.getElementById('awakenings').value) || 0;
       const age = parseInt(document.getElementById('age').value) || 0;
-
       if (!bedtime || !waketime) return;
-
       let bedMin = parseTime(bedtime);
       let wakeMin = parseTime(waketime);
-
-      // If wake time is before/equal to bed time, it crosses midnight
       if (wakeMin <= bedMin) wakeMin += 24 * 60;
-
       const timeInBed = wakeMin - bedMin;
-      const awakeDuringNight = awakenings * 8; // avg 8 min per awakening
+      const awakeDuringNight = awakenings * 8;
       const actualSleepMin = Math.max(0, timeInBed - latency - awakeDuringNight);
-
       if (actualSleepMin <= 0) {
         garyyToast('实际睡眠时长过短，请检查输入数据。');
         return;
       }
-
-      // Deep sleep estimation
-      // First half of night: ~30% deep sleep of that portion
-      // Second half: ~10% deep sleep
       const halfWay = actualSleepMin / 2;
       const deepFirstHalf = Math.min(halfWay, actualSleepMin) * 0.30;
       const deepSecondHalf = Math.max(0, actualSleepMin - halfWay) * 0.10;
       let deepSleepMin = Math.round(deepFirstHalf + deepSecondHalf);
-
-      // Sleep cycles (90 min)
       const CYCLE_LEN = 90;
       const fullCycles = Math.floor(actualSleepMin / CYCLE_LEN);
       const remainder = actualSleepMin % CYCLE_LEN;
       const wakingMidCycle = remainder > 0 && remainder < CYCLE_LEN;
-
-      // Sleep score calculation (out of 100)
       let score = 0;
       const scoreDetail = {};
-
-      // Duration score (40 pts max): optimal 7-9 hours
       const sleepH = actualSleepMin / 60;
       if (sleepH >= 7 && sleepH <= 9) score += 40;
       else if (sleepH >= 6.5 && sleepH < 7 || sleepH > 9 && sleepH <= 9.5) score += 32;
       else if (sleepH >= 6 && sleepH < 6.5 || sleepH > 9.5 && sleepH <= 10) score += 22;
       else if (sleepH >= 5 && sleepH < 6) score += 12;
       else score += 5;
-
-      // Continuity score (25 pts max)
       if (awakenings === 0) score += 25;
       else if (awakenings === 1) score += 20;
       else if (awakenings === 2) score += 15;
       else if (awakenings <= 4) score += 8;
       else score += 3;
-
-      // Latency score (20 pts max)
       if (latency >= 10 && latency <= 20) score += 20;
       else if (latency >= 5 && latency < 10 || latency > 20 && latency <= 30) score += 15;
       else if (latency < 5) score += 10;
       else if (latency > 30 && latency <= 60) score += 8;
       else score += 4;
-
-      // Deep sleep ratio score (15 pts max)
       const deepRatio = deepSleepMin / actualSleepMin;
       if (deepRatio >= 0.20 && deepRatio <= 0.30) score += 15;
       else if (deepRatio >= 0.15 && deepRatio < 0.20 || deepRatio > 0.30 && deepRatio <= 0.35) score += 10;
       else if (deepRatio > 0.35) score += 6;
       else score += 6;
-
-      // Cap at 100
       score = Math.min(100, Math.round(score));
-
-      // Efficiency (time asleep / time in bed)
       const efficiencyPct = Math.round((actualSleepMin / timeInBed) * 100);
-
-      // --- Update UI ---
       const resultsEl = document.getElementById('results');
       resultsEl.classList.add('active');
       resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-      // Score circle
       const circle = document.getElementById('scoreCircle');
       circle.className = 'score-circle';
       if (score >= 85) circle.classList.add('great');
       else if (score >= 70) circle.classList.add('good');
       else if (score >= 50) circle.classList.add('fair');
       else circle.classList.add('poor');
-
       document.getElementById('scoreValue').textContent = score;
       let scoreText = '';
       if (score >= 85) scoreText = '💎 优秀睡眠';
@@ -403,20 +369,16 @@ cursor: pointer}
       else if (score >= 50) scoreText = '⚠️ 需要改善';
       else scoreText = '🚨 亟需关注';
       document.getElementById('scoreTitle').textContent = scoreText;
-
       document.getElementById('totalSleep').textContent = fmtDuration(actualSleepMin);
       document.getElementById('deepSleep').textContent = fmtDuration(deepSleepMin);
       document.getElementById('sleepCycles').textContent = fullCycles + (wakingMidCycle ? '.' + remainder + '' : '') + ' 个周期';
       document.getElementById('efficiency').textContent = efficiencyPct + '%';
-
-      // Cycle bar visualization
       const cycleBarWrap = document.getElementById('cycleBarWrap');
       const cycleBar = document.getElementById('cycleBar');
       const cycleIndicator = document.getElementById('cycleIndicator');
       cycleBarWrap.style.display = 'block';
       cycleBar.innerHTML = '';
       cycleIndicator.style.display = 'none';
-
       for (let i = 0; i < fullCycles; i++) {
         const el = document.createElement('div');
         el.className = 'cycle-chunk complete';
@@ -432,54 +394,39 @@ cursor: pointer}
         cycleIndicator.style.display = 'flex';
         cycleIndicator.innerHTML = '⚠️ 第 ' + (fullCycles + 1) + ' 个睡眠周期未完成（' + remainder + ' 分钟）。在周期中间醒来可能会感到疲惫、昏沉。';
       }
-
-      // Advice
       const adviceList = document.getElementById('adviceList');
       adviceList.innerHTML = '';
       const advices = [];
-
       if (sleepH < 7) {
         advices.push({ icon: '⏰', text: '你的睡眠时长不足建议的 7-9 小时。尽量提前 30 分钟上床，逐步调整作息。' });
       } else if (sleepH > 9.5) {
         advices.push({ icon: '⏰', text: '睡眠时间偏长，超过 9.5 小时可能与健康风险相关。尝试将睡眠控制在 7-9 小时。' });
       }
-
       if (awakenings >= 3) {
         advices.push({ icon: '🌙', text: '夜间醒来次数较多（' + awakenings + ' 次），可能影响深度睡眠。建议睡前避免咖啡因、酒精，保持卧室凉爽安静。' });
       }
-
       if (latency > 30) {
         advices.push({ icon: '🧘', text: '入睡时间超过 30 分钟，可能存在入睡困难。试试睡前冥想、深呼吸练习，或离开床做放松活动直到感到困倦。' });
       } else if (latency < 5) {
         advices.push({ icon: '😪', text: '你入睡很快（不到 5 分钟），这可能意味着你过度疲劳。注意白天的精力状态。' });
       }
-
       if (wakingMidCycle) {
         advices.push({ icon: '🔄', text: '你在睡眠周期中间醒来。试着将闹钟调整为 90 分钟的整数倍，在周期结束时醒来会更轻松。' });
       }
-
       if (deepRatio < 0.15) {
         advices.push({ icon: '💤', text: '深度睡眠比例偏低。避免睡前使用电子屏幕（蓝光抑制褪黑素），保持规律作息有助于提升深度睡眠。' });
       }
-
       if (advices.length === 0) {
         advices.push({ icon: '🌟', text: '你的睡眠质量很好！保持现有作息规律，继续坚持。' });
       }
-
       advices.forEach(a => {
         const li = document.createElement('li');
         li.innerHTML = '<span class="advice-icon">' + a.icon + '</span>' + a.text;
         adviceList.appendChild(li);
       });
-
-      // Fun stats
       const funStats = document.getElementById('funStats');
       funStats.innerHTML = '';
-
       if (age > 0) {
-        // Lifetime sleep: rough estimate: age * 365 * average daily sleep
-        // Average person sleeps ~8h/day from birth, but varies by age
-        // Rough: 0-2 years: 14h, 2-12: 10h, 12-18: 9h, 18+: 7.5h
         let lifetimeHours = 0;
         if (age <= 2) {
           lifetimeHours = age * 365 * 14;
@@ -492,7 +439,6 @@ cursor: pointer}
         }
         const lifetimeDays = Math.round(lifetimeHours / 24);
         const lifetimeYears = (lifetimeHours / 24 / 365).toFixed(1);
-
         funStats.innerHTML += `
           <div class="fun-stat">
             <span class="fun-stat-emoji">🛏️</span>
@@ -502,8 +448,6 @@ cursor: pointer}
             </div>
           </div>`;
       }
-
-      // Beat X% - use score as seed for deterministic randomness
       const rng = seededRandom(score * 100 + awakenings);
       let beatPct;
       if (score >= 90) beatPct = Math.round(85 + rng() * 13);
@@ -513,7 +457,6 @@ cursor: pointer}
       else if (score >= 50) beatPct = Math.round(10 + rng() * 15);
       else beatPct = Math.round(1 + rng() * 10);
       beatPct = Math.max(1, Math.min(99, beatPct));
-
       funStats.innerHTML += `
         <div class="fun-stat">
           <span class="fun-stat-emoji">🏆</span>

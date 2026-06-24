@@ -122,7 +122,6 @@ footer{text-align:center;padding:24px 0;color:var(--text2);font-size:.7rem}
 
 <script>
 const $=id=>document.getElementById(id);
-
 function calc(){
 const acType=$('acType').value;
 const basePower=parseInt($('power').value);
@@ -130,48 +129,36 @@ const eff=parseInt($('efficiency').value);
 const setTemp=parseInt($('setTemp').value)||26;
 const hoursDay=parseInt($('hoursDay').value)||8;
 const priceKwh=parseFloat($('priceKwh').value)||0.6;
-
-// Inverter efficiency: power varies based on temp setting and efficiency level
-// At steady state inverter uses ~40-70% of rated power
 let avgPower;
 if(acType==='inverter'){
-// Inverter: lower consumption once room reaches temp
-const tempFactor=1+Math.max(0,(setTemp-24)*0.08); // lower temp = more power
-const effFactor=0.7+(eff-1)*0.075; // 1级=0.7, 3级=0.85, 5级=1.0
+const tempFactor=1+Math.max(0,(setTemp-24)*0.08);
+const effFactor=0.7+(eff-1)*0.075;
 avgPower=basePower*effFactor*tempFactor;
 }else{
-// Fixed: on/off cycles, ~85% duty cycle
 const tempFactor=1+Math.max(0,(setTemp-24)*0.1);
 const effFactor=0.8+(eff-1)*0.05;
 avgPower=basePower*effFactor*tempFactor*0.85;
 }
-
 const dayKwh=Math.round(avgPower*hoursDay/1000*10)/10;
 const monthKwh=Math.round(dayKwh*30);
 const dayCost=Math.round(dayKwh*priceKwh*100)/100;
 const monthCost=Math.round(monthKwh*priceKwh*100)/100;
-const seasonCost=Math.round(monthCost*4.07*100)/100; // 122 days
-
+const seasonCost=Math.round(monthCost*4.07*100)/100;
 $('dayKwh').textContent=dayKwh+'度';
 $('monthKwh').textContent=monthKwh+'度';
 $('dayCost').textContent='¥'+dayCost.toFixed(2);
 $('monthCost').textContent='¥'+monthCost.toFixed(2);
 $('totalCost').textContent='¥'+seasonCost.toFixed(0);
-
-// Compare with alternatives
 const alt26=calcAlt(basePower,eff,acType,26,hoursDay,priceKwh);
 const alt24=calcAlt(basePower,eff,acType,24,hoursDay,priceKwh);
 const alt28=calcAlt(basePower,eff,acType,28,hoursDay,priceKwh);
 const altLonger=calcAlt(basePower,eff,acType,setTemp,12,priceKwh);
-
 $('compareSection').innerHTML=`
 <div class="compare-row"><span class="compare-label">🌡️ 如果设26°C</span><span class="compare-val ${alt26<seasonCost?'good':'bad'}">¥${Math.round(alt26)}</span></div>
 <div class="compare-row"><span class="compare-label">🌡️ 如果设24°C</span><span class="compare-val bad">¥${Math.round(alt24)}</span></div>
 <div class="compare-row"><span class="compare-label">🌡️ 如果设28°C</span><span class="compare-val good">¥${Math.round(alt28)}</span></div>
 <div class="compare-row"><span class="compare-label">⏰ 如果每天开12小时</span><span class="compare-val bad">¥${Math.round(altLonger)}</span></div>
 `;
-
-// Tips
 let tips='';
 if(setTemp<=24)tips='💡 温度设在26°C以上，每高1°C可省约8%电费';
 else if(setTemp>=28)tips='✅ 温度设定合理，继续保持！';
@@ -179,14 +166,10 @@ else tips='💡 温度设在28°C，比26°C可省约15%电费';
 if(hoursDay>10)tips+='\n⏰ 减少使用时间到8小时以内可显著降低电费';
 if(acType==='fixed')tips+='\n🔄 升级变频空调每年可省30-50%电费';
 if(eff>=4)tips+='\n⭐ 选择一级能效空调，比五级省电约40%';
-
 $('tips').innerHTML=tips.split('\n').map(t=>'<div>'+t+'</div>').join('');
-
-// Save
 const d={acType,basePower:parseInt($('power').value),eff,setTemp,hoursDay,priceKwh};
 localStorage.setItem('ac-cost-calc',JSON.stringify(d));
 }
-
 function calcAlt(power,eff,acType,temp,hours,price){
 const isInverter=acType==='inverter';
 let avgPower;
@@ -201,21 +184,16 @@ avgPower=power*effFactor*tempFactor*0.85;
 }
 return (avgPower*hours/1000*price*30*4.07);
 }
-
-// Event listeners
 $('acType').addEventListener('change',calc);
 $('power').addEventListener('change',calc);
 $('efficiency').addEventListener('change',calc);
 $('setTemp').addEventListener('input',calc);
 $('hoursDay').addEventListener('input',calc);
 $('priceKwh').addEventListener('input',calc);
-
-// Load
 try{
 const d=JSON.parse(localStorage.getItem('ac-cost-calc'));
 if(d){$('acType').value=d.acType;$('power').value=d.basePower;$('efficiency').value=d.eff;$('setTemp').value=d.setTemp;$('hoursDay').value=d.hoursDay;$('priceKwh').value=d.priceKwh;}
 }catch(e){}
-
 calc();
 </script>
 <script src="../i18n.js" defer></script>

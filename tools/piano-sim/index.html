@@ -305,13 +305,11 @@ header h1 { font-size: 1.6rem; }
 
 <script>
 (function() {
-  // ==================== Audio Engine ====================
   let audioCtx = null;
   const activeOscillators = new Map();
   let masterGain = null;
   let sustainOn = false;
   const sustainedNotes = new Set();
-
   function initAudio() {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -323,24 +321,14 @@ header h1 { font-size: 1.6rem; }
       audioCtx.resume();
     }
   }
-
-  // Piano note frequencies (A4 = 440Hz, equal temperament)
   function noteFreq(noteIndex) {
     return 440 * Math.pow(2, (noteIndex - 49) / 12);
   }
-
-  // Map our note names to MIDI-like indices
-  // Octave shift base: C3 = MIDI 48
   let octaveOffset = 0;
-
-  // All keys in 2-octave range (C to B, two octaves)
-  // White keys: C D E F G A B (7 per octave)
-  // Black keys: C# D# F# G# A# (5 per octave)
   function getNoteIndex(semitone, baseOctave) {
-    const base = 48; // C3 = MIDI 48
+    const base = 48;
     return base + octaveOffset * 12 + semitone;
   }
-
   const whiteKeys = [
     { id: 'C3',  semitone: 0,  octave: 3, label: 'C',  kb: 'A' },
     { id: 'D3',  semitone: 2,  octave: 3, label: 'D',  kb: 'S' },
@@ -354,7 +342,6 @@ header h1 { font-size: 1.6rem; }
     { id: 'E4',  semitone: 16, octave: 4, label: 'E',  kb: ';' },
     { id: 'F4',  semitone: 17, octave: 4, label: 'F',  kb: '\'' },
   ];
-
   const blackKeys = [
     { id: 'C#3', semitone: 1,  octave: 3, label: 'C#', kb: 'W', afterWhite: 'C3' },
     { id: 'D#3', semitone: 3,  octave: 3, label: 'D#', kb: 'E', afterWhite: 'D3' },
@@ -364,56 +351,33 @@ header h1 { font-size: 1.6rem; }
     { id: 'C#4', semitone: 13, octave: 4, label: 'C#', kb: 'O', afterWhite: 'C4' },
     { id: 'D#4', semitone: 15, octave: 4, label: 'D#', kb: 'P', afterWhite: 'D4' },
   ];
-
-  // Get all key data combined, sorted by semitone
   const allKeys = [...whiteKeys.map(w => ({ ...w, color: 'white' })), ...blackKeys.map(b => ({ ...b, color: 'black' }))];
-
-  // ADSR envelope parameters
   const envelope = { attack: 0.008, decay: 0.1, sustain: 0.55, release: 0.9 };
-
   function playNote(noteId) {
     initAudio();
     const keyData = allKeys.find(k => k.id === noteId);
     if (!keyData) return;
-
-    // Stop if already playing (retrigger)
     stopNote(noteId);
-
     const time = audioCtx.currentTime;
     const freq = noteFreq(getNoteIndex(keyData.semitone, keyData.octave));
-
-    // Create oscillator
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
-
-    // Use a combination of waveforms for a more piano-like tone
     osc.type = 'triangle';
-
-    // Add slight detune for richness
     const osc2 = audioCtx.createOscillator();
     const gain2 = audioCtx.createGain();
     osc2.type = 'sine';
     osc2.frequency.value = freq;
     gain2.gain.value = 1.0;
     osc2.connect(gain2);
-
-    // Combined gain
     const combinedGain = audioCtx.createGain();
     gainNode.connect(combinedGain);
     gain2.connect(combinedGain);
     combinedGain.connect(masterGain);
-
     osc.frequency.value = freq;
-
-    // ADSR envelope
     const g = combinedGain.gain;
     g.setValueAtTime(0, time);
-    // Attack
     g.linearRampToValueAtTime(1.0, time + envelope.attack);
-    // Decay
     g.linearRampToValueAtTime(envelope.sustain, time + envelope.attack + envelope.decay);
-
-    // Also add a subtle sub-frequency for body
     const osc3 = audioCtx.createOscillator();
     const gain3 = audioCtx.createGain();
     osc3.type = 'sine';
@@ -421,40 +385,31 @@ header h1 { font-size: 1.6rem; }
     gain3.gain.value = 0.3;
     osc3.connect(gain3);
     gain3.connect(combinedGain);
-
     osc.start(time);
     osc2.start(time);
     osc3.start(time);
-
     activeOscillators.set(noteId, {
       osc, osc2, osc3,
       gainNode: combinedGain,
       gainNodes: [gainNode, gain2, gain3],
       keyData,
     });
-
-    // Visual feedback
     const keyEl = document.getElementById('key-' + noteId);
     if (keyEl) keyEl.classList.add('pressed');
   }
-
   function stopNote(noteId, immediate = false) {
     const entry = activeOscillators.get(noteId);
     if (!entry) return;
-
     if (sustainOn && !immediate) {
-      // Under sustain, just add to sustained set and don't release yet
       sustainedNotes.add(noteId);
       return;
     }
-
     const time = audioCtx.currentTime;
     const releaseTime = immediate ? 0.01 : envelope.release;
     try {
       entry.gainNode.gain.setValueAtTime(entry.gainNode.gain.value || envelope.sustain, time);
       entry.gainNode.gain.linearRampToValueAtTime(0, time + releaseTime);
     } catch (e) {}
-
     setTimeout(() => {
       try {
         entry.osc.stop(audioCtx.currentTime + 0.1);
@@ -462,33 +417,24 @@ header h1 { font-size: 1.6rem; }
         entry.osc3.stop(audioCtx.currentTime + 0.1);
       } catch (e) {}
     }, releaseTime * 1000 + 100);
-
     activeOscillators.delete(noteId);
     sustainedNotes.delete(noteId);
-
     const keyEl = document.getElementById('key-' + noteId);
     if (keyEl) keyEl.classList.remove('pressed');
   }
-
   function releaseSustain() {
     const notesToRelease = [...sustainedNotes];
     sustainedNotes.clear();
     notesToRelease.forEach(noteId => stopNote(noteId, false));
   }
-
   function stopAllNotes() {
     const allNoteIds = [...activeOscillators.keys()];
     allNoteIds.forEach(noteId => stopNote(noteId, true));
     sustainedNotes.clear();
   }
-
-  // ==================== UI Construction ====================
   const pianoEl = document.getElementById('piano');
-
   function buildPiano() {
     pianoEl.innerHTML = '';
-
-    // Create white keys first
     whiteKeys.forEach(wk => {
       const el = document.createElement('div');
       el.className = 'key white-key';
@@ -501,7 +447,6 @@ header h1 { font-size: 1.6rem; }
       });
       el.addEventListener('mouseup', () => stopNote(wk.id));
       el.addEventListener('mouseleave', () => stopNote(wk.id));
-      // Touch support
       el.addEventListener('touchstart', (e) => {
         e.preventDefault();
         playNote(wk.id);
@@ -512,25 +457,19 @@ header h1 { font-size: 1.6rem; }
       });
       pianoEl.appendChild(el);
     });
-
-    // Position black keys
     const whiteKeyEls = pianoEl.querySelectorAll('.white-key');
     const whiteKeyArray = Array.from(whiteKeyEls);
-
     blackKeys.forEach(bk => {
       const el = document.createElement('div');
       el.className = 'key black-key';
       el.id = 'key-' + bk.id;
       el.dataset.note = bk.id;
       el.innerHTML = `<span class="note-label">${bk.label}${bk.octave}</span><span class="keyboard-hint">${bk.kb}</span>`;
-
-      // Find the white key after which this black key should be positioned
       const afterIndex = whiteKeys.findIndex(w => w.id === bk.afterWhite);
       if (afterIndex >= 0 && afterIndex < whiteKeyArray.length) {
         const refKey = whiteKeyArray[afterIndex];
         el.style.left = (refKey.offsetLeft + refKey.offsetWidth - 16) + 'px';
       }
-
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -550,8 +489,6 @@ header h1 { font-size: 1.6rem; }
       pianoEl.appendChild(el);
     });
   }
-
-  // Re-position black keys on resize
   let resizeTimeout;
   function repositionBlackKeys() {
     clearTimeout(resizeTimeout);
@@ -569,58 +506,39 @@ header h1 { font-size: 1.6rem; }
       });
     }, 150);
   }
-
   window.addEventListener('resize', repositionBlackKeys);
-
   buildPiano();
-  // Initial positioning after DOM settles
   setTimeout(repositionBlackKeys, 50);
-
-  // ==================== Keyboard Input ====================
   const kbToNote = {};
   whiteKeys.forEach(w => { kbToNote[w.kb.toLowerCase()] = w.id; });
   blackKeys.forEach(b => { kbToNote[b.kb.toLowerCase()] = b.id; });
-
   const pressedKeys = new Set();
-
   document.addEventListener('keydown', (e) => {
-    // Ignore if typing in input fields
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-
     const key = e.key.toLowerCase();
     const noteId = kbToNote[key];
     if (!noteId) return;
-
     e.preventDefault();
-    if (pressedKeys.has(noteId)) return; // Prevent key repeat
+    if (pressedKeys.has(noteId)) return;
     pressedKeys.add(noteId);
     playNote(noteId);
-
-    // Record if recording
     if (isRecording) {
       recordEvent({ type: 'noteOn', noteId, time: audioCtx ? audioCtx.currentTime : performance.now() / 1000 });
     }
   });
-
   document.addEventListener('keyup', (e) => {
     const key = e.key.toLowerCase();
     const noteId = kbToNote[key];
     if (!noteId) return;
-
     e.preventDefault();
     pressedKeys.delete(noteId);
     stopNote(noteId);
-
     if (isRecording) {
       recordEvent({ type: 'noteOff', noteId, time: audioCtx ? audioCtx.currentTime : performance.now() / 1000 });
     }
   });
-
-  // Override click handlers to also record
   const origPlayNote = playNote;
   const origStopNote = stopNote;
-  // We wrap mouse/touch events by overriding the built keyboard with additional record hooks
-  // Actually, let's wrap the functions
   playNote = function(noteId) {
     origPlayNote(noteId);
     if (isRecording) {
@@ -633,27 +551,21 @@ header h1 { font-size: 1.6rem; }
       recordEvent({ type: 'noteOff', noteId, time: audioCtx ? audioCtx.currentTime : performance.now() / 1000 });
     }
   };
-
-  // ==================== Recording ====================
   let isRecording = false;
   let recordedEvents = [];
   let recordStartTime = 0;
-
   function recordEvent(event) {
     recordedEvents.push({ ...event, time: event.time - recordStartTime });
   }
-
   const recordBtn = document.getElementById('recordBtn');
   const playbackBtn = document.getElementById('playbackBtn');
   const stopBtn = document.getElementById('stopBtn');
   const clearBtn = document.getElementById('clearBtn');
   const recordingStatus = document.getElementById('recordingStatus');
   const playingStatus = document.getElementById('playingStatus');
-
   recordBtn.addEventListener('click', () => {
     initAudio();
     if (isRecording) {
-      // Stop recording
       isRecording = false;
       recordBtn.classList.remove('active');
       recordBtn.textContent = '录制';
@@ -663,7 +575,6 @@ header h1 { font-size: 1.6rem; }
         playbackBtn.disabled = false;
       }
     } else {
-      // Start recording
       recordedEvents = [];
       recordStartTime = audioCtx.currentTime;
       isRecording = true;
@@ -675,14 +586,11 @@ header h1 { font-size: 1.6rem; }
       playingStatus.style.display = 'none';
     }
   });
-
   let playbackTimer = null;
   let isPlayingBack = false;
-
   playbackBtn.addEventListener('click', () => {
     if (isPlayingBack) return;
     if (recordedEvents.length === 0) return;
-
     initAudio();
     isPlayingBack = true;
     playbackBtn.classList.add('active');
@@ -691,20 +599,15 @@ header h1 { font-size: 1.6rem; }
     playingStatus.style.display = 'inline';
     stopBtn.disabled = false;
     recordBtn.disabled = true;
-
     const startTime = audioCtx.currentTime;
     let eventIndex = 0;
-
     function scheduleNext() {
       if (!isPlayingBack) return;
-
       while (eventIndex < recordedEvents.length) {
         const evt = recordedEvents[eventIndex];
         const scheduleTime = startTime + evt.time;
         const now = audioCtx.currentTime;
-
         if (scheduleTime <= now + 0.05) {
-          // Schedule immediately
           if (evt.type === 'noteOn') {
             playNote(evt.noteId);
           } else if (evt.type === 'noteOff') {
@@ -712,7 +615,6 @@ header h1 { font-size: 1.6rem; }
           }
           eventIndex++;
         } else {
-          // Wait
           const delay = (scheduleTime - now) * 1000;
           playbackTimer = setTimeout(() => {
             scheduleNext();
@@ -720,14 +622,10 @@ header h1 { font-size: 1.6rem; }
           return;
         }
       }
-
-      // Playback complete
       stopPlayback();
     }
-
     scheduleNext();
   });
-
   function stopPlayback() {
     isPlayingBack = false;
     if (playbackTimer) clearTimeout(playbackTimer);
@@ -746,7 +644,6 @@ header h1 { font-size: 1.6rem; }
       recordingStatus.style.display = 'none';
     }
   }
-
   stopBtn.addEventListener('click', () => {
     if (isRecording) {
       isRecording = false;
@@ -763,18 +660,14 @@ header h1 { font-size: 1.6rem; }
     }
     stopAllNotes();
   });
-
   clearBtn.addEventListener('click', () => {
     recordedEvents = [];
     playbackBtn.disabled = true;
     stopAllNotes();
     if (isPlayingBack) stopPlayback();
   });
-
-  // ==================== Sustain ====================
   const sustainBtn = document.getElementById('sustainBtn');
   const sustainStatus = document.getElementById('sustainStatus');
-
   sustainBtn.addEventListener('click', () => {
     sustainOn = !sustainOn;
     if (sustainOn) {
@@ -786,8 +679,6 @@ header h1 { font-size: 1.6rem; }
       releaseSustain();
     }
   });
-
-  // ==================== Volume ====================
   const volumeSlider = document.getElementById('volume');
   volumeSlider.addEventListener('input', () => {
     initAudio();
@@ -795,17 +686,13 @@ header h1 { font-size: 1.6rem; }
       masterGain.gain.value = volumeSlider.value / 100;
     }
   });
-
-  // ==================== Octave Shift ====================
   const octaveDisplay = document.getElementById('octaveDisplay');
   const octaveDownBtn = document.getElementById('octaveDown');
   const octaveUpBtn = document.getElementById('octaveUp');
-
   function updateOctaveDisplay() {
     const baseOctave = 3 + octaveOffset;
     octaveDisplay.textContent = 'C' + baseOctave;
   }
-
   octaveDownBtn.addEventListener('click', () => {
     if (octaveOffset > -2) {
       octaveOffset--;
@@ -813,7 +700,6 @@ header h1 { font-size: 1.6rem; }
       stopAllNotes();
     }
   });
-
   octaveUpBtn.addEventListener('click', () => {
     if (octaveOffset < 2) {
       octaveOffset++;
@@ -821,8 +707,6 @@ header h1 { font-size: 1.6rem; }
       stopAllNotes();
     }
   });
-
-  // ==================== Songs ====================
   const songs = {
     twinkle: {
       name: '小星星 (Twinkle Twinkle)',
@@ -954,51 +838,40 @@ header h1 { font-size: 1.6rem; }
       ]
     }
   };
-
   const songSelect = document.getElementById('songSelect');
   const playSongBtn = document.getElementById('playSongBtn');
   let currentSongPlayer = null;
-
   playSongBtn.addEventListener('click', () => {
     const songKey = songSelect.value;
     if (!songKey || !songs[songKey]) return;
-
     initAudio();
     if (currentSongPlayer) {
       currentSongPlayer.stop();
     }
-
     const song = songs[songKey];
     const beatDuration = 60 / song.tempo;
     let noteIndex = 0;
     let noteTimers = [];
     let stopped = false;
-
-    // Highlight active song
     playSongBtn.classList.add('active');
     playSongBtn.textContent = '播放中...';
-
     function playNext() {
       if (stopped || noteIndex >= song.notes.length) {
-        // Song finished
         playSongBtn.classList.remove('active');
         playSongBtn.textContent = '播放';
         currentSongPlayer = null;
         return;
       }
-
       const n = song.notes[noteIndex];
       playNote(n.note);
       noteTimers.push(setTimeout(() => {
         stopNote(n.note);
-      }, n.dur * beatDuration * 900)); // 90% of full duration for slight gap
-
+      }, n.dur * beatDuration * 900));
       noteIndex++;
       noteTimers.push(setTimeout(() => {
         playNext();
       }, n.dur * beatDuration * 1000));
     }
-
     currentSongPlayer = {
       stop: () => {
         stopped = true;
@@ -1009,19 +882,13 @@ header h1 { font-size: 1.6rem; }
         currentSongPlayer = null;
       }
     };
-
     playNext();
   });
-
-  // Stop song on any piano interaction
   document.addEventListener('keydown', (e) => {
     if (currentSongPlayer && kbToNote[e.key.toLowerCase()]) {
       currentSongPlayer.stop();
     }
   });
-
-  // ==================== Initialize ====================
-  // Show welcome tooltip on first interaction
   let firstInteraction = true;
   document.addEventListener('click', () => {
     if (firstInteraction) {
@@ -1035,16 +902,11 @@ header h1 { font-size: 1.6rem; }
       firstInteraction = false;
     }
   });
-
-  // Re-position black keys on window load
   window.addEventListener('load', () => {
     setTimeout(repositionBlackKeys, 100);
     setTimeout(repositionBlackKeys, 500);
   });
-
-  // Initial octave display
   updateOctaveDisplay();
-
 })();
 </script>
 <script src="../i18n.js" defer></script>

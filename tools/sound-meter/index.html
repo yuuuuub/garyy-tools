@@ -242,7 +242,7 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
 
 <div class="container">
 
-  <!-- Header -->
+
   <header>
     <h1>分贝测试仪</h1>
     <div class="disclaimer-badge">
@@ -251,7 +251,7 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     </div>
   </header>
 
-  <!-- Gauge Section -->
+
   <div class="gauge-section">
     <div class="gauge-wrapper">
       <canvas id="gaugeCanvas"></canvas>
@@ -279,7 +279,7 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     </div>
   </div>
 
-  <!-- Chart Section -->
+
   <div class="chart-section">
     <div class="chart-header">
       <span class="chart-title">音量历史图表</span>
@@ -288,13 +288,13 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     <canvas id="chartCanvas"></canvas>
   </div>
 
-  <!-- Reference Section -->
+
   <div class="ref-section">
     <h2>参考对比</h2>
     <div class="ref-list" id="refList"></div>
   </div>
 
-  <!-- Permission Guide -->
+
   <div class="guide-section">
     <h2>麦克风权限说明</h2>
     <div class="guide-steps">
@@ -321,18 +321,17 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     </div>
   </div>
 
-  <!-- Footer -->
+
   <footer>
     分贝测试仪 &middot; 非专业校准设备 &middot; 仅供娱乐参考 &middot; 数据仅在本地处理
   </footer>
 
 </div>
 
-<!-- Toast -->
+
 <div class="toast" id="toast"></div>
 
 <script>
-  // ==================== DOM ELEMENTS ====================
   const gaugeCanvas = document.getElementById('gaugeCanvas');
   const gaugeCtx = gaugeCanvas.getContext('2d');
   const chartCanvas = document.getElementById('chartCanvas');
@@ -345,37 +344,26 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
   const btnStart = document.getElementById('btnStart');
   const btnStop = document.getElementById('btnStop');
   const toast = document.getElementById('toast');
-
-  // ==================== AUDIO STATE ====================
   let audioContext = null;
   let analyser = null;
   let microphone = null;
   let dataArray = null;
   let isListening = false;
   let animationId = null;
-
-  // ==================== MEASUREMENT STATE ====================
   let currentDb = 0;
   let peakDb = 0;
   let averageDb = 0;
-  let dbHistory = [];       // Recent dB values for chart
-  let dbAllHistory = [];    // All dB values for average
+  let dbHistory = [];
+  let dbAllHistory = [];
   let timerSeconds = 0;
   let timerInterval = null;
   let startTime = 0;
-
-  // ==================== GAUGE CONFIG ====================
-  // 270-degree gauge: from 135° to 405° (canvas: PI*0.75 to PI*2.25)
   const GAUGE_START = Math.PI * 0.75;
   const GAUGE_END   = Math.PI * 2.25;
   const GAUGE_RANGE = GAUGE_END - GAUGE_START;
   const DB_MIN = 20;
   const DB_MAX = 120;
-
-  // ==================== CHART CONFIG ====================
-  const CHART_MAX_POINTS = 120; // ~60 seconds at 500ms interval
-
-  // ==================== REFERENCE DATA ====================
+  const CHART_MAX_POINTS = 120;
   const references = [
     { name: '耳语', icon: '🤫', db: 30, color: '#3fb950' },
     { name: '安静图书馆', icon: '📚', db: 40, color: '#3fb950' },
@@ -385,30 +373,20 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     { name: '摇滚音乐会', icon: '🎸', db: 110, color: '#bc8cff' },
     { name: '喷气式飞机', icon: '✈️', db: 120, color: '#bc8cff' },
   ];
-
-  // ==================== INIT ====================
   function init() {
-    // Set canvas resolutions
     gaugeCanvas.width = 640;
     gaugeCanvas.height = 440;
     chartCanvas.width = chartCanvas.clientWidth * 2;
     chartCanvas.height = 400;
-
-    // Draw initial gauge
     drawGauge(0);
-    // Draw initial chart
     drawChart();
-    // Build reference list
     buildReferenceList();
-    // Handle resize
     window.addEventListener('resize', () => {
       chartCanvas.width = chartCanvas.clientWidth * 2;
       chartCanvas.height = 400;
       drawChart();
     });
   }
-
-  // ==================== TOAST ====================
   let toastTimer = null;
   function showToast(msg) {
     toast.textContent = msg;
@@ -416,8 +394,6 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
   }
-
-  // ==================== START / STOP ====================
   async function startListening() {
     if (isListening) return;
     try {
@@ -425,14 +401,10 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       microphone = audioContext.createMediaStreamSource(stream);
       analyser = audioContext.createAnalyser();
-      // FFT size: 2048 gives 1024 frequency bins; we use time domain for RMS
-      // Actually, let's use a moderate size for time domain analysis
       analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.8;
       microphone.connect(analyser);
       dataArray = new Float32Array(analyser.fftSize);
-
-      // Reset state
       currentDb = 0;
       peakDb = 0;
       averageDb = 0;
@@ -440,8 +412,6 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       dbAllHistory = [];
       timerSeconds = 0;
       startTime = Date.now();
-
-      // UI
       isListening = true;
       btnStart.style.display = 'none';
       btnStop.style.display = 'inline-flex';
@@ -450,12 +420,8 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       peakValueEl.textContent = '0';
       avgValueEl.textContent = '0';
       timerDisplay.textContent = '00:00:00';
-
-      // Start timer
       timerInterval = setInterval(updateTimer, 1000);
-      // Start measurement loop
       measureLoop();
-
       showToast('麦克风已连接，正在测量音量...');
     } catch (err) {
       let msg = '无法访问麦克风。';
@@ -469,21 +435,16 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       showToast(msg);
     }
   }
-
   function stopListening() {
     if (!isListening) return;
-
-    // Stop measurement loop
     if (animationId) {
       cancelAnimationFrame(animationId);
       animationId = null;
     }
-    // Stop timer
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
     }
-    // Disconnect and close
     if (microphone) {
       microphone.disconnect();
       microphone = null;
@@ -495,22 +456,15 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     analyser = null;
     dataArray = null;
     isListening = false;
-
-    // UI
     btnStart.style.display = 'inline-flex';
     btnStop.style.display = 'none';
     dbValueEl.textContent = '--';
     dbLabelEl.textContent = '监听已停止';
     dbValueEl.className = 'db-value';
-
-    // Reset gauge needle
     currentDb = 0;
     drawGauge(0);
-
     showToast('监听已停止。');
   }
-
-  // ==================== TIMER ====================
   function updateTimer() {
     if (!isListening) return;
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -522,86 +476,40 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       String(m).padStart(2, '0') + ':' +
       String(s).padStart(2, '0');
   }
-
-  // ==================== MEASUREMENT LOOP ====================
   function measureLoop() {
     if (!isListening) return;
-
-    // Get time domain data
     analyser.getFloatTimeDomainData(dataArray);
-
-    // Calculate RMS
     let sumSquares = 0;
     for (let i = 0; i < dataArray.length; i++) {
       sumSquares += dataArray[i] * dataArray[i];
     }
     const rms = Math.sqrt(sumSquares / dataArray.length);
-
-    // Convert RMS to approximate dB
-    // Typical RMS ranges:
-    //   ~0.00001 -> quiet room (~20-30 dB)
-    //   ~0.001   -> moderate (~50-60 dB)
-    //   ~0.01    -> loud (~70-80 dB)
-    //   ~0.1     -> very loud (~90-100 dB)
-    //   ~0.5     -> painful (~110-120 dB)
-    // We use a calibrated mapping with the formula: dB = 20 * log10(rms / ref) + offset
-    // Let's set ref such that rms=0.00002 maps to ~20 dB (very quiet)
-    // dB = 20 * log10(rms / 0.000001) - some_offset
-    // Testing:
-    //   rms=0.00003: 20*log10(30) ≈ 29.5 => 29.5 - 9.5 = 20  (quiet room)
-    //   rms=0.001:   20*log10(1000) = 60 => 60-9.5 = 50.5 (normal)
-    //   rms=0.01:    20*log10(10000) = 80 => 80-9.5 = 70.5 (vacuum)
-    //   rms=0.05:    20*log10(50000) = 94 => 94-9.5 = 84.5 (traffic)
-    //   rms=0.3:     20*log10(300000) = 109.5 => 109.5-9.5 = 100
-    // This seems reasonable. Let's use this mapping.
-
     let rawDb = 0;
     if (rms > 0.000001) {
       rawDb = 20 * Math.log10(rms / 0.000001) - 9.5;
-      // Clamp to range
       rawDb = Math.max(DB_MIN, Math.min(DB_MAX, rawDb));
     } else {
       rawDb = DB_MIN;
     }
-
-    // Smoothing (exponential moving average)
     const smoothing = 0.3;
     currentDb = currentDb * (1 - smoothing) + rawDb * smoothing;
-
-    // Ensure within range
     currentDb = Math.max(DB_MIN, Math.min(DB_MAX, currentDb));
-
-    // Update peak
     if (currentDb > peakDb) peakDb = currentDb;
-
-    // Update average
     dbAllHistory.push(currentDb);
     if (dbAllHistory.length > 0) {
       averageDb = dbAllHistory.reduce((a, b) => a + b, 0) / dbAllHistory.length;
     }
-
-    // Update history for chart (every ~150ms to match ~60fps-ish display)
-    // We push every sample; chart will downsample for display
     dbHistory.push(currentDb);
     if (dbHistory.length > CHART_MAX_POINTS) {
       dbHistory.shift();
     }
-
-    // Update UI
     updateDisplay();
     drawGauge(currentDb);
     drawChart();
-
-    // Next frame
     animationId = requestAnimationFrame(measureLoop);
   }
-
-  // ==================== UPDATE DISPLAY ====================
   function updateDisplay() {
-    // dB value
     dbValueEl.textContent = Math.round(currentDb);
-
-    // Color class
     dbValueEl.className = 'db-value';
     if (currentDb < 70) {
       dbValueEl.classList.add('safe');
@@ -616,14 +524,8 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       dbValueEl.classList.add('dangerous');
       dbLabelEl.textContent = '危险噪音 - 可能立即损伤听力！';
     }
-
-    // Peak
     peakValueEl.textContent = Math.round(peakDb);
-
-    // Average
     avgValueEl.textContent = Math.round(averageDb);
-
-    // Color the stat values based on threshold
     if (peakDb >= 100) {
       peakValueEl.style.color = 'var(--purple)';
     } else if (peakDb >= 85) {
@@ -633,7 +535,6 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     } else {
       peakValueEl.style.color = 'var(--accent)';
     }
-
     if (averageDb >= 100) {
       avgValueEl.style.color = 'var(--purple)';
     } else if (averageDb >= 85) {
@@ -644,8 +545,6 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       avgValueEl.style.color = 'var(--accent)';
     }
   }
-
-  // ==================== DRAW GAUGE ====================
   function drawGauge(db) {
     const ctx = gaugeCtx;
     const w = gaugeCanvas.width;
@@ -653,10 +552,7 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     const cx = w / 2;
     const cy = h * 0.85;
     const radius = Math.min(w, h) * 0.62;
-
     ctx.clearRect(0, 0, w, h);
-
-    // Draw gauge background arc (track)
     const trackWidth = 26;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, GAUGE_START, GAUGE_END);
@@ -664,21 +560,16 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     ctx.lineWidth = trackWidth;
     ctx.lineCap = 'round';
     ctx.stroke();
-
-    // Draw color zones on the arc
-    // Map dB ranges to angle ranges
     function dbToAngle(val) {
       const fraction = (val - DB_MIN) / (DB_MAX - DB_MIN);
       return GAUGE_START + fraction * GAUGE_RANGE;
     }
-
     const zones = [
-      { start: 20, end: 70,  color: '#3fb950' }, // Green
-      { start: 70, end: 85,  color: '#d29922' }, // Yellow
-      { start: 85, end: 100, color: '#f85149' }, // Red
-      { start: 100, end: 120, color: '#bc8cff' }, // Purple
+      { start: 20, end: 70,  color: '#3fb950' },
+      { start: 70, end: 85,  color: '#d29922' },
+      { start: 85, end: 100, color: '#f85149' },
+      { start: 100, end: 120, color: '#bc8cff' },
     ];
-
     zones.forEach(zone => {
       const a1 = dbToAngle(zone.start);
       const a2 = dbToAngle(zone.end);
@@ -689,30 +580,24 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       ctx.lineCap = 'butt';
       ctx.stroke();
     });
-
-    // Draw tick marks and labels
-    const tickInterval = 10; // Every 10 dB
+    const tickInterval = 10;
     for (let db = DB_MIN; db <= DB_MAX; db += tickInterval) {
       const angle = dbToAngle(db);
       const isMajor = (db % 20 === 0);
       const tickLength = isMajor ? 16 : 10;
       const tickWidth = isMajor ? 2.5 : 1.5;
-
       const innerR = radius - trackWidth / 2;
       const outerR = radius + trackWidth / 2 + tickLength;
       const x1 = cx + innerR * Math.cos(angle);
       const y1 = cy + innerR * Math.sin(angle);
       const x2 = cx + outerR * Math.cos(angle);
       const y2 = cy + outerR * Math.sin(angle);
-
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.strokeStyle = isMajor ? '#8b949e' : '#484f58';
       ctx.lineWidth = tickWidth;
       ctx.stroke();
-
-      // Labels for major ticks
       if (isMajor || db === DB_MIN || db === DB_MAX) {
         const labelR = outerR + 22;
         const lx = cx + labelR * Math.cos(angle);
@@ -724,20 +609,14 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
         ctx.fillText(db, lx, ly);
       }
     }
-
-    // Draw needle
     const needleAngle = dbToAngle(Math.max(DB_MIN, Math.min(DB_MAX, db)));
     const needleLength = radius - trackWidth / 2 - 8;
     const needleWidth = 4;
-
-    // Needle shadow
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.5)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
-
-    // Needle base circle
     const baseR = 14;
     ctx.beginPath();
     ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
@@ -747,15 +626,10 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
-
-    // Needle shape
     const tipX = cx + needleLength * Math.cos(needleAngle);
     const tipY = cy + needleLength * Math.sin(needleAngle);
-
-    // Perpendicular offset for needle width
     const perpAngle = needleAngle + Math.PI / 2;
     const hw = needleWidth / 2;
-
     ctx.beginPath();
     ctx.moveTo(
       cx + hw * Math.cos(perpAngle),
@@ -767,10 +641,7 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       cy - hw * Math.sin(perpAngle)
     );
     ctx.closePath();
-
-    // Needle gradient
     const needleGrad = ctx.createLinearGradient(cx, cy, tipX, tipY);
-    // Color based on zone
     let needleColor;
     if (db < 70) needleColor = '#3fb950';
     else if (db < 85) needleColor = '#d29922';
@@ -778,20 +649,15 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     else needleColor = '#bc8cff';
     needleGrad.addColorStop(0, needleColor);
     needleGrad.addColorStop(1, '#ffffff');
-
     ctx.fillStyle = needleGrad;
     ctx.fill();
     ctx.strokeStyle = needleColor;
     ctx.lineWidth = 1.5;
     ctx.stroke();
-
-    // Needle center dot
     ctx.beginPath();
     ctx.arc(cx, cy, 6, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
-
-    // Draw digital readout inside gauge
     ctx.fillStyle = '#e6edf3';
     ctx.font = 'bold 30px -apple-system, sans-serif';
     ctx.textAlign = 'center';
@@ -799,8 +665,6 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     const readoutY = cy - radius + 32;
     ctx.fillText(Math.round(db) + ' dB', cx, readoutY);
   }
-
-  // ==================== DRAW CHART ====================
   function drawChart() {
     const ctx = chartCtx;
     const w = chartCanvas.width;
@@ -808,14 +672,9 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
     const padding = { top: 20, right: 20, bottom: 30, left: 50 };
     const pw = w - padding.left - padding.right;
     const ph = h - padding.top - padding.bottom;
-
     ctx.clearRect(0, 0, w, h);
-
-    // Background
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(padding.left, padding.top, pw, ph);
-
-    // Grid lines (horizontal)
     const gridLevels = [20, 40, 60, 80, 100, 120];
     ctx.strokeStyle = '#21262d';
     ctx.lineWidth = 1;
@@ -825,16 +684,12 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       ctx.moveTo(padding.left, y);
       ctx.lineTo(w - padding.right, y);
       ctx.stroke();
-
-      // Label
       ctx.fillStyle = '#484f58';
       ctx.font = '18px -apple-system, sans-serif';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
       ctx.fillText(level, padding.left - 8, y);
     });
-
-    // Color zone backgrounds on chart (subtle)
     const zoneColors = [
       { start: 20, end: 70, color: 'rgba(63,185,80,0.06)' },
       { start: 70, end: 85, color: 'rgba(210,153,34,0.06)' },
@@ -847,15 +702,11 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
       ctx.fillStyle = zone.color;
       ctx.fillRect(padding.left, y2, pw, y1 - y2);
     });
-
-    // Draw data line
     if (dbHistory.length > 1) {
-      // Downsample to fit canvas
       const maxDraw = pw;
       const step = Math.max(1, Math.floor(dbHistory.length / maxDraw));
       const drawPoints = [];
       for (let i = 0; i < dbHistory.length; i += step) {
-        // Average the samples in this bucket
         let sum = 0;
         let count = 0;
         for (let j = i; j < Math.min(i + step, dbHistory.length); j++) {
@@ -867,9 +718,7 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
         const y = padding.top + ph - ((avg - DB_MIN) / (DB_MAX - DB_MIN)) * ph;
         drawPoints.push({ x, y, db: avg });
       }
-
       if (drawPoints.length > 1) {
-        // Shadow/glow under the line
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(drawPoints[0].x, padding.top + ph);
@@ -882,19 +731,15 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
         ctx.fillStyle = grad;
         ctx.fill();
         ctx.restore();
-
-        // Draw the line with segment colors based on dB level
         for (let i = 0; i < drawPoints.length - 1; i++) {
           const p1 = drawPoints[i];
           const p2 = drawPoints[i + 1];
           const midDb = (p1.db + p2.db) / 2;
-
           let color;
           if (midDb < 70) color = '#3fb950';
           else if (midDb < 85) color = '#d29922';
           else if (midDb < 100) color = '#f85149';
           else color = '#bc8cff';
-
           ctx.beginPath();
           ctx.moveTo(p1.x, p1.y);
           ctx.lineTo(p2.x, p2.y);
@@ -904,8 +749,6 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
           ctx.lineJoin = 'round';
           ctx.stroke();
         }
-
-        // Draw dot at the latest point
         const last = drawPoints[drawPoints.length - 1];
         ctx.beginPath();
         ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
@@ -916,51 +759,38 @@ canvas#gaugeCanvas { width: 280px; height: 200px; }
         ctx.stroke();
       }
     } else {
-      // No data yet
       ctx.fillStyle = '#484f58';
       ctx.font = '22px -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('等待数据...', padding.left + pw / 2, padding.top + ph / 2);
     }
-
-    // Border
     ctx.strokeStyle = '#30363d';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(padding.left, padding.top, pw, ph);
-
-    // Axis label
     ctx.fillStyle = '#484f58';
     ctx.font = '14px -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('dB', padding.left - 36, padding.top + ph / 2);
   }
-
-  // ==================== BUILD REFERENCE LIST ====================
   function buildReferenceList() {
     const container = document.getElementById('refList');
     container.innerHTML = '';
-
     references.forEach(ref => {
       const item = document.createElement('div');
       item.className = 'ref-item';
-
       const barWidth = Math.max(5, (ref.db / DB_MAX) * 100);
       const barColor = ref.color;
-
       item.innerHTML = `
         <span class="ref-icon">${ref.icon}</span>
         <span class="ref-name">${ref.name}</span>
         <span class="ref-bar-wrap"><span class="ref-bar" style="width:${barWidth}%;background:${barColor};"></span></span>
         <span class="ref-db">${ref.db} dB</span>
       `;
-
       container.appendChild(item);
     });
   }
-
-  // ==================== STARTUP ====================
   init();
 </script>
 

@@ -247,7 +247,7 @@ min-height: 300px}}
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────── -->
+
 <header class="header">
   <div style="display:flex;align-items:center;">
     <h1>手写体生成器</h1>
@@ -256,10 +256,10 @@ min-height: 300px}}
   <span style="font-size:0.8rem;color:var(--text-secondary);">让你的文字“活”起来</span>
 </header>
 
-<!-- ── Main Layout ─────────────────────────── -->
+
 <div class="main-container">
 
-  <!-- Controls Panel -->
+
   <aside class="controls-panel">
 
     <div class="control-group">
@@ -335,7 +335,7 @@ min-height: 300px}}
 
   </aside>
 
-  <!-- Preview Area -->
+
   <div class="preview-container">
     <div class="preview-toolbar">
       <button class="btn btn-secondary" id="resetBtn">重置</button>
@@ -348,19 +348,18 @@ min-height: 300px}}
   </div>
 </div>
 
-<!-- ── Toast ───────────────────────────────── -->
+
 <div class="toast" id="toast"></div>
 
-<!-- ── Footer ──────────────────────────────── -->
+
 <footer class="footer">
   手写体生成器 &copy; 2026 — 使用 CSS + Google Fonts 驱动，无需后端
 </footer>
 
-<!-- ── Hidden Canvas for export ────────────── -->
+
 <canvas id="exportCanvas" style="display:none;"></canvas>
 
 <script>
-// ============ State ============
 const state = {
   text: '',
   fontFamily: 'Liu Jian Mao Cao',
@@ -373,15 +372,11 @@ const state = {
   fontColor: '#1a3a5c',
   paperType: 'white'
 };
-
-// ============ Pen Presets ============
 const penPresets = {
   fountain: { color: '#1a1a1a', bleed: 'heavy', inkShadow: true, name: '钢笔' },
   ballpoint: { color: '#1a3a5c', bleed: 'light', inkShadow: true, name: '圆珠笔' },
   pencil: { color: '#555555', bleed: 'none', inkShadow: false, name: '铅笔' }
 };
-
-// ============ DOM Refs ============
 const textInput = document.getElementById('textInput');
 const fontFamilySelect = document.getElementById('fontFamily');
 const fontSizeRange = document.getElementById('fontSize');
@@ -403,54 +398,36 @@ const exportCanvas = document.getElementById('exportCanvas');
 const resetBtn = document.getElementById('resetBtn');
 const randomBtn = document.getElementById('randomBtn');
 const downloadBtn = document.getElementById('downloadBtn');
-
-// ============ Seeded Random ============
-// Simple deterministic pseudo-random for character variation
 let charSeed = 0;
 function seededRandom(reset = false) {
   if (reset) charSeed = 0;
   charSeed = (charSeed * 16807 + 0) % 2147483647;
   return (charSeed - 1) / 2147483646;
 }
-
-// ============ Render Handwriting ============
 function renderHandwriting() {
   const display = handwritingDisplay;
   const text = state.text;
   display.innerHTML = '';
-
   if (!text.trim()) {
     display.innerHTML = '<span style="color:#aaa;font-family:sans-serif;font-size:1rem;">在上面输入文字开始预览...</span>';
     return;
   }
-
   const chars = [...text];
   seededRandom(true);
-
-  const baseEmSize = state.fontSize / 16; // rem based
-
+  const baseEmSize = state.fontSize / 16;
   chars.forEach((char) => {
     if (char === '\n') {
       const br = document.createElement('br');
       display.appendChild(br);
       return;
     }
-
     const wrapper = document.createElement('span');
     wrapper.className = 'char-wrapper';
-
-    // Random rotation (jitter)
     const rotJitter = state.rotationJitter;
     const rotation = (seededRandom() * 2 - 1) * rotJitter;
-
-    // Random size variation
     const sizeJitter = state.sizeJitter;
     const sizeVariation = 1 + (seededRandom() * 2 - 1) * (sizeJitter / 100);
-
-    // Random slight vertical offset
     const vertOffset = (seededRandom() * 2 - 1) * (state.fontSize * 0.04);
-
-    // Build style
     const fontSizePx = state.fontSize * sizeVariation;
     const styles = [
       `font-family: '${state.fontFamily}', cursive`,
@@ -461,38 +438,26 @@ function renderHandwriting() {
       `margin-right: ${state.letterSpacing}em`,
       `line-height: 1.6`
     ];
-
-    // Ink bleed effect
     const bleed = state.inkBleed;
     if (bleed !== 'none') {
       wrapper.classList.add(`ink-bleed-${bleed}`);
     }
-
-    // Pencil texture effect (subtle)
     if (state.penStyle === 'pencil') {
       styles.push('opacity: 0.85');
       styles.push('filter: url(#pencil-texture)');
     }
-
     wrapper.setAttribute('style', styles.join('; '));
     wrapper.textContent = char;
-
-    // Store params as data attributes for canvas export
     wrapper.dataset.rotation = rotation;
     wrapper.dataset.sizeVar = sizeVariation;
     wrapper.dataset.vertOffset = vertOffset;
-
     display.appendChild(wrapper);
   });
 }
-
-// ============ Apply Paper Background ============
 function applyPaperBackground() {
   previewPaper.className = 'preview-paper';
   previewPaper.classList.add(`paper-${state.paperType}`);
 }
-
-// ============ Apply Pen Style ============
 function applyPenStyle(style) {
   const preset = penPresets[style];
   state.penStyle = style;
@@ -500,70 +465,54 @@ function applyPenStyle(style) {
   fontColorInput.value = preset.color;
   state.inkBleed = preset.bleed;
   inkBleedSelect.value = preset.bleed;
-
-  // Update active button
   penStyleBtns.forEach(btn => {
     btn.classList.toggle('active', btn.dataset.pen === style);
   });
 }
-
-// ============ Update State ============
 function updateState(key, value) {
   state[key] = value;
   renderAll();
 }
-
 function renderAll() {
   renderHandwriting();
   applyPaperBackground();
 }
-
-// ============ Event Listeners ============
 textInput.addEventListener('input', () => {
   state.text = textInput.value;
   renderHandwriting();
 });
-
 fontFamilySelect.addEventListener('change', () => {
   updateState('fontFamily', fontFamilySelect.value);
 });
-
 fontSizeRange.addEventListener('input', () => {
   const val = fontSizeRange.value;
   fontSizeVal.textContent = val + 'px';
   updateState('fontSize', parseInt(val));
 });
-
 letterSpacingRange.addEventListener('input', () => {
   const val = parseFloat(letterSpacingRange.value);
   letterSpacingVal.textContent = val.toFixed(2) + 'em';
   updateState('letterSpacing', val);
 });
-
 rotationJitterRange.addEventListener('input', () => {
   const val = parseFloat(rotationJitterRange.value);
   rotationJitterVal.textContent = val + '°';
   updateState('rotationJitter', val);
 });
-
 sizeJitterRange.addEventListener('input', () => {
   const val = parseInt(sizeJitterRange.value);
   sizeJitterVal.textContent = val + '%';
   updateState('sizeJitter', val);
 });
-
 inkBleedSelect.addEventListener('change', () => {
   updateState('inkBleed', inkBleedSelect.value);
 });
-
 fontColorInput.addEventListener('input', () => {
   updateState('fontColor', fontColorInput.value);
 });
-
 paperTypeSelect.addEventListener('change', () => {
   updateState('paperType', paperTypeSelect.value);
 });
-
 penStyleBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     applyPenStyle(btn.dataset.pen);
@@ -571,12 +520,9 @@ penStyleBtns.forEach(btn => {
     renderAll();
   });
 });
-
 function updateActivePenButton(style) {
   penStyleBtns.forEach(b => b.classList.toggle('active', b.dataset.pen === style));
 }
-
-// ============ Reset ============
 resetBtn.addEventListener('click', () => {
   textInput.value = '春风得意马蹄疾';
   state.text = '春风得意马蹄疾';
@@ -604,8 +550,6 @@ resetBtn.addEventListener('click', () => {
   renderAll();
   showToast('已重置为默认设置');
 });
-
-// ============ Random Style ============
 randomBtn.addEventListener('click', () => {
   const fonts = ['Ma Shan Zheng', 'Zhi Mang Xing', 'Liu Jian Mao Cao', 'Long Cang', 'ZCOOL KuaiLe', 'ZCOOL QingKe HuangYou'];
   const papers = ['lined', 'grid', 'kraft', 'white'];
@@ -614,73 +558,51 @@ randomBtn.addEventListener('click', () => {
   const hue = Math.floor(Math.random() * 360);
   const sat = 20 + Math.floor(Math.random() * 40);
   const light = 15 + Math.floor(Math.random() * 30);
-
   state.fontFamily = fonts[Math.floor(Math.random() * fonts.length)];
   fontFamilySelect.value = state.fontFamily;
-
   state.fontSize = 24 + Math.floor(Math.random() * 80);
   fontSizeRange.value = state.fontSize;
   fontSizeVal.textContent = state.fontSize + 'px';
-
   state.letterSpacing = Math.round((Math.random() * 0.4 - 0.05) * 100) / 100;
   letterSpacingRange.value = state.letterSpacing;
   letterSpacingVal.textContent = state.letterSpacing.toFixed(2) + 'em';
-
   state.rotationJitter = Math.round(Math.random() * 10 * 2) / 2;
   rotationJitterRange.value = state.rotationJitter;
   rotationJitterVal.textContent = state.rotationJitter + '°';
-
   state.sizeJitter = Math.floor(Math.random() * 15);
   sizeJitterRange.value = state.sizeJitter;
   sizeJitterVal.textContent = state.sizeJitter + '%';
-
   state.inkBleed = bleeds[Math.floor(Math.random() * bleeds.length)];
   inkBleedSelect.value = state.inkBleed;
-
   state.paperType = papers[Math.floor(Math.random() * papers.length)];
   paperTypeSelect.value = state.paperType;
-
   const pen = pens[Math.floor(Math.random() * pens.length)];
   applyPenStyle(pen);
-
-  // Optional: override color with random one
   if (Math.random() > 0.5) {
     state.fontColor = `hsl(${hue}, ${sat}%, ${light}%)`;
     fontColorInput.value = state.fontColor;
   }
-
   renderAll();
   showToast('已随机生成风格');
 });
-
-// ============ Download as Image ============
 downloadBtn.addEventListener('click', () => {
   if (!state.text.trim()) {
     showToast('请先输入文字');
     return;
   }
-
   const canvas = exportCanvas;
   const ctx = canvas.getContext('2d');
-
-  // Calculate canvas size based on content
   const display = handwritingDisplay;
   const displayRect = display.getBoundingClientRect();
   const paperRect = previewPaper.getBoundingClientRect();
-
   const paddingX = 48;
   const paddingY = 48;
-
-  // Measure text
   const chars = [...state.text];
   seededRandom(true);
-
-  // Estimate dimensions
   let maxLineWidth = 0;
   let currentLineWidth = 0;
   let lineCount = 1;
   const lineHeight = state.fontSize * 1.6;
-
   chars.forEach(char => {
     if (char === '\n') {
       maxLineWidth = Math.max(maxLineWidth, currentLineWidth);
@@ -688,23 +610,18 @@ downloadBtn.addEventListener('click', () => {
       lineCount++;
       return;
     }
-    const charWidth = state.fontSize * 1.0; // Approximate CJK char width
+    const charWidth = state.fontSize * 1.0;
     currentLineWidth += charWidth + state.letterSpacing * state.fontSize;
     maxLineWidth = Math.max(maxLineWidth, currentLineWidth);
   });
   if (currentLineWidth > 0) {
     maxLineWidth = Math.max(maxLineWidth, currentLineWidth);
   }
-
-  // Add some rotation space
   const rotationPadding = Math.sin(state.rotationJitter * Math.PI / 180) * state.fontSize * 1.5;
   const totalWidth = Math.max(400, maxLineWidth + paddingX * 2 + rotationPadding * 2 + 40);
   const totalHeight = Math.max(200, lineCount * lineHeight + paddingY * 2 + rotationPadding * 2 + 40);
-
   canvas.width = totalWidth;
   canvas.height = totalHeight;
-
-  // Draw paper background
   switch (state.paperType) {
     case 'lined':
       ctx.fillStyle = '#f8f7f2';
@@ -737,14 +654,12 @@ downloadBtn.addEventListener('click', () => {
       }
       break;
     case 'kraft':
-      // Kraft paper gradient
       const kraftGrad = ctx.createLinearGradient(0, 0, totalWidth, totalHeight);
       kraftGrad.addColorStop(0, '#c4a97d');
       kraftGrad.addColorStop(0.5, '#d4b88a');
       kraftGrad.addColorStop(1, '#b89968');
       ctx.fillStyle = kraftGrad;
       ctx.fillRect(0, 0, totalWidth, totalHeight);
-      // Add subtle noise-like spots
       for (let i = 0; i < 200; i++) {
         const sx = Math.random() * totalWidth;
         const sy = Math.random() * totalHeight;
@@ -760,36 +675,26 @@ downloadBtn.addEventListener('click', () => {
       ctx.fillRect(0, 0, totalWidth, totalHeight);
       break;
   }
-
-  // Draw text
   seededRandom(true);
   let x = paddingX + rotationPadding;
   let y = paddingY + rotationPadding + state.fontSize;
   const fontFamilySafe = `'${state.fontFamily}', cursive`;
-
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = state.fontColor;
-
   chars.forEach(char => {
     if (char === '\n') {
       x = paddingX + rotationPadding;
       y += lineHeight;
       return;
     }
-
     const rot = (seededRandom() * 2 - 1) * state.rotationJitter;
     const sizeVar = 1 + (seededRandom() * 2 - 1) * (state.sizeJitter / 100);
     const vOff = (seededRandom() * 2 - 1) * (state.fontSize * 0.04);
-
     const fontSize = state.fontSize * sizeVar;
-
     ctx.save();
     ctx.translate(x + fontSize * 0.5, y + vOff);
     ctx.rotate(rot * Math.PI / 180);
     ctx.font = `${fontSize}px ${fontFamilySafe}`;
-
-    // Ink bleed effect (text-shadow equivalent on canvas)
-    // Draw multiple offset copies for bleed
     if (state.inkBleed === 'heavy') {
       ctx.globalAlpha = 0.07;
       ctx.fillText(char, -fontSize * 0.5, 0);
@@ -806,23 +711,17 @@ downloadBtn.addEventListener('click', () => {
       ctx.fillText(char, -fontSize * 0.5 + 1, 1);
       ctx.globalAlpha = 1;
     }
-
     ctx.fillText(char, -fontSize * 0.5, 0);
     ctx.restore();
-
     const charWidth = fontSize * 1.0;
     x += charWidth + state.letterSpacing * state.fontSize;
   });
-
-  // Download
   const link = document.createElement('a');
   link.download = 'handwriting-' + Date.now() + '.png';
   link.href = canvas.toDataURL('image/png');
   link.click();
   showToast('图片已下载');
 });
-
-// ============ Toast ============
 let toastTimer;
 function showToast(msg) {
   toast.textContent = msg;
@@ -832,8 +731,6 @@ function showToast(msg) {
     toast.classList.remove('show');
   }, 2000);
 }
-
-// ============ Init ============
 function init() {
   state.text = textInput.value;
   state.fontFamily = fontFamilySelect.value;
@@ -844,13 +741,10 @@ function init() {
   state.inkBleed = inkBleedSelect.value;
   state.fontColor = fontColorInput.value;
   state.paperType = paperTypeSelect.value;
-
   applyPenStyle('ballpoint');
   renderAll();
   showToast('手写体生成器已就绪');
 }
-
-// Wait for fonts to load, then init
 document.fonts.ready.then(() => {
   init();
 });

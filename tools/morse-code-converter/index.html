@@ -216,7 +216,7 @@ min-height: 18px}
 <div class="container">
   <h1>📡 莫斯电码转换器</h1>
 
-  <!-- 转换面板 -->
+
   <div class="panel">
     <div class="panel-header">
       <span class="label" id="modeLabel">文字 → 莫斯电码</span>
@@ -243,7 +243,7 @@ min-height: 18px}
     </div>
   </div>
 
-  <!-- 对照表 -->
+
   <div class="panel">
     <span class="label">莫斯电码对照表</span>
     <div class="ref-grid" id="refGrid"></div>
@@ -251,7 +251,6 @@ min-height: 18px}
 </div>
 
 <script>
-// ========== 莫斯电码映射 ==========
 const MORSE_MAP = {
   'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.',
   'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---',
@@ -265,8 +264,6 @@ const MORSE_MAP = {
 const REVERSE_MAP = Object.fromEntries(
   Object.entries(MORSE_MAP).map(([k, v]) => [v, k])
 );
-
-// ========== DOM 元素 ==========
 const inputEl = document.getElementById('input');
 const outputEl = document.getElementById('output');
 const errorEl = document.getElementById('errorMsg');
@@ -280,12 +277,9 @@ const speedRange = document.getElementById('speedRange');
 const speedValue = document.getElementById('speedValue');
 const toastEl = document.getElementById('toast');
 const refGrid = document.getElementById('refGrid');
-
-let mode = 'encode'; // 'encode' | 'decode'
+let mode = 'encode';
 let isPlaying = false;
 let abortController = null;
-
-// ========== 对照表渲染 ==========
 function renderRefTable() {
   const entries = Object.entries(MORSE_MAP);
   refGrid.innerHTML = entries.map(([char, code]) =>
@@ -296,11 +290,8 @@ function renderRefTable() {
   ).join('');
 }
 renderRefTable();
-
-// ========== 模式切换 ==========
 btnEncode.addEventListener('click', () => setMode('encode'));
 btnDecode.addEventListener('click', () => setMode('decode'));
-
 function setMode(m) {
   mode = m;
   btnEncode.classList.toggle('active', m === 'encode');
@@ -314,8 +305,6 @@ function setMode(m) {
   inputEl.placeholder = m === 'encode' ? '请输入文字...' : '请输入莫斯电码（用空格分隔字符，/ 分隔单词）...';
   inputEl.focus();
 }
-
-// ========== 实时转换 ==========
 inputEl.addEventListener('input', () => {
   if (isPlaying) return;
   const raw = inputEl.value.trim();
@@ -348,7 +337,6 @@ inputEl.addEventListener('input', () => {
     }
   }
 });
-
 function encodeToMorse(text) {
   const groups = [];
   const upper = text.toUpperCase();
@@ -359,15 +347,12 @@ function encodeToMorse(text) {
     } else if (MORSE_MAP[ch]) {
       groups.push({ char: ch, morse: MORSE_MAP[ch], isSpace: false });
     } else {
-      // 跳过不支持的字符
     }
   }
   const morse = groups.map(g => g.isSpace ? '/' : g.morse).filter(Boolean).join(' ');
   return { morse, groups, error: '' };
 }
-
 function decodeFromMorse(raw) {
-  // 清理输入
   const trimmed = raw.replace(/\s+/g, ' ').trim();
   const tokens = trimmed.split(/\s+/);
   let text = '';
@@ -377,7 +362,6 @@ function decodeFromMorse(raw) {
     } else if (REVERSE_MAP[token]) {
       text += REVERSE_MAP[token];
     } else if (token === '.' || token === '-') {
-      // 可能是单字符
       if (REVERSE_MAP[token]) text += REVERSE_MAP[token];
     } else {
       return { text: '', error: `无法识别的莫斯码: "${token}"` };
@@ -385,7 +369,6 @@ function decodeFromMorse(raw) {
   }
   return { text, error: '' };
 }
-
 function renderOutput(morse, groups) {
   if (!groups || groups.length === 0) {
     outputEl.innerHTML = '<span style="color:var(--text-dim)">无可转换字符</span>';
@@ -402,15 +385,11 @@ function renderOutput(morse, groups) {
   }
   outputEl.innerHTML = html;
 }
-
-// ========== 音频引擎 ==========
 let audioCtx = null;
-
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
-
 function playTone(duration, frequency = 600) {
   return new Promise(resolve => {
     const ctx = getAudioContext();
@@ -427,15 +406,12 @@ function playTone(duration, frequency = 600) {
     osc.onended = resolve;
   });
 }
-
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
-
 function getTimings() {
-  // speed: 1=slowest, 10=fastest
   const speed = parseInt(speedRange.value);
-  const base = 300 / speed; // dot duration in ms
+  const base = 300 / speed;
   return {
     dot: base,
     dash: base * 3,
@@ -444,17 +420,14 @@ function getTimings() {
     wordGap: base * 7
   };
 }
-
 async function playMorse(groups) {
   if (isPlaying) return;
   isPlaying = true;
   abortController = new AbortController();
   const signal = abortController.signal;
   playIcon.textContent = '⏹';
-
   const timing = getTimings();
   const charSpans = outputEl.querySelectorAll('.char-group:not(.space-marker)');
-
   try {
     for (let gi = 0; gi < groups.length; gi++) {
       if (signal.aborted) break;
@@ -463,12 +436,8 @@ async function playMorse(groups) {
         await sleep(timing.wordGap);
         continue;
       }
-
-      // 高亮当前字符
       const span = charSpans[gi];
       if (span) span.classList.add('highlight');
-
-      // 播放莫斯码
       for (let si = 0; si < g.morse.length; si++) {
         if (signal.aborted) break;
         const symbol = g.morse[si];
@@ -477,63 +446,45 @@ async function playMorse(groups) {
         } else if (symbol === '-') {
           await playTone(timing.dash / 1000, 600);
         }
-        // 符号间间隔
         if (si < g.morse.length - 1) {
           await sleep(timing.intraChar);
         }
       }
-
-      // 移除高亮
       if (span) span.classList.remove('highlight');
-
-      // 字符间间隔（非最后一个）
       if (gi < groups.length - 1 && !groups[gi + 1].isSpace) {
         await sleep(timing.interChar);
       }
     }
   } catch (e) {
-    // aborted
   } finally {
-    // 清除所有高亮
     outputEl.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
     isPlaying = false;
     playIcon.textContent = '▶';
     btnPlay.disabled = false;
   }
 }
-
 btnPlay.addEventListener('click', async () => {
   if (isPlaying) {
-    // 停止播放
     if (abortController) abortController.abort();
     return;
   }
-
   const raw = inputEl.value.trim();
   if (!raw) return;
-
   let groups;
   if (mode === 'encode') {
     const result = encodeToMorse(raw);
     groups = result.groups;
-    // 重新渲染输出以匹配索引
     renderOutput(result.morse, result.groups);
   } else {
-    // 解码模式不支持播放
     return;
   }
-
   btnPlay.disabled = true;
   await playMorse(groups);
   btnPlay.disabled = false;
 });
-
-// 速度滑块
 speedRange.addEventListener('input', () => {
   speedValue.textContent = speedRange.value;
 });
-
-// ========== 复制功能 ==========
 btnCopy.addEventListener('click', () => {
   const raw = inputEl.value.trim();
   if (!raw) return;
@@ -553,7 +504,6 @@ btnCopy.addEventListener('click', () => {
     errorEl.textContent = '复制失败，请手动选择复制';
   });
 });
-
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;

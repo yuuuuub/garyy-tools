@@ -419,7 +419,7 @@ font-size: 0.65rem}
 </head>
 <body>
   <div class="app">
-    <!-- Header -->
+
     <div class="header">
       <h1>习惯追踪器</h1>
       <div class="week-badge" id="weekBadge">
@@ -428,7 +428,7 @@ font-size: 0.65rem}
       </div>
     </div>
 
-    <!-- Stats -->
+
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-value" id="statTotal">0</div>
@@ -444,7 +444,7 @@ font-size: 0.65rem}
       </div>
     </div>
 
-    <!-- Add Habit -->
+
     <div class="add-section">
       <button class="add-toggle" id="addToggle">
         <span class="plus">+</span> 添加新习惯
@@ -474,7 +474,7 @@ font-size: 0.65rem}
       </div>
     </div>
 
-    <!-- Habits Grid -->
+
     <div class="habits-grid" id="habitsGrid">
       <div class="empty-state" id="emptyState">
         <div class="icon">🎯</div>
@@ -483,7 +483,7 @@ font-size: 0.65rem}
     </div>
   </div>
 
-  <!-- Delete Confirm Dialog -->
+
   <div class="overlay" id="deleteOverlay">
     <div class="dialog">
       <h2>确认删除</h2>
@@ -495,12 +495,11 @@ font-size: 0.65rem}
     </div>
   </div>
 
-  <!-- Toast -->
+
   <div class="toast" id="toast"></div>
 
   <script>
     (function() {
-      // ===== Constants =====
       const STORAGE_KEY = 'habit-tracker-data';
       const EMOJIS = [
         '🏃','🚶','🏋️','🧘','🚴','🏊','💪','🎯',
@@ -512,13 +511,9 @@ font-size: 0.65rem}
         '🧠','❤️','🫁','🧬','💊','🏥','🩺','😊',
         '🙏','🧎','🤲','🕯️','✨','🌟','🔥','💎',
       ];
-
-      // ===== State =====
       let habits = [];
       let currentWeekStart = '';
       let deleteTargetId = null;
-
-      // ===== Helpers =====
       function getMonday(date) {
         const d = new Date(date);
         const day = d.getDay();
@@ -527,60 +522,47 @@ font-size: 0.65rem}
         d.setHours(0,0,0,0);
         return d;
       }
-
       function formatDate(d) {
         return d.toISOString().split('T')[0];
       }
-
       function getTodayStr() {
         return formatDate(new Date());
       }
-
       function getCurrentWeekMonday() {
         return formatDate(getMonday(new Date()));
       }
-
       function getDayOfWeekIndex(dateStr) {
         const d = new Date(dateStr + 'T00:00:00');
         const day = d.getDay();
-        return day === 0 ? 6 : day - 1; // Mon=0 ... Sun=6
+        return day === 0 ? 6 : day - 1;
       }
-
       function getDayLabel(index) {
         return ['一','二','三','四','五','六','日'][index];
       }
-
       function getDateForDay(weekStartStr, dayIndex) {
         const d = new Date(weekStartStr + 'T00:00:00');
         d.setDate(d.getDate() + dayIndex);
         return formatDate(d);
       }
-
       function isToday(dateStr) {
         return dateStr === getTodayStr();
       }
-
       function isFuture(dateStr) {
         const today = new Date(getTodayStr() + 'T00:00:00');
         const target = new Date(dateStr + 'T00:00:00');
         return target > today;
       }
-
       function isCurrentWeek(weekStartStr) {
         return weekStartStr === getCurrentWeekMonday();
       }
-
-      // ===== Storage =====
       function loadData() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
           if (raw) {
             const data = JSON.parse(raw);
             habits = data.habits || [];
-            // Migrate: ensure week starts are Mondays
             habits.forEach(h => {
               if (h.weekDays) {
-                // old format migration
                 if (!h.weekData) h.weekData = {};
                 if (!h.weekData[data.currentWeekStart || getCurrentWeekMonday()]) {
                   h.weekData[data.currentWeekStart || getCurrentWeekMonday()] = {
@@ -599,11 +581,9 @@ font-size: 0.65rem}
           habits = [];
           currentWeekStart = getCurrentWeekMonday();
         }
-        // Check week reset
         const actualMonday = getCurrentWeekMonday();
         if (currentWeekStart !== actualMonday) {
           currentWeekStart = actualMonday;
-          // Ensure each habit has this week's entry
           habits.forEach(h => {
             if (!h.weekData) h.weekData = {};
             if (!h.weekData[currentWeekStart]) {
@@ -612,7 +592,6 @@ font-size: 0.65rem}
           });
           saveData();
         }
-        // Ensure all habits have current week data
         let changed = false;
         habits.forEach(h => {
           if (!h.weekData) { h.weekData = {}; changed = true; }
@@ -623,43 +602,33 @@ font-size: 0.65rem}
         });
         if (changed) saveData();
       }
-
       function saveData() {
         const data = { habits, currentWeekStart };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       }
-
-      // ===== Habit Operations =====
       function getWeekData(habit) {
         if (!habit.weekData) return { days: [false,false,false,false,false,false,false] };
         return habit.weekData[currentWeekStart] || { days: [false,false,false,false,false,false,false] };
       }
-
       function getCompletedDays(habit) {
         const wd = getWeekData(habit);
         return wd.days.filter(Boolean).length;
       }
-
       function getCompletionRate(habit) {
         const todayIdx = getDayOfWeekIndex(getTodayStr());
         const totalPossible = isCurrentWeek(currentWeekStart) ? todayIdx + 1 : 7;
         const completed = getWeekData(habit).days.filter(Boolean).length;
         return totalPossible > 0 ? Math.round((completed / totalPossible) * 100) : 0;
       }
-
       function getOverallRate(habit) {
         const completed = getWeekData(habit).days.filter(Boolean).length;
         return Math.round((completed / 7) * 100);
       }
-
       function calcStreak(habit) {
-        // Calculate streak: how many consecutive days ending at yesterday or today
         if (!habit.weekData) return 0;
         const todayIdx = getDayOfWeekIndex(getTodayStr());
         let streak = 0;
-        // Check current week backwards from today or yesterday
         const wd = getWeekData(habit);
-        // Start from today (or yesterday to count completed streak)
         for (let i = todayIdx; i >= 0; i--) {
           if (wd.days[i]) {
             streak++;
@@ -667,15 +636,11 @@ font-size: 0.65rem}
             break;
           }
         }
-        // If we checked all days from today backwards and all were true,
-        // we should check previous week(s)
         if (streak === todayIdx + 1 && todayIdx >= 0) {
-          // Check previous weeks
           let checkDate = new Date(currentWeekStart + 'T00:00:00');
-          checkDate.setDate(checkDate.getDate() - 1); // Sunday of previous week
+          checkDate.setDate(checkDate.getDate() - 1);
           while (true) {
             const checkStr = formatDate(checkDate);
-            // Find week that contains this date
             const weekMonday = getMonday(checkDate);
             const weekMondayStr = formatDate(weekMonday);
             const dayIdx = getDayOfWeekIndex(checkStr);
@@ -689,13 +654,11 @@ font-size: 0.65rem}
         }
         return streak;
       }
-
       function toggleDay(habitId, dayIndex) {
         const habit = habits.find(h => h.id === habitId);
         if (!habit) return;
         const dateStr = getDateForDay(currentWeekStart, dayIndex);
         if (isFuture(dateStr)) return;
-
         if (!habit.weekData) habit.weekData = {};
         if (!habit.weekData[currentWeekStart]) {
           habit.weekData[currentWeekStart] = { days: [false,false,false,false,false,false,false] };
@@ -704,7 +667,6 @@ font-size: 0.65rem}
         saveData();
         render();
       }
-
       function addHabit(name, emoji, color) {
         const id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
         const habit = {
@@ -717,20 +679,16 @@ font-size: 0.65rem}
         saveData();
         render();
       }
-
       function deleteHabit(id) {
         habits = habits.filter(h => h.id !== id);
         saveData();
         render();
       }
-
-      // ===== Render =====
       function render() {
         renderWeekBadge();
         renderStats();
         renderHabits();
       }
-
       function renderWeekBadge() {
         const monday = new Date(currentWeekStart + 'T00:00:00');
         const sunday = new Date(monday);
@@ -742,10 +700,8 @@ font-size: 0.65rem}
         };
         document.getElementById('weekRange').textContent = fmt(monday) + ' - ' + fmt(sunday);
       }
-
       function renderStats() {
         document.getElementById('statTotal').textContent = habits.length;
-
         const todayIdx = getDayOfWeekIndex(getTodayStr());
         let todayCompleted = 0;
         habits.forEach(h => {
@@ -753,7 +709,6 @@ font-size: 0.65rem}
           if (wd.days[todayIdx]) todayCompleted++;
         });
         document.getElementById('statToday').textContent = todayCompleted;
-
         if (habits.length === 0) {
           document.getElementById('statRate').textContent = '0%';
         } else {
@@ -764,28 +719,23 @@ font-size: 0.65rem}
           document.getElementById('statRate').textContent = rate + '%';
         }
       }
-
       function renderHabits() {
         const grid = document.getElementById('habitsGrid');
         const emptyState = document.getElementById('emptyState');
-
         if (habits.length === 0) {
           grid.innerHTML = '';
           grid.appendChild(emptyState);
           emptyState.style.display = '';
           return;
         }
-
         emptyState.style.display = 'none';
         const todayIdx = getDayOfWeekIndex(getTodayStr());
-
         grid.innerHTML = habits.map(h => {
           const wd = getWeekData(h);
           const completed = wd.days.filter(Boolean).length;
           const rate = getCompletionRate(h);
           const streak = calcStreak(h);
           const overallRate = getOverallRate(h);
-
           const dayCells = wd.days.map((checked, i) => {
             const dateStr = getDateForDay(currentWeekStart, i);
             const isTodayCell = isToday(dateStr);
@@ -802,7 +752,6 @@ font-size: 0.65rem}
               </div>
             `;
           }).join('');
-
           return `
             <div class="habit-card" style="--habit-color: ${h.color}">
               <div class="card-header">
@@ -834,8 +783,6 @@ font-size: 0.65rem}
             </div>
           `;
         }).join('');
-
-        // Re-attach spark effect listeners
         grid.querySelectorAll('.day-cell').forEach(cell => {
           cell.addEventListener('click', function(e) {
             if (this.classList.contains('future')) return;
@@ -861,14 +808,11 @@ font-size: 0.65rem}
           });
         });
       }
-
       function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
       }
-
-      // ===== Toast =====
       function showToast(msg) {
         const toast = document.getElementById('toast');
         toast.textContent = msg;
@@ -876,8 +820,6 @@ font-size: 0.65rem}
         clearTimeout(toast._timeout);
         toast._timeout = setTimeout(() => toast.classList.remove('show'), 2000);
       }
-
-      // ===== Delete flow =====
       function confirmDelete(id) {
         deleteTargetId = id;
         const habit = habits.find(h => h.id === id);
@@ -887,8 +829,6 @@ font-size: 0.65rem}
         }
         document.getElementById('deleteOverlay').classList.add('active');
       }
-
-      // ===== Emoji Picker =====
       function buildEmojiGrid() {
         const grid = document.getElementById('emojiGrid');
         grid.innerHTML = EMOJIS.map(e => `<button data-emoji="${e}">${e}</button>`).join('');
@@ -900,14 +840,10 @@ font-size: 0.65rem}
           });
         });
       }
-
-      // ===== Init =====
       function init() {
         loadData();
         buildEmojiGrid();
         render();
-
-        // Add toggle
         document.getElementById('addToggle').addEventListener('click', () => {
           const form = document.getElementById('addForm');
           form.classList.toggle('active');
@@ -915,16 +851,12 @@ font-size: 0.65rem}
             document.getElementById('habitName').focus();
           }
         });
-
-        // Cancel add
         document.getElementById('cancelAdd').addEventListener('click', () => {
           document.getElementById('addForm').classList.remove('active');
           document.getElementById('habitName').value = '';
           document.getElementById('emojiTrigger').textContent = '✅';
           document.getElementById('habitColor').value = '#7c5cfc';
         });
-
-        // Confirm add
         document.getElementById('confirmAdd').addEventListener('click', () => {
           const name = document.getElementById('habitName').value.trim();
           if (!name) { showToast('请输入习惯名称'); return; }
@@ -937,27 +869,19 @@ font-size: 0.65rem}
           document.getElementById('habitColor').value = '#7c5cfc';
           showToast('习惯添加成功！🎉');
         });
-
-        // Enter key to add
         document.getElementById('habitName').addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
             document.getElementById('confirmAdd').click();
           }
         });
-
-        // Emoji trigger
         document.getElementById('emojiTrigger').addEventListener('click', (e) => {
           e.stopPropagation();
           document.getElementById('emojiGrid').classList.toggle('hidden');
         });
-
-        // Close emoji picker on outside click
         document.addEventListener('click', () => {
           document.getElementById('emojiGrid').classList.add('hidden');
         });
-
-        // Delete overlay
         document.getElementById('cancelDelete').addEventListener('click', () => {
           document.getElementById('deleteOverlay').classList.remove('active');
           deleteTargetId = null;
@@ -976,8 +900,6 @@ font-size: 0.65rem}
           document.getElementById('deleteOverlay').classList.remove('active');
           deleteTargetId = null;
         });
-
-        // Check for week change every minute
         setInterval(() => {
           const actualMonday = getCurrentWeekMonday();
           if (currentWeekStart !== actualMonday) {
@@ -987,11 +909,7 @@ font-size: 0.65rem}
           }
         }, 60000);
       }
-
-      // Expose to global for inline onclick
       window.App = { toggleDay, confirmDelete };
-
-      // Start
       init();
     })();
   </script>

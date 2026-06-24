@@ -162,7 +162,7 @@ color: var(--text-muted)}
 <div class="container">
   <h1>🍅 番茄钟</h1>
 
-  <!-- Timer Ring -->
+
   <div class="timer-ring-wrap">
     <svg viewBox="0 0 200 200">
       <circle class="ring-bg" cx="100" cy="100" r="92"/>
@@ -176,23 +176,23 @@ color: var(--text-muted)}
     </div>
   </div>
 
-  <!-- Rest Tip -->
+
   <div class="rest-tip" id="restTip"></div>
 
-  <!-- Buttons -->
+
   <div class="btn-group">
     <button class="btn btn-primary" id="btnToggle">开始</button>
     <button class="btn btn-secondary" id="btnReset">重置</button>
   </div>
 
-  <!-- Mode Selector -->
+
   <div class="mode-selector">
     <button class="mode-btn active" data-mode="pomodoro">番茄</button>
     <button class="mode-btn" data-mode="long">长专注</button>
     <button class="mode-btn" data-mode="custom">自定义</button>
   </div>
 
-  <!-- Custom Inputs -->
+
   <div class="custom-inputs hidden" id="customInputs">
     <div class="custom-field">
       <label>专注</label>
@@ -206,22 +206,18 @@ color: var(--text-muted)}
     <span style="font-size:0.75rem;color:var(--text-muted)">分钟</span>
   </div>
 
-  <!-- Stats -->
+
   <div class="stats">
     已完成 <strong id="pomoCount">0</strong> 个番茄
   </div>
 </div>
 
 <script>
-// ============================================================
-//  常量
-// ============================================================
-const CIRCUMFERENCE = 2 * Math.PI * 92; // r=92 → ~578.053
+const CIRCUMFERENCE = 2 * Math.PI * 92;
 const MODES = {
   pomodoro:  { focus: 25, break: 5  },
   long:      { focus: 50, break: 10 },
 };
-
 const REST_TIPS = [
   '闭上眼睛，深呼吸',
   '站起来走动一下',
@@ -234,25 +230,17 @@ const REST_TIPS = [
   '做几个深呼吸',
   '给自己一个微笑',
 ];
-
-// ============================================================
-//  状态
-// ============================================================
 let state = {
   mode:        'pomodoro',
   focusMin:    25,
   breakMin:    5,
-  isFocus:     true,      // true=专注阶段, false=休息阶段
+  isFocus:     true,
   running:     false,
-  remaining:   25 * 60,   // 剩余秒数
-  total:       25 * 60,   // 当前阶段总秒数
+  remaining:   25 * 60,
+  total:       25 * 60,
   pomoCount:   0,
   timerId:     null,
 };
-
-// ============================================================
-//  DOM
-// ============================================================
 const ringFg       = document.getElementById('ringFg');
 const timeDisplay  = document.getElementById('timeDisplay');
 const timeLabel    = document.getElementById('timeLabel');
@@ -263,64 +251,37 @@ const pomoCountEl  = document.getElementById('pomoCount');
 const customInputs = document.getElementById('customInputs');
 const customFocus  = document.getElementById('customFocus');
 const customBreak  = document.getElementById('customBreak');
-
 ringFg.style.strokeDasharray  = CIRCUMFERENCE;
 ringFg.style.strokeDashoffset = '0';
-
-// ============================================================
-//  格式化时间
-// ============================================================
 function fmtTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
-
-// ============================================================
-//  更新 UI
-// ============================================================
 function updateDisplay() {
   const t = fmtTime(state.remaining);
   timeDisplay.textContent = t;
   document.title = state.running
     ? `${t} - ${state.isFocus ? '专注' : '休息'} | 🍅 番茄钟`
     : '🍅 番茄钟';
-
-  // 进度环
   const pct = state.total > 0 ? state.remaining / state.total : 0;
   ringFg.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
-
-  // 状态标签
   timeLabel.textContent = state.isFocus ? '专注' : '休息';
-
-  // 按钮
   btnToggle.textContent = state.running ? '暂停' : '开始';
   btnToggle.classList.toggle('running', state.running);
-
-  // 环颜色
   ringFg.style.stroke = state.isFocus
     ? 'var(--accent)'
     : 'var(--rest-accent)';
-
-  // 休息提示
   restTip.textContent = (!state.isFocus && state.running)
     ? REST_TIPS[Math.floor(Math.random() * REST_TIPS.length)]
     : '';
 }
-
-// ============================================================
-//  停止计时器
-// ============================================================
 function stopTimer() {
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
   }
 }
-
-// ============================================================
-//  提示音 (Web Audio API)
-// ============================================================
 function playBeep(freq = 800, duration = 0.15, type = 'sine') {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -334,62 +295,40 @@ function playBeep(freq = 800, duration = 0.15, type = 'sine') {
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
-
-    // 关闭 context（延迟）
     setTimeout(() => { ctx.close(); }, duration + 100);
   } catch (_) {
-    // 静默失败
   }
 }
-
 function playFinishSound() {
-  // 三连音：C5-E5-G5
   playBeep(523.25, 0.12);
   setTimeout(() => playBeep(659.25, 0.12), 120);
   setTimeout(() => playBeep(783.99, 0.25), 240);
 }
-
-// ============================================================
-//  阶段切换
-// ============================================================
 function switchPhase() {
   stopTimer();
   state.isFocus  = !state.isFocus;
   state.running  = false;
-
   if (state.isFocus) {
-    // 进入专注
     state.total = state.focusMin * 60;
     restTip.textContent = '';
   } else {
-    // 进入休息
     state.total = state.breakMin * 60;
-    updateDisplay(); // 先更新显示以设置 rest tip
+    updateDisplay();
   }
-
   state.remaining = state.total;
   updateDisplay();
   saveSettings();
 }
-
-// ============================================================
-//  完成阶段
-// ============================================================
 function finishPhase() {
   stopTimer();
   state.running = false;
-
   if (state.isFocus) {
-    // 完成一个番茄
     state.pomoCount++;
     pomoCountEl.textContent = state.pomoCount;
     localStorage.setItem('pomo_count', state.pomoCount);
   }
-
   playFinishSound();
   switchPhase();
-
-  // 通知
   if (Notification.permission === 'granted') {
     new Notification(state.isFocus ? '休息时间到了！' : '专注时间到！', {
       body: state.isFocus ? '准备好开始新的番茄吧' : '休息一下，放松身心',
@@ -397,43 +336,27 @@ function finishPhase() {
     });
   }
 }
-
-// ============================================================
-//  滴答
-// ============================================================
 function tick() {
   if (!state.running) return;
-
   if (state.remaining <= 0) {
     finishPhase();
     return;
   }
-
   state.remaining--;
   updateDisplay();
 }
-
-// ============================================================
-//  开始/暂停
-// ============================================================
 function toggleRunning() {
   if (state.running) {
-    // 暂停
     stopTimer();
     state.running = false;
     updateDisplay();
   } else {
-    // 开始
     state.running = true;
     state.timerId = setInterval(tick, 1000);
     restTip.textContent = '';
     updateDisplay();
   }
 }
-
-// ============================================================
-//  重置
-// ============================================================
 function reset() {
   stopTimer();
   state.running  = false;
@@ -443,15 +366,10 @@ function reset() {
   restTip.textContent = '';
   updateDisplay();
 }
-
-// ============================================================
-//  模式切换
-// ============================================================
 function setMode(mode) {
   stopTimer();
   state.running = false;
   state.mode    = mode;
-
   if (mode === 'custom') {
     state.focusMin = parseInt(customFocus.value) || 25;
     state.breakMin = parseInt(customBreak.value) || 5;
@@ -459,25 +377,17 @@ function setMode(mode) {
     state.focusMin = MODES[mode].focus;
     state.breakMin = MODES[mode].break;
   }
-
   state.isFocus    = true;
   state.total      = state.focusMin * 60;
   state.remaining  = state.total;
   restTip.textContent = '';
-
-  // UI
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === mode);
   });
   customInputs.classList.toggle('hidden', mode !== 'custom');
-
   updateDisplay();
   saveSettings();
 }
-
-// ============================================================
-//  自定义时间变更
-// ============================================================
 function onCustomChange() {
   if (state.mode !== 'custom') return;
   state.focusMin = parseInt(customFocus.value) || 25;
@@ -485,77 +395,50 @@ function onCustomChange() {
   reset();
   saveSettings();
 }
-
-// ============================================================
-//  持久化
-// ============================================================
 function saveSettings() {
   localStorage.setItem('pomo_mode', state.mode);
   localStorage.setItem('pomo_focusMin', state.focusMin);
   localStorage.setItem('pomo_breakMin', state.breakMin);
   localStorage.setItem('pomo_count', state.pomoCount);
 }
-
 function loadSettings() {
   const mode = localStorage.getItem('pomo_mode');
   if (mode) state.mode = mode;
-
   const fMin = localStorage.getItem('pomo_focusMin');
   if (fMin) state.focusMin = parseInt(fMin) || 25;
-
   const bMin = localStorage.getItem('pomo_breakMin');
   if (bMin) state.breakMin = parseInt(bMin) || 5;
-
   const count = localStorage.getItem('pomo_count');
   if (count) state.pomoCount = parseInt(count) || 0;
-
-  // 同步自定义输入框
   if (state.mode === 'custom') {
     customFocus.value = state.focusMin;
     customBreak.value = state.breakMin;
   }
 }
-
-// ============================================================
-//  初始化
-// ============================================================
 function init() {
   loadSettings();
-
   state.isFocus    = true;
   state.total      = state.focusMin * 60;
   state.remaining  = state.total;
   pomoCountEl.textContent = state.pomoCount;
-
-  // 模式 UI
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === state.mode);
   });
   customInputs.classList.toggle('hidden', state.mode !== 'custom');
-
   if (state.mode === 'custom') {
     customFocus.value = state.focusMin;
     customBreak.value = state.breakMin;
   }
-
   updateDisplay();
-
-  // 请求通知权限
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
-
-  // 页面可见性变化时，从后台恢复时同步倒计时（粗略方案：不暂停后台计时）
 }
-
-// ---- 事件绑定 ----
 btnToggle.addEventListener('click', toggleRunning);
 btnReset.addEventListener('click', reset);
-
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => setMode(btn.dataset.mode));
 });
-
 customFocus.addEventListener('input', () => {
   if (state.mode === 'custom') {
     state.focusMin = parseInt(customFocus.value) || 25;
@@ -566,14 +449,11 @@ customFocus.addEventListener('input', () => {
     }
   }
 });
-
 customBreak.addEventListener('input', () => {
   if (state.mode === 'custom') {
     state.breakMin = parseInt(customBreak.value) || 5;
   }
 });
-
-// 键盘快捷键
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -583,8 +463,6 @@ document.addEventListener('keydown', e => {
     reset();
   }
 });
-
-// ---- 启动 ----
 init();
 </script>
 <script src="../i18n.js" defer></script>

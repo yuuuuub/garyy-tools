@@ -170,13 +170,13 @@ padding: 6px 12px}}
 </head>
 <body>
   <div class="container">
-    <!-- 标题 -->
+
     <div class="header">
       <h1>迷宫生成器</h1>
       <p class="subtitle">递归回溯算法 · Canvas 实时绘制</p>
     </div>
 
-    <!-- 控制面板 -->
+
     <div class="controls" id="controls">
       <div class="control-group">
         <label>网格大小</label>
@@ -198,12 +198,12 @@ padding: 6px 12px}}
       <button class="btn" id="btnExport">导出 PNG</button>
     </div>
 
-    <!-- 画布 -->
+
     <div class="canvas-container">
       <canvas id="mazeCanvas"></canvas>
     </div>
 
-    <!-- 统计卡片 -->
+
     <div class="stats">
       <div class="stat-card">
         <div class="stat-value" id="statPathLength">--</div>
@@ -219,13 +219,13 @@ padding: 6px 12px}}
       </div>
     </div>
 
-    <!-- 游戏信息 -->
+
     <div class="play-info">
       <div class="timer" id="timer">00:00</div>
       <div class="status-text" id="statusText">点击「生成迷宫」开始</div>
     </div>
 
-    <!-- 操作提示 -->
+
     <div class="instructions">
       键盘：<span>↑ ↓ ← →</span> 或 <span>W A S D</span> 移动 &nbsp;|&nbsp;
       触屏：<span>滑动</span> 控制方向 &nbsp;|&nbsp;
@@ -235,10 +235,8 @@ padding: 6px 12px}}
 
   <script>
   (function() {
-    // ===== DOM 元素引用 =====
     const canvas = document.getElementById('mazeCanvas');
     const ctx = canvas.getContext('2d');
-
     const gridSizeInput = document.getElementById('gridSize');
     const gridSizeVal = document.getElementById('gridSizeVal');
     const difficultySelect = document.getElementById('difficulty');
@@ -247,12 +245,9 @@ padding: 6px 12px}}
     const btnExport = document.getElementById('btnExport');
     const timerEl = document.getElementById('timer');
     const statusText = document.getElementById('statusText');
-
     const statPathLength = document.getElementById('statPathLength');
     const statDeadEnds = document.getElementById('statDeadEnds');
     const statSolveTime = document.getElementById('statSolveTime');
-
-    // ===== 常量 =====
     const CANVAS_MAX = 560;
     const PLAYER_COLOR = '#ffdd57';
     const PLAYER_BORDER = '#c9a830';
@@ -262,39 +257,27 @@ padding: 6px 12px}}
     const PATH_BG = '#1a1a2e';
     const SOLUTION_COLOR = 'rgba(123, 97, 255, 0.35)';
     const CURRENT_CELL_COLOR = 'rgba(0, 212, 255, 0.25)';
-
-    // ===== 迷宫状态 =====
     let rows = 20;
     let cols = 20;
     let cellSize = 0;
     let canvasSize = 0;
-    let grid = [];            // grid[r][c] = { top, right, bottom, left, visited }
+    let grid = [];
     let mazeReady = false;
     let generating = false;
     let genAbort = false;
-
-    // ===== 生成动画状态 =====
     let genStack = [];
-    let genCurrent = null;   // { r, c }
-
-    // ===== 游戏状态 =====
+    let genCurrent = null;
     let playerR = 0, playerC = 0;
     let goalR, goalC;
     let playing = false;
     let solved = false;
     let timerSec = 0;
     let timerInterval = null;
-
-    // ===== 求解状态 =====
     let solutionPath = [];
     let showHint = false;
     let solveTimeMs = 0;
     let deadEndCount = 0;
-
-    // ===== 触摸状态 =====
     let touchStartX = 0, touchStartY = 0;
-
-    // ===== 初始化网格 =====
     function createGrid(r, c) {
       const g = [];
       for (let i = 0; i < r; i++) {
@@ -305,22 +288,14 @@ padding: 6px 12px}}
       }
       return g;
     }
-
-    // ===== 获取未访问的邻居 =====
     function getUnvisitedNeighbors(gr, r, c) {
       const neighbors = [];
-      // 上
       if (r > 0 && !gr[r - 1][c].visited) neighbors.push({ r: r - 1, c, dir: 'up' });
-      // 右
       if (c < cols - 1 && !gr[r][c + 1].visited) neighbors.push({ r, c: c + 1, dir: 'right' });
-      // 下
       if (r < rows - 1 && !gr[r + 1][c].visited) neighbors.push({ r: r + 1, c, dir: 'down' });
-      // 左
       if (c > 0 && !gr[r][c - 1].visited) neighbors.push({ r, c: c - 1, dir: 'left' });
       return neighbors;
     }
-
-    // ===== 打通两个单元格之间的墙 =====
     function removeWall(gr, r1, c1, r2, c2, dir) {
       switch (dir) {
         case 'up':
@@ -341,8 +316,6 @@ padding: 6px 12px}}
           break;
       }
     }
-
-    // ===== 获取单元格的所有邻居（用于移除额外墙壁，无视 visited） =====
     function getAllNeighbors(r, c) {
       const n = [];
       if (r > 0) n.push({ r: r - 1, c, dir: 'up' });
@@ -351,53 +324,41 @@ padding: 6px 12px}}
       if (c > 0) n.push({ r, c: c - 1, dir: 'left' });
       return n;
     }
-
-    // ===== 检查两点之间是否有墙 =====
     function hasWallBetween(gr, r1, c1, r2, c2) {
-      if (r2 < r1) return gr[r1][c1].top;      // 上方
-      if (r2 > r1) return gr[r1][c1].bottom;   // 下方
-      if (c2 < c1) return gr[r1][c1].left;     // 左侧
-      if (c2 > c1) return gr[r1][c1].right;    // 右侧
+      if (r2 < r1) return gr[r1][c1].top;
+      if (r2 > r1) return gr[r1][c1].bottom;
+      if (c2 < c1) return gr[r1][c1].left;
+      if (c2 > c1) return gr[r1][c1].right;
       return true;
     }
-
-    // ===== 移除额外墙壁（用于调整难度） =====
     function removeExtraWalls(gr, ratio) {
       const walls = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          // 右侧内部墙
           if (c < cols - 1 && gr[r][c].right) {
             walls.push({ r1: r, c1: c, r2: r, c2: c + 1, dir: 'right' });
           }
-          // 下方内部墙
           if (r < rows - 1 && gr[r][c].bottom) {
             walls.push({ r1: r, c1: c, r2: r + 1, c2: c, dir: 'down' });
           }
         }
       }
-
-      // 随机打乱并移除
       for (let i = walls.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [walls[i], walls[j]] = [walls[j], walls[i]];
       }
-
       const removeCount = Math.floor(walls.length * ratio);
       for (let i = 0; i < removeCount; i++) {
         const w = walls[i];
         removeWall(gr, w.r1, w.c1, w.r2, w.c2, w.dir);
       }
     }
-
-    // ===== BFS 求解最短路径 =====
     function solveMaze(gr) {
       const startTime = performance.now();
       const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
       const parent = Array.from({ length: rows }, () => Array(cols).fill(null));
       const queue = [{ r: 0, c: 0 }];
       visited[0][0] = true;
-
       let found = false;
       while (queue.length > 0) {
         const { r, c } = queue.shift();
@@ -405,7 +366,6 @@ padding: 6px 12px}}
           found = true;
           break;
         }
-
         const neighbors = getAllNeighbors(r, c);
         for (const n of neighbors) {
           if (!visited[n.r][n.c] && !hasWallBetween(gr, r, c, n.r, n.c)) {
@@ -415,7 +375,6 @@ padding: 6px 12px}}
           }
         }
       }
-
       const path = [];
       if (found) {
         let cur = { r: rows - 1, c: cols - 1 };
@@ -424,12 +383,9 @@ padding: 6px 12px}}
           cur = parent[cur.r][cur.c];
         }
       }
-
       const endTime = performance.now();
       return { path, timeMs: Math.round((endTime - startTime) * 100) / 100 };
     }
-
-    // ===== 计算死胡同数量 =====
     function countDeadEnds(gr) {
       let count = 0;
       for (let r = 0; r < rows; r++) {
@@ -444,25 +400,17 @@ padding: 6px 12px}}
       }
       return count;
     }
-
-    // ===== 设置画布尺寸 =====
     function setupCanvas() {
       cellSize = Math.floor(CANVAS_MAX / Math.max(rows, cols));
       canvasSize = cellSize * Math.max(rows, cols);
       canvas.width = cellSize * cols;
       canvas.height = cellSize * rows;
     }
-
-    // ===== 渲染迷宫 =====
     function renderMaze(highlightCurrent = false) {
       const w = canvas.width;
       const h = canvas.height;
-
-      // 背景（路径区域）
       ctx.fillStyle = PATH_BG;
       ctx.fillRect(0, 0, w, h);
-
-      // 求解路径提示
       if (showHint && solutionPath.length > 0) {
         ctx.fillStyle = SOLUTION_COLOR;
         for (const cell of solutionPath) {
@@ -474,8 +422,6 @@ padding: 6px 12px}}
           );
         }
       }
-
-      // 当前生成单元格高亮
       if (highlightCurrent && genCurrent) {
         ctx.fillStyle = CURRENT_CELL_COLOR;
         ctx.fillRect(
@@ -485,26 +431,20 @@ padding: 6px 12px}}
           cellSize - 2
         );
       }
-
-      // 墙壁
       ctx.strokeStyle = WALL_COLOR;
       ctx.lineWidth = Math.max(1.5, Math.floor(cellSize * 0.12));
       ctx.lineCap = 'round';
-
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const x = c * cellSize;
           const y = r * cellSize;
           const cell = grid[r][c];
-
-          // 顶墙
           if (cell.top) {
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x + cellSize, y);
             ctx.stroke();
           }
-          // 左墙
           if (cell.left) {
             ctx.beginPath();
             ctx.moveTo(x, y);
@@ -513,26 +453,19 @@ padding: 6px 12px}}
           }
         }
       }
-
-      // 底边和右边边界线
       ctx.beginPath();
       ctx.moveTo(0, h);
       ctx.lineTo(w, h);
       ctx.stroke();
-
       ctx.beginPath();
       ctx.moveTo(w, 0);
       ctx.lineTo(w, h);
       ctx.stroke();
-
-      // 起点标记
       ctx.fillStyle = GOAL_COLOR;
       ctx.fillRect(1, 1, cellSize - 2, cellSize - 2);
       ctx.strokeStyle = GOAL_BORDER;
       ctx.lineWidth = 1.5;
       ctx.strokeRect(0.5, 0.5, cellSize - 1, cellSize - 1);
-
-      // 终点标记
       const gx = (cols - 1) * cellSize;
       const gy = (rows - 1) * cellSize;
       ctx.fillStyle = GOAL_COLOR;
@@ -540,31 +473,22 @@ padding: 6px 12px}}
       ctx.strokeStyle = GOAL_BORDER;
       ctx.lineWidth = 1.5;
       ctx.strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
-
-      // 玩家
       if (playing || solved) {
         const px = playerC * cellSize + cellSize / 2;
         const py = playerR * cellSize + cellSize / 2;
         const pr = Math.max(3, cellSize * 0.35);
-
-        // 玩家阴影
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
         ctx.arc(px + 1, py + 1, pr, 0, Math.PI * 2);
         ctx.fill();
-
-        // 玩家主体
         ctx.fillStyle = PLAYER_COLOR;
         ctx.beginPath();
         ctx.arc(px, py, pr, 0, Math.PI * 2);
         ctx.fill();
-
         ctx.strokeStyle = PLAYER_BORDER;
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
-
-      // 求解路径上的箭头指示（如果显示提示）
       if (showHint && solutionPath.length > 1) {
         ctx.strokeStyle = 'rgba(123, 97, 255, 0.7)';
         ctx.lineWidth = Math.max(2, cellSize * 0.15);
@@ -585,24 +509,14 @@ padding: 6px 12px}}
         ctx.stroke();
       }
     }
-
-    // ===== 游戏移动 =====
     function movePlayer(dr, dc) {
       if (!playing || solved || generating) return;
-
       const newR = playerR + dr;
       const newC = playerC + dc;
-
-      // 越界检查
       if (newR < 0 || newR >= rows || newC < 0 || newC >= cols) return;
-
-      // 墙壁检查
       if (hasWallBetween(grid, playerR, playerC, newR, newC)) return;
-
       playerR = newR;
       playerC = newC;
-
-      // 检查是否到达终点
       if (playerR === rows - 1 && playerC === cols - 1) {
         solved = true;
         playing = false;
@@ -610,11 +524,8 @@ padding: 6px 12px}}
         statusText.textContent = '恭喜通关！';
         statusText.className = 'status-text success';
       }
-
       renderMaze();
     }
-
-    // ===== 计时器 =====
     function startTimer() {
       timerSec = 0;
       updateTimerDisplay();
@@ -623,24 +534,19 @@ padding: 6px 12px}}
         updateTimerDisplay();
       }, 1000);
     }
-
     function stopTimer() {
       if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
       }
     }
-
     function updateTimerDisplay() {
       const m = Math.floor(timerSec / 60).toString().padStart(2, '0');
       const s = (timerSec % 60).toString().padStart(2, '0');
       timerEl.textContent = `${m}:${s}`;
     }
-
-    // ===== 开始游戏 =====
     function startGame() {
       if (!mazeReady || generating) return;
-
       playerR = 0;
       playerC = 0;
       goalR = rows - 1;
@@ -654,8 +560,6 @@ padding: 6px 12px}}
       btnGenerate.textContent = '重新生成';
       renderMaze();
     }
-
-    // ===== 重置状态 =====
     function resetState() {
       stopTimer();
       playing = false;
@@ -681,20 +585,15 @@ padding: 6px 12px}}
       statDeadEnds.textContent = '--';
       statSolveTime.textContent = '--';
     }
-
-    // ===== 更新统计信息 =====
     function updateStats() {
       const result = solveMaze(grid);
       solutionPath = result.path;
       solveTimeMs = result.timeMs;
       deadEndCount = countDeadEnds(grid);
-
       statPathLength.textContent = solutionPath.length;
       statDeadEnds.textContent = deadEndCount;
       statSolveTime.textContent = `${solveTimeMs} ms`;
     }
-
-    // ===== 生成迷宫（带动画） =====
     function generateMaze() {
       resetState();
       generating = true;
@@ -704,24 +603,17 @@ padding: 6px 12px}}
       cols = rows;
       setupCanvas();
       grid = createGrid(rows, cols);
-
-      // 从左上角开始
       grid[0][0].visited = true;
       genStack = [{ r: 0, c: 0 }];
       genCurrent = { r: 0, c: 0 };
-
       btnGenerate.disabled = true;
       btnHint.disabled = true;
       statusText.textContent = '正在生成迷宫...';
       statusText.className = 'status-text';
-
       renderMaze(true);
-
-      // 根据网格大小调整动画速度
       const totalCells = rows * cols;
       let stepsPerTick = 1;
       let tickDelay = 10;
-
       if (totalCells <= 400) {
         stepsPerTick = 1;
         tickDelay = 8;
@@ -732,28 +624,23 @@ padding: 6px 12px}}
         stepsPerTick = 3;
         tickDelay = 2;
       }
-
       const interval = setInterval(() => {
         if (genAbort) {
           clearInterval(interval);
           finishGeneration();
           return;
         }
-
         let steps = 0;
         while (steps < stepsPerTick && genStack.length > 0) {
           const current = genStack[genStack.length - 1];
           const neighbors = getUnvisitedNeighbors(grid, current.r, current.c);
-
           if (neighbors.length > 0) {
-            // 随机选择一个未访问邻居
             const next = neighbors[Math.floor(Math.random() * neighbors.length)];
             removeWall(grid, current.r, current.c, next.r, next.c, next.dir);
             grid[next.r][next.c].visited = true;
             genStack.push({ r: next.r, c: next.c });
             genCurrent = { r: next.r, c: next.c };
           } else {
-            // 回溯
             genStack.pop();
             genCurrent = genStack.length > 0
               ? { r: genStack[genStack.length - 1].r, c: genStack[genStack.length - 1].c }
@@ -761,48 +648,33 @@ padding: 6px 12px}}
           }
           steps++;
         }
-
         renderMaze(true);
-
         if (genStack.length === 0) {
           clearInterval(interval);
           finishGeneration();
         }
       }, tickDelay);
     }
-
-    // ===== 完成生成 =====
     function finishGeneration() {
-      // 应用难度调整
       const diff = difficultySelect.value;
       if (diff === 'easy') {
         removeExtraWalls(grid, 0.15);
       } else if (diff === 'medium') {
         removeExtraWalls(grid, 0.05);
       }
-      // 困难模式不移除额外墙壁
-
       mazeReady = true;
       generating = false;
       genCurrent = null;
       btnGenerate.disabled = false;
       btnHint.disabled = false;
-
-      // 计算统计信息
       updateStats();
-
       renderMaze();
       statusText.textContent = '迷宫已生成，点击画布或按方向键开始游戏';
       statusText.className = 'status-text';
-
-      // 自动开始游戏
       startGame();
     }
-
-    // ===== PNG 导出 =====
     function exportPNG() {
       if (!mazeReady) return;
-      // 临时移除提示再导出
       const hintWasShown = showHint;
       const wasPlaying = playing;
       const wasSolved = solved;
@@ -810,28 +682,19 @@ padding: 6px 12px}}
       solved = false;
       showHint = false;
       renderMaze();
-
       const link = document.createElement('a');
       link.download = `迷宫_${rows}x${rows}_${difficultySelect.value}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-
-      // 恢复状态
       showHint = hintWasShown;
       playing = wasPlaying;
       solved = wasSolved;
       renderMaze();
     }
-
-    // ===== 事件监听 =====
-
-    // 网格大小滑块
     gridSizeInput.addEventListener('input', () => {
       const val = parseInt(gridSizeInput.value);
       gridSizeVal.textContent = `${val} × ${val}`;
     });
-
-    // 生成按钮
     btnGenerate.addEventListener('click', () => {
       if (generating) {
         genAbort = true;
@@ -840,8 +703,6 @@ padding: 6px 12px}}
       resetState();
       generateMaze();
     });
-
-    // 路径提示按钮
     btnHint.addEventListener('click', () => {
       if (!mazeReady) return;
       showHint = !showHint;
@@ -854,14 +715,9 @@ padding: 6px 12px}}
       }
       renderMaze();
     });
-
-    // 导出按钮
     btnExport.addEventListener('click', exportPNG);
-
-    // 键盘控制
     document.addEventListener('keydown', (e) => {
       if (!playing || solved || generating) return;
-
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
@@ -889,47 +745,36 @@ padding: 6px 12px}}
           break;
       }
     });
-
-    // 触屏控制
     canvas.addEventListener('touchstart', (e) => {
       if (!playing || solved || generating) return;
       e.preventDefault();
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
     }, { passive: false });
-
     canvas.addEventListener('touchend', (e) => {
       if (!playing || solved || generating) return;
       e.preventDefault();
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
       const minSwipe = 20;
-
       if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
-
       if (Math.abs(dx) > Math.abs(dy)) {
         movePlayer(0, dx > 0 ? 1 : -1);
       } else {
         movePlayer(dx > 0 ? 1 : -1, 0);
       }
     });
-
-    // 点击画布开始游戏
     canvas.addEventListener('click', () => {
       if (mazeReady && !playing && !solved && !generating) {
         startGame();
       }
     });
-
-    // ===== 初始渲染 =====
     rows = parseInt(gridSizeInput.value);
     cols = rows;
     setupCanvas();
     grid = createGrid(rows, cols);
     gridSizeVal.textContent = `${rows} × ${rows}`;
     renderMaze();
-
-    // 初始统计
     statPathLength.textContent = '--';
     statDeadEnds.textContent = '--';
     statSolveTime.textContent = '--';
