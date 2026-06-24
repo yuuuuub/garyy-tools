@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JSON转CSV</title><meta name="description" content="JSON转CSV - 在线JSON数据转换为CSV格式"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>"><meta name="robots" content="index, follow"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:900px;margin:auto}h1{text-align:center;padding:20px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}textarea{width:100%;min-height:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:monospace;font-size:.82rem;resize:vertical;outline:none}textarea:focus{border-color:var(--blue)}.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.btn{padding:10px 20px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.85rem}.btn:hover{opacity:.85}.btn.green{background:var(--green)}.btn.secondary{background:var(--bg);border:1px solid var(--border);color:var(--text)}.output{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:.82rem;max-height:300px;overflow:auto;white-space:pre;word-break:break-all}.tabs{display:flex;gap:4px;margin-bottom:12px}.tab{padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:.8rem}.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}</style></head><body>
+<div class="container"><h1>📊 JSON 转 CSV</h1><p class="sub">JSON数组数据转换为CSV表格格式</p>
+<div class="card"><div class="label" style="color:var(--text2);font-size:.85rem;margin-bottom:8px">输入 JSON 数据</div>
+<textarea id="jsonInput" placeholder='粘贴JSON数组数据，例如：
+[
+  {"name":"张三","age":25,"city":"北京"},
+  {"name":"李四","age":30,"city":"上海"},
+  {"name":"王五","age":28,"city":"广州"}
+]'></textarea>
+<div class="btn-row"><button class="btn" onclick="convert()">🔄 转换</button><button class="btn secondary" onclick="loadSample()">📋 示例数据</button><button class="btn secondary" onclick="clearAll()">🗑️ 清空</button></div></div>
+<div class="card" id="outputCard" style="display:none"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.95rem;font-weight:600">输出 CSV</span><span style="font-size:.75rem;color:var(--text2)" id="rowCount"></span></div>
+<div class="tabs"><div class="tab active" onclick="showTab(0)">CSV</div><div class="tab" onclick="showTab(1)">Tab分隔</div><div class="tab" onclick="showTab(2)">Markdown表格</div></div>
+<div class="output" id="output"></div>
+<div class="btn-row"><button class="btn green" onclick="downloadFile()">📥 下载CSV</button><button class="btn secondary" onclick="copyOutput()">📋 复制</button></div></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var csvData='',currentTab=0;
+function loadSample(){document.getElementById('jsonInput').value=JSON.stringify([
+  {name:'张三',age:25,city:'北京',score:92},
+  {name:'李四',age:30,city:'上海',score:88},
+  {name:'王五',age:28,city:'广州',score:95},
+  {name:'赵六',age:35,city:'深圳',score:78},
+  {name:'钱七',age:22,city:'杭州',score:91}
+],null,2);convert();}
+function clearAll(){document.getElementById('jsonInput').value='';document.getElementById('outputCard').style.display='none';csvData='';}
+function convert(){
+  var input=document.getElementById('jsonInput').value.trim();
+  if(!input){garyyToast('请输入JSON数据','error');return;}
+  try{
+    var data=JSON.parse(input);
+    if(!Array.isArray(data))data=[data];
+    if(!data.length){garyyToast('JSON数组为空','error');return;}
+    var keys=[];data.forEach(function(row){Object.keys(row).forEach(function(k){if(keys.indexOf(k)===-1)keys.push(k);});});
+    csvData=keys.join(',')+'\n'+data.map(function(row){return keys.map(function(k){var v=row[k];if(v===null||v===undefined)v='';v=String(v);if(v.indexOf(',')>-1||v.indexOf('"')>-1||v.indexOf('\n')>-1)v='"'+v.replace(/"/g,'""')+'"';return v;}).join(',');}).join('\n');
+    document.getElementById('rowCount').textContent=data.length+'行 × '+keys.length+'列';
+    showTab(0);
+    document.getElementById('outputCard').style.display='block';
+  }catch(e){garyyToast('JSON解析失败: '+e.message,'error');}
+}
+function showTab(t){
+  currentTab=t;
+  document.querySelectorAll('.tab').forEach(function(b,i){b.classList.toggle('active',i===t);});
+  if(!csvData)return;
+  var rows=csvData.split('\n');
+  var headers=rows[0].split(',');
+  if(t===0){document.getElementById('output').textContent=csvData;}
+  else if(t===1){document.getElementById('output').textContent=rows.map(function(r){return r.replace(/,/g,'\t');}).join('\n');}
+  else{
+    var md='| '+headers.join(' | ')+' |\n| '+headers.map(function(){return '---';}).join(' | ')+' |';
+    for(var i=1;i<rows.length;i++){md+='\n| '+rows[i]+' |';}
+    document.getElementById('output').textContent=md;
+  }
+}
+function copyOutput(){navigator.clipboard.writeText(document.getElementById('output').textContent).then(function(){garyyToast('已复制到剪贴板','success')}).catch(function(){});}
+function downloadFile(){var blob=new Blob([csvData],{type:'text/csv;charset=utf-8;'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='export.csv';a.click();URL.revokeObjectURL(url);garyyToast('CSV已下载','success');}
+</script></body></html>
