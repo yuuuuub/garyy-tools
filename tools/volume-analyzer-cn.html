@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="成交量分析器 - 分析成交量变化趋势、量价关系和异常放量">
+    <meta name="robots" content="index, follow">
+    <title>成交量分析器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .stat-box { text-align: center; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; }
+        .stat-box .num { font-size: 22px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .legend span { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+        .anomaly-item { padding: 10px 12px; border-left: 4px solid var(--warning-color); margin-bottom: 8px; border-radius: 0 6px 6px 0; background: var(--card-bg); font-size: 13px; }
+        .anomaly-item.high { border-left-color: var(--danger-color); }
+        .anomaly-item.low { border-left-color: var(--success-color); }
+        .output { font-family: 'Courier New', monospace; font-size: 13px; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); white-space: pre-wrap; line-height: 1.6; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: white; }
+        .tag-up { background: var(--success-color); }
+        .tag-down { background: var(--danger-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>成交量分析器</h1>
+
+        <div class="card">
+            <div class="form-group">
+                <label>价格数据（逗号分隔，从旧到新）</label>
+                <input type="text" id="priceInput" value="10,10.2,10.5,10.3,10.8,11.0,10.7,11.2,11.5,11.3,11.0,10.8,11.1,11.4,11.7,11.5,11.2,11.5,11.8,12.0,11.8,11.5,11.8,12.1,12.3,12.0,11.7,12.0,12.3,12.5" placeholder="例: 10,10.2,10.5...">
+            </div>
+            <div class="form-group">
+                <label>成交量数据（逗号分隔，与价格一一对应）</label>
+                <input type="text" id="volumeInput" value="1000000,1200000,1500000,1100000,1800000,2000000,1600000,2200000,2500000,1800000,1400000,1300000,1700000,2100000,2800000,2000000,1500000,1900000,2400000,3000000,2200000,1600000,2000000,2600000,3200000,2400000,1800000,2200000,2800000,3500000" placeholder="例: 1000000,1200000,1500000...">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>MA 周期</label>
+                    <select id="maPeriod"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select>
+                </div>
+                <div class="form-group">
+                    <label>异常检测倍数</label>
+                    <select id="anomalyMult"><option value="1.5">1.5倍</option><option value="2" selected>2倍</option><option value="3">3倍</option></select>
+                </div>
+            </div>
+            <button onclick="analyze()">分析成交量</button>
+        </div>
+
+        <div id="statsArea" class="grid-4" style="display:none;"></div>
+
+        <div class="card" id="priceVolCard" style="display:none;">
+            <h3>价格与成交量</h3>
+            <canvas id="priceVolChart" height="350"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> 价格</span>
+                <span><i style="background:#198754;"></i> 放量上涨</span>
+                <span><i style="background:#dc3545;"></i> 放量下跌</span>
+                <span><i style="background:rgba(108,117,125,0.4);"></i> 缩量</span>
+                <span><i style="background:#ffc107;"></i> 成交量MA</span>
+            </div>
+        </div>
+
+        <div class="card" id="obvCard" style="display:none;">
+            <h3>OBV 能量潮</h3>
+            <canvas id="obvChart" height="180"></canvas>
+            <div class="legend">
+                <span><i style="background:#9b59b6;"></i> OBV</span>
+            </div>
+        </div>
+
+        <div class="card" id="anomalyCard" style="display:none;">
+            <h3>异常成交量检测</h3>
+            <div id="anomalyList"></div>
+        </div>
+
+        <div class="card" id="detailCard" style="display:none;">
+            <h3>成交量分析报告</h3>
+            <div id="detailContent" class="output"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parseData() {
+            const prices = document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+            const volumes = document.getElementById('volumeInput').value.split(',').map(Number).filter(n => !isNaN(n));
+            const len = Math.min(prices.length, volumes.length);
+            return { prices: prices.slice(0, len), volumes: volumes.slice(0, len) };
+        }
+
+        function calcMA(data, period) {
+            return data.map((_, i) => {
+                if (i < period - 1) return null;
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) sum += data[j];
+                return sum / period;
+            });
+        }
+
+        function calcOBV(prices, volumes) {
+            const obv = [0];
+            for (let i = 1; i < prices.length; i++) {
+                if (prices[i] > prices[i-1]) obv.push(obv[i-1] + volumes[i]);
+                else if (prices[i] < prices[i-1]) obv.push(obv[i-1] - volumes[i]);
+                else obv.push(obv[i-1]);
+            }
+            return obv;
+        }
+
+        function analyze() {
+            const { prices, volumes } = parseData();
+            if (prices.length < 5) { alert('请输入至少5个数据点'); return; }
+
+            const maP = parseInt(document.getElementById('maPeriod').value);
+            const anomalyMult = parseFloat(document.getElementById('anomalyMult').value);
+            const volMA = calcMA(volumes, maP);
+            const obv = calcOBV(prices, volumes);
+            const n = prices.length;
+            const avgVol = volumes.reduce((a, b) => a + b, 0) / n;
+            const maxVol = Math.max(...volumes);
+            const minVol = Math.min(...volumes);
+            const totalVol = volumes.reduce((a, b) => a + b, 0);
+            const currentVol = volumes[n - 1];
+            const currentPrice = prices[n - 1];
+            const priceChange = n > 1 ? (currentPrice - prices[0]) / prices[0] * 100 : 0;
+
+            document.getElementById('statsArea').style.display = 'grid';
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${(currentVol / 1e6).toFixed(2)}M</div><div class="label">最新成交量</div></div>
+                <div class="stat-box"><div class="num">${(avgVol / 1e6).toFixed(2)}M</div><div class="label">平均成交量</div></div>
+                <div class="stat-box"><div class="num">${(currentVol / avgVol).toFixed(2)}x</div><div class="label">量比</div></div>
+                <div class="stat-box"><div class="num">${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)}%</div><div class="label">区间涨跌幅</div></div>
+            `;
+
+            drawPriceVolChart(prices, volumes, volMA);
+            drawOBVChart(obv);
+            detectAnomalies(prices, volumes, volMA, anomalyMult);
+            showDetail(prices, volumes, volMA, obv, avgVol, currentVol);
+        }
+
+        function drawPriceVolChart(prices, volumes, volMA) {
+            const canvas = document.getElementById('priceVolChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const minP = Math.min(...prices) * 0.95;
+            const maxP = Math.max(...prices) * 1.05;
+            const maxV = Math.max(...volumes) * 1.2;
+            const padL = 70, padR = 20, padT = 20, padB = 40;
+            const chartW = W - padL - padR;
+            const priceH = (H - padT - padB) * 0.6;
+            const volH = (H - padT - padB) * 0.35;
+            const volTop = padT + priceH + 10;
+            const n = prices.length;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '18px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+
+            for (let i = 0; i <= 4; i++) {
+                const y = padT + priceH - (i / 4) * priceH;
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minP + (i / 4) * (maxP - minP)).toFixed(1), 4, y + 5);
+            }
+
+            const xPos = (i) => padL + (i / (n - 1)) * chartW;
+            const yPos = (v) => padT + priceH - ((v - minP) / (maxP - minP)) * priceH;
+
+            ctx.strokeStyle = '#007bff'; ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            prices.forEach((p, i) => { if (i === 0) ctx.moveTo(xPos(i), yPos(p)); else ctx.lineTo(xPos(i), yPos(p)); });
+            ctx.stroke();
+
+            const gap = chartW / n;
+            const barW = Math.max(2, gap * 0.7);
+
+            volumes.forEach((v, i) => {
+                const x = xPos(i);
+                const h = (v / maxV) * volH;
+                const isUp = i === 0 ? true : prices[i] >= prices[i-1];
+                const vol = volMA[i];
+                const isHighVol = vol !== null && v > vol * 1.5;
+                if (isHighVol) {
+                    ctx.fillStyle = isUp ? 'rgba(25,135,84,0.8)' : 'rgba(220,53,69,0.8)';
+                } else {
+                    ctx.fillStyle = isUp ? 'rgba(25,135,84,0.3)' : 'rgba(220,53,69,0.3)';
+                }
+                ctx.fillRect(x - barW / 2, volTop + volH - h, barW, h);
+            });
+
+            ctx.strokeStyle = '#ffc107'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            let started = false;
+            volMA.forEach((v, i) => {
+                if (v === null) return;
+                const y = volTop + volH - (v / maxV) * volH;
+                if (!started) { ctx.moveTo(xPos(i), y); started = true; } else ctx.lineTo(xPos(i), y);
+            });
+            ctx.stroke();
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(padL, volTop); ctx.lineTo(W - padR, volTop); ctx.stroke();
+
+            document.getElementById('priceVolCard').style.display = 'block';
+        }
+
+        function drawOBVChart(obv) {
+            const canvas = document.getElementById('obvChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const minV = Math.min(...obv);
+            const maxV = Math.max(...obv);
+            const range = maxV - minV || 1;
+            const padL = 70, padR = 20, padT = 20, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = obv.length;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '18px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 3; i++) {
+                const y = padT + chartH - (i / 3) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minV + (i / 3) * range / 1e6).toFixed(1) + 'M', 4, y + 5);
+            }
+
+            ctx.strokeStyle = '#9b59b6'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            obv.forEach((v, i) => {
+                const x = padL + (i / (n - 1)) * chartW;
+                const y = padT + chartH - ((v - minV) / range) * chartH;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(155,89,182,0.1)';
+            ctx.beginPath();
+            obv.forEach((v, i) => {
+                const x = padL + (i / (n - 1)) * chartW;
+                const y = padT + chartH - ((v - minV) / range) * chartH;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.lineTo(padL + chartW, padT + chartH);
+            ctx.lineTo(padL, padT + chartH);
+            ctx.closePath(); ctx.fill();
+
+            document.getElementById('obvCard').style.display = 'block';
+        }
+
+        function detectAnomalies(prices, volumes, volMA, mult) {
+            const anomalies = [];
+            volumes.forEach((v, i) => {
+                if (volMA[i] === null) return;
+                const ratio = v / volMA[i];
+                if (ratio >= mult) {
+                    const isUp = i === 0 || prices[i] >= prices[i-1];
+                    anomalies.push({
+                        index: i,
+                        volume: v,
+                        ratio: ratio.toFixed(2),
+                        type: isUp ? 'high' : 'high',
+                        direction: isUp ? 'up' : 'down',
+                        change: i > 0 ? ((prices[i] - prices[i-1]) / prices[i-1] * 100).toFixed(2) : '0.00'
+                    });
+                }
+            });
+
+            let html = '';
+            if (anomalies.length === 0) {
+                html = '<p style="color:var(--secondary-color);">未检测到异常成交量</p>';
+            } else {
+                anomalies.forEach(a => {
+                    const dirTag = a.direction === 'up' ? '<span class="tag tag-up">涨</span>' : '<span class="tag tag-down">跌</span>';
+                    html += `<div class="anomaly-item ${a.type}">
+                        <strong>第${a.index + 1}根</strong> ${dirTag}
+                        成交量: ${(a.volume / 1e6).toFixed(2)}M | 量比: ${a.ratio}x | 涨跌: ${a.change}%
+                    </div>`;
+                });
+            }
+            document.getElementById('anomalyList').innerHTML = html;
+            document.getElementById('anomalyCard').style.display = 'block';
+        }
+
+        function showDetail(prices, volumes, volMA, obv, avgVol, currentVol) {
+            const n = prices.length;
+            const priceChange = ((prices[n-1] - prices[0]) / prices[0] * 100).toFixed(2);
+            const volRatio = (currentVol / avgVol).toFixed(2);
+            const obvChange = obv[n-1] - obv[0];
+
+            let text = `成交量分析报告\n${'='.repeat(40)}\n`;
+            text += `数据量: ${n} 根\n`;
+            text += `价格区间: ${Math.min(...prices).toFixed(2)} - ${Math.max(...prices).toFixed(2)}\n`;
+            text += `区间涨跌: ${priceChange > 0 ? '+' : ''}${priceChange}%\n\n`;
+            text += `成交量统计:\n`;
+            text += `  当前: ${(currentVol / 1e6).toFixed(2)}M\n`;
+            text += `  平均: ${(avgVol / 1e6).toFixed(2)}M\n`;
+            text += `  量比: ${volRatio}x\n`;
+            text += `  最大: ${(Math.max(...volumes) / 1e6).toFixed(2)}M\n`;
+            text += `  最小: ${(Math.min(...volumes) / 1e6).toFixed(2)}M\n\n`;
+
+            text += `量价关系分析:\n`;
+            if (volRatio > 2) text += `  ⚠️ 显著放量（${volRatio}倍），市场活跃度高\n`;
+            else if (volRatio > 1.5) text += `  📈 温和放量，关注度增加\n`;
+            else if (volRatio < 0.5) text += `  📉 显著缩量，市场观望情绪浓\n`;
+            else text += `  ⚪ 成交量正常\n`;
+
+            text += `\nOBV 能量潮:\n`;
+            text += `  变化: ${obvChange > 0 ? '+' : ''}${(obvChange / 1e6).toFixed(2)}M\n`;
+            text += `  趋势: ${obvChange > 0 ? '资金流入，看涨' : obvChange < 0 ? '资金流出，看跌' : '资金平衡'}\n`;
+
+            document.getElementById('detailCard').style.display = 'block';
+            document.getElementById('detailContent').textContent = text;
+        }
+
+        analyze();
+    </script>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="现金流预测工具 - 预测个人或企业未来现金流，分析收支平衡和资金缺口">
+    <meta name="robots" content="index, follow">
+    <title>现金流预测</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #10b981; --secondary-color: #6b7280; --success-color: #10b981; --warning-color: #f59e0b; --danger-color: #ef4444; --border-color: #e5e7eb; --card-bg: #f9fafb; }
+        [data-theme="dark"] { --bg-color: #111827; --text-color: #f9fafb; --primary-color: #34d399; --secondary-color: #9ca3af; --success-color: #34d399; --warning-color: #fbbf24; --danger-color: #f87171; --border-color: #374151; --card-bg: #1f2937; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 14px; }
+        input:focus { outline: 2px solid var(--primary-color); border-color: transparent; }
+        button { background: var(--primary-color); color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; transition: opacity 0.2s; }
+        button:hover { opacity: 0.85; }
+        .btn-danger { background: var(--danger-color); }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 14px; background: var(--secondary-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; z-index: 100; }
+        .result-chart { width: 100%; height: 300px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+        .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 120px; text-align: center; padding: 14px; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 20px; font-weight: 700; color: var(--primary-color); }
+        .stat-box .lbl { font-size: 11px; color: var(--secondary-color); margin-top: 4px; }
+        .item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; padding: 10px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; }
+        .item-row input { flex: 1; padding: 8px; font-size: 13px; }
+        .item-row .remove { background: var(--danger-color); color: #fff; border: none; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+        .income-tag { background: rgba(16,185,129,0.1); border: 1px solid var(--success-color); color: var(--success-color); }
+        .expense-tag { background: rgba(239,68,68,0.1); border: 1px solid var(--danger-color); color: var(--danger-color); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+        th:first-child, td:first-child { text-align: left; }
+        th { font-weight: 600; color: var(--secondary-color); }
+        .positive { color: var(--success-color); font-weight: 600; }
+        .negative { color: var(--danger-color); font-weight: 600; }
+        .waterfall-bar { display: flex; align-items: center; gap: 4px; margin: 4px 0; }
+        .waterfall-fill { height: 20px; border-radius: 4px; min-width: 2px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>💰 现金流预测</h1>
+        <p style="color:var(--secondary-color)">规划个人/家庭收支，预测未来现金流状况</p>
+
+        <div class="card">
+            <h3>基本设置</h3>
+            <div class="grid-3">
+                <div><label>当前储蓄余额 (元)</label><input type="number" id="initBalance" value="80000"></div>
+                <div><label>预测月数</label><input type="number" id="projMonths" value="12" min="1" max="120"></div>
+                <div><label>月储蓄增长/下降 (%)</label><input type="number" id="growthRate" value="2" step="0.5"></div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3 style="color:var(--success-color)">📥 固定收入</h3>
+                <div id="incomeList"></div>
+                <button onclick="addItem('income')" style="margin-top:8px;background:var(--success-color)">+ 添加收入</button>
+            </div>
+            <div class="card">
+                <h3 style="color:var(--danger-color)">📤 固定支出</h3>
+                <div id="expenseList"></div>
+                <button onclick="addItem('expense')" style="margin-top:8px;background:var(--danger-color)">+ 添加支出</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>年度大额收支</h3>
+            <div id="annualList"></div>
+            <button onclick="addAnnual()" style="margin-top:8px">+ 添加年度收支</button>
+        </div>
+
+        <button onclick="project()" style="width:100%;font-size:17px;padding:14px">生成现金流预测</button>
+
+        <div class="card" id="summaryCard" style="display:none">
+            <h3>预测概览</h3>
+            <div class="stat-row" id="summaryStats"></div>
+        </div>
+
+        <div class="card" id="chartCard" style="display:none">
+            <h3>现金流走势</h3>
+            <div class="result-chart"><canvas id="flowCanvas"></canvas></div>
+        </div>
+
+        <div class="card" id="waterfallCard" style="display:none">
+            <h3>年度现金流瀑布图</h3>
+            <div class="result-chart"><canvas id="waterfallCanvas"></canvas></div>
+        </div>
+
+        <div class="card" id="detailCard" style="display:none">
+            <h3>逐月明细</h3>
+            <div id="detailTable" style="overflow-x:auto"></div>
+        </div>
+
+        <div class="card" id="alertCard" style="display:none">
+            <h3>⚠️ 现金流预警</h3>
+            <div id="alerts"></div>
+        </div>
+    </div>
+
+    <script>
+        let incomes = [
+            { name: '工资', amount: 15000 },
+            { name: '副业', amount: 3000 },
+            { name: '投资收益', amount: 1500 }
+        ];
+        let expenses = [
+            { name: '房租', amount: 4000 },
+            { name: '餐饮', amount: 3000 },
+            { name: '交通', amount: 800 },
+            { name: '日用品', amount: 1000 },
+            { name: '娱乐', amount: 1500 },
+            { name: '保险', amount: 600 },
+            { name: '其他', amount: 1000 }
+        ];
+        let annualItems = [
+            { name: '年终奖', month: 1, amount: 30000, type: 'income' },
+            { name: '保险年缴', month: 3, amount: -8000, type: 'expense' },
+            { name: '旅行', month: 7, amount: -10000, type: 'expense' }
+        ];
+
+        function init() { renderAll(); }
+
+        function renderAll() {
+            renderItems('income', incomes, 'incomeList');
+            renderItems('expense', expenses, 'expenseList');
+            renderAnnual();
+        }
+
+        function renderItems(type, items, containerId) {
+            document.getElementById(containerId).innerHTML = items.map((item, i) => `
+                <div class="item-row ${type === 'income' ? 'income-tag' : 'expense-tag'}">
+                    <input value="${item.name}" onchange="${type === 'income' ? 'incomes' : 'expenses'}[${i}].name=this.value" placeholder="名称" style="max-width:100px">
+                    <input type="number" value="${item.amount}" onchange="${type === 'income' ? 'incomes' : 'expenses'}[${i}].amount=+this.value" placeholder="金额" style="max-width:100px">
+                    <button class="remove" onclick="${type === 'income' ? 'incomes' : 'expenses'}.splice(${i},1);renderAll()">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addItem(type) {
+            const items = type === 'income' ? incomes : expenses;
+            items.push({ name: '新项目', amount: 1000 });
+            renderAll();
+        }
+
+        function renderAnnual() {
+            document.getElementById('annualList').innerHTML = annualItems.map((item, i) => `
+                <div class="item-row">
+                    <input value="${item.name}" onchange="annualItems[${i}].name=this.value" placeholder="名称" style="max-width:120px">
+                    <input type="number" value="${item.month}" min="1" max="12" onchange="annualItems[${i}].month=+this.value" placeholder="月份" style="max-width:60px">
+                    <input type="number" value="${item.amount}" onchange="annualItems[${i}].amount=+this.value" placeholder="金额(负=支出)" style="max-width:120px">
+                    <select onchange="annualItems[${i}].type=this.value" style="max-width:80px">
+                        <option value="income" ${item.type === 'income' ? 'selected' : ''}>收入</option>
+                        <option value="expense" ${item.type === 'expense' ? 'selected' : ''}>支出</option>
+                    </select>
+                    <button class="remove" onclick="annualItems.splice(${i},1);renderAnnual()">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addAnnual() {
+            annualItems.push({ name: '新项目', month: 6, amount: 0, type: 'income' });
+            renderAnnual();
+        }
+
+        function project() {
+            const initBal = +document.getElementById('initBalance').value;
+            const months = +document.getElementById('projMonths').value;
+            const growth = +document.getElementById('growthRate').value / 100;
+
+            const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
+            const totalExpense = expenses.reduce((s, e) => s + e.amount, 0);
+            const monthlyNet = totalIncome - totalExpense;
+
+            const data = [];
+            let balance = initBal;
+            let minBalance = balance;
+            let maxBalance = balance;
+            let minMonth = 0;
+            let maxMonth = 0;
+            const alerts = [];
+
+            for (let m = 1; m <= months; m++) {
+                const growthFactor = Math.pow(1 + growth, m - 1);
+                const income = totalIncome * growthFactor;
+                const expense = totalExpense * growthFactor;
+                let annual = 0;
+                annualItems.forEach(ai => {
+                    if (ai.month === ((m - 1) % 12) + 1) {
+                        annual += ai.type === 'income' ? Math.abs(ai.amount) : -Math.abs(ai.amount);
+                    }
+                });
+                const net = income - expense + annual;
+                balance += net;
+
+                data.push({ month: m, income, expense, annual, net, balance });
+
+                if (balance < minBalance) { minBalance = balance; minMonth = m; }
+                if (balance > maxBalance) { maxBalance = balance; maxMonth = m; }
+                if (balance < 0) alerts.push({ month: m, type: 'danger', msg: `第${m}月现金流转负：¥${balance.toFixed(0)}` });
+                else if (balance < initBal * 0.2) alerts.push({ month: m, type: 'warning', msg: `第${m}月余额较低：¥${balance.toFixed(0)}` });
+            }
+
+            document.getElementById('summaryCard').style.display = 'block';
+            document.getElementById('chartCard').style.display = 'block';
+            document.getElementById('waterfallCard').style.display = 'block';
+            document.getElementById('detailCard').style.display = 'block';
+
+            const finalBal = data[data.length - 1].balance;
+            const totalIncomeAll = data.reduce((s, d) => s + d.income, 0);
+            const totalExpenseAll = data.reduce((s, d) => s + d.expense, 0);
+            const savingsRate = totalIncomeAll > 0 ? (1 - totalExpenseAll / totalIncomeAll) * 100 : 0;
+
+            document.getElementById('summaryStats').innerHTML = `
+                <div class="stat-box"><div class="num">¥${finalBal.toFixed(0)}</div><div class="lbl">最终余额</div></div>
+                <div class="stat-box"><div class="num ${finalBal > initBal ? 'positive' : 'negative'}">¥${(finalBal - initBal).toFixed(0)}</div><div class="lbl">净变化</div></div>
+                <div class="stat-box"><div class="num">¥${monthlyNet.toFixed(0)}</div><div class="lbl">月均净收入</div></div>
+                <div class="stat-box"><div class="num">${savingsRate.toFixed(1)}%</div><div class="lbl">储蓄率</div></div>
+                <div class="stat-box"><div class="num">¥${minBalance.toFixed(0)}</div><div class="lbl">最低余额 (第${minMonth}月)</div></div>
+            `;
+
+            drawFlowChart(data);
+            drawWaterfall(data);
+            renderDetailTable(data);
+
+            if (alerts.length > 0) {
+                document.getElementById('alertCard').style.display = 'block';
+                document.getElementById('alerts').innerHTML = alerts.map(a =>
+                    `<div style="padding:10px;margin:6px 0;border-radius:8px;border-left:4px solid var(--${a.type === 'danger' ? 'danger' : 'warning'}-color);background:var(--bg-color)">
+                        <span style="font-weight:600;color:var(--${a.type === 'danger' ? 'danger' : 'warning'}-color)">${a.msg}</span></div>`
+                ).join('');
+            } else {
+                document.getElementById('alertCard').style.display = 'none';
+            }
+        }
+
+        function drawFlowChart(data) {
+            const canvas = document.getElementById('flowCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.parentElement.clientWidth;
+            const H = 300;
+            canvas.width = W * 2; canvas.height = H * 2;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.scale(2, 2);
+            ctx.clearRect(0, 0, W, H);
+
+            const pad = { l: 70, r: 20, t: 20, b: 35 };
+            const allVals = [...data.map(d => d.balance), ...data.map(d => d.income), ...data.map(d => d.expense)];
+            const yMin = Math.min(0, ...allVals) * 1.1;
+            const yMax = Math.max(...allVals) * 1.1;
+
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.t + (i / 4) * (H - pad.t - pad.b);
+                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+                ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+                const val = yMax - i / 4 * (yMax - yMin);
+                ctx.fillText('¥' + (val / 10000).toFixed(1) + '万', pad.l - 5, y + 4);
+            }
+
+            const barW = (W - pad.l - pad.r) / data.length * 0.35;
+            data.forEach((d, i) => {
+                const cx = pad.l + ((i + 0.5) / data.length) * (W - pad.l - pad.r);
+                const yZero = pad.t + ((yMax - 0) / (yMax - yMin)) * (H - pad.t - pad.b);
+
+                const incY = pad.t + ((yMax - d.income) / (yMax - yMin)) * (H - pad.t - pad.b);
+                ctx.fillStyle = 'rgba(16,185,129,0.6)';
+                ctx.fillRect(cx - barW, Math.min(incY, yZero), barW, Math.abs(yZero - incY));
+
+                const expY = pad.t + ((yMax - d.expense) / (yMax - yMin)) * (H - pad.t - pad.b);
+                ctx.fillStyle = 'rgba(239,68,68,0.6)';
+                ctx.fillRect(cx, Math.min(expY, yZero), barW, Math.abs(yZero - expY));
+            });
+
+            ctx.beginPath();
+            data.forEach((d, i) => {
+                const x = pad.l + ((i + 0.5) / data.length) * (W - pad.l - pad.r);
+                const y = pad.t + ((yMax - d.balance) / (yMax - yMin)) * (H - pad.t - pad.b);
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2.5; ctx.stroke();
+
+            data.forEach((d, i) => {
+                const x = pad.l + ((i + 0.5) / data.length) * (W - pad.l - pad.r);
+                const y = pad.t + ((yMax - d.balance) / (yMax - yMin)) * (H - pad.t - pad.b);
+                ctx.fillStyle = '#6366f1';
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+            });
+
+            const legend = [
+                { color: 'rgba(16,185,129,0.6)', label: '收入' },
+                { color: 'rgba(239,68,68,0.6)', label: '支出' },
+                { color: '#6366f1', label: '余额' }
+            ];
+            legend.forEach((l, i) => {
+                const lx = pad.l + i * 80;
+                ctx.fillStyle = l.color; ctx.fillRect(lx, pad.t, 12, 12);
+                ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+                ctx.fillText(l.label, lx + 16, pad.t + 10);
+            });
+
+            ctx.fillStyle = '#999'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('月份', W / 2, H - 8);
+        }
+
+        function drawWaterfall(data) {
+            const canvas = document.getElementById('waterfallCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.parentElement.clientWidth;
+            const H = 300;
+            canvas.width = W * 2; canvas.height = H * 2;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.scale(2, 2);
+            ctx.clearRect(0, 0, W, H);
+
+            const totalInc = data.reduce((s, d) => s + d.income, 0);
+            const totalExp = data.reduce((s, d) => s + d.expense, 0);
+            const totalAnnual = data.reduce((s, d) => s + d.annual, 0);
+            const initBal = data[0].balance - data[0].net + data[0].annual;
+            const finalBal = data[data.length - 1].balance;
+
+            const items = [
+                { label: '期初余额', value: initBal, type: 'base' },
+                { label: '总收入', value: totalInc, type: 'pos' },
+                { label: '总支出', value: -totalExp, type: 'neg' },
+                { label: '年度收支', value: totalAnnual, type: totalAnnual >= 0 ? 'pos' : 'neg' },
+                { label: '期末余额', value: finalBal, type: 'base' }
+            ];
+
+            const pad = { l: 80, r: 30, t: 30, b: 40 };
+            const maxVal = Math.max(...items.map(i => Math.abs(i.value))) * 1.3;
+            const barH = 36;
+            const gap = 16;
+
+            let running = 0;
+            items.forEach((item, i) => {
+                const y = pad.t + i * (barH + gap);
+                let startX, endX;
+
+                if (item.type === 'base') {
+                    startX = 0;
+                    endX = item.value;
+                } else {
+                    startX = running;
+                    endX = running + item.value;
+                }
+
+                const left = pad.l + Math.min(startX, endX) / maxVal * (W - pad.l - pad.r);
+                const width = Math.abs(endX - startX) / maxVal * (W - pad.l - pad.r);
+
+                const color = item.type === 'base' ? '#6366f1' : item.value >= 0 ? '#10b981' : '#ef4444';
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(left, y, width, barH, 4);
+                ctx.fill();
+
+                ctx.fillStyle = '#333'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText(item.label, pad.l - 8, y + barH / 2 + 4);
+                ctx.textAlign = 'left'; ctx.fillStyle = '#333'; ctx.font = '12px sans-serif';
+                ctx.fillText('¥' + (item.value / 10000).toFixed(1) + '万', left + width + 8, y + barH / 2 + 4);
+
+                if (item.type !== 'base' && i < items.length - 1) {
+                    ctx.strokeStyle = '#ccc'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(pad.l + endX / maxVal * (W - pad.l - pad.r), y + barH);
+                    ctx.lineTo(pad.l + endX / maxVal * (W - pad.l - pad.r), y + barH + gap);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                if (item.type !== 'base') running = endX;
+            });
+        }
+
+        function renderDetailTable(data) {
+            let html = '<table><tr><th>月份</th><th>收入</th><th>支出</th><th>年度收支</th><th>净现金流</th><th>累计余额</th></tr>';
+            data.forEach(d => {
+                const netCls = d.net >= 0 ? 'positive' : 'negative';
+                const balCls = d.balance >= 0 ? '' : 'negative';
+                html += `<tr>
+                    <td>第${d.month}月</td>
+                    <td class="positive">¥${d.income.toFixed(0)}</td>
+                    <td class="negative">¥${d.expense.toFixed(0)}</td>
+                    <td>${d.annual >= 0 ? '<span class="positive">+' : '<span class="negative">'}¥${d.annual.toFixed(0)}</span></td>
+                    <td class="${netCls}">¥${d.net.toFixed(0)}</td>
+                    <td class="${balCls}" style="font-weight:700">¥${d.balance.toFixed(0)}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            document.getElementById('detailTable').innerHTML = html;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        init();
+    </script>
+</body>
+</html>
