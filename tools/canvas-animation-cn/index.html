@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎨 Canvas动画工作台</title>
+<meta name="description" content="Canvas动画工作台 - 创建、编辑和导出HTML5 Canvas动画效果">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%;background:#000}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.controls select,.controls input[type=color]{background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:.8rem}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.85}
+.btn-warn{background:var(--warn);color:#fff}.btn-warn:hover{opacity:.85}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.code-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-top:12px;font-family:'Fira Code',monospace;font-size:.75rem;color:var(--text2);max-height:200px;overflow:auto;white-space:pre-wrap;display:none}
+.code-box.show{display:block}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0}
+.info-bar span{color:var(--accent);font-weight:600}</style>
+</head>
+<body>
+<div class="hdr"><h1>🎨 Canvas动画工作台</h1><p>创建和预览HTML5 Canvas动画效果</p></div>
+
+<div class="tabs" id="tabs">
+<button class="active" data-anim="particles">粒子系统</button>
+<button data-anim="wave">波浪效果</button>
+<button data-anim="fireworks">烟花效果</button>
+<button data-anim="matrix">矩阵雨</button>
+<button data-anim="starfield">星空穿越</button>
+<button data-anim="lissajous">利萨如图形</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c"></canvas></div>
+
+<div class="controls" id="controls"></div>
+
+<div class="btn-row" style="justify-content:center;margin-bottom:12px">
+<button class="btn btn-primary" onclick="togglePlay()">▶ 播放/暂停</button>
+<button class="btn btn-success" onclick="resetAnim()">↺ 重置</button>
+<button class="btn btn-warn" onclick="exportCode()">{ } 导出代码</button>
+<button class="btn btn-outline" onclick="exportGIF()">⬇ 截图</button>
+</div>
+
+<div class="info-bar">
+<span id="fps">0</span> FPS | 粒子数: <span id="count">0</span> | 状态: <span id="state">播放中</span>
+</div>
+
+<div class="code-box" id="codeBox"></div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W,H,animId,playing=true,frame=0,currentAnim='particles';
+const params={particles:{count:200,speed:2,size:3,color:'#3b82f6',gravity:0,trail:0.1},
+wave:{amplitude:50,frequency:0.02,speed:2,layers:3,color:'#22c55e'},
+fireworks:{count:30,gravity:0.05,wind:0},
+matrix:{speed:5,fontSize:14,density:0.95},
+starfield:{count:800,speed:3,maxSize:3},
+lissajous:{a:3,b:2,delta:Math.PI/2,speed:0.02,points:500}};
+
+function resize(){const r=canvas.parentElement.getBoundingClientRect();W=canvas.width=r.width;H=canvas.height=Math.min(500,r.width*0.6);init()}
+window.addEventListener('resize',resize);
+
+let particles=[],drops=[],stars=[],points=[];
+
+function init(){
+frame=0;particles=[];drops=[];stars=[];points=[];
+if(currentAnim==='particles'){for(let i=0;i<params.particles.count;i++)particles.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*params.particles.speed*2,vy:(Math.random()-.5)*params.particles.speed*2,r:Math.random()*params.particles.size+1,color:params.particles.color})}
+if(currentAnim==='matrix'){for(let i=0;i<W/params.matrix.fontSize;i++)drops[i]=Math.random()*-H}
+if(currentAnim==='starfield'){for(let i=0;i<params.starfield.count;i++)stars.push({x:(Math.random()-.5)*W*2,y:(Math.random()-.5)*H*2,z:Math.random()*W})}
+if(currentAnim==='fireworks'){}
+}
+
+function drawParticles(){
+ctx.fillStyle=`rgba(0,0,0,${params.particles.trail})`;ctx.fillRect(0,0,W,H);
+particles.forEach(p=>{
+p.x+=p.vx;p.y+=p.vy+params.particles.gravity;
+if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=p.color;ctx.globalAlpha=0.8;ctx.fill();ctx.globalAlpha=1;
+});
+}
+
+function drawWave(){
+ctx.fillStyle='rgba(0,0,10,0.15)';ctx.fillRect(0,0,W,H);
+for(let l=0;l<params.wave.layers;l++){
+ctx.beginPath();ctx.moveTo(0,H);
+for(let x=0;x<=W;x++){
+const y=H/2+Math.sin(x*params.wave.frequency+frame*params.wave.speed*0.02+l*1.5)*params.wave.amplitude/(l+1);
+ctx.lineTo(x,y);
+}
+ctx.lineTo(W,H);ctx.closePath();
+ctx.fillStyle=`hsla(${130+l*30},70%,50%,${0.3-l*0.08})`;ctx.fill();
+}
+}
+
+function drawFireworks(){
+ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(0,0,W,H);
+if(frame%60===0){
+const cx=Math.random()*W,cy=Math.random()*H*0.5;
+for(let i=0;i<80;i++){
+const angle=Math.random()*Math.PI*2,speed=Math.random()*4+1;
+particles.push({x:cx,y:cy,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:1,color:`hsl(${Math.random()*360},100%,60%)`,r:2});
+}
+}
+particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=params.fireworks.gravity;p.life-=0.015;
+ctx.globalAlpha=p.life;ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();ctx.globalAlpha=1;
+return p.life>0});
+}
+
+function drawMatrix(){
+ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#0f0';ctx.font=params.matrix.fontSize+'px monospace';
+for(let i=0;i<drops.length;i++){
+const char=String.fromCharCode(0x30A0+Math.random()*96);
+ctx.fillText(char,i*params.matrix.fontSize,drops[i]*params.matrix.fontSize);
+if(drops[i]*params.matrix.fontSize>H&&Math.random()>params.matrix.density)drops[i]=0;
+drops[i]+=params.matrix.speed;
+}
+}
+
+function drawStarfield(){
+ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(0,0,W,H);
+const cx=W/2,cy=H/2;
+stars.forEach(s=>{
+s.z-=params.starfield.speed;if(s.z<=0)s.z=W;
+const x=s.x/s.z*W+cx,y=s.y/s.z*H+cy,r=(1-s.z/W)*params.starfield.maxSize;
+const alpha=1-s.z/W;
+ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${alpha})`;ctx.fill();
+});
+}
+
+function drawLissajous(){
+ctx.fillStyle='rgba(0,0,0,0.03)';ctx.fillRect(0,0,W,H);
+const cx=W/2,cy=H/2,R=Math.min(W,H)*0.4;
+const t=frame*params.lissajous.speed;
+const x=cx+R*Math.sin(params.lissajous.a*t+params.lissajous.delta);
+const y=cy+R*Math.sin(params.lissajous.b*t);
+points.push({x,y});
+if(points.length>params.lissajous.points)points.shift();
+ctx.beginPath();points.forEach((p,i)=>{i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)});
+ctx.strokeStyle=`hsl(${(frame*2)%360},80%,60%)`;ctx.lineWidth=2;ctx.stroke();
+ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+}
+
+const draws={particles:drawParticles,wave:drawWave,fireworks:drawFireworks,matrix:drawMatrix,starfield:drawStarfield,lissajous:drawLissajous};
+
+let lastTime=0,fpsCount=0,fpsTime=0;
+function animate(t){
+if(!playing){animId=requestAnimationFrame(animate);return}
+const dt=t-lastTime;lastTime=t;fpsCount++;
+if(t-fpsTime>1000){document.getElementById('fps').textContent=fpsCount;fpsCount=0;fpsTime=t}
+draws[currentAnim]();frame++;document.getElementById('count').textContent=particles.length+drops.length+stars.length+points.length;
+animId=requestAnimationFrame(animate);
+}
+
+function togglePlay(){playing=!playing;document.getElementById('state').textContent=playing?'播放中':'暂停'}
+function resetAnim(){cancelAnimationFrame(animId);init();frame=0;playing=true;document.getElementById('state').textContent='播放中'}
+
+document.getElementById('tabs').addEventListener('click',e=>{
+if(!e.target.dataset.anim)return;
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+e.target.classList.add('active');currentAnim=e.target.dataset.anim;init();buildControls();
+});
+
+function buildControls(){
+const c=document.getElementById('controls');const p=params[currentAnim];let html='';
+Object.entries(p).forEach(([k,v])=>{
+if(typeof v==='number'){
+const max=v>10?Math.max(v*3,100):10;const step=v>1?1:0.01;
+html+=`<div class="row"><label>${k}</label><input type="range" min="0" max="${max}" step="${step}" value="${v}" data-key="${k}"><span class="val">${v}</span></div>`;
+}else if(typeof v==='string'&&v.startsWith('#')){
+html+=`<div class="row"><label>${k}</label><input type="color" value="${v}" data-key="${k}"></div>`;
+}
+});
+c.innerHTML=html;
+c.querySelectorAll('input').forEach(inp=>{
+inp.addEventListener('input',()=>{const k=inp.dataset.key;const v=inp.type==='color'?inp.value:parseFloat(inp.value);params[currentAnim][k]=v;
+const valEl=inp.nextElementSibling;if(valEl&&valEl.classList.contains('val'))valEl.textContent=v;
+if(currentAnim==='particles'&&k==='count')init();
+});
+});
+}
+
+function exportCode(){
+const box=document.getElementById('codeBox');box.classList.toggle('show');
+if(box.classList.contains('show'))box.textContent=`<canvas id="c"></canvas>\n<script>\nconst c=document.getElementById('c'),ctx=c.getContext('2d');\nc.width=800;c.height=600;\n// ${currentAnim} animation\n// Parameters: ${JSON.stringify(params[currentAnim])}\nfunction animate(){requestAnimationFrame(animate);}\nanimate();\n<\/script>`;
+}
+
+function exportGIF(){
+const link=document.createElement('a');link.download='canvas-animation.png';link.href=canvas.toDataURL();link.click();
+}
+
+resize();buildControls();requestAnimationFrame(animate);
+</script>
+</body></html>

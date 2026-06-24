@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔺 WebGL渲染器</title>
+<meta name="description" content="WebGL渲染器 - 实时3D图形渲染与着色器编程演示">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔺</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.gl-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0}
+.info-bar span{color:var(--accent);font-weight:600}
+.err{color:var(--danger);text-align:center;padding:40px;font-size:.9rem}</style>
+</head>
+<body>
+<div class="hdr"><h1>🔺 WebGL渲染器</h1><p>实时3D图形渲染演示</p></div>
+
+<div class="tabs" id="tabs">
+<button class="active" data-scene="cube">旋转立方体</button>
+<button data-scene="sphere">球体</button>
+<button data-scene="torus">圆环</button>
+<button data-scene="fractal">分形地形</button>
+<button data-scene="plasma">等离子体</button>
+</div>
+
+<div class="gl-wrap"><canvas id="glCanvas"></canvas></div>
+
+<div class="controls" id="controls">
+<div class="row"><label>旋转速度</label><input type="range" min="0" max="5" step="0.1" value="1" id="speed"><span class="val">1</span></div>
+<div class="row"><label>缩放</label><input type="range" min="0.5" max="3" step="0.1" value="1.5" id="scale"><span class="val">1.5</span></div>
+<div class="row"><label>颜色</label><input type="range" min="0" max="1" step="0.01" value="0.6" id="hue"><span class="val">0.6</span></div>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" onclick="togglePlay()">▶ 播放/暂停</button>
+<button class="btn btn-success" onclick="resetScene()">↺ 重置</button>
+<button class="btn btn-outline" onclick="screenshot()">📷 截图</button>
+</div>
+
+<div class="info-bar">FPS: <span id="fps">0</span> | 顶点: <span id="verts">0</span> | 状态: <span id="state">播放中</span></div>
+
+<script>
+const canvas=document.getElementById('glCanvas');
+let gl,playing=true,scene='cube',speedVal=1,scaleVal=1.5,hueVal=0.6;
+let program,positionBuffer,colorBuffer,matrixLoc,timeLoc,colorLoc;
+let vertCount=0,time=0,animId,lastTime=0,fpsCount=0,fpsTime=0;
+
+function initGL(){
+try{gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl')}catch(e){}
+if(!gl){document.getElementById('glCanvas').outerHTML='<div class="err">您的浏览器不支持WebGL</div>';return false}
+return true;
+}
+
+const vsSource=`attribute vec4 aPosition;attribute vec4 aColor;uniform mat4 uMatrix;varying vec4 vColor;void main(){gl_Position=uMatrix*aPosition;vColor=aColor;gl_PointSize=3.0;}`;
+
+const fsSource=`precision mediump float;varying vec4 vColor;uniform float uHue;void main(){vec3 c=vColor.rgb;float r=c.r+sin(uHue*6.28)*0.3;float g=c.g+sin(uHue*6.28+2.09)*0.3;float b=c.b+sin(uHue*6.28+4.18)*0.3;gl_FragColor=vec4(r,g,b,vColor.a);}`;
+
+function createShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));gl.deleteShader(s);return null}return s}
+
+function initProgram(){
+const vs=createShader(gl.VERTEX_SHADER,vsSource),fs=createShader(gl.FRAGMENT_SHADER,fsSource);
+program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
+if(!gl.getProgramParameter(program,gl.LINK_STATUS)){console.error(gl.getProgramInfoLog(program));return}
+gl.useProgram(program);
+positionBuffer=gl.createBuffer();colorBuffer=gl.createBuffer();
+matrixLoc=gl.getUniformLocation(program,'uMatrix');timeLoc=gl.getUniformLocation(program,'uTime');colorLoc=gl.getUniformLocation(program,'uHue');
+}
+
+function perspective(fov,aspect,near,far){
+const f=1/Math.tan(fov/2),nf=1/(near-far);
+return[f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0];
+}
+
+function rotateY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,s,0, 0,1,0,0, -s,0,c,0, 0,0,0,1]}
+function rotateX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0, 0,c,-s,0, 0,s,c,0, 0,0,0,1]}
+function identity(){return[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]}
+
+function matMul(a,b){
+const r=new Float32Array(16);
+for(let i=0;i<4;i++)for(let j=0;j<4;j++){r[j*4+i]=0;for(let k=0;k<4;k++)r[j*4+i]+=a[k*4+i]*b[j*4+k]}
+return r;
+}
+
+function uploadData(pts,cols){
+gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(pts),gl.DYNAMIC_DRAW);
+const aPos=gl.getAttribLocation(program,'aPosition');gl.enableVertexAttribArray(aPos);gl.vertexAttribPointer(aPos,3,gl.FLOAT,false,0,0);
+gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(cols),gl.DYNAMIC_DRAW);
+const aCol=gl.getAttribLocation(program,'aColor');gl.enableVertexAttribArray(aCol);gl.vertexAttribPointer(aCol,3,gl.FLOAT,false,0,0);
+}
+
+function genCube(){
+const v=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,-1,1],[1,1,1],[-1,1,1],[-1,-1,-1],[-1,1,-1],[-1,1,1],[-1,-1,-1],[-1,1,1],[-1,-1,1],[1,-1,-1],[1,1,-1],[1,1,1],[1,-1,-1],[1,1,1],[1,-1,1],[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,-1],[1,1,1],[-1,1,1],[-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,-1],[1,-1,1],[-1,-1,1]];
+const pts=[],cols=[];
+v.forEach((p,i)=>{pts.push(...p);const c=i/36;cols.push(0.3+c*0.5,0.5+Math.sin(c*6.28)*0.3,0.8-c*0.4)});
+return{pts,cols,count:v.length};
+}
+
+function genSphere(r=1,seg=20){
+const pts=[],cols=[];
+for(let i=0;i<seg;i++)for(let j=0;j<seg*2;j++){
+const u=i/seg,v1=j/(seg*2),v2=(j+1)/(seg*2),u2=(i+1)/seg;
+const p1=[r*Math.sin(u*Math.PI)*Math.cos(v1*Math.PI*2),r*Math.cos(u*Math.PI),r*Math.sin(u*Math.PI)*Math.sin(v1*Math.PI*2)];
+const p2=[r*Math.sin(u*Math.PI)*Math.cos(v2*Math.PI*2),r*Math.cos(u*Math.PI),r*Math.sin(u*Math.PI)*Math.sin(v2*Math.PI*2)];
+const p3=[r*Math.sin(u2*Math.PI)*Math.cos(v2*Math.PI*2),r*Math.cos(u2*Math.PI),r*Math.sin(u2*Math.PI)*Math.sin(v2*Math.PI*2)];
+const p4=[r*Math.sin(u2*Math.PI)*Math.cos(v1*Math.PI*2),r*Math.cos(u2*Math.PI),r*Math.sin(u2*Math.PI)*Math.sin(v1*Math.PI*2)];
+pts.push(...p1,...p2,...p3,...p1,...p3,...p4);
+const c=(i+j)/(seg*seg*2);cols.push(0.4+Math.sin(c*10)*0.3,0.5+Math.cos(c*8)*0.3,0.7+Math.sin(c*12)*0.3);
+cols.push(0.4+Math.sin((c+0.1)*10)*0.3,0.5+Math.cos((c+0.1)*8)*0.3,0.7+Math.sin((c+0.1)*12)*0.3);
+cols.push(0.4+Math.sin((c+0.2)*10)*0.3,0.5+Math.cos((c+0.2)*8)*0.3,0.7+Math.sin((c+0.2)*12)*0.3);
+cols.push(0.4+Math.sin(c*10)*0.3,0.5+Math.cos(c*8)*0.3,0.7+Math.sin(c*12)*0.3);
+cols.push(0.4+Math.sin((c+0.2)*10)*0.3,0.5+Math.cos((c+0.2)*8)*0.3,0.7+Math.sin((c+0.2)*12)*0.3);
+cols.push(0.4+Math.sin((c+0.3)*10)*0.3,0.5+Math.cos((c+0.3)*8)*0.3,0.7+Math.sin((c+0.3)*12)*0.3);
+}
+return{pts,cols,count:pts.length/3};
+}
+
+function genTorus(R=1,r=0.3,seg1=30,seg2=15){
+const pts=[],cols=[];
+for(let i=0;i<seg1;i++)for(let j=0;j<seg2;j++){
+const u=i/seg1*2*Math.PI,v=j/seg2*2*Math.PI,u2=(i+1)/seg1*2*Math.PI,v2=(j+1)/seg2*2*Math.PI;
+const tri=(a,b,c)=>{pts.push(...a,...b,...c);const k=pts.length/9;for(let n=0;n<3;n++){const c=(k*3+n)/(seg1*seg2*6);cols.push(0.5+Math.sin(c*10)*0.4,0.3+Math.cos(c*8)*0.4,0.8+Math.sin(c*6)*0.4)}};
+const p=(uu,vv)=>[(R+r*Math.cos(vv))*Math.cos(uu),r*Math.sin(vv),(R+r*Math.cos(vv))*Math.sin(uu)];
+tri(p(u,v),p(u2,v),p(u2,v2));tri(p(u,v),p(u2,v2),p(u,v2));
+}
+return{pts,cols,count:pts.length/3};
+}
+
+function genPlasma(seg=30){
+const pts=[],cols=[];
+for(let i=0;i<seg;i++)for(let j=0;j<seg;j++){
+const x=(i/seg)*4-2,z=(j/seg)*4-2;
+const h=Math.sin(x*2)*Math.cos(z*2)*0.3+Math.sin(x*3+z)*0.2;
+const x2=((i+1)/seg)*4-2,z2=((j+1)/seg)*4-2;
+const h2=Math.sin(x2*2)*Math.cos(z2*2)*0.3+Math.sin(x2*3+z2)*0.2;
+const h3=Math.sin(x2*2)*Math.cos(z*2)*0.3+Math.sin(x2*3+z)*0.2;
+const h4=Math.sin(x*2)*Math.cos(z2*2)*0.3+Math.sin(x*3+z2)*0.2;
+pts.push(x,h,z, x2,h2,z, x2,h3,z, x,h,z, x2,h3,z, x,h4,z);
+const c=(i+j)/(seg*2);cols.push(0.5+Math.sin(c*10)*0.4,0.3+Math.cos(c*8)*0.4,0.8);
+cols.push(0.5+Math.sin((c+0.1)*10)*0.4,0.3+Math.cos((c+0.1)*8)*0.4,0.8);
+cols.push(0.5+Math.sin((c+0.2)*10)*0.4,0.3+Math.cos((c+0.2)*8)*0.4,0.8);
+cols.push(0.5+Math.sin(c*10)*0.4,0.3+Math.cos(c*8)*0.4,0.8);
+cols.push(0.5+Math.sin((c+0.2)*10)*0.4,0.3+Math.cos((c+0.2)*8)*0.4,0.8);
+cols.push(0.5+Math.sin((c+0.3)*10)*0.4,0.3+Math.cos((c+0.3)*8)*0.4,0.8);
+}
+return{pts,cols,count:pts.length/3};
+}
+
+let meshData;
+function loadScene(){
+if(scene==='cube')meshData=genCube();
+else if(scene==='sphere')meshData=genSphere();
+else if(scene==='torus')meshData=genTorus();
+else if(scene==='plasma')meshData=genPlasma();
+else meshData=genCube();
+vertCount=meshData.count;
+document.getElementById('verts').textContent=vertCount;
+}
+
+function render(){
+gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(0.05,0.07,0.1,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+gl.enable(gl.DEPTH_TEST);
+if(!meshData)return;
+uploadData(meshData.pts,meshData.cols);
+const aspect=canvas.width/canvas.height;
+let m=perspective(1,aspect,0.1,100);
+m=matMul(m,[scaleVal,0,0,0, 0,scaleVal,0,0, 0,0,scaleVal,0, 0,0,-5,1]);
+m=matMul(m,rotateY(time*speedVal));m=matMul(m,rotateX(time*speedVal*0.7));
+gl.uniformMatrix4fv(matrixLoc,false,new Float32Array(m));
+gl.uniform1f(colorLoc,hueVal);
+gl.drawArrays(gl.TRIANGLES,0,vertCount);
+}
+
+function animate(t){
+if(!playing){animId=requestAnimationFrame(animate);return}
+const dt=(t-lastTime)/1000;lastTime=t;fpsCount++;
+if(t-fpsTime>1000){document.getElementById('fps').textContent=fpsCount;fpsCount=0;fpsTime=t}
+time+=dt;render();animId=requestAnimationFrame(animate);
+}
+
+function resize(){
+const r=canvas.parentElement.getBoundingClientRect();
+canvas.width=r.width*window.devicePixelRatio;
+canvas.height=Math.min(500,r.width*0.6)*window.devicePixelRatio;
+canvas.style.height=Math.min(500,r.width*0.6)+'px';
+if(gl){loadScene();render()}
+}
+
+function togglePlay(){playing=!playing;document.getElementById('state').textContent=playing?'播放中':'暂停'}
+function resetScene(){time=0;playing=true;document.getElementById('state').textContent='播放中';loadScene();render()}
+function screenshot(){const link=document.createElement('a');link.download='webgl.png';link.href=canvas.toDataURL();link.click()}
+
+document.getElementById('speed').oninput=function(){speedVal=+this.value;this.nextElementSibling.textContent=speedVal};
+document.getElementById('scale').oninput=function(){scaleVal=+this.value;this.nextElementSibling.textContent=scaleVal};
+document.getElementById('hue').oninput=function(){hueVal=+this.value;this.nextElementSibling.textContent=hueVal};
+
+document.getElementById('tabs').addEventListener('click',e=>{
+if(!e.target.dataset.scene)return;
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');
+scene=e.target.dataset.scene;loadScene();render();
+});
+
+if(initGL()){initProgram();resize();requestAnimationFrame(animate)}
+window.addEventListener('resize',resize);
+</script>
+</body></html>
