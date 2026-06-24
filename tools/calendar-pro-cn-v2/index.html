@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文日历Pro V2</title>
+<meta name="description" content="中文专业日历Pro V2，支持农历、节假日、多月视图和事件管理">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.tag{display:inline-block;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.8rem;margin:2px;cursor:pointer}
+.tag.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.hidden{display:none!important}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="中文日历Pro V2">
+<meta property="og:description" content="中文专业日历Pro V2，支持农历、节假日、多月视图和事件管理">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/calendar-pro-cn-v2/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='📅 中文日历Pro V2';
+const APP=document.getElementById('app');
+let events=JSON.parse(localStorage.getItem('cpv2_events')||'[]');
+let viewDate=new Date();
+let selectedDate=new Date();
+let viewMode='month';
+let modalOpen=false;
+
+const lunarInfo=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2];
+const tianGan=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const diZhi=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const lunarMonth=['正','二','三','四','五','六','七','八','九','十','冬','腊'];
+const lunarDay=['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+const solarTerms=['小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪','冬至'];
+const publicHolidays={
+  '01-01':'元旦','02-14':'情人节','03-08':'妇女节','04-01':'愚人节','05-01':'劳动节',
+  '05-04':'青年节','06-01':'儿童节','07-01':'建党节','08-01':'建军节','09-10':'教师节',
+  '10-01':'国庆节','12-25':'圣诞节'
+};
+
+function getLunarInfo(y,m,d){
+  let gan=tianGan[(y-4)%10],zhi=diZhi[(y-4)%12];
+  let month=lunarMonth[m%12],day=lunarDay[d-1]||'三十';
+  return{ganZhi:gan+zhi,month:month+'月',day:day};
+}
+
+function isPublicHoliday(m,d){
+  let key=String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  return publicHolidays[key]||null;
+}
+
+function save(){localStorage.setItem('cpv2_events',JSON.stringify(events))}
+
+function render(){
+  let h=`<h1>📅 中文日历Pro V2</h1><p class="subtitle">农历·节假日·多视图</p>`;
+  h+=`<div class="flex" style="justify-content:center;margin-bottom:16px">`;
+  ['month','week'].forEach(m=>{
+    h+=`<button class="tag ${viewMode===m?'active':''}" onclick="viewMode='${m}';render()">${m==='month'?'月视图':'周视图'}</button>`;
+  });
+  h+=`</div>`;
+  h+=renderNav();
+  if(viewMode==='month') h+=renderMonth();
+  else h+=renderWeek();
+  h+=renderEventList();
+  if(modalOpen) h+=renderModal();
+  APP.innerHTML=h;
+}
+
+function renderNav(){
+  let y=viewDate.getFullYear(),m=viewDate.getMonth();
+  return `<div class="card"><div class="flex-between">
+    <button class="btn btn-sm" onclick="prevPeriod()">← 上${viewMode==='month'?'月':'周'}</button>
+    <div class="flex">
+      <button class="btn btn-sm btn-outline" onclick="viewDate=new Date();render()">今天</button>
+      <b style="font-size:1.1rem">${y}年${m+1}月</b>
+    </div>
+    <button class="btn btn-sm" onclick="nextPeriod()">下${viewMode==='month'?'月':'周'} →</button>
+  </div></div>`;
+}
+
+function renderMonth(){
+  let y=viewDate.getFullYear(),m=viewDate.getMonth();
+  let firstDay=new Date(y,m,1).getDay();
+  let daysInMonth=new Date(y,m+1,0).getDate();
+  let today=new Date();
+  let weekdays=['日','一','二','三','四','五','六'];
+  let h=`<div class="card"><div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center">`;
+  weekdays.forEach(d=>{h+=`<div style="padding:8px;color:var(--text2);font-weight:600;font-size:.85rem">${d}</div>`});
+  for(let i=0;i<firstDay;i++) h+=`<div></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    let isToday=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
+    let isSel=selectedDate.getFullYear()===y&&selectedDate.getMonth()===m&&selectedDate.getDate()===d;
+    let ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    let dayEvents=events.filter(e=>e.date===ds);
+    let holiday=isPublicHoliday(m,d);
+    let lunar=getLunarInfo(y,m,d);
+    let bg=isToday?'var(--accent)':isSel?'var(--accent);opacity:.3':'';
+    h+=`<div style="padding:6px;cursor:pointer;border-radius:8px;${bg?`background:${bg};color:#fff`:''}" onclick="selectDate(${y},${m},${d})">
+      <div style="font-weight:600;font-size:.95rem">${d}</div>
+      <div style="font-size:.6rem;color:${isToday?'#fff':'var(--text2)'}">${lunar.day}</div>
+      ${holiday?`<div style="font-size:.55rem;color:var(--red)">${holiday}</div>`:''}
+      ${dayEvents.length?`<div style="font-size:.55rem">●</div>`:''}
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+function renderWeek(){
+  let today=new Date();
+  let startOfWeek=new Date(viewDate);
+  startOfWeek.setDate(startOfWeek.getDate()-startOfWeek.getDay());
+  let weekdays=['周日','周一','周二','周三','周四','周五','周六'];
+  let h=`<div class="card">`;
+  for(let i=0;i<7;i++){
+    let d=new Date(startOfWeek);
+    d.setDate(d.getDate()+i);
+    let ds=d.toISOString().slice(0,10);
+    let isToday=d.toDateString()===today.toDateString();
+    let dayEvents=events.filter(e=>e.date===ds);
+    let lunar=getLunarInfo(d.getFullYear(),d.getMonth(),d.getDate());
+    h+=`<div style="padding:10px;border-bottom:1px solid var(--border);${isToday?'background:var(--accent);color:#fff;border-radius:8px;margin:2px':''}">
+      <div class="flex-between"><b>${weekdays[i]} ${d.getMonth()+1}/${d.getDate()}</b><span style="font-size:.8rem">${lunar.month}${lunar.day}</span></div>
+      ${dayEvents.map(e=>`<div style="font-size:.85rem;margin-top:4px">📌 ${e.title} ${e.time||''}</div>`).join('')}
+    </div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+function renderEventList(){
+  let h=`<div class="card"><div class="flex-between"><b>事件列表</b><button class="btn btn-sm" onclick="openModal()">+ 添加事件</button></div></div>`;
+  let today=new Date().toISOString().slice(0,10);
+  let upcoming=events.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,15);
+  upcoming.forEach((e,i)=>{
+    let idx=events.indexOf(e);
+    let priorityBadge=e.priority==='high'?'badge-red':e.priority==='medium'?'badge-yellow':'badge-green';
+    h+=`<div class="card" style="padding:14px"><div class="flex-between">
+      <div><b>${e.title}</b><p style="color:var(--text2);font-size:.85rem">${e.date} ${e.time||''} <span class="badge ${priorityBadge}">${e.priority==='high'?'高':e.priority==='medium'?'中':'低'}</span></p>
+      ${e.note?`<p style="font-size:.8rem;color:var(--text2);margin-top:4px">${e.note}</p>`:''}</div>
+      <div class="flex"><button class="btn btn-sm" onclick="editEvent(${idx})">编辑</button><button class="btn btn-sm btn-danger" onclick="delEvent(${idx})">删除</button></div>
+    </div></div>`;
+  });
+  if(!upcoming.length) h+=`<div class="empty">暂无近期事件</div>`;
+  return h;
+}
+
+function renderModal(){
+  return `<div class="modal-overlay" onclick="modalOpen=false;render()"><div class="modal" onclick="event.stopPropagation()">
+    <h2 style="margin-bottom:16px">添加事件</h2>
+    <label>标题</label><input id="evTitle" placeholder="事件标题">
+    <label>日期</label><input id="evDate" type="date" value="${selectedDate.toISOString().slice(0,10)}">
+    <label>时间</label><input id="evTime" type="time">
+    <label>优先级</label><select id="evPriority"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select>
+    <label>备注</label><textarea id="evNote" placeholder="备注（可选）"></textarea>
+    <div class="flex" style="justify-content:flex-end"><button class="btn btn-sm btn-outline" onclick="modalOpen=false;render()">取消</button><button class="btn btn-sm btn-success" onclick="saveEvent()">保存</button></div>
+  </div></div>`;
+}
+
+function prevPeriod(){if(viewMode==='month'){viewDate.setMonth(viewDate.getMonth()-1)}else{viewDate.setDate(viewDate.getDate()-7)}render()}
+function nextPeriod(){if(viewMode==='month'){viewDate.setMonth(viewDate.getMonth()+1)}else{viewDate.setDate(viewDate.getDate()+7)}render()}
+function selectDate(y,m,d){selectedDate=new Date(y,m,d);viewDate=new Date(y,m,d);render()}
+function openModal(){modalOpen=true;render();setTimeout(()=>{let t=document.getElementById('evTitle');if(t)t.focus()},100)}
+function saveEvent(){
+  let t=document.getElementById('evTitle').value.trim();
+  let d=document.getElementById('evDate').value;
+  let time=document.getElementById('evTime').value;
+  let priority=document.getElementById('evPriority').value;
+  let note=document.getElementById('evNote').value.trim();
+  if(!t||!d){alert('请填写标题和日期');return}
+  events.push({title:t,date:d,time,priority,note});
+  save();modalOpen=false;render();
+}
+function editEvent(i){
+  let e=events[i];
+  let t=prompt('标题：',e.title);if(t===null)return;
+  let d=prompt('日期：',e.date);if(d===null)return;
+  let time=prompt('时间：',e.time||'');
+  let priority=prompt('优先级(high/medium/low)：',e.priority)||e.priority;
+  let note=prompt('备注：',e.note||'')||'';
+  events[i]={title:t,date:d,time,priority,note};
+  save();render();
+}
+function delEvent(i){if(confirm('删除此事件？')){events.splice(i,1);save();render()}}
+render();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

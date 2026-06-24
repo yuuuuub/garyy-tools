@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>世界时钟Pro</title>
+<meta name="description" content="世界时钟Pro，支持多时区显示、城市搜索、时间差计算和时区转换">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.clock-card{text-align:center;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
+.clock-time{font-size:2.5rem;font-weight:700;font-family:'Courier New',monospace;color:var(--accent)}
+.clock-city{font-size:1.1rem;font-weight:600;margin:4px 0}
+.clock-zone{font-size:.8rem;color:var(--text2)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.clock-time{font-size:1.8rem}}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌍</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="世界时钟Pro">
+<meta property="og:description" content="世界时钟Pro，支持多时区显示、城市搜索、时间差计算和时区转换">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/world-clock-pro-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🌍 世界时钟Pro';
+const APP=document.getElementById('app');
+let savedClocks=JSON.parse(localStorage.getItem('wcp_clocks')||'[]');
+let modalOpen=false;
+let searchQuery='';
+let searchResults=[];
+
+const allZones=[
+  {city:'北京',country:'中国',zone:'Asia/Shanghai',abbr:'CST',offset:'+8:00',flag:'🇨🇳'},
+  {city:'东京',country:'日本',zone:'Asia/Tokyo',abbr:'JST',offset:'+9:00',flag:'🇯🇵'},
+  {city:'首尔',country:'韩国',zone:'Asia/Seoul',abbr:'KST',offset:'+9:00',flag:'🇰🇷'},
+  {city:'新加坡',country:'新加坡',zone:'Asia/Singapore',abbr:'SGT',offset:'+8:00',flag:'🇸🇬'},
+  {city:'曼谷',country:'泰国',zone:'Asia/Bangkok',abbr:'ICT',offset:'+7:00',flag:'🇹🇭'},
+  {city:'迪拜',country:'阿联酋',zone:'Asia/Dubai',abbr:'GST',offset:'+4:00',flag:'🇦🇪'},
+  {city:'莫斯科',country:'俄罗斯',zone:'Europe/Moscow',abbr:'MSK',offset:'+3:00',flag:'🇷🇺'},
+  {city:'伦敦',country:'英国',zone:'Europe/London',abbr:'GMT',offset:'+0:00',flag:'🇬🇧'},
+  {city:'巴黎',country:'法国',zone:'Europe/Paris',abbr:'CET',offset:'+1:00',flag:'🇫🇷'},
+  {city:'柏林',country:'德国',zone:'Europe/Berlin',abbr:'CET',offset:'+1:00',flag:'🇩🇪'},
+  {city:'纽约',country:'美国',zone:'America/New_York',abbr:'EST',offset:'-5:00',flag:'🇺🇸'},
+  {city:'洛杉矶',country:'美国',zone:'America/Los_Angeles',abbr:'PST',offset:'-8:00',flag:'🇺🇸'},
+  {city:'芝加哥',country:'美国',zone:'America/Chicago',abbr:'CST',offset:'-6:00',flag:'🇺🇸'},
+  {city:'多伦多',country:'加拿大',zone:'America/Toronto',abbr:'EST',offset:'-5:00',flag:'🇨🇦'},
+  {city:'悉尼',country:'澳大利亚',zone:'Australia/Sydney',abbr:'AEST',offset:'+10:00',flag:'🇦🇺'},
+  {city:'墨尔本',country:'澳大利亚',zone:'Australia/Melbourne',abbr:'AEST',offset:'+10:00',flag:'🇦🇺'},
+  {city:'奥克兰',country:'新西兰',zone:'Pacific/Auckland',abbr:'NZST',offset:'+12:00',flag:'🇳🇿'},
+  {city:'孟买',country:'印度',zone:'Asia/Kolkata',abbr:'IST',offset:'+5:30',flag:'🇮🇳'},
+  {city:'开罗',country:'埃及',zone:'Africa/Cairo',abbr:'EET',offset:'+2:00',flag:'🇪🇬'},
+  {city:'圣保罗',country:'巴西',zone:'America/Sao_Paulo',abbr:'BRT',offset:'-3:00',flag:'🇧🇷'},
+  {city:'墨西哥城',country:'墨西哥',zone:'America/Mexico_City',abbr:'CST',offset:'-6:00',flag:'🇲🇽'},
+  {city:'雅加达',country:'印尼',zone:'Asia/Jakarta',abbr:'WIB',offset:'+7:00',flag:'🇮🇩'},
+  {city:'香港',country:'中国',zone:'Asia/Hong_Kong',abbr:'HKT',offset:'+8:00',flag:'🇭🇰'},
+  {city:'台北',country:'中国',zone:'Asia/Taipei',abbr:'CST',offset:'+8:00',flag:'🇹🇼'},
+  {city:'马德里',country:'西班牙',zone:'Europe/Madrid',abbr:'CET',offset:'+1:00',flag:'🇪🇸'},
+  {city:'罗马',country:'意大利',zone:'Europe/Rome',abbr:'CET',offset:'+1:00',flag:'🇮🇹'},
+  {city:'阿姆斯特丹',country:'荷兰',zone:'Europe/Amsterdam',abbr:'CET',offset:'+1:00',flag:'🇳🇱'},
+  {city:'伊斯坦布尔',country:'土耳其',zone:'Europe/Istanbul',abbr:'TRT',offset:'+3:00',flag:'🇹🇷'},
+];
+
+if(!savedClocks.length){
+  savedClocks=[allZones[0],allZones[10],allZones[6]];
+  save();
+}
+
+function save(){localStorage.setItem('wcp_clocks',JSON.stringify(savedClocks))}
+
+function getZoneTime(zone){
+  try{
+    let now=new Date();
+    let str=now.toLocaleString('zh-CN',{timeZone:zone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return str;
+  }catch(e){return '--:--:--'}
+}
+
+function getZoneHour(zone){
+  try{
+    let now=new Date();
+    return parseInt(now.toLocaleString('en-US',{timeZone:zone,hour:'numeric',hour12:false}));
+  }catch(e){return 12}
+}
+
+function getDayNight(hour){
+  if(hour>=6&&hour<18) return {icon:'☀️',label:'白天'};
+  return {icon:'🌙',label:'夜晚'};
+}
+
+function getTimeDiff(z1,z2){
+  try{
+    let now=new Date();
+    let t1=new Date(now.toLocaleString('en-US',{timeZone:z1}));
+    let t2=new Date(now.toLocaleString('en-US',{timeZone:z2}));
+    let diff=(t1-t2)/3600000;
+    return diff>=0?`+${diff}h`:`${diff}h`;
+  }catch(e){return '--'}
+}
+
+function searchZone(q){
+  if(!q.trim()) return [];
+  q=q.toLowerCase();
+  return allZones.filter(z=>z.city.toLowerCase().includes(q)||z.country.toLowerCase().includes(q)||z.abbr.toLowerCase().includes(q));
+}
+
+function render(){
+  let h=`<h1>🌍 世界时钟Pro</h1><p class="subtitle">多时区显示 · 城市搜索 · 时间差计算</p>`;
+  
+  let localZone=allZones.find(z=>z.zone==='Asia/Shanghai');
+  let localTime=getZoneTime(localZone.zone);
+  h+=`<div class="card" style="text-align:center"><div style="font-size:1rem;color:var(--text2)">本地时间（北京时间）</div><div style="font-size:3rem;font-weight:700;font-family:'Courier New',monospace;color:var(--accent)">${localTime.split(' ')[1]||localTime}</div><div style="color:var(--text2)">${localTime.split(' ')[0]||''}</div></div>`;
+
+  h+=`<div class="card"><div class="flex-between"><b>已保存的时钟</b><button class="btn btn-sm" onclick="openModal()">+ 添加城市</button></div></div>`;
+  
+  if(!savedClocks.length){
+    h+=`<div class="empty">暂无时钟，点击上方按钮添加城市</div>`;
+  } else {
+    h+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px">`;
+    savedClocks.forEach((c,i)=>{
+      let time=getZoneTime(c.zone);
+      let hour=getZoneHour(c.zone);
+      let dn=getDayNight(hour);
+      h+=`<div class="clock-card" style="position:relative">
+        <div style="position:absolute;top:8px;right:8px;cursor:pointer;color:var(--text2);font-size:.8rem" onclick="delClock(${i})">✕</div>
+        <div style="font-size:2rem">${c.flag}</div>
+        <div class="clock-city">${c.city}</div>
+        <div class="clock-zone">${c.country} · ${c.abbr} (UTC${c.offset})</div>
+        <div class="clock-time">${time.split(' ')[1]||time}</div>
+        <div style="margin-top:4px">${dn.icon} ${dn.label}</div>
+        <div style="font-size:.8rem;color:var(--text2)">${time.split(' ')[0]||''}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
+  if(savedClocks.length>=2){
+    h+=`<div class="card"><b>时间差</b><div style="margin-top:12px">`;
+    for(let i=0;i<Math.min(savedClocks.length,5);i++){
+      for(let j=i+1;j<Math.min(savedClocks.length,5);j++){
+        let diff=getTimeDiff(savedClocks[i].zone,savedClocks[j].zone);
+        h+=`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.9rem">${savedClocks[i].flag} ${savedClocks[i].city} ↔ ${savedClocks[j].flag} ${savedClocks[j].city}：<b>${diff}</b></div>`;
+      }
+    }
+    h+=`</div></div>`;
+  }
+
+  h+=`<div class="card"><b>城市搜索</b><input id="zoneSearch" placeholder="搜索城市名称、国家或缩写..." oninput="doSearch()" value="${searchQuery}"></div>`;
+  if(searchResults.length){
+    h+=`<div class="card">`;
+    searchResults.forEach(z=>{
+      let alreadyAdded=savedClocks.some(c=>c.zone===z.zone);
+      h+=`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div><span style="font-size:1.2rem">${z.flag}</span> <b>${z.city}</b> <span style="color:var(--text2);font-size:.85rem">${z.country} · ${z.abbr}</span></div>
+        <button class="btn btn-sm" onclick="addClock('${z.zone}')" ${alreadyAdded?'disabled style="opacity:.5"':''}>${alreadyAdded?'已添加':'添加'}</button>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
+  APP.innerHTML=h;
+}
+
+function openModal(){modalOpen=true;render();setTimeout(()=>{let t=document.getElementById('zoneSearch');if(t)t.focus()},100)}
+function doSearch(){searchQuery=document.getElementById('zoneSearch').value;searchResults=searchZone(searchQuery);render();setTimeout(()=>{let t=document.getElementById('zoneSearch');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}},50)}
+function addClock(zone){let z=allZones.find(zn=>zn.zone===zone);if(z&&!savedClocks.some(c=>c.zone===zone)){savedClocks.push(z);save();searchResults=searchZone(searchQuery);render()}}
+function delClock(idx){if(confirm('移除此城市？')){savedClocks.splice(idx,1);save();render()}}
+
+setInterval(()=>render(),1000);
+render();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
