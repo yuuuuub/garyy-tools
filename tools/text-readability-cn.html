@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="文本可读性分析工具 - 分析文本的可读性指标">
+    <meta name="robots" content="index, follow">
+    <title>文本可读性分析工具</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #dee2e6;
+            --card-bg: #f8f9fa;
+        }
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #444444;
+            --card-bg: #2d2d2d;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-family: monospace;
+            resize: vertical;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            padding: 15px;
+            border-radius: 4px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: var(--secondary-color);
+        }
+        .readability-score {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .readability-level {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .suggestions {
+            margin-top: 20px;
+        }
+        .suggestion-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(0, 123, 255, 0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>文本可读性分析工具</h1>
+        <p>分析文本的可读性指标和建议</p>
+        
+        <div class="form-group">
+            <label for="textInput">输入文本:</label>
+            <textarea id="textInput" rows="15" placeholder="粘贴或输入文本内容..."></textarea>
+        </div>
+        
+        <button onclick="analyzeText()">分析文本</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h2>分析结果</h2>
+            <div id="score" class="readability-score"></div>
+            <div id="level" class="readability-level"></div>
+            
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-label">总字符数</div>
+                    <div id="charCount" class="metric-value"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">总字数</div>
+                    <div id="wordCount" class="metric-value"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">总句数</div>
+                    <div id="sentenceCount" class="metric-value"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">平均句长</div>
+                    <div id="avgSentenceLength" class="metric-value"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">平均字长</div>
+                    <div id="avgWordLength" class="metric-value"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">段落数</div>
+                    <div id="paragraphCount" class="metric-value"></div>
+                </div>
+            </div>
+            
+            <div class="suggestions">
+                <h3>改进建议</h3>
+                <div id="suggestions"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            html.setAttribute('data-theme', currentTheme === 'light' ? 'dark' : 'light');
+        }
+
+        function analyzeText() {
+            const textInput = document.getElementById('textInput').value;
+            
+            if (!textInput.trim()) {
+                alert('请输入文本内容');
+                return;
+            }
+            
+            // 基本统计
+            const charCount = textInput.length;
+            const wordCount = textInput.trim().split(/\s+/).filter(word => word.length > 0).length;
+            const sentenceCount = textInput.split(/[.!?。！？]+/).filter(sentence => sentence.trim().length > 0).length;
+            const paragraphCount = textInput.split(/\n\s*\n/).filter(para => para.trim().length > 0).length;
+            
+            const avgSentenceLength = sentenceCount > 0 ? (wordCount / sentenceCount).toFixed(1) : 0;
+            const avgWordLength = wordCount > 0 ? (charCount / wordCount).toFixed(1) : 0;
+            
+            // 计算可读性分数 (简化版)
+            let score = 100;
+            const suggestions = [];
+            
+            // 句子长度评估
+            if (avgSentenceLength > 20) {
+                score -= 15;
+                suggestions.push('句子平均长度过长，建议拆分长句');
+            } else if (avgSentenceLength > 15) {
+                score -= 5;
+                suggestions.push('句子平均长度偏长，可适当简化');
+            }
+            
+            // 段落长度评估
+            const avgParagraphLength = paragraphCount > 0 ? (wordCount / paragraphCount) : 0;
+            if (avgParagraphLength > 100) {
+                score -= 10;
+                suggestions.push('段落平均长度过长，建议分段');
+            }
+            
+            // 词汇复杂度评估
+            const complexWords = textInput.split(/\s+/).filter(word => word.length > 8).length;
+            const complexWordRatio = wordCount > 0 ? (complexWords / wordCount) : 0;
+            if (complexWordRatio > 0.3) {
+                score -= 10;
+                suggestions.push('复杂词汇比例较高，建议使用更简单的词汇');
+            }
+            
+            // 标点符号使用
+            const punctuationCount = (textInput.match(/[.,;:!?。！？，、；：]/g) || []).length;
+            if (punctuationCount < sentenceCount * 0.5) {
+                score -= 5;
+                suggestions.push('标点符号使用较少，建议适当添加');
+            }
+            
+            // 数字和符号
+            const numberCount = (textInput.match(/\d+/g) || []).length;
+            if (numberCount > wordCount * 0.2) {
+                score -= 5;
+                suggestions.push('数字比例较高，确保数字有上下文说明');
+            }
+            
+            // 计算最终分数
+            score = Math.max(0, Math.min(100, score));
+            
+            // 确定可读性等级
+            let level = '';
+            if (score >= 80) {
+                level = '优秀 - 非常容易阅读';
+            } else if (score >= 60) {
+                level = '良好 - 容易阅读';
+            } else if (score >= 40) {
+                level = '一般 - 需要一定阅读能力';
+            } else {
+                level = '较难 - 阅读难度较高';
+            }
+            
+            // 显示结果
+            document.getElementById('score').textContent = `${score}分`;
+            document.getElementById('score').style.color = score >= 80 ? 'var(--success-color)' : score >= 60 ? 'var(--warning-color)' : 'var(--danger-color)';
+            document.getElementById('level').textContent = level;
+            
+            document.getElementById('charCount').textContent = charCount;
+            document.getElementById('wordCount').textContent = wordCount;
+            document.getElementById('sentenceCount').textContent = sentenceCount;
+            document.getElementById('avgSentenceLength').textContent = avgSentenceLength;
+            document.getElementById('avgWordLength').textContent = avgWordLength;
+            document.getElementById('paragraphCount').textContent = paragraphCount;
+            
+            const suggestionsDiv = document.getElementById('suggestions');
+            if (suggestions.length === 0) {
+                suggestionsDiv.innerHTML = '<div class="suggestion-item">文本可读性良好，无需特别改进</div>';
+            } else {
+                suggestionsDiv.innerHTML = suggestions.map(suggestion => 
+                    `<div class="suggestion-item">${suggestion}</div>`
+                ).join('');
+            }
+            
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
