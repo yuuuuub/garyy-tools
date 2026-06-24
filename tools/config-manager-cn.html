@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置管理工具</title>
+    <meta name="description" content="用于管理和编辑应用程序配置的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #9c27b0;
+            --accent-hover: #ab47bc;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--accent-hover); }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-tertiary); color: var(--text-secondary); }
+        .config-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border); }
+        .config-key { font-weight: bold; color: var(--accent); }
+        .config-value { color: var(--text-secondary); }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>配置管理</h1>
+        
+        <div class="card">
+            <h2>添加配置项</h2>
+            <form id="configForm">
+                <div class="form-group">
+                    <label>配置键</label>
+                    <input type="text" id="configKey" placeholder="app.name" required>
+                </div>
+                <div class="form-group">
+                    <label>配置值</label>
+                    <input type="text" id="configValue" placeholder="我的应用" required>
+                </div>
+                <div class="form-group">
+                    <label>类型</label>
+                    <select id="configType">
+                        <option value="string">字符串</option>
+                        <option value="number">数字</option>
+                        <option value="boolean">布尔值</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>环境</label>
+                    <select id="configEnv">
+                        <option value="all">所有环境</option>
+                        <option value="dev">开发环境</option>
+                        <option value="staging">测试环境</option>
+                        <option value="prod">生产环境</option>
+                    </select>
+                </div>
+                <button type="submit">添加配置</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>配置列表</h2>
+            <div id="configList">
+                <!-- 配置项将在这里显示 -->
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>导出配置</h2>
+            <button onclick="exportConfig()">导出为JSON</button>
+            <button onclick="importConfig()" style="margin-left: 1rem; background: var(--warning);">导入JSON</button>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let configs = JSON.parse(localStorage.getItem('appConfigs')) || [];
+        
+        // 渲染配置列表
+        function renderConfigs() {
+            const container = document.getElementById('configList');
+            container.innerHTML = '';
+            
+            if (configs.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">没有配置项</p>';
+                return;
+            }
+            
+            configs.forEach((config, index) => {
+                const div = document.createElement('div');
+                div.className = 'config-item';
+                div.innerHTML = `
+                    <div>
+                        <div class="config-key">${config.key}</div>
+                        <div class="config-value">${config.value} (${config.type})</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">环境：${config.env}</div>
+                    </div>
+                    <div>
+                        <button onclick="editConfig(${index})" style="margin-right: 0.5rem; padding: 0.5rem;">编辑</button>
+                        <button onclick="deleteConfig(${index})" style="background: var(--danger); padding: 0.5rem;">删除</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        // 添加配置
+        document.getElementById('configForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newConfig = {
+                key: document.getElementById('configKey').value,
+                value: document.getElementById('configValue').value,
+                type: document.getElementById('configType').value,
+                env: document.getElementById('configEnv').value
+            };
+            configs.push(newConfig);
+            localStorage.setItem('appConfigs', JSON.stringify(configs));
+            renderConfigs();
+            this.reset();
+        });
+        
+        // 编辑配置
+        function editConfig(index) {
+            const config = configs[index];
+            document.getElementById('configKey').value = config.key;
+            document.getElementById('configValue').value = config.value;
+            document.getElementById('configType').value = config.type;
+            document.getElementById('configEnv').value = config.env;
+            configs.splice(index, 1);
+            renderConfigs();
+        }
+        
+        // 删除配置
+        function deleteConfig(index) {
+            if (confirm('确定要删除此配置吗？')) {
+                configs.splice(index, 1);
+                localStorage.setItem('appConfigs', JSON.stringify(configs));
+                renderConfigs();
+            }
+        }
+        
+        // 导出配置
+        function exportConfig() {
+            const configJson = JSON.stringify(configs, null, 2);
+            const blob = new Blob([configJson], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'config.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // 导入配置
+        function importConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const importedConfigs = JSON.parse(event.target.result);
+                        if (Array.isArray(importedConfigs)) {
+                            configs = importedConfigs;
+                            localStorage.setItem('appConfigs', JSON.stringify(configs));
+                            renderConfigs();
+                            alert('导入成功');
+                        } else {
+                            alert('无效的配置文件格式');
+                        }
+                    } catch (error) {
+                        alert('解析JSON文件失败');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        // 初始渲染
+        renderConfigs();
+        
+        // 添加一些示例配置
+        if (configs.length === 0) {
+            configs = [
+                { key: 'app.name', value: '我的应用', type: 'string', env: 'all' },
+                { key: 'app.version', value: '1.0.0', type: 'string', env: 'all' },
+                { key: 'db.host', value: 'localhost', type: 'string', env: 'dev' },
+                { key: 'db.port', value: '3306', type: 'number', env: 'dev' },
+                { key: 'cache.enabled', value: 'true', type: 'boolean', env: 'all' },
+                { key: 'features', value: '{"darkMode": true, "notifications": false}', type: 'json', env: 'prod' }
+            ];
+            localStorage.setItem('appConfigs', JSON.stringify(configs));
+            renderConfigs();
+        }
+    </script>
+</body>
+</html>
