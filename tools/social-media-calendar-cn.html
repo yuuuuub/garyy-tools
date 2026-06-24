@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="社交媒体日历 - 规划和管理您的社交媒体内容发布计划">
+    <meta name="robots" content="index, follow">
+    <title>社交媒体日历</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="date"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+        .calendar-header { background: var(--primary-color); color: white; padding: 8px; text-align: center; font-weight: bold; font-size: 13px; border-radius: 4px; }
+        .calendar-day { min-height: 90px; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px; font-size: 12px; cursor: pointer; background: var(--card-bg); }
+        .calendar-day:hover { border-color: var(--primary-color); }
+        .calendar-day .day-num { font-weight: bold; margin-bottom: 4px; color: var(--secondary-color); }
+        .calendar-day .post-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin: 1px; }
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; }
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card-bg); padding: 24px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal h2 { margin-top: 0; }
+        .post-item { padding: 10px; border-left: 4px solid; margin-bottom: 8px; border-radius: 0 4px 4px 0; background: var(--bg-color); display: flex; justify-content: space-between; align-items: center; }
+        .post-item .post-time { font-size: 12px; color: var(--secondary-color); }
+        .platform-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; color: white; margin-right: 4px; }
+        .stats-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 120px; text-align: center; padding: 12px; background: var(--bg-color); border-radius: 6px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>社交媒体日历</h1>
+        <div class="stats-row" id="statsArea"></div>
+
+        <div class="card">
+            <div class="calendar-nav">
+                <button class="btn-sm" onclick="changeMonth(-1)">◀ 上月</button>
+                <h3 id="currentMonth" style="margin:0;"></h3>
+                <button class="btn-sm" onclick="changeMonth(1)">下月 ▶</button>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <div class="card">
+            <h3>快速添加</h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>发布日期</label>
+                    <input type="date" id="postDate">
+                </div>
+                <div class="form-group">
+                    <label>发布时间</label>
+                    <input type="text" id="postTime" placeholder="09:00">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>平台</label>
+                    <select id="postPlatform">
+                        <option value="weibo">微博</option>
+                        <option value="wechat">微信公众号</option>
+                        <option value="douyin">抖音</option>
+                        <option value="xiaohongshu">小红书</option>
+                        <option value="bilibili">B站</option>
+                        <option value="twitter">Twitter/X</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="linkedin">LinkedIn</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>内容类型</label>
+                    <select id="postType">
+                        <option value="text">图文</option>
+                        <option value="video">视频</option>
+                        <option value="story">故事</option>
+                        <option value="reel">短视频</option>
+                        <option value="link">链接</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>内容标题/主题</label>
+                <input type="text" id="postTitle" placeholder="帖子主题或标题">
+            </div>
+            <div class="form-group">
+                <label>备注</label>
+                <textarea id="postNotes" rows="2" placeholder="附加说明..."></textarea>
+            </div>
+            <button onclick="addPost()">添加到日历</button>
+        </div>
+
+        <div class="card">
+            <h3>本月帖子列表</h3>
+            <div id="postList"></div>
+        </div>
+
+        <div class="card">
+            <h3>批量导入</h3>
+            <div class="form-group">
+                <label>每行一个帖子，格式：日期|时间|平台|标题</label>
+                <textarea id="bulkImport" rows="5" placeholder="2026-07-01|09:00|微博|新品发布&#10;2026-07-03|12:00|小红书|用户故事"></textarea>
+            </div>
+            <button onclick="bulkImportPosts()">批量导入</button>
+            <button class="btn-success" onclick="exportPosts()">导出JSON</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="dayModal" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h2 id="modalDate"></h2>
+            <div id="modalPosts"></div>
+            <button onclick="document.getElementById('dayModal').style.display='none'" style="margin-top:16px;">关闭</button>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        let currentDate = new Date();
+        let posts = JSON.parse(localStorage.getItem('socialMediaPosts') || '[]');
+
+        const platformColors = { weibo: '#e6162d', wechat: '#07c160', douyin: '#000000', xiaohongshu: '#ff2442', bilibili: '#00a1d6', twitter: '#1da1f2', instagram: '#e4405f', linkedin: '#0077b5' };
+        const platformNames = { weibo: '微博', wechat: '微信公众号', douyin: '抖音', xiaohongshu: '小红书', bilibili: 'B站', twitter: 'Twitter/X', instagram: 'Instagram', linkedin: 'LinkedIn' };
+
+        function savePosts() { localStorage.setItem('socialMediaPosts', JSON.stringify(posts)); }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('currentMonth').textContent = `${year}年${month + 1}月`;
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+
+            let html = weekdays.map(d => `<div class="calendar-header">${d}</div>`).join('');
+            for (let i = 0; i < firstDay; i++) html += '<div></div>';
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayPosts = posts.filter(p => p.date === dateStr);
+                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+                html += `<div class="calendar-day" style="${isToday ? 'border-color:var(--primary-color);border-width:2px;' : ''}" onclick="showDayDetail('${dateStr}')">
+                    <div class="day-num">${day}</div>
+                    ${dayPosts.map(p => `<span class="post-dot" style="background:${platformColors[p.platform] || '#999'}" title="${platformNames[p.platform] || p.platform}: ${p.title}"></span>`).join('')}
+                </div>`;
+            }
+            document.getElementById('calendarGrid').innerHTML = html;
+            renderPostList();
+            renderStats();
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function addPost() {
+            const date = document.getElementById('postDate').value;
+            const time = document.getElementById('postTime').value.trim() || '09:00';
+            const platform = document.getElementById('postPlatform').value;
+            const type = document.getElementById('postType').value;
+            const title = document.getElementById('postTitle').value.trim();
+            const notes = document.getElementById('postNotes').value.trim();
+            if (!date || !title) { alert('请填写日期和标题'); return; }
+            posts.push({ id: Date.now(), date, time, platform, type, title, notes });
+            savePosts();
+            renderCalendar();
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postNotes').value = '';
+        }
+
+        function removePost(id) {
+            posts = posts.filter(p => p.id !== id);
+            savePosts();
+            renderCalendar();
+        }
+
+        function renderPostList() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const monthPosts = posts.filter(p => {
+                const d = new Date(p.date);
+                return d.getFullYear() === year && d.getMonth() === month;
+            }).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
+            if (monthPosts.length === 0) {
+                document.getElementById('postList').innerHTML = '<p style="color:var(--secondary-color);">本月暂无安排的帖子</p>';
+                return;
+            }
+            document.getElementById('postList').innerHTML = monthPosts.map(p => `
+                <div class="post-item" style="border-color:${platformColors[p.platform] || '#999'}">
+                    <div>
+                        <span class="platform-badge" style="background:${platformColors[p.platform] || '#999'}">${platformNames[p.platform]}</span>
+                        <strong>${p.title}</strong>
+                        <div class="post-time">${p.date} ${p.time} · ${p.type}</div>
+                        ${p.notes ? `<div style="font-size:12px;color:var(--secondary-color);margin-top:2px;">${p.notes}</div>` : ''}
+                    </div>
+                    <button class="btn-danger btn-sm" onclick="removePost(${p.id})">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function renderStats() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const monthPosts = posts.filter(p => { const d = new Date(p.date); return d.getFullYear() === year && d.getMonth() === month; });
+            const platformCounts = {};
+            monthPosts.forEach(p => { platformCounts[p.platform] = (platformCounts[p.platform] || 0) + 1; });
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${monthPosts.length}</div><div class="label">本月帖子</div></div>
+                <div class="stat-box"><div class="num">${Object.keys(platformCounts).length}</div><div class="label">覆盖平台</div></div>
+                <div class="stat-box"><div class="num">${posts.length}</div><div class="label">总帖子数</div></div>
+            `;
+        }
+
+        function showDayDetail(dateStr) {
+            const dayPosts = posts.filter(p => p.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
+            document.getElementById('modalDate').textContent = `${dateStr} 帖子安排`;
+            if (dayPosts.length === 0) {
+                document.getElementById('modalPosts').innerHTML = '<p>当天暂无安排</p>';
+            } else {
+                document.getElementById('modalPosts').innerHTML = dayPosts.map(p => `
+                    <div class="post-item" style="border-color:${platformColors[p.platform] || '#999'}">
+                        <div>
+                            <span class="platform-badge" style="background:${platformColors[p.platform]}">${platformNames[p.platform]}</span>
+                            <strong>${p.title}</strong>
+                            <div class="post-time">${p.time} · ${p.type}</div>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="removePost(${p.id});showDayDetail('${dateStr}');">删除</button>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('dayModal').style.display = 'block';
+        }
+
+        function closeModal(e) { if (e.target === document.getElementById('dayModal')) document.getElementById('dayModal').style.display = 'none'; }
+
+        function bulkImportPosts() {
+            const lines = document.getElementById('bulkImport').value.split('\n').filter(Boolean);
+            let count = 0;
+            lines.forEach(line => {
+                const parts = line.split('|');
+                if (parts.length >= 3) {
+                    posts.push({ id: Date.now() + count, date: parts[0].trim(), time: parts[1].trim() || '09:00', platform: parts[2].trim(), type: 'text', title: parts[3]?.trim() || '导入帖子', notes: '' });
+                    count++;
+                }
+            });
+            savePosts();
+            renderCalendar();
+            document.getElementById('bulkImport').value = '';
+            alert(`成功导入 ${count} 条帖子`);
+        }
+
+        function exportPosts() {
+            const data = JSON.stringify(posts, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'social-media-calendar.json';
+            a.click();
+        }
+
+        document.getElementById('postDate').value = new Date().toISOString().split('T')[0];
+        renderCalendar();
+    </script>
+</body>
+</html>

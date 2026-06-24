@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SEO元数据构建器 - 优化网页标题、描述和关键词">
+    <meta name="robots" content="index, follow">
+    <title>SEO元数据构建器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-success { background-color: var(--success-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .preview { border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-top: 16px; }
+        .preview-title { color: #1a0dab; font-size: 20px; margin: 0 0 4px 0; cursor: pointer; text-decoration: none; }
+        .preview-url { color: #006621; font-size: 14px; margin: 0 0 4px 0; }
+        .preview-desc { color: #545454; font-size: 14px; line-height: 1.5; margin: 0; }
+        .char-count { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .char-count.warn { color: var(--warning-color); }
+        .char-count.danger { color: var(--danger-color); }
+        .char-count.good { color: var(--success-color); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .output { white-space: pre-wrap; font-family: 'Courier New', monospace; line-height: 1.6; background: var(--bg-color); padding: 12px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 13px; }
+        .score-bar { height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden; margin: 8px 0; }
+        .score-bar .fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        .score-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+        .score-item:last-child { border: none; }
+        .checklist { list-style: none; padding: 0; }
+        .checklist li { padding: 8px 0; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px; }
+        .checklist li::before { content: ''; width: 18px; height: 18px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .checklist li.pass::before { background: var(--success-color); }
+        .checklist li.fail::before { background: var(--danger-color); }
+        .checklist li.warn::before { background: var(--warning-color); }
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; margin: 2px; }
+        .tag.green { background: var(--success-color); }
+        .tag.yellow { background: var(--warning-color); color: #333; }
+        .tag.red { background: var(--danger-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>SEO元数据构建器</h1>
+        <div class="card">
+            <div class="form-group"><label>页面标题 (Title Tag)</label><input type="text" id="metaTitle" placeholder="例如：AI工具合集 - 提升工作效率的50个工具" oninput="updatePreview()"><div class="char-count" id="titleCount">0/60 字符</div></div>
+            <div class="form-group"><label>页面URL</label><input type="text" id="pageUrl" placeholder="https://example.com/page" oninput="updatePreview()"></div>
+            <div class="form-group"><label>Meta描述 (Description)</label><textarea id="metaDesc" rows="3" placeholder="页面的简短描述，吸引用户点击..." oninput="updatePreview()"></textarea><div class="char-count" id="descCount">0/160 字符</div></div>
+            <div class="grid-2">
+                <div class="form-group"><label>关键词（逗号分隔）</label><input type="text" id="keywords" placeholder="关键词1, 关键词2" oninput="analyzeSeo()"></div>
+                <div class="form-group"><label>页面类型</label><select id="pageType"><option value="website">网站</option><option value="article">文章</option><option value="product">产品</option><option value="video">视频</option></select></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>OG标题 (可选)</label><input type="text" id="ogTitle" placeholder="社交媒体分享标题"></div>
+                <div class="form-group"><label>OG图片 (可选)</label><input type="text" id="ogImage" placeholder="https://example.com/image.jpg"></div>
+            </div>
+            <div class="form-group"><label>OG描述 (可选)</label><textarea id="ogDesc" rows="2" placeholder="社交媒体分享描述"></textarea></div>
+            <button onclick="analyzeSeo()">分析SEO</button>
+            <button class="btn-success" onclick="exportMeta()">导出HTML代码</button>
+        </div>
+
+        <div class="card">
+            <h3>Google搜索预览</h3>
+            <div class="preview">
+                <div class="preview-title" id="previewTitle">页面标题 - 在此输入标题</div>
+                <div class="preview-url" id="previewUrl">https://example.com/page</div>
+                <div class="preview-desc" id="previewDesc">在此输入页面描述，它将显示在搜索结果中...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>SEO评分</h3>
+            <div class="score-bar"><div class="fill" id="scoreBar" style="width:0;background:var(--danger-color);"></div></div>
+            <div style="text-align:center;font-size:24px;font-weight:bold;" id="scoreNum">0/100</div>
+            <div id="scoreDetails"></div>
+        </div>
+
+        <div class="card">
+            <h3>SEO检查清单</h3>
+            <ul class="checklist" id="checklist"></ul>
+        </div>
+
+        <div class="card" id="codeOutput" style="display:none;">
+            <h3>导出代码</h3>
+            <pre class="output" id="codeContent"></pre>
+            <button style="margin-top:10px;" onclick="copyCode()">复制代码</button>
+        </div>
+    </div>
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+        function updatePreview() {
+            const title = document.getElementById('metaTitle').value || '页面标题 - 在此输入标题';
+            const url = document.getElementById('pageUrl').value || 'https://example.com/page';
+            const desc = document.getElementById('metaDesc').value || '在此输入页面描述，它将显示在搜索结果中...';
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewUrl').textContent = url;
+            document.getElementById('previewDesc').textContent = desc;
+            updateCharCount('titleCount', title.length, 60);
+            updateCharCount('descCount', desc.length, 160);
+        }
+        function updateCharCount(id, len, max) {
+            const el = document.getElementById(id);
+            el.textContent = `${len}/${max} 字符`;
+            el.className = 'char-count ' + (len > max ? 'danger' : len > max * 0.9 ? 'warn' : 'good');
+        }
+        function analyzeSeo() {
+            let score = 0; const checks = [];
+            const title = document.getElementById('metaTitle').value;
+            const desc = document.getElementById('metaDesc').value;
+            const keywords = document.getElementById('keywords').value.split(',').map(s => s.trim()).filter(Boolean);
+            if (title.length > 0 && title.length <= 60) { score += 25; checks.push({ text: `标题长度合适 (${title.length}字符)`, pass: true }); }
+            else if (title.length === 0) checks.push({ text: '缺少页面标题', pass: false });
+            else checks.push({ text: `标题过长 (${title.length}字符，建议≤60)`, pass: false, warn: true });
+            if (desc.length > 0 && desc.length <= 160) { score += 25; checks.push({ text: `描述长度合适 (${desc.length}字符)`, pass: true }); }
+            else if (desc.length === 0) checks.push({ text: '缺少Meta描述', pass: false });
+            else checks.push({ text: `描述过长 (${desc.length}字符，建议≤160)`, pass: false, warn: true });
+            if (title.toLowerCase().includes(keywords[0]?.toLowerCase())) { score += 20; checks.push({ text: '标题包含主要关键词', pass: true }); }
+            else checks.push({ text: '标题未包含主要关键词', pass: false, warn: true });
+            if (desc.toLowerCase().includes(keywords[0]?.toLowerCase())) { score += 15; checks.push({ text: '描述包含主要关键词', pass: true }); }
+            else checks.push({ text: '描述未包含主要关键词', pass: false, warn: true });
+            if (keywords.length > 0 && keywords.length <= 10) { score += 15; checks.push({ text: `关键词数量合适 (${keywords.length}个)`, pass: true }); }
+            else if (keywords.length === 0) checks.push({ text: '未设置关键词', pass: false });
+            else checks.push({ text: `关键词过多 (${keywords.length}个)`, pass: false, warn: true });
+            document.getElementById('scoreBar').style.width = score + '%';
+            document.getElementById('scoreBar').style.background = score >= 80 ? 'var(--success-color)' : score >= 50 ? 'var(--warning-color)' : 'var(--danger-color)';
+            document.getElementById('scoreNum').textContent = score + '/100';
+            document.getElementById('checklist').innerHTML = checks.map(c => `<li class="${c.pass ? 'pass' : c.warn ? 'warn' : 'fail'}">${c.text}</li>`).join('');
+            updatePreview();
+        }
+        function exportMeta() {
+            const title = document.getElementById('metaTitle').value;
+            const desc = document.getElementById('metaDesc').value;
+            const url = document.getElementById('pageUrl').value;
+            const ogTitle = document.getElementById('ogTitle').value || title;
+            const ogDesc = document.getElementById('ogDesc').value || desc;
+            const ogImage = document.getElementById('ogImage').value;
+            const type = document.getElementById('pageType').value;
+            let code = `<title>${title}</title>\n<meta name="description" content="${desc}">\n<meta name="robots" content="index, follow">`;
+            if (ogTitle) code += `\n<meta property="og:title" content="${ogTitle}">`;
+            if (ogDesc) code += `\n<meta property="og:description" content="${ogDesc}">`;
+            if (url) code += `\n<meta property="og:url" content="${url}">`;
+            code += `\n<meta property="og:type" content="${type}">`;
+            if (ogImage) code += `\n<meta property="og:image" content="${ogImage}">`;
+            document.getElementById('codeContent').textContent = code;
+            document.getElementById('codeOutput').style.display = 'block';
+        }
+        function copyCode() { navigator.clipboard.writeText(document.getElementById('codeContent').textContent).then(() => alert('已复制')); }
+        analyzeSeo();
+    </script>
+</body>
+</html>

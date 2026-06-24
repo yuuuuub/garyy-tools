@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="内容日历 - 规划和追踪内容创作计划">
+    <meta name="robots" content="index, follow">
+    <title>内容日历</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="date"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .kanban { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; }
+        .kanban-col { min-width: 260px; flex: 1; background: var(--bg-color); border-radius: 8px; padding: 12px; border: 1px solid var(--border-color); }
+        .kanban-col h3 { margin: 0 0 12px 0; font-size: 15px; text-align: center; padding: 8px; border-radius: 4px; }
+        .kanban-card { padding: 12px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; cursor: grab; }
+        .kanban-card:hover { border-color: var(--primary-color); }
+        .kanban-card .title { font-weight: bold; margin-bottom: 6px; }
+        .kanban-card .meta { font-size: 12px; color: var(--secondary-color); }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; color: white; margin-right: 4px; margin-top: 4px; }
+        .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+        .stat-box { flex: 1; min-width: 100px; text-align: center; padding: 12px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); }
+        .content-item { padding: 12px; border-left: 4px solid var(--primary-color); margin-bottom: 8px; border-radius: 0 6px 6px 0; background: var(--card-bg); }
+        .progress-bar { height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .progress-bar .fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        .view-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+        .view-toggle button { font-size: 14px; padding: 6px 14px; }
+        .view-toggle button.active { background-color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>内容日历</h1>
+        <div class="stats-row" id="statsArea"></div>
+
+        <div class="view-toggle">
+            <button class="active" onclick="switchView('kanban')">看板视图</button>
+            <button onclick="switchView('list')">列表视图</button>
+            <button onclick="switchView('add')">添加内容</button>
+        </div>
+
+        <div id="viewKanban" class="kanban">
+            <div class="kanban-col" id="col-idea" ondrop="drop(event,'idea')" ondragover="allowDrop(event)">
+                <h3 style="background:#6c757d;color:white;">💡 构思</h3>
+            </div>
+            <div class="kanban-col" id="col-writing" ondrop="drop(event,'writing')" ondragover="allowDrop(event)">
+                <h3 style="background:var(--warning-color);color:#333;">✏️ 撰写中</h3>
+            </div>
+            <div class="kanban-col" id="col-review" ondrop="drop(event,'review')" ondragover="allowDrop(event)">
+                <h3 style="background:var(--primary-color);color:white;">👀 审核中</h3>
+            </div>
+            <div class="kanban-col" id="col-scheduled" ondrop="drop(event,'scheduled')" ondragover="allowDrop(event)">
+                <h3 style="background:#6f42c1;color:white;">📅 已排期</h3>
+            </div>
+            <div class="kanban-col" id="col-published" ondrop="drop(event,'published')" ondragover="allowDrop(event)">
+                <h3 style="background:var(--success-color);color:white;">✅ 已发布</h3>
+            </div>
+        </div>
+
+        <div id="viewList" style="display:none;">
+            <div id="contentList"></div>
+        </div>
+
+        <div id="viewAdd" style="display:none;">
+            <div class="card">
+                <h3>添加新内容</h3>
+                <div class="grid-2">
+                    <div class="form-group"><label>标题</label><input type="text" id="newTitle" placeholder="内容标题"></div>
+                    <div class="form-group"><label>内容类型</label>
+                        <select id="newType">
+                            <option value="blog">博客文章</option>
+                            <option value="video">视频</option>
+                            <option value="podcast">播客</option>
+                            <option value="social">社交媒体</option>
+                            <option value="newsletter">邮件通讯</option>
+                            <option value="infographic">信息图</option>
+                            <option value="ebook">电子书</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group"><label>计划发布日期</label><input type="date" id="newDate"></div>
+                    <div class="form-group"><label>负责人</label><input type="text" id="newOwner" placeholder="负责人"></div>
+                </div>
+                <div class="form-group"><label>关键词/标签（逗号分隔）</label><input type="text" id="newTags" placeholder="关键词1, 关键词2"></div>
+                <div class="form-group"><label>描述/备注</label><textarea id="newDesc" rows="3" placeholder="内容描述..."></textarea></div>
+                <button onclick="addContent()">添加到看板</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h3>批量导入</h3>
+            <div class="form-group">
+                <label>每行一个，格式：标题|类型|日期|标签</label>
+                <textarea id="bulkInput" rows="4" placeholder="AI趋势分析|blog|2026-07-05|AI,趋势&#10;产品更新v2|newsletter|2026-07-08|产品,更新"></textarea>
+            </div>
+            <button onclick="bulkAdd()">批量导入</button>
+            <button class="btn-success" onclick="exportData()">导出JSON</button>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        let contents = JSON.parse(localStorage.getItem('contentCalendar') || '[]');
+        const typeColors = { blog: '#007bff', video: '#dc3545', podcast: '#6f42c1', social: '#e83e8c', newsletter: '#28a745', infographic: '#fd7e14', ebook: '#17a2b8' };
+        const typeNames = { blog: '博客', video: '视频', podcast: '播客', social: '社交', newsletter: '通讯', infographic: '信息图', ebook: '电子书' };
+
+        function save() { localStorage.setItem('contentCalendar', JSON.stringify(contents)); }
+
+        function renderKanban() {
+            ['idea', 'writing', 'review', 'scheduled', 'published'].forEach(status => {
+                const col = document.getElementById(`col-${status}`);
+                const items = contents.filter(c => c.status === status);
+                const header = col.querySelector('h3').outerHTML;
+                col.innerHTML = header + items.map(c => `
+                    <div class="kanban-card" draggable="true" ondragstart="drag(event,${c.id})">
+                        <div class="title">${c.title}</div>
+                        <span class="tag" style="background:${typeColors[c.type] || '#999'}">${typeNames[c.type] || c.type}</span>
+                        <div class="meta">${c.date || '未定日期'} · ${c.owner || '未分配'}</div>
+                        ${c.tags ? `<div style="margin-top:4px;">${c.tags.split(',').map(t => `<span class="tag" style="background:var(--secondary-color)">${t.trim()}</span>`).join('')}</div>` : ''}
+                        <button class="btn-danger btn-sm" style="margin-top:8px;" onclick="deleteContent(${c.id})">删除</button>
+                    </div>
+                `).join('');
+            });
+        }
+
+        function renderList() {
+            const sorted = [...contents].sort((a, b) => (a.date || 'z').localeCompare(b.date || 'z'));
+            document.getElementById('contentList').innerHTML = sorted.length === 0 ? '<p style="color:var(--secondary-color);">暂无内容</p>' : sorted.map(c => `
+                <div class="content-item" style="border-color:${typeColors[c.type] || '#999'}">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <strong>${c.title}</strong>
+                            <span class="tag" style="background:${typeColors[c.type]}">${typeNames[c.type]}</span>
+                            <span class="tag" style="background:${c.status === 'published' ? 'var(--success-color)' : c.status === 'idea' ? 'var(--secondary-color)' : 'var(--primary-color)'}">${c.status}</span>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteContent(${c.id})">删除</button>
+                    </div>
+                    <div style="font-size:13px;color:var(--secondary-color);margin-top:4px;">
+                        ${c.date || '未定'} · ${c.owner || '未分配'} · ${c.tags || ''}
+                    </div>
+                    ${c.desc ? `<div style="font-size:13px;margin-top:4px;">${c.desc}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderStats() {
+            const total = contents.length;
+            const published = contents.filter(c => c.status === 'published').length;
+            const scheduled = contents.filter(c => c.status === 'scheduled').length;
+            const types = new Set(contents.map(c => c.type)).size;
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${total}</div><div class="label">总内容</div></div>
+                <div class="stat-box"><div class="num">${published}</div><div class="label">已发布</div></div>
+                <div class="stat-box"><div class="num">${scheduled}</div><div class="label">已排期</div></div>
+                <div class="stat-box"><div class="num">${total > 0 ? Math.round(published / total * 100) : 0}%</div><div class="label">完成率</div></div>
+            `;
+        }
+
+        function addContent() {
+            const title = document.getElementById('newTitle').value.trim();
+            if (!title) { alert('请填写标题'); return; }
+            contents.push({
+                id: Date.now(), title, type: document.getElementById('newType').value,
+                date: document.getElementById('newDate').value, owner: document.getElementById('newOwner').value.trim(),
+                tags: document.getElementById('newTags').value.trim(), desc: document.getElementById('newDesc').value.trim(),
+                status: 'idea'
+            });
+            save(); renderKanban(); renderList(); renderStats();
+            document.getElementById('newTitle').value = '';
+            document.getElementById('newTags').value = '';
+            document.getElementById('newDesc').value = '';
+            switchView('kanban');
+        }
+
+        function deleteContent(id) { contents = contents.filter(c => c.id !== id); save(); renderKanban(); renderList(); renderStats(); }
+
+        function drag(e, id) { e.dataTransfer.setData('text/plain', id); }
+        function allowDrop(e) { e.preventDefault(); }
+        function drop(e, status) {
+            e.preventDefault();
+            const id = parseInt(e.dataTransfer.getData('text/plain'));
+            const item = contents.find(c => c.id === id);
+            if (item) { item.status = status; save(); renderKanban(); renderList(); renderStats(); }
+        }
+
+        function switchView(view) {
+            document.querySelectorAll('.view-toggle button').forEach((b, i) => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('viewKanban').style.display = view === 'kanban' ? 'flex' : 'none';
+            document.getElementById('viewList').style.display = view === 'list' ? 'block' : 'none';
+            document.getElementById('viewAdd').style.display = view === 'add' ? 'block' : 'none';
+        }
+
+        function bulkAdd() {
+            const lines = document.getElementById('bulkInput').value.split('\n').filter(Boolean);
+            let count = 0;
+            lines.forEach(line => {
+                const p = line.split('|');
+                if (p.length >= 2) {
+                    contents.push({ id: Date.now() + count, title: p[0].trim(), type: p[1].trim() || 'blog', date: p[2]?.trim() || '', owner: '', tags: p[3]?.trim() || '', desc: '', status: 'idea' });
+                    count++;
+                }
+            });
+            save(); renderKanban(); renderList(); renderStats();
+            alert(`导入 ${count} 条内容`);
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(contents, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'content-calendar.json';
+            a.click();
+        }
+
+        document.getElementById('newDate').value = new Date().toISOString().split('T')[0];
+        renderKanban(); renderList(); renderStats();
+    </script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A/B测试规划器 - 设计和追踪A/B测试实验">
+    <meta name="robots" content="index, follow">
+    <title>A/B测试规划器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-success { background-color: var(--success-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .output { white-space: pre-wrap; font-family: 'Courier New', monospace; line-height: 1.6; background: var(--bg-color); padding: 12px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 13px; }
+        .variant-box { border: 2px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 12px; position: relative; }
+        .variant-box h4 { margin: 0 0 10px 0; }
+        .remove-btn { position: absolute; top: 8px; right: 8px; background: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; }
+        .stat-row { display: flex; gap: 16px; margin-top: 10px; }
+        .stat-box { flex: 1; text-align: center; padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 28px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; }
+        .status-badge.draft { background: var(--secondary-color); }
+        .status-badge.running { background: var(--primary-color); }
+        .status-badge.completed { background: var(--success-color); }
+        .experiment-item { padding: 16px; border-left: 4px solid var(--primary-color); margin-bottom: 12px; border-radius: 0 8px 8px 0; background: var(--card-bg); }
+        .progress-bar { height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+        .progress-bar .fill { height: 100%; background: var(--primary-color); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>A/B测试规划器</h1>
+        <div id="statsArea" class="stat-row"></div>
+
+        <div class="card">
+            <h3>新建实验</h3>
+            <div class="grid-2">
+                <div class="form-group"><label>实验名称</label><input type="text" id="expName" placeholder="例如：首页Banner A/B测试"></div>
+                <div class="form-group"><label>实验类型</label><select id="expType"><option value="button">按钮优化</option><option value="layout">页面布局</option><option value="copy">文案优化</option><option value="color">颜色对比</option><option value="pricing">定价策略</option><option value="other">其他</option></select></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>假设</label><input type="text" id="expHypothesis" placeholder="如果...那么...因为..."></div>
+                <div class="form-group"><label>主要指标</label><input type="text" id="expMetric" placeholder="例如：转化率"></div>
+            </div>
+            <div class="form-group"><label>目标受众</label><input type="text" id="expAudience" placeholder="例如：新用户"></div>
+
+            <h4 style="margin-top:16px;">测试变体</h4>
+            <div id="variantsContainer">
+                <div class="variant-box" data-index="0">
+                    <button class="remove-btn" onclick="removeVariant(this)">×</button>
+                    <h4>对照组 (A)</h4>
+                    <input type="text" class="var-name" placeholder="变体名称">
+                    <textarea class="var-desc" rows="2" placeholder="描述..." style="margin-top:8px;"></textarea>
+                </div>
+                <div class="variant-box" data-index="1">
+                    <button class="remove-btn" onclick="removeVariant(this)">×</button>
+                    <h4>实验组 (B)</h4>
+                    <input type="text" class="var-name" placeholder="变体名称">
+                    <textarea class="var-desc" rows="2" placeholder="描述..." style="margin-top:8px;"></textarea>
+                </div>
+            </div>
+            <button class="btn-sm" onclick="addVariant()">+ 添加变体</button>
+
+            <div class="grid-2" style="margin-top:16px;">
+                <div class="form-group"><label>预计流量</label><input type="number" id="expTraffic" placeholder="10000"></div>
+                <div class="form-group"><label>预计天数</label><input type="number" id="expDays" placeholder="14"></div>
+            </div>
+            <button onclick="createExperiment()">创建实验</button>
+        </div>
+
+        <div class="card">
+            <h3>实验列表</h3>
+            <div id="experimentList"></div>
+        </div>
+
+        <div class="card" id="calcCard" style="display:none;">
+            <h3>样本量计算器</h3>
+            <div class="grid-2">
+                <div class="form-group"><label>当前转化率 (%)</label><input type="number" id="calcCurrent" value="5" step="0.1"></div>
+                <div class="form-group"><label>最小可检测效应 (%)</label><input type="number" id="calcMDE" value="1" step="0.1"></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>显著性水平</label><select id="calcAlpha"><option value="0.05">95%</option><option value="0.01">99%</option></select></div>
+                <div class="form-group"><label>统计功效</label><select id="calcPower"><option value="0.8">80%</option><option value="0.9">90%</option></select></div>
+            </div>
+            <button onclick="calculateSampleSize()">计算样本量</button>
+            <div id="calcResult" style="margin-top:12px;"></div>
+        </div>
+
+        <button onclick="document.getElementById('calcCard').style.display='block'" style="margin-top:12px;">样本量计算器</button>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        let experiments = JSON.parse(localStorage.getItem('abExperiments') || '[]');
+        let variantCount = 2;
+
+        function save() { localStorage.setItem('abExperiments', JSON.stringify(experiments)); }
+
+        function addVariant() {
+            variantCount++;
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const letter = letters[variantCount - 1] || variantCount;
+            const div = document.createElement('div');
+            div.className = 'variant-box';
+            div.innerHTML = `<button class="remove-btn" onclick="removeVariant(this)">×</button><h4>变体 ${letter}</h4><input type="text" class="var-name" placeholder="变体名称"><textarea class="var-desc" rows="2" placeholder="描述..." style="margin-top:8px;"></textarea>`;
+            document.getElementById('variantsContainer').appendChild(div);
+        }
+
+        function removeVariant(btn) {
+            if (document.querySelectorAll('.variant-box').length > 2) btn.parentElement.remove();
+        }
+
+        function createExperiment() {
+            const name = document.getElementById('expName').value.trim();
+            if (!name) { alert('请填写实验名称'); return; }
+            const variants = Array.from(document.querySelectorAll('.variant-box')).map((v, i) => ({
+                name: v.querySelector('.var-name').value.trim() || (i === 0 ? '对照组' : `实验组${i}`),
+                desc: v.querySelector('.var-desc').value.trim()
+            }));
+            experiments.push({
+                id: Date.now(), name, type: document.getElementById('expType').value,
+                hypothesis: document.getElementById('expHypothesis').value.trim(),
+                metric: document.getElementById('expMetric').value.trim(),
+                audience: document.getElementById('expAudience').value.trim(),
+                traffic: parseInt(document.getElementById('expTraffic').value) || 10000,
+                days: parseInt(document.getElementById('expDays').value) || 14,
+                variants, status: 'draft', created: new Date().toISOString().split('T')[0],
+                progress: 0
+            });
+            save(); renderList(); renderStats();
+            document.getElementById('expName').value = '';
+            document.getElementById('expHypothesis').value = '';
+        }
+
+        function deleteExperiment(id) { experiments = experiments.filter(e => e.id !== id); save(); renderList(); renderStats(); }
+
+        function updateStatus(id, status) {
+            const exp = experiments.find(e => e.id === id);
+            if (exp) { exp.status = status; if (status === 'running') exp.progress = Math.min(100, exp.progress + 25); if (status === 'completed') exp.progress = 100; }
+            save(); renderList(); renderStats();
+        }
+
+        function renderList() {
+            document.getElementById('experimentList').innerHTML = experiments.length === 0 ? '<p style="color:var(--secondary-color);">暂无实验</p>' : experiments.map(e => `
+                <div class="experiment-item">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><strong>${e.name}</strong> <span class="status-badge ${e.status}">${e.status === 'draft' ? '草稿' : e.status === 'running' ? '进行中' : '已完成'}</span></div>
+                        <div><button class="btn-sm" onclick="updateStatus(${e.id},'running')">开始</button><button class="btn-sm btn-success" onclick="updateStatus(${e.id},'completed')">完成</button><button class="btn-sm btn-danger" onclick="deleteExperiment(${e.id})">删除</button></div>
+                    </div>
+                    <div style="font-size:13px;color:var(--secondary-color);margin-top:4px;">${e.type} · ${e.metric || '未设置指标'} · ${e.variants.length}个变体 · 流量:${e.traffic} · ${e.days}天</div>
+                    ${e.hypothesis ? `<div style="font-size:13px;margin-top:4px;font-style:italic;">假设: ${e.hypothesis}</div>` : ''}
+                    <div class="progress-bar"><div class="fill" style="width:${e.progress}%"></div></div>
+                    <div style="font-size:12px;color:var(--secondary-color);">${e.created} 创建</div>
+                </div>
+            `).join('');
+        }
+
+        function renderStats() {
+            const total = experiments.length;
+            const running = experiments.filter(e => e.status === 'running').length;
+            const completed = experiments.filter(e => e.status === 'completed').length;
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${total}</div><div class="label">总实验</div></div>
+                <div class="stat-box"><div class="num">${running}</div><div class="label">进行中</div></div>
+                <div class="stat-box"><div class="num">${completed}</div><div class="label">已完成</div></div>
+            `;
+        }
+
+        function calculateSampleSize() {
+            const p = parseFloat(document.getElementById('calcCurrent').value) / 100;
+            const mde = parseFloat(document.getElementById('calcMDE').value) / 100;
+            const alpha = parseFloat(document.getElementById('calcAlpha').value);
+            const power = parseFloat(document.getElementById('calcPower').value);
+            if (!p || !mde) { alert('请填写有效数值'); return; }
+            const z1 = alpha === 0.01 ? 2.576 : 1.96;
+            const z2 = power === 0.9 ? 1.282 : 0.842;
+            const n = Math.ceil((2 * Math.pow(z1 + z2, 2) * p * (1 - p)) / Math.pow(mde, 2));
+            document.getElementById('calcResult').innerHTML = `<div style="padding:12px;background:var(--card-bg);border-radius:6px;border:1px solid var(--border-color);"><strong>每组所需样本量: ${n.toLocaleString()}</strong><br><span style="font-size:13px;color:var(--secondary-color);">总样本量: ${(n * 2).toLocaleString()} | 预计所需时间: ${Math.ceil(n * 2 / (parseInt(document.getElementById('expTraffic').value) || 10000) * (parseInt(document.getElementById('expDays').value) || 14))} 天</span></div>`;
+        }
+
+        renderList(); renderStats();
+    </script>
+</body>
+</html>
