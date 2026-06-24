@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📝 会议纪要</title>
+<meta name="description" content="会议纪要模板工具，记录会议要点、决策和待办事项，一键导出">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#bf8700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:900px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-family:inherit}
+button:hover{opacity:.9}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.section{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.section h3{font-size:.95rem;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.attendee-list{display:flex;flex-wrap:wrap;gap:6px}
+.attendee{background:var(--card);border:1px solid var(--border);padding:4px 12px;border-radius:20px;font-size:.85rem;display:flex;align-items:center;gap:4px}
+.attendee .remove{cursor:pointer;color:var(--red);font-weight:700;margin-left:4px}
+.decision-item,.action-item,.note-item{padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.decision-item .content,.action-item .content,.note-item .content{flex:1;font-size:.9rem}
+.decision-item .tag{background:rgba(59,130,246,.15);color:var(--accent);padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.action-item .tag{background:rgba(210,153,34,.15);color:var(--yellow);padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.action-item .assignee{font-size:.8rem;color:var(--text2);margin-top:2px}
+.action-item.done{opacity:.5;text-decoration:line-through}
+.done-check{cursor:pointer;font-size:1.2rem}
+.empty{color:var(--text2);text-align:center;padding:20px;font-size:.9rem}
+.preview{padding:20px;background:var(--bg);border-radius:var(--radius);font-size:.9rem;white-space:pre-wrap;line-height:1.8}
+@media(max-width:768px){body{padding:10px}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.ctn{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📝 会议纪要">
+<meta property="og:description" content="会议纪要模板工具，记录会议要点、决策和待办事项，一键导出">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/minutes-template-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn" id="app"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='minutes_data';
+let state=JSON.parse(localStorage.getItem(STORE)||'{"minutes":[]}');
+if(!state.minutes.length){
+  state.minutes=[{id:'m1',title:'产品周会',date:new Date().toISOString().slice(0,10),time:'10:00-11:00',location:'3F大会议室',presenter:'张三',
+    attendees:['张三','李四','王五','赵六'],
+    discussions:['上周完成了用户模块重构','本迭代目标是完成支付系统上线','设计稿已评审通过，进入开发阶段'],
+    decisions:['支付系统优先对接微信支付','采用微服务架构方案','本周五前完成技术评审'],
+    actions:[{text:'完成支付接口设计',assignee:'张三',due:'周三',done:false},{text:'编写支付模块单元测试',assignee:'李四',due:'周四',done:false},{text:'部署测试环境',assignee:'王五',due:'周五',done:true}],
+    notes:'下次会议增加运维同事参会'
+  }];
+}
+let currentMinutes=state.minutes[0]?.id||null,viewMode='edit';
+
+function save(){localStorage.setItem(STORE,JSON.stringify(state))}
+function genId(){return'id'+Date.now()+Math.random().toString(36).slice(2,6)}
+function getMinutes(){return state.minutes.find(m=>m.id===currentMinutes)}
+
+function render(){
+  let h=`<div class="hdr"><h1>📝 会议纪要</h1><p>结构化记录会议要点</p></div>`;
+
+  h+=`<div class="cd"><div class="flex-between"><h2 style="margin:0">会议列表</h2><div class="flex"><button onclick="viewMode=viewMode==='edit'?'preview':'edit';render()" style="padding:6px 14px;font-size:.85rem">${viewMode==='edit'?'👁️ 预览':'✏️ 编辑'}</button><button onclick="createMinutes()" style="padding:6px 14px;font-size:.85rem">+ 新纪要</button></div></div><div class="flex" style="margin-top:10px;gap:8px;flex-wrap:wrap">`;
+  state.minutes.forEach(m=>{
+    h+=`<div class="flex" style="gap:4px"><div onclick="currentMinutes='${m.id}';render()" style="padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;${m.id===currentMinutes?'background:var(--accent);color:#fff':'background:var(--bg);border:1px solid var(--border)'}">${m.title} (${m.date})</div><button class="dng" style="padding:4px 8px;font-size:.75rem" onclick="deleteMinutes('${m.id}')">✕</button></div>`;
+  });
+  h+=`</div></div>`;
+
+  const mtg=getMinutes();
+  if(!mtg){h+=`<div class="cd"><p class="empty">请创建一份会议纪要</p></div>`;$('app').innerHTML=h;return}
+
+  if(viewMode==='preview'){
+    h+=renderPreview(mtg);
+  } else {
+    h+=`<div class="cd"><h2>📋 基本信息</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label>会议主题</label><input value="${mtg.title}" onchange="getMinutes().title=this.value;save()"></div><div><label>日期</label><input type="date" value="${mtg.date}" onchange="getMinutes().date=this.value;save()"></div><div><label>时间</label><input value="${mtg.time}" placeholder="如 10:00-11:00" onchange="getMinutes().time=this.value;save()"></div><div><label>地点</label><input value="${mtg.location}" onchange="getMinutes().location=this.value;save()"></div></div><label>主持人</label><input value="${mtg.presenter}" onchange="getMinutes().presenter=this.value;save()"></div>`;
+
+    h+=`<div class="cd"><div class="flex-between"><h2 style="margin:0">👥 参会人员</h2></div><div class="attendee-list" style="margin:10px 0">`;
+    mtg.attendees.forEach((a,i)=>{h+=`<div class="attendee">${a}<span class="remove" onclick="getMinutes().attendees.splice(${i},1);save();render()">✕</span></div>`});
+    h+=`</div><div class="flex"><input id="newAttendee" placeholder="输入姓名后回车" style="flex:1;margin:0" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v){getMinutes().attendees.push(v);save();render()}}"><button onclick="const v=$('newAttendee').value.trim();if(v){getMinutes().attendees.push(v);save();render()}" style="padding:8px 14px;font-size:.85rem">添加</button></div></div>`;
+
+    h+=`<div class="cd"><div class="flex-between"><h2 style="margin:0">💬 讨论内容</h2><button onclick="getMinutes().discussions.push('');save();render()" style="padding:6px 14px;font-size:.85rem">+ 添加</button></div>`;
+    if(!mtg.discussions.length)h+=`<p class="empty">暂无讨论记录</p>`;
+    mtg.discussions.forEach((d,i)=>{
+      h+=`<div class="flex" style="margin-top:8px"><span style="font-size:1.2rem;margin-right:6px">📌</span><textarea style="flex:1;margin:0" oninput="getMinutes().discussions[${i}]=this.value;save()" rows="2">${d}</textarea><button class="dng" style="padding:6px 10px;font-size:.8rem" onclick="getMinutes().discussions.splice(${i},1);save();render()">✕</button></div>`;
+    });
+    h+=`</div>`;
+
+    h+=`<div class="cd"><div class="flex-between"><h2 style="margin:0">✅ 决策事项</h2><button onclick="getMinutes().decisions.push('');save();render()" style="padding:6px 14px;font-size:.85rem">+ 添加</button></div>`;
+    if(!mtg.decisions.length)h+=`<p class="empty">暂无决策记录</p>`;
+    mtg.decisions.forEach((d,i)=>{
+      h+=`<div class="decision-item"><span class="tag">决策</span><textarea style="flex:1;margin:0;border:none;background:transparent;padding:0;min-height:20px" oninput="getMinutes().decisions[${i}]=this.value;save()">${d}</textarea><button class="dng" style="padding:4px 8px;font-size:.75rem" onclick="getMinutes().decisions.splice(${i},1);save();render()">✕</button></div>`;
+    });
+    h+=`</div>`;
+
+    h+=`<div class="cd"><div class="flex-between"><h2 style="margin:0">📋 待办事项</h2><button onclick="getMinutes().actions.push({text:'',assignee:'',due:'',done:false});save();render()" style="padding:6px 14px;font-size:.85rem">+ 添加</button></div>`;
+    if(!mtg.actions.length)h+=`<p class="empty">暂无待办事项</p>`;
+    mtg.actions.forEach((a,i)=>{
+      h+=`<div class="action-item ${a.done?'done':''}"><span class="done-check" onclick="getMinutes().actions[${i}].done=!getMinutes().actions[${i}].done;save();render()">${a.done?'☑️':'☐'}</span><div class="content"><input value="${a.text}" placeholder="任务描述" style="margin:0;border:none;padding:0;background:transparent" oninput="getMinutes().actions[${i}].text=this.value;save()"><div class="flex" style="gap:6px"><input value="${a.assignee}" placeholder="负责人" style="width:80px;margin:0;border:none;padding:0;background:transparent;font-size:.8rem;color:var(--text2)" oninput="getMinutes().actions[${i}].assignee=this.value;save()"><input value="${a.due}" placeholder="截止" style="width:60px;margin:0;border:none;padding:0;background:transparent;font-size:.8rem;color:var(--text2)" oninput="getMinutes().actions[${i}].due=this.value;save()"></div></div><button class="dng" style="padding:4px 8px;font-size:.75rem" onclick="getMinutes().actions.splice(${i},1);save();render()">✕</button></div>`;
+    });
+    h+=`</div>`;
+
+    h+=`<div class="cd"><h2>📌 备注</h2><textarea oninput="getMinutes().notes=this.value;save()" rows="3">${mtg.notes||''}</textarea></div>`;
+
+    h+=`<div class="cd"><div class="flex"><button onclick="copyMinutes()">📋 复制纪要</button><button class="sec" onclick="downloadMinutes()">💾 下载TXT</button><button class="sec" onclick="exportMarkdown()">📄 导出Markdown</button></div></div>`;
+  }
+
+  $('app').innerHTML=h;
+}
+
+function renderPreview(mtg){
+  let txt=`═══════════════════════════════════\n`;
+  txt+=`  📝 会议纪要：${mtg.title}\n`;
+  txt+=`═══════════════════════════════════\n\n`;
+  txt+=`📅 日期：${mtg.date}  ⏰ 时间：${mtg.time}\n`;
+  txt+=`📍 地点：${mtg.location||'未指定'}\n`;
+  txt+=`🎤 主持：${mtg.presenter||'未指定'}\n`;
+  txt+=`👥 参会：${mtg.attendees.join('、')}\n`;
+  txt+=`\n─────── 讨论内容 ───────\n`;
+  mtg.discussions.forEach((d,i)=>{if(d)txt+=`${i+1}. ${d}\n`});
+  txt+=`\n─────── 决策事项 ───────\n`;
+  mtg.decisions.forEach((d,i)=>{if(d)txt+=`${i+1}. ${d}\n`});
+  txt+=`\n─────── 待办事项 ───────\n`;
+  mtg.actions.forEach((a,i)=>{
+    txt+=`${a.done?'[✓]':'[ ]'} ${a.text}`;
+    if(a.assignee)txt+=` (${a.assignee}`;
+    if(a.due)txt+=` · ${a.due}`;
+    if(a.assignee)txt+=`)`;
+    txt+=`\n`;
+  });
+  if(mtg.notes)txt+=`\n─────── 备注 ───────\n${mtg.notes}\n`;
+  return`<div class="cd"><h2>👁️ 纪要预览</h2><div class="preview">${txt}</div></div>`;
+}
+
+function createMinutes(){
+  const title=prompt('会议主题：','新会议');
+  if(!title)return;
+  const m={id:genId(),title,date:new Date().toISOString().slice(0,10),time:'',location:'',presenter:'',attendees:[],discussions:[],decisions:[],actions:[],notes:''};
+  state.minutes.push(m);currentMinutes=m.id;save();render();
+}
+function deleteMinutes(id){
+  if(!confirm('确定删除此纪要？'))return;
+  state.minutes=state.minutes.filter(m=>m.id!==id);
+  currentMinutes=state.minutes[0]?.id||null;save();render();
+}
+function copyMinutes(){navigator.clipboard.writeText(buildText(getMinutes())).then(()=>alert('已复制到剪贴板'))}
+function downloadMinutes(){
+  const blob=new Blob([buildText(getMinutes())],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`会议纪要_${getMinutes().title}_${getMinutes().date}.txt`;a.click();
+}
+function exportMarkdown(){
+  const m=getMinutes();
+  let md=`# 会议纪要：${m.title}\n\n`;
+  md+=`- **日期**：${m.date}\n- **时间**：${m.time}\n- **地点**：${m.location}\n- **主持**：${m.presenter}\n- **参会**：${m.attendees.join('、')}\n\n`;
+  md+=`## 讨论内容\n\n`;m.discussions.forEach((d,i)=>{if(d)md+=`${i+1}. ${d}\n`});
+  md+=`\n## 决策事项\n\n`;m.decisions.forEach((d,i)=>{if(d)md+=`${i+1}. ${d}\n`});
+  md+=`\n## 待办事项\n\n`;m.actions.forEach(a=>{md+=`- [${a.done?'x':' '}] ${a.text}${a.assignee?' ('+a.assignee+(a.due?' · '+a.due:'')+')':''}\n`});
+  if(m.notes)md+=`\n## 备注\n\n${m.notes}\n`;
+  const blob=new Blob([md],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`会议纪要_${m.title}_${m.date}.md`;a.click();
+}
+function buildText(m){
+  let txt=`会议纪要：${m.title}\n日期：${m.date} ${m.time}\n地点：${m.location}\n主持：${m.presenter}\n参会：${m.attendees.join('、')}\n\n`;
+  txt+=`讨论内容：\n`;m.discussions.forEach((d,i)=>{if(d)txt+=`${i+1}. ${d}\n`});
+  txt+=`\n决策事项：\n`;m.decisions.forEach((d,i)=>{if(d)txt+=`${i+1}. ${d}\n`});
+  txt+=`\n待办事项：\n`;m.actions.forEach(a=>{txt+=`${a.done?'[完成]':'[待办]'} ${a.text}${a.assignee?' ('+a.assignee+')':''}\n`});
+  if(m.notes)txt+=`\n备注：${m.notes}\n`;
+  return txt;
+}
+render();
+</script>
+</body>
+</html>
