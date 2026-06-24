@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⌨️ 键盘延迟测试器</title>
+<meta name="description" content="在线键盘延迟测试器 - 测量键盘输入延迟和响应时间，检测键盘性能">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⌨️</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg-primary:#f8fafc;--bg-card:#ffffff;--bg-input:#f1f5f9;--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--border:#e2e8f0;--accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--danger:#ef4444;--success:#22c55e;--shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--transition:.2s ease}
+[data-theme="dark"]{--bg-primary:#0f172a;--bg-card:#1e293b;--bg-input:#334155;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--border:#334155;--accent:#3b82f6;--accent-hover:#60a5fa;--danger:#f87171;--success:#4ade80}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.container{width:100%;max-width:520px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px 20px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.4rem;font-weight:700}
+.theme-btn{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:1.1rem}
+.test-area{width:100%;min-height:160px;border:3px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .3s;cursor:pointer;margin-bottom:16px}
+.test-area.waiting{border-color:var(--accent);background:var(--accent-light)}
+.test-area.ready{border-color:var(--success);background:#dcfce7}
+.test-area.pressed{border-color:var(--danger);background:#fee2e2}
+.test-area .instruction{font-size:1.1rem;color:var(--text-secondary)}
+.test-area .big-text{font-size:2rem;font-weight:700}
+.results{margin-top:16px}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.result-row:last-child{border:none}
+.result-label{font-size:.85rem;color:var(--text-secondary)}
+.result-value{font-size:1.1rem;font-weight:700;font-family:'Courier New',monospace}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:16px 0}
+.stat-card{background:var(--bg-input);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.stat-card .stat-val{font-size:1.5rem;font-weight:700;color:var(--accent)}
+.stat-card .stat-label{font-size:.75rem;color:var(--text-muted);margin-top:4px}
+.chart{width:100%;height:120px;background:var(--bg-input);border-radius:var(--radius-sm);margin-top:12px;position:relative;overflow:hidden}
+.chart canvas{width:100%;height:100%}
+.actions{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1;padding:10px;border:none;border-radius:var(--radius-sm);font-size:.95rem;font-weight:600;cursor:pointer;transition:all var(--transition)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-danger{background:var(--danger);color:#fff}
+.history{margin-top:16px;max-height:200px;overflow-y:auto}
+.history-item{display:flex;justify-content:space-between;padding:6px 0;font-size:.8rem;border-bottom:1px solid var(--border)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600}
+.badge-good{background:#dcfce7;color:#166534}
+.badge-ok{background:#fef3c7;color:#92400e}
+.badge-bad{background:#fee2e2;color:#991b1b}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>⌨️ 键盘延迟测试</h1>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+</header>
+
+<div class="test-area" id="testArea" onclick="handleAreaClick()" tabindex="0">
+<div class="instruction" id="instruction">点击开始测试</div>
+<div class="big-text" id="bigText" style="display:none"></div>
+</div>
+
+<div class="stats-grid" id="statsGrid">
+<div class="stat-card"><div class="stat-val" id="avgLatency">-</div><div class="stat-label">平均延迟</div></div>
+<div class="stat-card"><div class="stat-val" id="minLatency">-</div><div class="stat-label">最快</div></div>
+<div class="stat-card"><div class="stat-val" id="maxLatency">-</div><div class="stat-label">最慢</div></div>
+</div>
+
+<div class="results" id="resultsSection" style="display:none">
+<div class="result-row"><span class="result-label">上次延迟</span><span class="result-value" id="lastLatency">-</span></div>
+<div class="result-row"><span class="result-label">测试次数</span><span class="result-value" id="testCount">0</span></div>
+<div class="result-row"><span class="result-label">评级</span><span class="result-value" id="rating">-</span></div>
+</div>
+
+<div class="chart" id="chartSection" style="display:none">
+<canvas id="chart"></canvas>
+</div>
+
+<div class="actions">
+<button class="btn btn-primary" onclick="startTest()">🔄 重新测试</button>
+<button class="btn btn-danger" onclick="resetAll()">🗑️ 清除数据</button>
+</div>
+
+<div class="history" id="history"></div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+function toggleTheme(){
+const t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+document.documentElement.dataset.theme=t;
+document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+}
+
+let state='idle'; // idle, waiting, ready, pressed
+let latencies=[];
+let lastKeyTime=0;
+let timeoutId=null;
+
+const area=document.getElementById('testArea');
+const instruction=document.getElementById('instruction');
+const bigText=document.getElementById('bigText');
+
+function startTest(){
+latencies=[];
+lastKeyTime=0;
+state='idle';
+updateDisplay();
+updateStats();
+document.getElementById('history').innerHTML='';
+document.getElementById('resultsSection').style.display='none';
+document.getElementById('chartSection').style.display='none';
+instruction.textContent='点击开始测试';
+bigText.style.display='none';
+instruction.style.display='block';
+}
+
+function handleAreaClick(){
+if(state==='idle'||state==='pressed'){
+// Start new round
+state='waiting';
+area.className='test-area waiting';
+instruction.textContent='等待...';
+bigText.style.display='none';
+instruction.style.display='block';
+
+const delay=1000+Math.random()*4000;
+timeoutId=setTimeout(()=>{
+state='ready';
+area.className='test-area ready';
+instruction.textContent='现在按任意键!';
+bigText.textContent='⌨️';
+bigText.style.display='block';
+instruction.style.display='none';
+lastKeyTime=performance.now();
+},delay);
+}
+}
+
+document.addEventListener('keydown',(e)=>{
+if(state==='ready'){
+e.preventDefault();
+const latency=Math.round(performance.now()-lastKeyTime);
+latencies.push(latency);
+state='pressed';
+area.className='test-area pressed';
+bigText.textContent=latency+'ms';
+bigText.style.display='block';
+instruction.style.display='none';
+
+document.getElementById('lastLatency').textContent=latency+'ms';
+document.getElementById('lastLatency').style.color=
+latency<50?'var(--success)':latency<100?'var(--accent)':'var(--danger)';
+document.getElementById('resultsSection').style.display='block';
+
+addHistory(latency);
+updateStats();
+drawChart();
+
+setTimeout(()=>{
+state='idle';
+area.className='test-area';
+instruction.textContent=`点击继续 (${latencies.length}次)`;
+bigText.style.display='none';
+instruction.style.display='block';
+},1000);
+}else if(state==='waiting'){
+clearTimeout(timeoutId);
+state='idle';
+area.className='test-area';
+instruction.textContent='按太早了! 等绿色出现再按';
+bigText.style.display='none';
+instruction.style.display='block';
+}
+});
+
+function updateStats(){
+const count=latencies.length;
+document.getElementById('testCount').textContent=count;
+if(count===0){
+document.getElementById('avgLatency').textContent='-';
+document.getElementById('minLatency').textContent='-';
+document.getElementById('maxLatency').textContent='-';
+document.getElementById('rating').textContent='-';
+return;
+}
+const avg=Math.round(latencies.reduce((a,b)=>a+b,0)/count);
+const min=Math.min(...latencies);
+const max=Math.max(...latencies);
+document.getElementById('avgLatency').textContent=avg+'ms';
+document.getElementById('minLatency').textContent=min+'ms';
+document.getElementById('maxLatency').textContent=max+'ms';
+
+let rating,badge;
+if(avg<30){rating='极佳 ⚡';badge='badge-good';}
+else if(avg<60){rating='良好 ✓';badge='badge-good';}
+else if(avg<100){rating='一般 ~';badge='badge-ok';}
+else{rating='较慢 ⚠';badge='badge-bad';}
+document.getElementById('rating').innerHTML=`<span class="badge ${badge}">${rating}</span>`;
+}
+
+function addHistory(latency){
+const history=document.getElementById('history');
+const item=document.createElement('div');
+item.className='history-item';
+const badge=latency<50?'badge-good':latency<100?'badge-ok':'badge-bad';
+item.innerHTML=`<span>#${latencies.length}</span><span class="badge ${badge}">${latency}ms</span>`;
+history.insertBefore(item,history.firstChild);
+}
+
+function drawChart(){
+const canvas=document.getElementById('chart');
+const ctx=canvas.getContext('2d');
+canvas.width=canvas.parentElement.clientWidth;
+canvas.height=120;
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+if(latencies.length<2)return;
+
+const maxVal=Math.max(...latencies,100);
+const barW=Math.max(4,canvas.width/latencies.length-2);
+
+latencies.forEach((v,i)=>{
+const h=(v/maxVal)*(canvas.height-20);
+const x=i*(barW+2)+10;
+const y=canvas.height-h-10;
+
+const color=v<50?'#22c55e':v<100?'#3b82f6':'#ef4444';
+ctx.fillStyle=color;
+ctx.fillRect(x,y,barW,h);
+});
+
+document.getElementById('chartSection').style.display='block';
+}
+
+function updateDisplay(){
+area.className='test-area';
+}
+
+function resetAll(){
+startTest();
+}
+
+area.addEventListener('keydown',(e)=>{
+if(state==='idle'||state==='pressed'){
+e.preventDefault();
+handleAreaClick();
+}
+});
+
+startTest();
+</script>
+</body>
+</html>

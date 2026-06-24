@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📱 二维码生成器 - 中文版</title>
+<meta name="description" content="中文二维码生成器 - 支持文字、链接、WiFi、名片等二维码生成，自定义样式和颜色">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📱</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg-primary:#f8fafc;--bg-card:#ffffff;--bg-input:#f1f5f9;--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--border:#e2e8f0;--border-focus:#6366f1;--accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--danger:#ef4444;--success:#22c55e;--shadow-sm:0 1px 2px rgba(0,0,0,.05);--shadow-md:0 4px 6px -1px rgba(0,0,0,.1);--shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--transition:.2s ease}
+[data-theme="dark"]{--bg-primary:#0f172a;--bg-card:#1e293b;--bg-input:#334155;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--border:#334155;--border-focus:#3b82f6;--accent:#3b82f6;--accent-hover:#60a5fa;--accent-light:#1e1b4b;--danger:#f87171;--success:#4ade80;--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 4px 6px -1px rgba(0,0,0,.4);--shadow-lg:0 10px 15px -3px rgba(0,0,0,.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;transition:background var(--transition),color var(--transition);line-height:1.6}
+.container{width:100%;max-width:520px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px 20px;transition:background var(--transition),box-shadow var(--transition)}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px}
+h1{font-size:1.4rem;font-weight:700}
+.theme-btn{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:1.1rem;transition:all var(--transition)}
+.theme-btn:hover{background:var(--border)}
+label{display:block;font-size:.875rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:12px}
+select,input[type="text"],input[type="number"],textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:.95rem;transition:border-color var(--transition)}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--border-focus)}
+textarea{resize:vertical;min-height:80px}
+.color-row{display:flex;gap:12px;align-items:center;margin-top:12px}
+.color-row label{margin:0;flex:1}
+input[type="color"]{width:40px;height:36px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;padding:2px}
+.size-row{display:flex;gap:12px;align-items:center;margin-top:12px}
+.size-row select{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:.95rem;font-weight:600;cursor:pointer;transition:all var(--transition);width:100%;margin-top:16px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-success{background:var(--success);color:#fff;opacity:.9}
+.preview{margin-top:20px;text-align:center;min-height:200px;display:flex;align-items:center;justify-content:center;background:var(--bg-input);border-radius:var(--radius-sm);border:2px dashed var(--border);overflow:hidden}
+.preview img{max-width:100%;max-height:300px}
+.preview canvas{max-width:100%;max-height:300px}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions .btn{flex:1;margin-top:0}
+.hidden{display:none}
+.info{font-size:.8rem;color:var(--text-muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>📱 二维码生成器</h1>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+</header>
+
+<label>二维码类型</label>
+<select id="qrType" onchange="updateForm()">
+<option value="text">文本</option>
+<option value="url">网址/链接</option>
+<option value="wifi">WiFi</option>
+<option value="email">邮箱</option>
+<option value="phone">电话</option>
+<option value="sms">短信</option>
+<option value="vcard">名片(VCard)</option>
+</select>
+
+<div id="formText">
+<label>文本内容</label>
+<textarea id="inputText" placeholder="输入文本内容...">Hello World</textarea>
+</div>
+<div id="formUrl" class="hidden">
+<label>网址</label>
+<input type="text" id="inputUrl" placeholder="https://example.com">
+</div>
+<div id="formWifi" class="hidden">
+<label>WiFi 名称(SSID)</label>
+<input type="text" id="wifiSsid" placeholder="WiFi名称">
+<label>密码</label>
+<input type="text" id="wifiPass" placeholder="WiFi密码">
+<label>加密方式</label>
+<select id="wifiEnc"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">无密码</option></select>
+</div>
+<div id="formEmail" class="hidden">
+<label>邮箱地址</label>
+<input type="text" id="inputEmail" placeholder="user@example.com">
+</div>
+<div id="formPhone" class="hidden">
+<label>电话号码</label>
+<input type="text" id="inputPhone" placeholder="13800138000">
+</div>
+<div id="formSms" class="hidden">
+<label>手机号码</label>
+<input type="text" id="inputSmsNum" placeholder="13800138000">
+<label>短信内容</label>
+<textarea id="inputSmsMsg" placeholder="短信内容..."></textarea>
+</div>
+<div id="formVcard" class="hidden">
+<label>姓名</label>
+<input type="text" id="vcName" placeholder="张三">
+<label>电话</label>
+<input type="text" id="vcPhone" placeholder="13800138000">
+<label>邮箱</label>
+<input type="text" id="vcEmail" placeholder="user@example.com">
+<label>公司</label>
+<input type="text" id="vcCompany" placeholder="公司名称">
+</div>
+
+<div class="color-row">
+<label>前景色</label>
+<input type="color" id="fgColor" value="#000000">
+<label>背景色</label>
+<input type="color" id="bgColor" value="#ffffff">
+</div>
+
+<label>尺寸</label>
+<div class="size-row">
+<select id="qrSize">
+<option value="200">200×200</option>
+<option value="300" selected>300×300</option>
+<option value="400">400×400</option>
+<option value="500">500×500</option>
+</select>
+</div>
+
+<button class="btn btn-primary" onclick="generateQR()">生成二维码</button>
+
+<div class="preview" id="preview">
+<span style="color:var(--text-muted)">预览区域</span>
+</div>
+
+<div class="actions hidden" id="actionBtns">
+<button class="btn btn-success" onclick="downloadQR()">📥 下载PNG</button>
+<button class="btn btn-primary" onclick="copyQR()">📋 复制图片</button>
+</div>
+
+<p class="info">使用 Canvas API 生成二维码，无需服务器，数据不离开浏览器。</p>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+function toggleTheme(){
+const t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+document.documentElement.dataset.theme=t;
+document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+}
+const typeMap={text:'formText',url:'formUrl',wifi:'formWifi',email:'formEmail',phone:'formPhone',sms:'formSms',vcard:'formVcard'};
+function updateForm(){
+Object.values(typeMap).forEach(id=>document.getElementById(id).classList.add('hidden'));
+document.getElementById(typeMap[document.getElementById('qrType').value]).classList.remove('hidden');
+}
+
+function getQRData(){
+const type=document.getElementById('qrType').value;
+switch(type){
+case 'text':return document.getElementById('inputText').value;
+case 'url':return document.getElementById('inputUrl').value;
+case 'wifi':return`WIFI:T:${document.getElementById('wifiEnc').value};S:${document.getElementById('wifiSsid').value};P:${document.getElementById('wifiPass').value};;`;
+case 'email':return`mailto:${document.getElementById('inputEmail').value}`;
+case 'phone':return`tel:${document.getElementById('inputPhone').value}`;
+case 'sms':return`smsto:${document.getElementById('inputSmsNum').value}:${document.getElementById('inputSmsMsg').value}`;
+case 'vcard':return`BEGIN:VCARD\nVERSION:3.0\nN:${document.getElementById('vcName').value}\nTEL:${document.getElementById('vcPhone').value}\nEMAIL:${document.getElementById('vcEmail').value}\nORG:${document.getElementById('vcCompany').value}\nEND:VCARD`;
+default:return'';
+}
+}
+
+// Simple QR code generator (Version 1-10, alphanumeric+byte)
+// Using a lightweight QR encoding approach
+function generateQR(){
+const text=getQRData();
+if(!text){alert('请输入内容');return;}
+const size=parseInt(document.getElementById('qrSize').value);
+const fg=document.getElementById('fgColor').value;
+const bg=document.getElementById('bgColor').value;
+
+const preview=document.getElementById('preview');
+preview.innerHTML='';
+
+const canvas=document.createElement('canvas');
+const ctx=canvas.getContext('2d');
+canvas.width=size;canvas.height=size;
+
+// Use qrcode generation via binary matrix
+const modules=encodeQR(text);
+const moduleCount=modules.length;
+const cellSize=size/moduleCount;
+
+ctx.fillStyle=bg;
+ctx.fillRect(0,0,size,size);
+ctx.fillStyle=fg;
+for(let r=0;r<moduleCount;r++){
+for(let c=0;c<moduleCount;c++){
+if(modules[r][c]){
+ctx.fillRect(c*cellSize,r*cellSize,cellSize,cellSize);
+}
+}
+}
+preview.appendChild(canvas);
+document.getElementById('actionBtns').classList.remove('hidden');
+}
+
+// Minimal QR Code encoder (supports UTF-8 via byte mode, versions 1-10)
+function encodeQR(text){
+const data=[];
+for(let i=0;i<text.length;i++){
+const code=text.charCodeAt(i);
+if(code<128)data.push(code);
+else{
+const bytes=unescape(encodeURIComponent(text[i]));
+for(let j=0;j<bytes.length;j++)data.push(bytes.charCodeAt(j));
+}
+}
+
+const len=data.length;
+let version=1;
+const cap=[17,32,53,78,106,134,154,192,230,271];
+for(let v=0;v<10;v++){if(cap[v]>=len+2){version=v+1;break;}}
+if(version===1&&len>17){alert('内容过长，请缩短文本');throw new Error('too long');}
+
+const size=version*4+17;
+const matrix=Array.from({length:size},()=>Array(size).fill(0));
+const reserved=Array.from({length:size},()=>Array(size).fill(false));
+
+// Place finder patterns
+function placeFinder(cx,cy){
+for(let r=-1;r<=7;r++)for(let c=-1;c<=7;c++){
+const x=cx+c,y=cy+r;
+if(x<0||x>=size||y<0||y>=size)continue;
+if((r>=0&&r<=6&&(c===0||c===6))||(c>=0&&c<=6&&(r===0||r===6))||
+(r>=2&&r<=4&&c>=2&&c<=4)){
+matrix[y][x]=1;reserved[y][x]=true;
+}else if(r>=0&&r<=6&&c>=0&&c<=6){
+matrix[y][x]=0;reserved[y][x]=true;
+}
+}
+}
+placeFinder(3,3);
+placeFinder(size-4,3);
+placeFinder(3,size-4);
+
+// Timing patterns
+for(let i=8;i<size-8;i++){
+if(!reserved[6][i]){matrix[6][i]=i%2===0?1:0;reserved[6][i]=true;}
+if(!reserved[i][6]){matrix[i][6]=i%2===0?1:0;reserved[i][6]=true;}
+}
+
+// Dark module
+matrix[size-8][8]=1;reserved[size-8][8]=true;
+
+// Reserve format areas
+for(let i=0;i<15;i++){
+const positions=[[8,i<6?i:i+1,size-1-i<6?size-1-i:size-i],[i<8?i:i+1,8,size-i>8?size-i-1:size-i]];
+positions.forEach(([r,c])=>{
+if(r>=0&&r<size&&c>=0&&c<size)reserved[r][c]=true;
+});
+}
+for(let i=0;i<8;i++){reserved[8][i]=true;reserved[i][8]=true;reserved[8][size-1-i]=true;reserved[size-1-i][8]=true;}
+
+// Place data
+let bitIdx=0;
+const bits=[];
+// Mode indicator (byte mode = 0100)
+bits.push(0,1,0,0);
+// Character count
+const countBits=version<=9?8:16;
+for(let i=countBits-1;i>=0;i--)bits.push((len>>i)&1);
+// Data
+data.forEach(b=>{for(let i=7;i>=0;i--)bits.push((b>>i)&1);});
+// Terminator
+bits.push(0,0,0,0);
+while(bits.length%8)bits.push(0);
+
+const payload=[];
+for(let i=0;i<bits.length;i+=8){
+let byte=0;
+for(let j=0;j<8;j++)byte=(byte<<1)|(bits[i+j]||0);
+payload.push(byte);
+}
+
+// Fill remaining with padding
+const padBytes=[0xEC,0x11];
+let pi=0;
+while(payload.length<cap[version-1]){payload.push(padBytes[pi]);pi=(pi+1)%2;}
+
+// Place bits in matrix
+let dir=-1,row=size-1,col=size-1;
+const placeBit=(r,c,b)=>{
+if(r>=0&&r<size&&c>=0&&c<size&&!reserved[r][c]){matrix[r][c]=b;}
+};
+let bi=0;
+for(let i=0;i<bitIdx||bi<payload.length*8;){
+const r=row;
+for(let cc=col;cc>=col-1&&cc>=0;cc-=2){
+if(reserved[r][cc])continue;
+for(let dr=0;dr<2;dr++){
+const rowIdx=r+(dir===1?dr:-dr);
+if(rowIdx>=0&&rowIdx<size){
+placeBit(rowIdx,cc,bi<payload.length*8?((payload[bi>>3]>>(7-(bi&7)))&1):0);
+bi++;
+}
+}
+}
+col-=2;
+if(col<9)col=7;
+if(dir===1){row++;if(row===size){row=size-1;col-=2;dir=-1;if(col<9)col=7;}}
+else{row--;if(row<0){row=0;col-=2;dir=1;if(col<9)col=7;}}
+}
+
+// Apply simple mask pattern 0 (alternating)
+for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+if(!reserved[r][c])matrix[r][c]^=(r+c)%2===0?1:0;
+}
+
+return matrix;
+}
+
+function downloadQR(){
+const canvas=document.querySelector('#preview canvas');
+if(!canvas)return;
+const a=document.createElement('a');
+a.download='qrcode.png';
+a.href=canvas.toDataURL('image/png');
+a.click();
+}
+
+async function copyQR(){
+const canvas=document.querySelector('#preview canvas');
+if(!canvas)return;
+try{
+const blob=await new Promise(r=>canvas.toBlob(r));
+await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+alert('已复制到剪贴板！');
+}catch(e){alert('复制失败，请右键保存图片');}
+}
+</script>
+</body>
+</html>

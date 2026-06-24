@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎵 音频可视化工具</title>
+<meta name="description" content="在线音频可视化工具 - 麦克风实时音频频谱分析，多种可视化效果，支持录音和导出">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎵</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg-primary:#f8fafc;--bg-card:#ffffff;--bg-input:#f1f5f9;--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--border:#e2e8f0;--accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--danger:#ef4444;--success:#22c55e;--shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--transition:.2s ease}
+[data-theme="dark"]{--bg-primary:#0f172a;--bg-card:#1e293b;--bg-input:#334155;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--border:#334155;--accent:#3b82f6;--accent-hover:#60a5fa;--danger:#f87171;--success:#4ade80}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.container{width:100%;max-width:600px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px 20px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.4rem;font-weight:700}
+.theme-btn{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:1.1rem}
+.viz-container{width:100%;height:300px;background:#0f172a;border-radius:var(--radius-sm);overflow:hidden;position:relative;margin-bottom:16px}
+.viz-container canvas{width:100%;height:100%}
+.viz-type{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.viz-btn{padding:8px 14px;border:2px solid var(--border);border-radius:20px;background:var(--bg-input);color:var(--text-primary);font-size:.85rem;font-weight:600;cursor:pointer;transition:all var(--transition)}
+.viz-btn.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+.controls{display:flex;gap:8px;margin-bottom:12px}
+.btn{flex:1;padding:10px;border:none;border-radius:var(--radius-sm);font-size:.95rem;font-weight:600;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-start{background:var(--success);color:#fff}
+.btn-start:hover{opacity:.9}
+.btn-stop{background:var(--danger);color:#fff}
+.btn-stop:hover{opacity:.9}
+.btn-record{background:var(--accent);color:#fff}
+.btn-record:hover{background:var(--accent-hover)}
+.btn-record.recording{animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.stats{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+.stat{background:var(--bg-input);padding:8px 14px;border-radius:var(--radius-sm);font-size:.8rem}
+.stat strong{color:var(--accent)}
+.file-input{margin-top:12px}
+.file-input label{display:block;padding:12px;border:2px dashed var(--border);border-radius:var(--radius-sm);text-align:center;cursor:pointer;transition:all var(--transition);font-size:.9rem;color:var(--text-muted)}
+.file-input label:hover{border-color:var(--accent);background:var(--accent-light)}
+.file-input input{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎵 音频可视化</h1>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+</header>
+
+<div class="viz-container">
+<canvas id="vizCanvas"></canvas>
+</div>
+
+<div class="viz-type" id="vizTypes">
+<button class="viz-btn active" onclick="setVizType('bars',this)">📊 频谱柱</button>
+<button class="viz-btn" onclick="setVizType('wave',this)">🌊 波形</button>
+<button class="viz-btn" onclick="setVizType('circular',this)">⭕ 圆形</button>
+<button class="viz-btn" onclick="setVizType('mirror',this)">🪞 镜像</button>
+<button class="viz-btn" onclick="setVizType('particles',this)">✨ 粒子</button>
+</div>
+
+<div class="controls">
+<button class="btn btn-start" id="micBtn" onclick="toggleMic()">🎤 开始麦克风</button>
+<button class="btn btn-record" id="recBtn" onclick="toggleRecord()" style="display:none">⏺ 录制</button>
+<button class="btn btn-stop" onclick="stopAll()">⏹ 停止</button>
+</div>
+
+<div class="file-input">
+<label>📁 或上传音频文件分析
+<input type="file" id="audioFile" accept="audio/*" onchange="loadFile(event)">
+</label>
+</div>
+
+<div class="stats">
+<div class="stat">音量: <strong id="volumeVal">0</strong> dB</div>
+<div class="stat">频率: <strong id="freqVal">0</strong> Hz</div>
+<div class="stat">状态: <strong id="statusVal">待机</strong></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+function toggleTheme(){
+const t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+document.documentElement.dataset.theme=t;
+document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+}
+
+let audioCtx=null,analyser=null,source=null,micStream=null;
+let vizType='bars',animId=null,isRunning=false;
+let recorder=null,chunks=[];
+
+const canvas=document.getElementById('vizCanvas');
+const ctx=canvas.getContext('2d');
+
+function resizeCanvas(){
+canvas.width=canvas.parentElement.clientWidth;
+canvas.height=canvas.parentElement.clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize',resizeCanvas);
+
+function initAudio(){
+if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+analyser=audioCtx.createAnalyser();
+analyser.fftSize=512;
+analyser.smoothingTimeConstant=0.8;
+}
+
+async function toggleMic(){
+if(isRunning){stopAll();return;}
+try{
+initAudio();
+micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+source=audioCtx.createMediaStreamSource(micStream);
+source.connect(analyser);
+isRunning=true;
+document.getElementById('micBtn').textContent='🎤 停止麦克风';
+document.getElementById('micBtn').className='btn btn-stop';
+document.getElementById('recBtn').style.display='flex';
+document.getElementById('statusVal').textContent='麦克风';
+startViz();
+}catch(e){alert('无法访问麦克风: '+e.message);}
+}
+
+function loadFile(e){
+const file=e.target.files[0];if(!file)return;
+initAudio();
+const reader=new FileReader();
+reader.onload=async function(ev){
+const buffer=await audioCtx.decodeAudioData(ev.target.result);
+const src=audioCtx.createBufferSource();
+src.buffer=buffer;
+src.connect(analyser);
+analyser.connect(audioCtx.destination);
+src.start();
+isRunning=true;
+document.getElementById('statusVal').textContent='播放文件';
+startViz();
+src.onended=()=>{isRunning=false;document.getElementById('statusVal').textContent='播放结束';};
+};
+reader.readAsArrayBuffer(file);
+}
+
+function toggleRecord(){
+if(recorder&&recorder.state==='recording'){
+recorder.stop();
+document.getElementById('recBtn').textContent='⏺ 录制';
+document.getElementById('recBtn').classList.remove('recording');
+return;
+}
+if(!micStream)return;
+chunks=[];
+recorder=new MediaRecorder(micStream);
+recorder.ondataavailable=e=>chunks.push(e.data);
+recorder.onstop=()=>{
+const blob=new Blob(chunks,{type:'audio/webm'});
+const a=document.createElement('a');
+a.href=URL.createObjectURL(blob);
+a.download='recording.webm';
+a.click();
+};
+recorder.start();
+document.getElementById('recBtn').textContent='⏹ 停止录制';
+document.getElementById('recBtn').classList.add('recording');
+}
+
+function stopAll(){
+if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
+if(audioCtx){audioCtx.close();audioCtx=null;}
+isRunning=false;
+cancelAnimationFrame(animId);
+analyser=null;source=null;
+document.getElementById('micBtn').textContent='🎤 开始麦克风';
+document.getElementById('micBtn').className='btn btn-start';
+document.getElementById('recBtn').style.display='none';
+document.getElementById('statusVal').textContent='待机';
+ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function setVizType(type,el){
+vizType=type;
+document.querySelectorAll('.viz-btn').forEach(b=>b.classList.remove('active'));
+el.classList.add('active');
+}
+
+function startViz(){
+const bufLen=analyser.frequencyBinCount;
+const dataArr=new Uint8Array(bufLen);
+const timeArr=new Uint8Array(bufLen);
+let particles=[];
+
+function draw(){
+animId=requestAnimationFrame(draw);
+analyser.getByteFrequencyData(dataArr);
+analyser.getByteTimeDomainData(timeArr);
+
+ctx.fillStyle='rgba(15,23,42,0.15)';
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+// Update stats
+let sum=0,maxFreq=0,maxVal=0;
+for(let i=0;i<bufLen;i++){
+sum+=dataArr[i];
+if(dataArr[i]>maxVal){maxVal=dataArr[i];maxFreq=i;}
+}
+const avgVol=Math.round(sum/bufLen);
+const dbVol=avgVol>0?Math.round(20*Math.log10(avgVol/255)):0;
+const freqHz=Math.round(maxFreq*audioCtx.sampleRate/analyser.fftSize);
+document.getElementById('volumeVal').textContent=dbVol;
+document.getElementById('freqVal').textContent=freqHz;
+
+if(vizType==='bars'){
+const barW=canvas.width/bufLen*2.5;
+for(let i=0;i<bufLen;i++){
+const barH=(dataArr[i]/255)*canvas.height;
+const hue=(i/bufLen)*270;
+ctx.fillStyle=`hsl(${hue},80%,55%)`;
+ctx.fillRect(i*barW,canvas.height-barH,barW-1,barH);
+}
+}else if(vizType==='wave'){
+ctx.beginPath();
+ctx.strokeStyle='#3b82f6';
+ctx.lineWidth=2;
+const sliceW=canvas.width/bufLen;
+for(let i=0;i<bufLen;i++){
+const v=timeArr[i]/128.0;
+const y=(v*canvas.height)/2;
+if(i===0)ctx.moveTo(0,y);else ctx.lineTo(i*sliceW,y);
+}
+ctx.stroke();
+}else if(vizType==='circular'){
+const cx=canvas.width/2,cy=canvas.height/2;
+const radius=Math.min(cx,cy)*0.6;
+for(let i=0;i<bufLen;i++){
+const angle=(i/bufLen)*Math.PI*2-Math.PI/2;
+const len=(dataArr[i]/255)*radius;
+const hue=(i/bufLen)*360;
+ctx.strokeStyle=`hsl(${hue},70%,55%)`;
+ctx.lineWidth=2;
+ctx.beginPath();
+ctx.moveTo(cx+Math.cos(angle)*radius*0.3,cy+Math.sin(angle)*radius*0.3);
+ctx.lineTo(cx+Math.cos(angle)*(radius*0.3+len),cy+Math.sin(angle)*(radius*0.3+len));
+ctx.stroke();
+}
+}else if(vizType==='mirror'){
+const barW=canvas.width/(bufLen/2)*2;
+for(let i=0;i<bufLen/2;i++){
+const barH=(dataArr[i]/255)*canvas.height/2;
+const hue=(i/bufLen*2)*360;
+ctx.fillStyle=`hsl(${hue},70%,55%)`;
+ctx.fillRect(canvas.width/2+i*barW/2,canvas.height/2-barH,barW/2-1,barH);
+ctx.fillRect(canvas.width/2-i*barW/2-barW/2,canvas.height/2-barH,barW/2-1,barH);
+ctx.fillRect(canvas.width/2+i*barW/2,canvas.height/2,barW/2-1,barH);
+ctx.fillRect(canvas.width/2-i*barW/2-barW/2,canvas.height/2,barW/2-1,barH);
+}
+}else if(vizType==='particles'){
+// Add new particles based on volume
+if(avgVol>20){
+for(let i=0;i<3;i++){
+particles.push({
+x:canvas.width/2,y:canvas.height/2,
+vx:(Math.random()-0.5)*avgVol/5,
+vy:(Math.random()-0.5)*avgVol/5,
+life:1,
+hue:Math.random()*360,
+size:2+avgVol/30
+});
+}
+}
+particles=particles.filter(p=>p.life>0);
+particles.forEach(p=>{
+p.x+=p.vx;p.y+=p.vy;p.life-=0.015;
+ctx.fillStyle=`hsla(${p.hue},70%,55%,${p.life})`;
+ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+});
+}
+}
+
+draw();
+}
+</script>
+</body>
+</html>

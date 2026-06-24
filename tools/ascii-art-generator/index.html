@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎨 ASCII 字符画生成器</title>
+<meta name="description" content="在线ASCII字符画生成器 - 将图片或文字转换为ASCII艺术字符画，支持自定义字符集和导出">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg-primary:#f8fafc;--bg-card:#ffffff;--bg-input:#f1f5f9;--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--border:#e2e8f0;--accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--danger:#ef4444;--success:#22c55e;--shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--transition:.2s ease}
+[data-theme="dark"]{--bg-primary:#0f172a;--bg-card:#1e293b;--bg-input:#334155;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--border:#334155;--accent:#3b82f6;--accent-hover:#60a5fa;--danger:#f87171;--success:#4ade80}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.container{width:100%;max-width:700px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px 20px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.4rem;font-weight:700}
+.theme-btn{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:1.1rem}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;padding:10px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:.9rem;font-weight:600;cursor:pointer;text-align:center;transition:all var(--transition)}
+.tab.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+label{display:block;font-size:.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:12px}
+textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:.9rem;resize:vertical;min-height:80px;font-family:inherit}
+textarea:focus{outline:none;border-color:var(--accent)}
+.upload-area{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:32px;text-align:center;cursor:pointer;transition:all var(--transition);margin-top:12px}
+.upload-area:hover{border-color:var(--accent);background:var(--accent-light)}
+.upload-area p{color:var(--text-muted);font-size:.9rem}
+.upload-area .emoji{font-size:2rem;display:block;margin-bottom:8px}
+input[type="file"]{display:none}
+input[type="range"]{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--bg-input)}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer}
+.row{display:flex;gap:12px;align-items:end}
+.row>div{flex:1}
+select{width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:.9rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border:none;border-radius:var(--radius-sm);font-size:.95rem;font-weight:600;cursor:pointer;transition:all var(--transition);width:100%;margin-top:12px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-success{background:var(--success);color:#fff}
+.output{margin-top:16px;background:#1e293b;color:#e2e8f0;border-radius:var(--radius-sm);padding:16px;font-family:'Courier New',monospace;font-size:11px;line-height:1.1;white-space:pre;overflow-x:auto;max-height:500px;overflow-y:auto;min-height:100px;tab-size:2}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions .btn{flex:1;margin-top:0}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🎨 ASCII 字符画生成器</h1>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+</header>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab('image',this)">🖼️ 图片转ASCII</div>
+<div class="tab" onclick="switchTab('text',this)">✏️ 文字转ASCII</div>
+<div class="tab" onclick="switchTab('gallery',this)">📦 预设图库</div>
+</div>
+
+<div id="tabImage">
+<div class="upload-area" onclick="document.getElementById('fileInput').click()">
+<span class="emoji">📁</span>
+<p>点击或拖拽上传图片</p>
+<input type="file" id="fileInput" accept="image/*" onchange="handleImage(event)">
+</div>
+<div class="row">
+<div><label>输出宽度(字符数)</label><input type="range" id="widthSlider" min="40" max="200" value="100" oninput="document.getElementById('widthVal').textContent=this.value"><span id="widthVal" style="font-size:.8rem">100</span></div>
+<div><label>字符集</label><select id="charset"><option value="standard">标准 @%#*+=-:. </option><option value="blocks">区块 ▓▒░█ </option><option value="simple">简约 .:-=+*#%@</option><option value="binary">二进制 01</option></select></div>
+</div>
+<button class="btn btn-primary" onclick="convertImage()">🔄 转换</button>
+</div>
+
+<div id="tabText" class="hidden">
+<label>输入文字</label>
+<textarea id="textInput" placeholder="输入要转换的文字...">HELLO</textarea>
+<div class="row">
+<div><label>字体风格</label>
+<select id="fontStyle">
+<option value="small">小型</option>
+<option value="standard" selected>标准</option>
+<option value="large">大型</option>
+</select></div>
+<div><label>字符</label>
+<input type="text" id="textChar" value="*" maxlength="1" style="width:60px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:1.2rem;text-align:center"></div>
+</div>
+<button class="btn btn-primary" onclick="convertText()">🔄 转换</button>
+</div>
+
+<div id="tabGallery" class="hidden">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="galleryGrid"></div>
+</div>
+
+<div class="output" id="output" style="display:none"></div>
+<div class="actions" id="actionBtns" style="display:none">
+<button class="btn btn-success" onclick="copyOutput()">📋 复制</button>
+<button class="btn btn-primary" onclick="downloadOutput()">💾 下载</button>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+function toggleTheme(){
+const t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+document.documentElement.dataset.theme=t;
+document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+}
+
+let imageData=null;
+
+function switchTab(tab,el){
+document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+el.classList.add('active');
+document.getElementById('tabImage').classList.toggle('hidden',tab!=='image');
+document.getElementById('tabText').classList.toggle('hidden',tab!=='text');
+document.getElementById('tabGallery').classList.toggle('hidden',tab!=='gallery');
+}
+
+const charsets={
+standard:'@%#*+=-:. ',
+blocks:'▓▒░█ ',
+simple:'.:-=+*#%@',
+binary:'01'
+};
+
+function handleImage(e){
+const file=e.target.files[0];if(!file)return;
+const reader=new FileReader();
+reader.onload=function(ev){
+const img=new Image();
+img.onload=function(){
+imageData=img;
+document.getElementById('output').style.display='block';
+document.getElementById('actionBtns').style.display='flex';
+convertImage();
+};
+img.src=ev.target.result;
+};
+reader.readAsDataURL(file);
+}
+
+function convertImage(){
+if(!imageData){alert('请先上传图片');return;}
+const width=parseInt(document.getElementById('widthSlider').value);
+const chars=charsets[document.getElementById('charset').value];
+const canvas=document.createElement('canvas');
+const ctx=canvas.getContext('2d');
+const ratio=imageData.height/imageData.width;
+const h=Math.round(width*ratio*0.55);
+canvas.width=width;canvas.height=h;
+ctx.drawImage(imageData,0,0,width,h);
+const pixels=ctx.getImageData(0,0,width,h).data;
+let ascii='';
+for(let y=0;y<h;y++){
+for(let x=0;x<width;x++){
+const i=(y*width+x)*4;
+const gray=(pixels[i]*0.299+pixels[i+1]*0.587+pixels[i+2]*0.114)/255;
+ascii+=chars[Math.floor(gray*(chars.length-1))];
+}
+ascii+='\n';
+}
+document.getElementById('output').textContent=ascii;
+}
+
+const fonts={
+small:{
+'A':[' ## ','#  #','####','#  #','#  #'],'B':['### ','#  #','### ','#  #','### '],'C':[' ###','#   ','#   ','#   ',' ###'],'D':['### ','#  #','#  #','#  #','### '],'E':['#####','#    ','###  ','#    ','#####'],'F':['#####','#    ','###  ','#    ','#    '],'G':[' ###','#   ','# ##','#  #',' ###'],'H':['#  #','#  #','####','#  #','#  #'],'I':['#####','  #  ','  #  ','  #  ','#####'],'J':['#####','   # ','   # ','#  #',' ## '],'K':['#  #','# # ','##  ','# # ','#  #'],'L':['#    ','#    ','#    ','#    ','#####'],'M':['#   #','## ##','# # #','#   #','#   #'],'N':['#  #','## #','# ##','#  #','#  #'],'O':[' ###','#   #','#   #','#   #',' ###'],'P':['#### ','#   #','#### ','#    ','#    '],'Q':[' ###','#   #','# # #','#  # ',' ## #'],'R':['#### ','#   #','#### ','# #  ','#  # '],'S':[' ####','#    ',' ### ','    #','#### '],'T':['#####','  #  ','  #  ','  #  ','  #  '],'U':['#   #','#   #','#   #','#   #',' ### '],'V':['#   #','#   #','#   #',' # # ','  #  '],'W':['#   #','#   #','# # #','## ##','#   #'],'X':['#   #',' # # ','  #  ',' # # ','#   #'],'Y':['#   #',' # # ','  #  ','  #  ','  #  '],'Z':['#####','   # ','  #  ',' #   ','#####'],' ':['     ','     ','     ','     ','     '],'0':[' ### ','#   #','#   #','#   #',' ### '],'1':['  #  ',' ##  ','  #  ','  #  ','#####'],'2':[' ### ','#   #','  ## ',' #   ','#####'],'3':['#### ','   # ',' ### ','   #','#### '],'4':['#  # ','#  # ','#####','   # ','   # '],'5':['#####','#    ','#### ','    #','#### '],'6':[' ### ','#    ','#### ','#   #',' ### '],'7':['#####','   # ','  #  ',' #   ','#    '],'8':[' ### ','#   #',' ### ','#   #',' ### '],'9':[' ### ','#   #',' ####','    #',' ### ']
+},
+standard:{
+'A':['    #    ','   ###   ','  # # #  ',' #  #  # ','#########','#   #   #','#   #   #'],'B':['######   ','#     #  ','######   ','#     #  ','#      # ','#     #  ','######   '],'C':['  #####  ',' #     # ','#        ','#        ','#        ',' #     # ','  #####  '],'D':['#####    ','#     #  ','#      # ','#      # ','#      # ','#     #  ','#####    '],'E':['#########','#        ','#####    ','#        ','#        ','#        ','#########'],'F':['#########','#        ','#####    ','#        ','#        ','#        ','#        '],'G':['  #####  ',' #     # ','#        ','#   #### ','#      # ',' #     # ','  #####  '],'H':['#   #   #','#   #   #','#   #   #','#########','#   #   #','#   #   #','#   #   #'],'I':['#########','   #     ','   #     ','   #     ','   #     ','   #     ','#########'],'K':['#     #  ','#    #   ','#   #    ','####     ','#   #    ','#    #   ','#     #  '],'L':['#        ','#        ','#        ','#        ','#        ','#        ','#########'],'M':['#       #','##     ##','# #   # #','#  # #  #','#   #   #','#       #','#       #'],'O':['  #####  ',' #     # ','#       #','#       #','#       #',' #     # ','  #####  '],'S':[' ####### ','#        ',' #####   ','      #  ','       # ','#       #',' ####### '],'T':['#########','   #     ','   #     ','   #     ','   #     ','   #     ','   #     '],'U':['#       #','#       #','#       #','#       #','#       #',' #     # ','  #####  '],'W':['#       #','#       #','#       #','# #   # #','##     ##','#       #','#       #'],' ':'         ','         ','         ','         ','         ','         ','         ']
+},
+large:{
+'A':['           #           ','          ###          ','         ## ##         ','        #  #  #        ','       #   #   #       ','      #    #    #      ','     #     #     #     ','    #      #      #    ','   #       #       #   ','  ######### #########  ','  #       # #       #  ','  #       # #       #  '],'S':['    ##############     ','   #              #    ','  #                #   ',' #                  #  ',' #    ############     ',' #              #      ','  #                #   ','   #              #    ','    #            #     ','     #          #      ','      ##############   '],'T':['#####################  ','         #            ','         #            ','         #            ','         #            ','         #            ','         #            ','         #            ','         #            ','         #            ','         #            '],'H':['#             #       ','#             #       ','#             #       ','#             #       ','##################### ','#             #       ','#             #       ','#             #       ','#             #       ','#             #       ','#             #       '],'E':['#####################  ','#                     ','#                     ','#                     ','################      ','#                     ','#                     ','#                     ','#                     ','#                     ','#####################  '],'L':['#                     ','#                     ','#                     ','#                     ','#                     ','#                     ','#                     ','#                     ','#                     ','#                     ','#####################  '],'O':['    ##############     ','   #              #    ','  #                #   ',' #                  #  ',' #                  #  ',' #                  #  ',' #                  #  ',' #                  #  ','  #                #   ','   #              #    ','    ##############     '],'W':['#                     ','#                     ','#    #           #    ','#    #           #    ','#     #         #     ','#      #       #      ','#       #     #       ','#        #   #        ','#         # #         ','#          #          ','#                     '],' ':[],  '0':['    ##############     ','   #              #    ','  #     #    #     #   ',' #      #    #      #  ',' #      #    #      #  ',' #      #    #      #  ',' #      #    #      #  ',' #      #    #      #  ','  #     #    #     #   ','   #              #    ','   ##############     '],'1':['           #          ','          ##          ','         # #          ','        #  #          ','           #          ','           #          ','           #          ','           #          ','           #          ','           #          ','      #############   '],'2':['    ##############     ','   #              #    ','              #        ','             #         ','            #          ','           #           ','          #            ','         #             ','        #              ','                       ','#####################  '],'3':['    ##############     ','   #              #    ','               #       ','               #       ','    ##############     ','               #       ','               #       ','               #       ','               #       ','   #              #    ','    ##############     '],'4':['#            #        ','#            #        ','#            #        ','#            #        ','#            #        ','#####################  ','            #         ','            #         ','            #         ','            #         ','            #         '],'5':['#####################  ','#                     ','#                     ','################      ','              #       ','               #      ','                #     ','                #     ','#               #     ',' #              #     ','  ##############      '],'6':['    ##############     ','   #              #    ',' #                     ','#                      ','#                      ','###################    ','#               #      ','#                #     ',' #              #      ','  #            #       ','   ##########         '],'7':['#####################  ','               #      ','              #       ','             #        ','            #         ','           #          ','          #           ','         #            ','        #             ','       #              ','      #               '],'8':['    ##############     ','   #              #    ',' #               #     ',' #               #     ','  #              #     ','    ##############     ','   #              #    ','  #               #    ',' #                #    ',' #                #    ','  ##############      '],'9':['    ##############     ','   #              #    ','  #               #    ',' #                #    ',' #                #    ','  ############### #    ','               #      ','              #       ','             #        ','   #              #    ','    ##############     ']
+}
+};
+
+function convertText(){
+const text=document.getElementById('textInput').value.toUpperCase();
+const style=document.getElementById('fontStyle').value;
+const ch=document.getElementById('textChar').value||'*';
+const font=fonts[style];
+const lines=Array(7).fill('');
+for(const char of text){
+const glyph=font[char]||font[' '];
+for(let r=0;r<7;r++){
+lines[r]+=(glyph[r]||'         ').replace(/#/g,ch)+'  ';
+}
+}
+const result=lines.join('\n').replace(/[ ]+$/gm,'');
+document.getElementById('output').style.display='block';
+document.getElementById('output').textContent=result;
+document.getElementById('actionBtns').style.display='flex';
+}
+
+const gallery=[
+{name:'猫',art:'  /\\_/\\\n ( o.o )\n  > ^ <'},
+{name:'心形',art:'  **     **\n ****   ****\n  *********\n   *******\n    *****\n     ***\n      *'},
+{name:'房子',art:'     /\\\n    /  \\\n   /    \\\n  /______\\\n  |  __  |\n  | |  | |\n  |_|__|_|'},
+{name:'笑脸',art:'  ______\n /      \\\n| O    O |\n|   __   |\n|  /  \\  |\n \\______/'},
+{name:'星星',art:'    *\n   ***\n  *****\n *******\n*********\n *******\n  *****\n   ***\n    *'},
+{name:'树',art:'    *\n   ***\n  *****\n *******\n    *\n    *\n    *'},
+{name:'鱼',art:'   ><)))º>\n    ><)))º>\n   ><)))º>'},
+{name:'月亮',art:'  **\n *  *\n*    *\n*    *\n *  *\n  **'},
+{name:'闪电',art:'   *\n  ***\n ****\n  ***\n   **\n  ***\n ****\n  ***\n   *'}
+];
+
+function initGallery(){
+const grid=document.getElementById('galleryGrid');
+gallery.forEach((g,i)=>{
+const btn=document.createElement('div');
+btn.style.cssText='padding:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:all .2s;font-size:.85rem';
+btn.onmouseover=()=>btn.style.borderColor='var(--accent)';
+btn.onmouseout=()=>btn.style.borderColor='var(--border)';
+btn.innerHTML=`<div style="font-size:1.2rem;margin-bottom:4px">${g.name}</div>`;
+btn.onclick=()=>{
+document.getElementById('output').style.display='block';
+document.getElementById('output').textContent=g.art;
+document.getElementById('actionBtns').style.display='flex';
+};
+grid.appendChild(btn);
+});
+}
+
+function copyOutput(){
+navigator.clipboard.writeText(document.getElementById('output').textContent);
+alert('已复制到剪贴板！');
+}
+
+function downloadOutput(){
+const text=document.getElementById('output').textContent;
+const blob=new Blob([text],{type:'text/plain'});
+const a=document.createElement('a');
+a.href=URL.createObjectURL(blob);
+a.download='ascii-art.txt';
+a.click();
+}
+
+initGallery();
+</script>
+</body>
+</html>

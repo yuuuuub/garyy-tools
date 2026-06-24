@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⠿ 盲文转换器 - 中文版</title>
+<meta name="description" content="在线盲文转换器 - 支持中英文盲文互转，Unicode盲文显示，可复制导出">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⠿</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg-primary:#f8fafc;--bg-card:#ffffff;--bg-input:#f1f5f9;--text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;--border:#e2e8f0;--accent:#3b82f6;--accent-hover:#2563eb;--accent-light:#dbeafe;--danger:#ef4444;--success:#22c55e;--shadow-lg:0 10px 15px -3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--transition:.2s ease}
+[data-theme="dark"]{--bg-primary:#0f172a;--bg-card:#1e293b;--bg-input:#334155;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--text-muted:#64748b;--border:#334155;--accent:#3b82f6;--accent-hover:#60a5fa;--danger:#f87171;--success:#4ade80}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.container{width:100%;max-width:560px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px 20px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.4rem;font-weight:700}
+.theme-btn{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:1.1rem}
+.direction{display:flex;gap:8px;margin-bottom:16px}
+.dir-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:.9rem;font-weight:600;cursor:pointer;text-align:center;transition:all var(--transition)}
+.dir-btn.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+label{display:block;font-size:.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:12px}
+textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text-primary);font-size:.95rem;resize:vertical;min-height:100px;font-family:inherit}
+textarea:focus{outline:none;border-color:var(--accent)}
+.braille-output{width:100%;padding:16px;border:2px solid var(--accent-light);border-radius:var(--radius-sm);background:var(--accent-light);font-size:2rem;line-height:2;letter-spacing:4px;word-break:break-all;min-height:80px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border:none;border-radius:var(--radius-sm);font-size:.95rem;font-weight:600;cursor:pointer;transition:all var(--transition);width:100%;margin-top:12px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-success{background:var(--success);color:#fff}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions .btn{flex:1}
+.reference{margin-top:16px;padding:12px;background:var(--bg-input);border-radius:var(--radius-sm)}
+.reference h3{font-size:.85rem;color:var(--text-secondary);margin-bottom:8px}
+.braille-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px;font-size:.8rem}
+.braille-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;background:var(--bg-card)}
+.braille-char{font-size:1.4rem}
+.braille-name{color:var(--text-muted)}
+.info{font-size:.8rem;color:var(--text-muted);margin-top:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>⠿ 盲文转换器</h1>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+</header>
+
+<div class="direction">
+<div class="dir-btn active" onclick="setDir('toBraille',this)">文本 → 盲文</div>
+<div class="dir-btn" onclick="setDir('fromBraille',this)">盲文 → 文本</div>
+</div>
+
+<div id="toBrailleArea">
+<label>输入文本(中英文)</label>
+<textarea id="textInput" placeholder="输入要转换的文本...">Hello 你好</textarea>
+</div>
+<div id="fromBrailleArea" class="hidden">
+<label>输入盲文字符</label>
+<textarea id="brailleInput" placeholder="输入盲文字符..."></textarea>
+</div>
+
+<button class="btn btn-primary" onclick="convert()">🔄 转换</button>
+
+<label>盲文结果</label>
+<div class="braille-output" id="output">-</div>
+
+<div class="actions">
+<button class="btn btn-success" onclick="copyResult()">📋 复制</button>
+<button class="btn btn-primary" onclick="speakBraille()">🔊 语音朗读</button>
+</div>
+
+<div class="info">
+<strong>盲文说明：</strong>Unicode盲文字符范围 U+2800-U+28FF。每个字符由6个点位(2列×3行)组成，用二进制编码。
+<br>中文盲文采用拼音方案，每个汉字对应多个盲文字符。
+</div>
+
+<div class="reference">
+<h3>英文字母盲文对照</h3>
+<div class="braille-grid" id="refGrid"></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+function toggleTheme(){
+const t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+document.documentElement.dataset.theme=t;
+document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+}
+
+let dir='toBraille';
+
+function setDir(d,el){
+dir=d;
+document.querySelectorAll('.dir-btn').forEach(b=>b.classList.remove('active'));
+el.classList.add('active');
+document.getElementById('toBrailleArea').classList.toggle('hidden',d!=='toBraille');
+document.getElementById('fromBrailleArea').classList.toggle('hidden',d!=='fromBraille');
+}
+
+// English letter to braille (Unicode pattern)
+const enToBraille={
+'a':'⠁','b':'⠃','c':'⠉','d':'⠙','e':'⠑','f':'⠋','g':'⠛','h':'⠓','i':'⠊','j':'⠚',
+'k':'⠅','l':'⠇','m':'⠍','n':'⠝','o':'⠕','p':'⠏','q':'⠟','r':'⠗','s':'⠎','t':'⠞',
+'u':'⠥','v':'⠧','w':'⠺','x':'⠭','y':'⠽','z':'⠵',
+'A':'⠁','B':'⠃','C':'⠉','D':'⠙','E':'⠑','F':'⠋','G':'⠛','H':'⠓','I':'⠊','J':'⠚',
+'K':'⠅','L':'⠇','M':'⠍','N':'⠝','O':'⠕','P':'⠏','Q':'⠟','R':'⠗','S':'⠎','T':'⠞',
+'U':'⠥','V':'⠧','W':'⠺','X':'⠭','Y':'⠽','Z':'⠵',
+'1':'⠼⠁','2':'⠼⠃','3':'⠼⠉','4':'⠼⠙','5':'⠼⠑','6':'⠼⠋','7':'⠼⠛','8':'⠼⠓','9':'⠼⠊','0':'⠼⠚',
+' ':'⠀','!':'⠖','?':'⠦',',':'⠂','.':'⠲',':':'⠒',';':'⠆','-':'⠤','(':'⠐⠜',')':'⠐⠴','"':'⠦','\'':'⠄','/':'⠌'
+};
+
+const brailleToEn={};
+Object.entries(enToBraille).forEach(([k,v])=>{brailleToEn[v]=k;});
+
+// Chinese to braille (pinyin-based)
+const cnToPinyin={
+'一':'yi1','二':'er4','三':'san1','四':'si4','五':'wu3','六':'liu4','七':'qi1','八':'ba1','九':'jiu3','十':'shi2',
+'你':'ni3','好':'hao3','是':'shi4','我':'wo3','的':'de5','他':'ta1','她':'ta1',
+'在':'zai4','有':'you3','这':'zhe4','那':'na4','人':'ren2','大':'da4','中':'zhong1','国':'guo2',
+'爱':'ai4','不':'bu4','会':'hui4','说':'shuo1','来':'lai2','去':'qu4','看':'kan4','想':'xiang3',
+'时':'shi2','间':'jian1','天':'tian1','地':'di4','水':'shui3','火':'huo3','山':'shan1',
+'花':'hua1','风':'feng1','雨':'yu3','雪':'xue3','光':'guang1','明':'ming2',
+'红':'hong2','蓝':'lan2','黄':'huang2','黑':'hei1','白':'bai2',
+'学':'xue2','书':'shu1','吃':'chi1','走':'zou3','跑':'pao3','飞':'fei1',
+'上':'shang4','下':'xia4','左':'zuo3','右':'you4','前':'qian2','后':'hou4',
+'开':'kai1','关':'guan1','做':'zuo4','对':'dui4','新':'xin1','快':'kuai4',
+'高':'gao1','低':'di1','多':'duo1','少':'shao3'
+};
+
+function pinyinToBraille(py){
+let result='';
+const tone=py.slice(-1);
+const base=py.slice(0,-1);
+const toneMap={'1':'⠁','2':'⠃','3':'⠉','4':'⠙','5':'⠑'};
+for(const ch of base){
+if(enToBraille[ch.toLowerCase()])result+=enToBraille[ch.toLowerCase()];
+}
+result+=toneMap[tone]||'';
+return result;
+}
+
+function textToBraille(text){
+let result='';
+for(const ch of text){
+if(cnToPinyin[ch]){
+result+=pinyinToBraille(cnToPinyin[ch])+'⠀';
+}else if(enToBraille[ch]){
+result+=enToBraille[ch];
+}else if(ch===' '){
+result+='⠀';
+}else{
+result+=ch;
+}
+}
+return result;
+}
+
+function brailleToText(braille){
+let result='';
+let i=0;
+while(i<braille.length){
+const ch=braille[i];
+if(brailleToEn[ch]){
+result+=brailleToEn[ch];
+}else if(ch==='⠀'){
+result+=' ';
+}else if(ch==='⠼'){
+// Number indicator
+i++;
+while(i<braille.length&&brailleToEn[braille[i]]){
+const numMap={'⠁':'1','⠃':'2','⠉':'3','⠙':'4','⠑':'5','⠋':'6','⠛':'7','⠓':'8','⠊':'9','⠚':'0'};
+result+=numMap[braille[i]]||braille[i];
+i++;
+}
+i--; 
+}else{
+result+=ch;
+}
+i++;
+}
+return result;
+}
+
+function convert(){
+if(dir==='toBraille'){
+const text=document.getElementById('textInput').value;
+document.getElementById('output').textContent=textToBraille(text)||'⠀';
+}else{
+const braille=document.getElementById('brailleInput').value;
+document.getElementById('output').textContent=brailleToText(braille)||'-';
+}
+}
+
+function copyResult(){
+const text=document.getElementById('output').textContent;
+navigator.clipboard.writeText(text);
+alert('已复制到剪贴板！');
+}
+
+function speakBraille(){
+const text=document.getElementById('textInput').value||document.getElementById('brailleInput').value;
+if(!text)return;
+const synth=window.speechSynthesis;
+const utter=new SpeechSynthesisUtterance(text);
+utter.lang='zh-CN';
+synth.speak(utter);
+}
+
+function initRef(){
+const grid=document.getElementById('refGrid');
+const letters='abcdefghijklmnopqrstuvwxyz'.split('');
+letters.forEach(l=>{
+grid.innerHTML+=`<div class="braille-item"><span class="braille-char">${enToBraille[l]}</span><span class="braille-name">${l}</span></div>`;
+});
+grid.innerHTML+=`<div class="braille-item"><span class="braille-char">⠀</span><span class="braille-name">空格</span></div>`;
+'1234567890'.split('').forEach(n=>{
+grid.innerHTML+=`<div class="braille-item"><span class="braille-char">${enToBraille[n]}</span><span class="braille-name">${n}</span></div>`;
+});
+}
+
+initRef();
+</script>
+</body>
+</html>
