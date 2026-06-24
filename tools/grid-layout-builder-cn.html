@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="网格布局构建器 - 可视化创建CSS Grid布局并导出代码">
+    <meta name="robots" content="index, follow">
+    <title>网格布局构建器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #10b981; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #34d399; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .btn-danger { background-color: var(--danger-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .preview-grid { display: grid; gap: 8px; min-height: 300px; border: 2px dashed var(--border-color); border-radius: 8px; padding: 12px; background: var(--bg-color); }
+        .grid-item { background: var(--primary-color); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; min-height: 60px; cursor: pointer; position: relative; font-size: 14px; }
+        .grid-item:hover { opacity: 0.85; }
+        .grid-item .remove { position: absolute; top: 4px; right: 8px; background: rgba(0,0,0,0.4); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; }
+        .code-output { white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 13px; background: var(--bg-color); padding: 16px; border-radius: 6px; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto; }
+        .preset-btn { padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg); cursor: pointer; font-size: 13px; }
+        .preset-btn:hover { border-color: var(--primary-color); }
+        .preset-btn.active { border-color: var(--primary-color); background: var(--primary-color); color: white; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>网格布局构建器</h1>
+
+        <div class="card">
+            <h3>预设模板</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="preset-btn" onclick="applyPreset('twoCol')">两栏</button>
+                <button class="preset-btn" onclick="applyPreset('threeCol')">三栏</button>
+                <button class="preset-btn" onclick="applyPreset('holy')">圣杯布局</button>
+                <button class="preset-btn" onclick="applyPreset('dashboard')">仪表盘</button>
+                <button class="preset-btn" onclick="applyPreset('gallery')">画廊</button>
+                <button class="preset-btn" onclick="applyPreset('blog')">博客</button>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>网格配置</h3>
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>列数</label>
+                        <input type="number" id="cols" value="3" min="1" max="12" onchange="renderPreview()">
+                    </div>
+                    <div class="form-group">
+                        <label>行数</label>
+                        <input type="number" id="rows" value="3" min="1" max="12" onchange="renderPreview()">
+                    </div>
+                    <div class="form-group">
+                        <label>间距 (px)</label>
+                        <input type="number" id="gap" value="8" min="0" max="50" onchange="renderPreview()">
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>列宽模式</label>
+                        <select id="colSizing" onchange="renderPreview()">
+                            <option value="fr">等宽 (fr)</option>
+                            <option value="px">固定像素 (px)</option>
+                            <option value="percent">百分比 (%)</option>
+                            <option value="auto">自适应 (auto)</option>
+                            <option value="minmax">自适应范围 (minmax)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>行高模式</label>
+                        <select id="rowSizing" onchange="renderPreview()">
+                            <option value="auto">自动</option>
+                            <option value="px">固定像素</option>
+                            <option value="minmax">自适应范围</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="addItem()">+ 添加网格项</button>
+                <button class="btn-danger btn-sm" onclick="clearItems()">清空</button>
+            </div>
+
+            <div class="card">
+                <h3>选中项配置 <span id="selectedInfo" style="font-size:12px;color:var(--secondary-color);"></span></h3>
+                <div id="itemConfig" style="color:var(--secondary-color);">点击预览区域的网格项进行编辑</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>预览</h3>
+            <div class="preview-grid" id="previewGrid"></div>
+        </div>
+
+        <div class="card">
+            <h3>生成的CSS</h3>
+            <button class="btn-sm" onclick="copyCode()">复制代码</button>
+            <div class="code-output" id="codeOutput"></div>
+        </div>
+    </div>
+
+    <script defer src="i18n.js"></script>
+    <script>
+        let items = [];
+        let selectedItem = null;
+        const colors = ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+
+        const presets = {
+            twoCol: { cols: 2, rows: 2, items: [{gc:'1/3',gr:'1/2'},{gc:'1/2',gr:'2/3'},{gc:'2/3',gr:'2/3'}] },
+            threeCol: { cols: 3, rows: 3, items: [{gc:'1/2',gr:'1/4'},{gc:'2/4',gr:'1/2'},{gc:'2/3',gr:'2/3'},{gc:'3/4',gr:'2/3'},{gc:'2/4',gr:'3/4'}] },
+            holy: { cols: 3, rows: 3, items: [{gc:'1/4',gr:'1/2'},{gc:'1/2',gr:'2/3'},{gc:'2/3',gr:'2/3'},{gc:'3/4',gr:'2/3'},{gc:'1/4',gr:'3/4'}] },
+            dashboard: { cols: 4, rows: 3, items: [{gc:'1/2',gr:'1/4'},{gc:'2/3',gr:'1/2'},{gc:'3/5',gr:'1/3'},{gc:'2/3',gr:'2/3'},{gc:'1/2',gr:'2/4'},{gc:'2/3',gr:'3/4'},{gc:'3/5',gr:'3/4'}] },
+            gallery: { cols: 4, rows: 3, items: [{gc:'1/3',gr:'1/2'},{gc:'3/4',gr:'1/2'},{gc:'4/5',gr:'1/2'},{gc:'1/2',gr:'2/3'},{gc:'2/4',gr:'2/4'},{gc:'4/5',gr:'2/3'},{gc:'1/3',gr:'3/4'},{gc:'3/4',gr:'3/4'},{gc:'4/5',gr:'3/4'}] },
+            blog: { cols: 3, rows: 4, items: [{gc:'1/3',gr:'1/2'},{gc:'3/4',gr:'1/3'},{gc:'3/4',gr:'3/4'},{gc:'1/2',gr:'2/4'},{gc:'2/3',gr:'2/3'},{gc:'2/3',gr:'3/4'},{gc:'1/4',gr:'4/5'}] }
+        };
+
+        function init() { addItem(); renderPreview(); }
+
+        function addItem() {
+            items.push({ id: Date.now(), gc: 'auto', gr: 'auto', label: 'Item ' + (items.length+1), color: colors[items.length % colors.length] });
+            renderPreview();
+        }
+
+        function removeItem(id, e) {
+            e.stopPropagation();
+            items = items.filter(x => x.id !== id);
+            if (selectedItem === id) { selectedItem = null; document.getElementById('itemConfig').innerHTML = '点击预览区域的网格项进行编辑'; document.getElementById('selectedInfo').textContent = ''; }
+            renderPreview();
+        }
+
+        function clearItems() { items = []; selectedItem = null; renderPreview(); document.getElementById('itemConfig').innerHTML = '点击预览区域的网格项进行编辑'; document.getElementById('selectedInfo').textContent = ''; }
+
+        function renderPreview() {
+            const cols = +document.getElementById('cols').value;
+            const rows = +document.getElementById('rows').value;
+            const gap = +document.getElementById('gap').value;
+            const colSizing = document.getElementById('colSizing').value;
+            const rowSizing = document.getElementById('rowSizing').value;
+
+            const colDef = colSizing === 'fr' ? `repeat(${cols}, 1fr)` :
+                           colSizing === 'px' ? `repeat(${cols}, 100px)` :
+                           colSizing === 'percent' ? `repeat(${cols}, 1fr)` :
+                           colSizing === 'auto' ? `repeat(${cols}, auto)` :
+                           `repeat(${cols}, minmax(100px, 1fr))`;
+            const rowDef = rowSizing === 'auto' ? 'auto' : rowSizing === 'px' ? `repeat(${rows}, 100px)` : `repeat(${rows}, minmax(80px, auto))`;
+
+            const grid = document.getElementById('previewGrid');
+            grid.style.gridTemplateColumns = colDef;
+            grid.style.gridTemplateRows = rowDef;
+            grid.style.gap = gap + 'px';
+
+            grid.innerHTML = items.map(item => {
+                const style = {};
+                if (item.gc !== 'auto') style.gridColumn = item.gc;
+                if (item.gr !== 'auto') style.gridRow = item.gr;
+                const styleStr = Object.entries(style).map(([k,v])=>`${k}:${v}`).join(';');
+                return `<div class="grid-item" style="${styleStr};background:${item.color};${selectedItem===item.id?'box-shadow:0 0 0 3px white,0 0 0 5px var(--primary-color);':''}" onclick="selectItem(${item.id})">${item.label}<button class="remove" onclick="removeItem(${item.id},event)">×</button></div>`;
+            }).join('');
+
+            updateCode(colDef, rowDef, gap);
+        }
+
+        function selectItem(id) {
+            selectedItem = id;
+            const item = items.find(x => x.id === id);
+            document.getElementById('selectedInfo').textContent = `(${item.label})`;
+            document.getElementById('itemConfig').innerHTML = `
+                <div class="form-group"><label>标签</label><input type="text" value="${item.label}" onchange="updateItem(${id},'label',this.value)"></div>
+                <div class="grid-2">
+                    <div class="form-group"><label>grid-column</label><input type="text" value="${item.gc}" placeholder="auto" onchange="updateItem(${id},'gc',this.value)"></div>
+                    <div class="form-group"><label>grid-row</label><input type="text" value="${item.gr}" placeholder="auto" onchange="updateItem(${id},'gr',this.value)"></div>
+                </div>
+                <p style="font-size:12px;color:var(--secondary-color);">示例: 1/3 (起始/结束), span 2 (跨越2格), auto</p>
+                <div class="form-group"><label>颜色</label><input type="color" value="${item.color}" onchange="updateItem(${id},'color',this.value)" style="width:100%;height:40px;"></div>
+            `;
+            renderPreview();
+        }
+
+        function updateItem(id, key, val) {
+            const item = items.find(x => x.id === id);
+            item[key] = val;
+            renderPreview();
+        }
+
+        function updateCode(colDef, rowDef, gap) {
+            const itemCss = items.map(item => {
+                let lines = [];
+                if (item.gc !== 'auto') lines.push(`  grid-column: ${item.gc};`);
+                if (item.gr !== 'auto') lines.push(`  grid-row: ${item.gr};`);
+                if (lines.length) return `.item-${items.indexOf(item)+1} {\n${lines.join('\n')}\n}`;
+                return null;
+            }).filter(Boolean).join('\n\n');
+
+            const code = `.container {
+  display: grid;
+  grid-template-columns: ${colDef};
+  grid-template-rows: ${rowDef};
+  gap: ${gap}px;
+}
+${itemCss ? '\n' + itemCss : ''}`;
+            document.getElementById('codeOutput').textContent = code;
+        }
+
+        function copyCode() {
+            navigator.clipboard.writeText(document.getElementById('codeOutput').textContent).then(() => alert('已复制到剪贴板'));
+        }
+
+        function applyPreset(name) {
+            const p = presets[name];
+            document.getElementById('cols').value = p.cols;
+            document.getElementById('rows').value = p.rows;
+            items = p.items.map((it,i) => ({ id: Date.now()+i, gc: it.gc, gr: it.gr, label: 'Item '+(i+1), color: colors[i % colors.length] }));
+            selectedItem = null;
+            document.getElementById('itemConfig').innerHTML = '点击预览区域的网格项进行编辑';
+            document.getElementById('selectedInfo').textContent = '';
+            renderPreview();
+        }
+
+        function toggleTheme() {
+            const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        }
+
+        init();
+    </script>
+</body>
+</html>
