@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加密工具 - 在线文本加密</title>
+<meta name="description" content="在线加密工具 - 支持AES、DES、Triple DES、Base64、ROT13等多种加密算法">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --bg-card: #161b22; --bg-input: #0d1117;
+  --border: #30363d; --text: #e6edf3; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-hover: #79c0ff; --danger: #f85149;
+  --success: #3fb950; --warning: #d2991d; --radius: 8px;
+}
+[data-theme="light"] { --bg: #f6f8fa; --bg-card: #fff; --bg-input: #fff; --border: #d0d7de; --text: #1f2328; --text-secondary: #656d76; --accent: #0969da; --accent-hover: #0550ae; --danger: #cf222e; --success: #1a7f37; --warning: #9a6700; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), #bc8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 8px; }
+.subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 32px; }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+.card h2 { font-size: 1.1rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+label { display: block; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 4px; margin-top: 12px; }
+input, select, textarea { width: 100%; padding: 10px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.95rem; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; font-family: monospace; }
+.row { display: flex; gap: 12px; align-items: flex-end; }
+.row > * { flex: 1; }
+.btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: 0.2s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+.actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 0.9rem; z-index: 1000; animation: slideIn 0.3s ease; }
+.toast-success { background: var(--success); }
+.toast-error { background: var(--danger); }
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.algo-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+.algo-tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85rem; background: transparent; color: var(--text-secondary); transition: 0.2s; }
+.algo-tab:hover { border-color: var(--accent); color: var(--accent); }
+.algo-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.output-box { padding: 16px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; font-family: monospace; font-size: 0.9rem; word-break: break-all; white-space: pre-wrap; max-height: 300px; overflow-y: auto; min-height: 80px; }
+.algo-info { padding: 12px; background: var(--bg-input); border-radius: 6px; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; }
+.swap-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; font-size: 1.1rem; transition: 0.2s; }
+.swap-btn:hover { border-color: var(--accent); background: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔒 加密工具</h1>
+  <p class="subtitle">支持多种加密算法 · 客户端运行，数据不上传</p>
+
+  <div class="card">
+    <h2>🔧 选择加密算法</h2>
+    <div class="algo-tabs" id="algo-tabs">
+      <div class="algo-tab active" onclick="selectAlgo('base64')">Base64</div>
+      <div class="algo-tab" onclick="selectAlgo('rot13')">ROT13</div>
+      <div class="algo-tab" onclick="selectAlgo('caesar')">凯撒密码</div>
+      <div class="algo-tab" onclick="selectAlgo('xor')">XOR</div>
+      <div class="algo-tab" onclick="selectAlgo('aes-gcm')">AES-GCM</div>
+      <div class="algo-tab" onclick="selectAlgo('aes-cbc')">AES-CBC</div>
+      <div class="algo-tab" onclick="selectAlgo('des')">DES</div>
+      <div class="algo-tab" onclick="selectAlgo('vigenere')">维吉尼亚</div>
+      <div class="algo-tab" onclick="selectAlgo('reverse')">反转字符串</div>
+      <div class="algo-tab" onclick="selectAlgo('hex')">十六进制</div>
+      <div class="algo-tab" onclick="selectAlgo('binary')">二进制</div>
+      <div class="algo-tab" onclick="selectAlgo('morse')">摩尔斯电码</div>
+    </div>
+    <div class="algo-info" id="algo-info">Base64: 将文本编码为Base64格式，常用于数据传输</div>
+  </div>
+
+  <div class="card">
+    <h2>📝 输入文本</h2>
+    <label>明文</label>
+    <textarea id="plaintext" rows="4" placeholder="输入要加密的文本..."></textarea>
+    <label>密钥 <span id="key-label" style="color:var(--text-secondary)">(Base64无需密钥)</span></label>
+    <input id="key" type="password" placeholder="输入密钥（如需要）">
+    <div id="caesar-options" style="display:none;margin-top:12px">
+      <label>偏移量</label>
+      <input id="caesar-shift" type="number" value="3" min="1" max="25">
+    </div>
+    <div id="vigenere-options" style="display:none;margin-top:12px">
+      <label>密钥词</label>
+      <input id="vigenere-key" placeholder="例如: KEY">
+    </div>
+    <div id="xor-options" style="display:none;margin-top:12px">
+      <label>XOR密钥（字符串或十六进制）</label>
+      <input id="xor-key" placeholder="例如: secret 或 4f5259">
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="encrypt()">🔒 加密</button>
+      <button class="btn btn-outline" onclick="clearAll()">清空</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📤 加密结果</h2>
+    <div class="output-box" id="output">等待加密...</div>
+    <div class="actions">
+      <button class="btn btn-outline btn-sm" onclick="copyOutput()">📋 复制结果</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadOutput()">💾 下载</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentAlgo = 'base64';
+
+const algoInfo = {
+  'base64': 'Base64: 将文本编码为Base64格式，常用于数据传输和存储',
+  'rot13': 'ROT13: 将每个字母替换为字母表中第13位后的字母，简单替换密码',
+  'caesar': '凯撒密码: 将每个字母按指定偏移量进行位移的古典密码',
+  'xor': 'XOR: 使用密钥对每个字节进行异或运算，可逆加密',
+  'aes-gcm': 'AES-GCM: 高强度对称加密，自带完整性验证，推荐使用',
+  'aes-cbc': 'AES-CBC: 高强度对称加密模式，需要初始化向量(IV)',
+  'des': 'DES: 经典对称加密算法，密钥长度8字节，安全性较低',
+  'vigenere': '维吉尼亚密码: 使用多字母替换的古典密码，密钥为单词',
+  'reverse': '反转字符串: 将文本顺序完全反转',
+  'hex': '十六进制: 将文本转换为十六进制表示',
+  'binary': '二进制: 将文本转换为二进制表示',
+  'morse': '摩尔斯电码: 将文本转换为点划表示的摩尔斯电码'
+};
+
+const keyLabels = {
+  'base64': '(Base64无需密钥)', 'rot13': '(ROT13无需密钥)', 'reverse': '(无需密钥)',
+  'hex': '(无需密钥)', 'binary': '(无需密钥)', 'morse': '(无需密钥)',
+  'caesar': '(偏移量)', 'xor': '(XOR密钥)', 'aes-gcm': '(密码)', 'aes-cbc': '(密码)',
+  'des': '(8字节密钥)', 'vigenere': '(密钥词)'
+};
+
+function selectAlgo(algo) {
+  currentAlgo = algo;
+  document.querySelectorAll('.algo-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('algo-info').textContent = algoInfo[algo];
+  document.getElementById('key-label').textContent = keyLabels[algo] || '';
+  document.getElementById('caesar-options').style.display = algo === 'caesar' ? 'block' : 'none';
+  document.getElementById('vigenere-options').style.display = algo === 'vigenere' ? 'block' : 'none';
+  document.getElementById('xor-options').style.display = algo === 'xor' ? 'block' : 'none';
+}
+
+function toast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+function copyOutput() {
+  const text = document.getElementById('output').textContent;
+  navigator.clipboard.writeText(text);
+  toast('已复制到剪贴板');
+}
+
+function downloadOutput() {
+  const text = document.getElementById('output').textContent;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'encrypted-' + Date.now() + '.txt';
+  a.click();
+}
+
+function clearAll() {
+  document.getElementById('plaintext').value = '';
+  document.getElementById('key').value = '';
+  document.getElementById('output').textContent = '等待加密...';
+}
+
+function textToUint8Array(text) {
+  return new TextEncoder().encode(text);
+}
+
+function uint8ArrayToText(arr) {
+  return new TextDecoder().decode(arr);
+}
+
+function hexEncode(arr) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexDecode(str) {
+  const arr = new Uint8Array(str.length / 2);
+  for (let i = 0; i < arr.length; i++) arr[i] = parseInt(str.substr(i * 2, 2), 16);
+  return arr;
+}
+
+async function deriveKey(password, salt, algorithm) {
+  const keyMaterial = await crypto.subtle.importKey('raw', textToUint8Array(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: algorithm === 'des' ? 'DES-CBC' : 'AES-GCM', length: algorithm === 'des' ? 64 : 256 },
+    false,
+    ['encrypt']
+  );
+}
+
+async function encrypt() {
+  const text = document.getElementById('plaintext').value;
+  const key = document.getElementById('key').value;
+  if (!text) { toast('请输入明文', 'error'); return; }
+
+  let result = '';
+  try {
+    switch (currentAlgo) {
+      case 'base64':
+        result = btoa(unescape(encodeURIComponent(text)));
+        break;
+      case 'rot13':
+        result = text.replace(/[a-zA-Z]/g, c => String.fromCharCode(c.charCodeAt(0) + (c.toLowerCase() < 'n' ? 13 : -13)));
+        break;
+      case 'caesar': {
+        const shift = parseInt(document.getElementById('caesar-shift').value) || 3;
+        result = text.replace(/[a-zA-Z]/g, c => {
+          const base = c <= 'Z' ? 65 : 97;
+          return String.fromCharCode(((c.charCodeAt(0) - base + shift) % 26) + base);
+        });
+        break;
+      }
+      case 'xor': {
+        const xk = document.getElementById('xor-key').value;
+        if (!xk) { toast('请输入XOR密钥', 'error'); return; }
+        const keyBytes = xk.match(/^[0-9a-fA-F]+$/) ? hexDecode(xk) : textToUint8Array(xk);
+        const data = textToUint8Array(text);
+        const out = new Uint8Array(data.length);
+        for (let i = 0; i < data.length; i++) out[i] = data[i] ^ keyBytes[i % keyBytes.length];
+        result = hexEncode(out);
+        break;
+      }
+      case 'aes-gcm': {
+        if (!key) { toast('请输入密钥', 'error'); return; }
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const cryptoKey = await deriveKey(key, salt, 'aes-gcm');
+        const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, textToUint8Array(text));
+        result = hexEncode(salt) + ':' + hexEncode(iv) + ':' + hexEncode(new Uint8Array(encrypted));
+        break;
+      }
+      case 'aes-cbc': {
+        if (!key) { toast('请输入密钥', 'error'); return; }
+        const iv = crypto.getRandomValues(new Uint8Array(16));
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const keyMaterial = await crypto.subtle.importKey('raw', textToUint8Array(key), 'PBKDF2', false, ['deriveKey']);
+        const cryptoKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, { name: 'AES-CBC', length: 256 }, false, ['encrypt']);
+        const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, cryptoKey, textToUint8Array(text));
+        result = hexEncode(salt) + ':' + hexEncode(iv) + ':' + hexEncode(new Uint8Array(encrypted));
+        break;
+      }
+      case 'des': {
+        if (!key || key.length < 8) { toast('DES需要至少8字节密钥', 'error'); return; }
+        const desKey = textToUint8Array(key.slice(0, 8));
+        const desIv = crypto.getRandomValues(new Uint8Array(8));
+        const desCryptoKey = await crypto.subtle.importKey('raw', desKey, 'DES-CBC', false, ['encrypt']);
+        const encrypted = await crypto.subtle.encrypt({ name: 'DES-CBC', iv: desIv }, desCryptoKey, textToUint8Array(text));
+        result = hexEncode(desIv) + ':' + hexEncode(new Uint8Array(encrypted));
+        break;
+      }
+      case 'vigenere': {
+        const vk = document.getElementById('vigenere-key').value.toUpperCase().replace(/[^A-Z]/g, '');
+        if (!vk) { toast('请输入密钥词', 'error'); return; }
+        let ki = 0;
+        result = text.replace(/[a-zA-Z]/g, c => {
+          const base = c <= 'Z' ? 65 : 97;
+          const shift = vk.charCodeAt(ki % vk.length) - 65;
+          ki++;
+          return String.fromCharCode(((c.charCodeAt(0) - base + shift) % 26) + base);
+        });
+        break;
+      }
+      case 'reverse':
+        result = Array.from(text).reverse().join('');
+        break;
+      case 'hex':
+        result = hexEncode(textToUint8Array(text));
+        break;
+      case 'binary':
+        result = Array.from(textToUint8Array(text)).map(b => b.toString(2).padStart(8, '0')).join(' ');
+        break;
+      case 'morse': {
+        const morseMap = { 'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..', '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', ' ': '/' };
+        result = text.toUpperCase().split('').map(c => morseMap[c] || c).join(' ');
+        break;
+      }
+    }
+    document.getElementById('output').textContent = result;
+    toast('加密完成');
+  } catch (err) {
+    document.getElementById('output').textContent = '错误: ' + err.message;
+    toast('加密失败: ' + err.message, 'error');
+  }
+}
+</script>
+</body>
+</html>
