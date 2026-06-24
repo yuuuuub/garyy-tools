@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="无障碍审计工具 - 检查网页无障碍问题">
+    <meta name="robots" content="index, follow">
+    <title>无障碍审计工具</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #dee2e6;
+            --card-bg: #f8f9fa;
+        }
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #444444;
+            --card-bg: #2d2d2d;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-family: monospace;
+            resize: vertical;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+        }
+        .issue {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .issue.error {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid var(--danger-color);
+        }
+        .issue.warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid var(--warning-color);
+        }
+        .issue.success {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-left: 4px solid var(--success-color);
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>无障碍审计工具</h1>
+        <p>输入HTML代码或URL进行无障碍审计</p>
+        
+        <div class="form-group">
+            <label for="htmlInput">HTML代码:</label>
+            <textarea id="htmlInput" rows="10" placeholder="粘贴HTML代码..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="urlInput">或输入URL:</label>
+            <input type="text" id="urlInput" placeholder="https://example.com">
+        </div>
+        
+        <button onclick="runAudit()">开始审计</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h2>审计结果</h2>
+            <div id="issues"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            html.setAttribute('data-theme', currentTheme === 'light' ? 'dark' : 'light');
+        }
+
+        function runAudit() {
+            const htmlInput = document.getElementById('htmlInput').value;
+            const urlInput = document.getElementById('urlInput').value;
+            
+            if (!htmlInput && !urlInput) {
+                alert('请输入HTML代码或URL');
+                return;
+            }
+            
+            const issues = [];
+            
+            // 解析HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlInput || '<html><body></body></html>', 'text/html');
+            
+            // 检查图片alt属性
+            const images = doc.querySelectorAll('img');
+            images.forEach((img, index) => {
+                if (!img.getAttribute('alt')) {
+                    issues.push({
+                        type: 'error',
+                        message: `图片缺少alt属性 (索引: ${index})`
+                    });
+                }
+            });
+            
+            // 检查表单标签
+            const inputs = doc.querySelectorAll('input, select, textarea');
+            inputs.forEach((input, index) => {
+                const id = input.getAttribute('id');
+                const ariaLabel = input.getAttribute('aria-label');
+                const ariaLabelledBy = input.getAttribute('aria-labelledby');
+                const label = id ? doc.querySelector(`label[for="${id}"]`) : null;
+                
+                if (!label && !ariaLabel && !ariaLabelledBy) {
+                    issues.push({
+                        type: 'error',
+                        message: `表单元素缺少标签 (索引: ${index})`
+                    });
+                }
+            });
+            
+            // 检查标题层级
+            const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            let previousLevel = 0;
+            headings.forEach((heading) => {
+                const level = parseInt(heading.tagName.substring(1));
+                if (level - previousLevel > 1) {
+                    issues.push({
+                        type: 'warning',
+                        message: `标题层级跳跃: 从 h${previousLevel} 到 h${level}`
+                    });
+                }
+                previousLevel = level;
+            });
+            
+            // 检查链接文本
+            const links = doc.querySelectorAll('a');
+            links.forEach((link, index) => {
+                const text = link.textContent.trim();
+                if (!text || text === '点击这里' || text === '链接') {
+                    issues.push({
+                        type: 'warning',
+                        message: `链接文本不描述性 (索引: ${index})`
+                    });
+                }
+            });
+            
+            // 检查语言属性
+            if (!doc.documentElement.getAttribute('lang')) {
+                issues.push({
+                    type: 'error',
+                    message: 'html元素缺少lang属性'
+                });
+            }
+            
+            // 检查页面标题
+            const title = doc.querySelector('title');
+            if (!title || !title.textContent.trim()) {
+                issues.push({
+                    type: 'error',
+                    message: '页面缺少标题'
+                });
+            }
+            
+            // 检查ARIA角色
+            const ariaRoles = doc.querySelectorAll('[role]');
+            ariaRoles.forEach((element, index) => {
+                const role = element.getAttribute('role');
+                const validRoles = ['alert', 'button', 'dialog', 'gridcell', 'link', 'log', 'marquee', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'option', 'progressbar', 'radio', 'scrollbar', 'search', 'slider', 'spinbutton', 'status', 'tab', 'tablist', 'tabpanel', 'textbox', 'timer', 'tooltip', 'tree', 'treeitem'];
+                
+                if (!validRoles.includes(role)) {
+                    issues.push({
+                        type: 'warning',
+                        message: `无效的ARIA角色: ${role} (索引: ${index})`
+                    });
+                }
+            });
+            
+            // 显示结果
+            const resultDiv = document.getElementById('result');
+            const issuesDiv = document.getElementById('issues');
+            
+            if (issues.length === 0) {
+                issuesDiv.innerHTML = '<div class="issue success">未发现无障碍问题</div>';
+            } else {
+                issuesDiv.innerHTML = issues.map(issue => 
+                    `<div class="issue ${issue.type}">${issue.message}</div>`
+                ).join('');
+            }
+            
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
