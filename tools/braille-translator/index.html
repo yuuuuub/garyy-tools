@@ -6,305 +6,235 @@
 <title>盲文转换器 Braille Translator</title>
 <meta name="description" content="盲文转换器，实现文字与盲文之间的相互转换">
 <style>
-  :root {
-    --bg: #0d1117;
-    --bg2: #161b22;
-    --bg3: #21262d;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text2: #8b949e;
-    --accent: #58a6ff;
-    --accent2: #3fb950;
-    --accent3: #f0883e;
-    --dot-on: #f0f6fc;
-    --dot-off: #30363d;
-    --dot-off-border: #484f58;
-    --danger: #f85149;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    min-height: 100vh;
-  }
-  .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
-  header {
-    text-align: center;
-    padding: 40px 0 32px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 32px;
-  }
-  header h1 {
-    font-size: 2.2rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 8px;
-  }
-  header p { color: var(--text2); font-size: 1rem; }
-  .card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-  }
-  .card h2 {
-    font-size: 1.25rem;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .card h2 .icon { font-size: 1.4rem; }
-  textarea {
-    width: 100%;
-    min-height: 100px;
-    padding: 14px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 1rem;
-    font-family: inherit;
-    resize: vertical;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  textarea:focus { border-color: var(--accent); }
-  .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-  button {
-    padding: 10px 20px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.95rem;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg3);
-    color: var(--text);
-  }
-  button:hover { border-color: var(--accent); background: var(--bg2); }
-  button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-  button.primary:hover { background: #388bfd; }
-  button.green { background: #238636; border-color: #238636; color: #fff; }
-  button.green:hover { background: #2ea043; }
-  button.danger { background: #da3633; border-color: #da3633; color: #fff; }
-  button.danger:hover { background: #f85149; }
-  .braille-output {
-    margin-top: 16px;
-    min-height: 48px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: flex-end;
-  }
-  .braille-char {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .dot-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
-    gap: 5px;
-    padding: 8px;
-    background: var(--bg);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-  }
-  .dot {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    transition: all 0.2s;
-  }
-  .dot.on {
-    background: var(--dot-on);
-    box-shadow: 0 0 6px rgba(240, 246, 252, 0.5);
-  }
-  .dot.off {
-    background: transparent;
-    border: 2px solid var(--dot-off-border);
-  }
-  .braille-unicode {
-    font-size: 1.4rem;
-    letter-spacing: 2px;
-    word-break: break-all;
-    line-height: 1.8;
-    padding: 14px;
-    background: var(--bg);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    min-height: 50px;
-  }
-  .tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--border);
-  }
-  .tab {
-    padding: 10px 24px;
-    cursor: pointer;
-    color: var(--text2);
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    font-weight: 500;
-    transition: all 0.2s;
-    background: none;
-    border-top: none;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
-  }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-
-  /* Learn Mode */
-  .learn-display {
-    text-align: center;
-    padding: 24px;
-  }
-  .learn-braille-grid {
-    display: inline-grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
-    gap: 10px;
-    padding: 20px;
-    background: var(--bg);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    margin: 0 auto;
-  }
-  .learn-braille-grid .dot {
-    width: 32px;
-    height: 32px;
-  }
-  .learn-braille-grid .dot.on {
-    background: var(--dot-on);
-    box-shadow: 0 0 10px rgba(240, 246, 252, 0.6);
-  }
-  .learn-input {
-    text-align: center;
-    margin-top: 16px;
-  }
-  .learn-input input {
-    width: 100px;
-    padding: 10px;
-    font-size: 1.2rem;
-    text-align: center;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    outline: none;
-  }
-  .learn-input input:focus { border-color: var(--accent); }
-  .learn-feedback {
-    font-size: 1.1rem;
-    margin-top: 10px;
-    min-height: 28px;
-  }
-  .learn-score { font-size: 1rem; color: var(--accent3); margin-top: 8px; }
-
-  /* Education */
-  .edu-section { margin-bottom: 20px; }
-  .edu-section h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--accent); }
-  .edu-section p { color: var(--text2); margin-bottom: 8px; }
-  .braille-demo-table {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .braille-demo-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-    background: var(--bg);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-  }
-  .braille-demo-item .braille-unicode { font-size: 1.5rem; padding: 0; border: none; background: none; min-height: auto; }
-  .braille-demo-item .label { font-size: 0.85rem; color: var(--text2); margin-top: 4px; }
-
-  .toast {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--accent2);
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    z-index: 100;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-  }
-  .toast.show { opacity: 1; }
-
-  footer {
-    text-align: center;
-    color: var(--text2);
-    padding: 32px 0;
-    font-size: 0.85rem;
-    border-top: 1px solid var(--border);
-    margin-top: 32px;
-  }
-  .mode-indicator {
-    display: inline-block;
-    padding: 4px 10px;
-    background: var(--bg3);
-    border-radius: 20px;
-    font-size: 0.8rem;
-    color: var(--accent3);
-    margin-left: 8px;
-  }
-  select {
-    padding: 10px 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 0.95rem;
-    font-family: inherit;
-    outline: none;
-    cursor: pointer;
-  }
-  select:focus { border-color: var(--accent); }
-  .braille-pattern-dots {
-    font-size: 0.75rem;
-    color: var(--text2);
-    margin-top: 2px;
-  }
-  @media (max-width: 600px) {
-    .container { padding: 12px; }
-    header h1 { font-size: 1.6rem; }
-    .btn-row { flex-direction: column; }
-    .btn-row button { width: 100%; justify-content: center; }
-    .braille-output { gap: 8px; }
-    .dot { width: 12px; height: 12px; }
-    .dot-grid { gap: 3px; padding: 5px; }
-    .learn-braille-grid .dot { width: 24px; height: 24px; }
-    .learn-braille-grid { gap: 7px; padding: 14px; }
-  }
+:root {--bg: #0d1117;
+--bg2: #161b22;
+--bg3: #21262d;
+--border: #30363d;
+--text: #e6edf3;
+--text2: #8b949e;
+--accent: #58a6ff;
+--accent2: #3fb950;
+--accent3: #f0883e;
+--dot-on: #f0f6fc;
+--dot-off: #30363d;
+--dot-off-border: #484f58;
+--danger: #f85149}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+background: var(--bg);
+color: var(--text);
+line-height: 1.6;
+min-height: 100vh}
+.container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+header {text-align: center;
+padding: 40px 0 32px;
+border-bottom: 1px solid var(--border);
+margin-bottom: 32px}
+header h1 {font-size: 2.2rem;
+font-weight: 700;
+background: linear-gradient(135deg, var(--accent), var(--accent2));
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+margin-bottom: 8px}
+header p { color: var(--text2); font-size: 1rem; }
+.card {background: var(--bg2);
+border: 1px solid var(--border);
+border-radius: 12px;
+padding: 24px;
+margin-bottom: 24px}
+.card h2 {font-size: 1.25rem;
+margin-bottom: 16px;
+padding-bottom: 12px;
+border-bottom: 1px solid var(--border);
+display: flex;
+align-items: center;
+gap: 10px}
+.card h2 .icon { font-size: 1.4rem; }
+textarea {width: 100%;
+min-height: 100px;
+padding: 14px;
+border: 1px solid var(--border);
+border-radius: 8px;
+background: var(--bg);
+color: var(--text);
+font-size: 1rem;
+font-family: inherit;
+resize: vertical;
+outline: none;
+transition: border-color 0.2s}
+textarea:focus { border-color: var(--accent); }
+.btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+button {padding: 10px 20px;
+border: 1px solid var(--border);
+border-radius: 8px;
+font-size: 0.95rem;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.2s;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+background: var(--bg3);
+color: var(--text)}
+button:hover { border-color: var(--accent); background: var(--bg2); }
+button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+button.primary:hover { background: #388bfd; }
+button.green { background: #238636; border-color: #238636; color: #fff; }
+button.green:hover { background: #2ea043; }
+button.danger { background: #da3633; border-color: #da3633; color: #fff; }
+button.danger:hover { background: #f85149; }
+.braille-output {margin-top: 16px;
+min-height: 48px;
+display: flex;
+flex-wrap: wrap;
+gap: 12px;
+align-items: flex-end}
+.braille-char {display: flex;
+flex-direction: column;
+align-items: center;
+gap: 6px}
+.dot-grid {display: grid;
+grid-template-columns: 1fr 1fr;
+grid-template-rows: 1fr 1fr 1fr;
+gap: 5px;
+padding: 8px;
+background: var(--bg);
+border-radius: 8px;
+border: 1px solid var(--border)}
+.dot {width: 16px;
+height: 16px;
+border-radius: 50%;
+transition: all 0.2s}
+.dot.on {background: var(--dot-on);
+box-shadow: 0 0 6px rgba(240, 246, 252, 0.5)}
+.dot.off {background: transparent;
+border: 2px solid var(--dot-off-border)}
+.braille-unicode {font-size: 1.4rem;
+letter-spacing: 2px;
+word-break: break-all;
+line-height: 1.8;
+padding: 14px;
+background: var(--bg);
+border-radius: 8px;
+border: 1px solid var(--border);
+min-height: 50px}
+.tabs {display: flex;
+gap: 0;
+margin-bottom: 20px;
+border-bottom: 2px solid var(--border)}
+.tab {padding: 10px 24px;
+cursor: pointer;
+color: var(--text2);
+border-bottom: 2px solid transparent;
+margin-bottom: -2px;
+font-weight: 500;
+transition: all 0.2s;
+background: none;
+border-top: none;
+border-left: none;
+border-right: none;
+border-radius: 0}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.learn-display {text-align: center;
+padding: 24px}
+.learn-braille-grid {display: inline-grid;
+grid-template-columns: 1fr 1fr;
+grid-template-rows: 1fr 1fr 1fr;
+gap: 10px;
+padding: 20px;
+background: var(--bg);
+border-radius: 12px;
+border: 1px solid var(--border);
+margin: 0 auto}
+.learn-braille-grid .dot {width: 32px;
+height: 32px}
+.learn-braille-grid .dot.on {background: var(--dot-on);
+box-shadow: 0 0 10px rgba(240, 246, 252, 0.6)}
+.learn-input {text-align: center;
+margin-top: 16px}
+.learn-input input {width: 100px;
+padding: 10px;
+font-size: 1.2rem;
+text-align: center;
+background: var(--bg);
+border: 2px solid var(--border);
+border-radius: 8px;
+color: var(--text);
+outline: none}
+.learn-input input:focus { border-color: var(--accent); }
+.learn-feedback {font-size: 1.1rem;
+margin-top: 10px;
+min-height: 28px}
+.learn-score { font-size: 1rem; color: var(--accent3); margin-top: 8px; }
+.edu-section { margin-bottom: 20px; }
+.edu-section h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--accent); }
+.edu-section p { color: var(--text2); margin-bottom: 8px; }
+.braille-demo-table {display: grid;
+grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+gap: 8px;
+margin-top: 10px}
+.braille-demo-item {display: flex;
+flex-direction: column;
+align-items: center;
+padding: 10px;
+background: var(--bg);
+border-radius: 8px;
+border: 1px solid var(--border)}
+.braille-demo-item .braille-unicode { font-size: 1.5rem; padding: 0; border: none; background: none; min-height: auto; }
+.braille-demo-item .label { font-size: 0.85rem; color: var(--text2); margin-top: 4px; }
+.toast {position: fixed;
+bottom: 30px;
+left: 50%;
+transform: translateX(-50%);
+background: var(--accent2);
+color: #fff;
+padding: 12px 24px;
+border-radius: 8px;
+font-size: 0.95rem;
+z-index: 100;
+opacity: 0;
+transition: opacity 0.3s;
+pointer-events: none}
+.toast.show { opacity: 1; }
+footer {text-align: center;
+color: var(--text2);
+padding: 32px 0;
+font-size: 0.85rem;
+border-top: 1px solid var(--border);
+margin-top: 32px}
+.mode-indicator {display: inline-block;
+padding: 4px 10px;
+background: var(--bg3);
+border-radius: 20px;
+font-size: 0.8rem;
+color: var(--accent3);
+margin-left: 8px}
+select {padding: 10px 14px;
+background: var(--bg);
+border: 1px solid var(--border);
+border-radius: 8px;
+color: var(--text);
+font-size: 0.95rem;
+font-family: inherit;
+outline: none;
+cursor: pointer}
+select:focus { border-color: var(--accent); }
+.braille-pattern-dots {font-size: 0.75rem;
+color: var(--text2);
+margin-top: 2px}
+@media (max-width: 600px) {.container { padding: 12px; }
+header h1 { font-size: 1.6rem; }
+.btn-row { flex-direction: column; }
+.btn-row button { width: 100%; justify-content: center; }
+.braille-output { gap: 8px; }
+.dot { width: 12px; height: 12px; }
+.dot-grid { gap: 3px; padding: 5px; }
+.learn-braille-grid .dot { width: 24px; height: 24px; }
+.learn-braille-grid { gap: 7px; padding: 14px; }}
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
   <meta name="robots" content="index, follow">
@@ -381,7 +311,7 @@
     <div class="learn-display">
       <div class="learn-braille-grid" id="learn-grid"></div>
       <div class="learn-input">
-        <input type="text" id="learn-guess" maxlength="1" placeholder="?" onkeydown="if(event.key==='Enter')checkGuess()" autocomplete="off">
+        <input type="text" id="learn-guess" maxlength="1" placeholder="?" title="Enter键搜索" onkeydown="if(event.key==='Enter')checkGuess()" autocomplete="off">
         <div style="margin-top:10px;">
           <button class="primary" onclick="checkGuess()">确认</button>
           <button onclick="skipLearn()">跳过</button>
@@ -875,6 +805,6 @@ switchTab = function(name) {
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
-<script src="../i18n.js"></script>
+<script src="../i18n.js" defer></script>
 </body>
 </html>
