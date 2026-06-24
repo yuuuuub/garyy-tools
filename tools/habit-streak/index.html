@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔥 连续打卡</title>
+<meta name="description" content="习惯连续打卡追踪器，查看你的最长连续记录">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#bf8700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding:20px}
+.ctn{max-width:600px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,textarea,select,button{font-family:inherit;font-size:.95rem}
+input[type=text],input[type=date],select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;transition:border .2s}
+input:focus,select:focus{border-color:var(--accent)}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+button{padding:10px 20px;background:var(--accent);color:var(--text);border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}
+button:hover{background:var(--accent2)}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--danger)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.li{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--border);gap:12px}
+.li:last-child{border-bottom:none}
+.streak-num{font-size:1.8rem;font-weight:700;color:var(--warn);min-width:48px;text-align:center}
+.streak-info{flex:1}
+.streak-info .name{font-weight:600;font-size:1rem}
+.streak-info .meta{font-size:.8rem;color:var(--text2);margin-top:2px}
+.fire{color:#ef4444}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px}
+.cal-day{aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:var(--text2)}
+.cal-day.done{background:var(--success);color:#fff}
+.cal-day.miss{background:var(--danger);opacity:.3}
+.cal-day.future{background:var(--bg)}
+.cal-day.today{border:2px solid var(--accent)}
+.best-streak{text-align:center;padding:20px;font-size:1.2rem}
+.best-streak .num{font-size:3rem;font-weight:700;color:var(--warn)}
+.empty{color:var(--text2);text-align:center;padding:20px}
+.legend{display:flex;gap:12px;font-size:.75rem;color:var(--text2);margin-top:8px;justify-content:center}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend span::before{content:'';width:10px;height:10px;border-radius:2px;display:inline-block}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🔥 连续打卡">
+<meta property="og:description" content="习惯连续打卡追踪器，查看你的最长连续记录">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>🔥 连续打卡</h1><p>坚持每一天，创造最长连续记录</p></div>
+
+<div class="cd" id="bestSection"></div>
+
+<div class="cd"><h2>添加习惯</h2>
+<label>习惯名称</label><input type="text" id="sName" placeholder="如：早起、健身、冥想">
+<div class="bg"><button onclick="addHabit()">添加</button></div></div>
+
+<div class="cd"><h2>今日打卡</h2><div id="todayList" class="empty">暂无习惯</div></div>
+
+<div class="cd"><h2>连续记录</h2><div id="streakList" class="empty">暂无数据</div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let habits = JSON.parse(localStorage.getItem('hs_habits') || '[]');
+const today = () => new Date().toISOString().slice(0, 10);
+
+function save() { localStorage.setItem('hs_habits', JSON.stringify(habits)); }
+
+function addHabit() {
+  const name = $('sName').value.trim();
+  if (!name) { alert('请输入习惯名称'); return; }
+  habits.push({ id: Date.now(), name, created: today(), checkins: {} });
+  save(); render(); $('sName').value = '';
+}
+
+function toggleCheckin(id) {
+  const h = habits.find(x => x.id === id);
+  if (!h) return;
+  const d = today();
+  h.checkins[d] = !h.checkins[d];
+  if (!h.checkins[d]) delete h.checkins[d];
+  save(); render();
+}
+
+function deleteHabit(id) {
+  habits = habits.filter(x => x.id !== id);
+  save(); render();
+}
+
+function getStreak(h) {
+  let streak = 0, d = new Date();
+  while (true) {
+    const ds = d.toISOString().slice(0, 10);
+    if (h.checkins[ds]) { streak++; d.setDate(d.getDate() - 1); } else break;
+  }
+  return streak;
+}
+
+function getBestStreak(h) {
+  const dates = Object.keys(h.checkins).sort();
+  if (!dates.length) return 0;
+  let best = 1, current = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const prev = new Date(dates[i - 1]);
+    const curr = new Date(dates[i]);
+    const diff = (curr - prev) / 86400000;
+    if (diff === 1) { current++; best = Math.max(best, current); }
+    else current = 1;
+  }
+  return best;
+}
+
+function render() {
+  const d = today();
+  const bestHabit = habits.reduce((best, h) => !best || getStreak(h) > getStreak(best) ? h : best, null);
+  const overallBest = habits.reduce((s, h) => Math.max(s, getBestStreak(h)), 0);
+
+  $('bestSection').innerHTML = bestHabit && getStreak(bestHabit) > 0
+    ? `<div class="best-streak"><div>🔥 当前最长连续</div><div class="num">${getStreak(bestHabit)}</div><div style="color:var(--text2)">${bestHabit.name}</div></div>`
+    : `<div class="best-streak"><div style="color:var(--text2)">开始打卡，创造连续记录！</div><div class="num" style="color:var(--text2)">0</div></div>`;
+
+  $('todayList').innerHTML = habits.length ? habits.map(h => {
+    const checked = h.checkins[d];
+    return `<div class="li">
+      <div class="streak-num fire">${getStreak(h)}</div>
+      <div class="streak-info"><div class="name">${h.name}</div><div class="meta">历史最佳: ${getBestStreak(h)}天</div></div>
+      <button style="${checked ? 'background:var(--success)' : ''}" onclick="toggleCheckin(${h.id})">${checked ? '✓' : '打卡'}</button>
+      <button class="dng" style="padding:4px 10px;font-size:.8rem" onclick="deleteHabit(${h.id})">删</button>
+    </div>`;
+  }).join('') : '<div class="empty">请先添加习惯</div>';
+
+  const streakHtml = habits.map(h => {
+    const streak = getStreak(h);
+    const best = getBestStreak(h);
+    const total = Object.keys(h.checkins).length;
+    const last14 = [];
+    const nd = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const dd = new Date(nd); dd.setDate(dd.getDate() - i);
+      const ds = dd.toISOString().slice(0, 10);
+      last14.push({ date: ds.slice(5), checked: !!h.checkins[ds], today: ds === d });
+    }
+    return `<div style="padding:12px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${h.name}</strong>
+        <span style="font-size:.85rem;color:var(--warn)">🔥 ${streak}天 · 🏆 ${best}天 · 📅 ${total}天</span>
+      </div>
+      <div class="calendar" style="margin-top:8px">${last14.map(day =>
+        `<div class="cal-day ${day.checked ? 'done' : day.today ? 'today' : 'future'}">${day.date}</div>`
+      ).join('')}</div>
+    </div>`;
+  });
+  $('streakList').innerHTML = streakHtml.length ? streakHtml.join('') : '<div class="empty">暂无数据</div>';
+
+  $('streakList').innerHTML += `<div class="legend">
+    <span><span style="background:var(--success);width:10px;height:10px;border-radius:2px;display:inline-block"></span>已打卡</span>
+    <span><span style="background:var(--bg);width:10px;height:10px;border-radius:2px;display:inline-block;border:1px solid var(--border)"></span>未打卡</span>
+    <span><span style="width:10px;height:10px;border-radius:2px;display:inline-block;border:2px solid var(--accent)"></span>今天</span>
+  </div>`;
+}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>
