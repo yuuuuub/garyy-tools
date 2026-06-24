@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⛈️ 天气预警</title>
+<meta name="description" content="实时天气预警信息，台风、暴雨、高温等灾害预警提醒">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#bf8700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.6}
+.ctn{max-width:900px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}.hdr h1{font-size:1.8rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+.alert-list{max-height:400px;overflow-y:auto}
+.alert-item{padding:12px;border-radius:8px;margin-bottom:8px;border-left:4px solid;cursor:pointer;transition:all .2s}
+.alert-item:hover{transform:translateX(4px)}
+.alert-item.red{background:rgba(239,68,68,.1);border-color:#ef4444}
+.alert-item.orange{background:rgba(245,158,11,.1);border-color:#f59e0b}
+.alert-item.yellow{background:rgba(234,179,8,.1);border-color:#eab308}
+.alert-item.blue{background:rgba(59,130,246,.1);border-color:#3b82f6}
+.alert-header{display:flex;justify-content:space-between;align-items:center}
+.alert-title{font-weight:600;font-size:1rem}
+.alert-badge{padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600}
+.alert-badge.red{background:#ef4444;color:#fff}
+.alert-badge.orange{background:#f59e0b;color:#fff}
+.alert-badge.yellow{background:#eab308;color:#000}
+.alert-badge.blue{background:#3b82f6;color:#fff}
+.alert-time{font-size:.8rem;color:var(--text2);margin-top:4px}
+.alert-desc{font-size:.85rem;color:var(--text2);margin-top:6px}
+.alert-area{font-size:.8rem;margin-top:4px;padding:4px 8px;background:var(--bg);border-radius:4px;display:inline-block}
+.alert-detail{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.85rem;line-height:1.8}
+.alert-item.expanded .alert-detail{display:block}
+.weather-map{height:300px;background:var(--bg);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.map-placeholder{color:var(--text2);text-align:center}
+.map-dots{position:absolute;width:100%;height:100%}
+.map-dot{position:absolute;width:12px;height:12px;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.5}}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+.stat{background:var(--bg);border-radius:8px;padding:12px;text-align:center}
+.stat .value{font-size:1.4rem;font-weight:700;color:var(--accent)}
+.stat .label{font-size:.8rem;color:var(--text2);margin-top:4px}
+.filter-tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-tab{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:.8rem}
+.filter-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.timeline{position:relative;padding-left:20px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:16px;padding-left:20px}
+.timeline-item::before{content:'';position:absolute;left:-16px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.timeline-item .time{font-size:.8rem;color:var(--text2)}
+.timeline-item .content{font-size:.9rem;margin-top:2px}
+.hidden{display:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body{animation:fadeIn .4s ease-out}
+@keyframes flash{0%,100%{opacity:1}50%{opacity:.5}}
+.alert-item.red .alert-badge{animation:flash 1s infinite}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛈️</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="⛈️ 天气预警">
+<meta property="og:description" content="实时天气预警信息，台风、暴雨、高温等灾害预警提醒">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>⛈️ 天气预警</h1><p>实时天气预警信息，守护出行安全</p></div>
+
+<div class="cd">
+<h2>预警概览</h2>
+<div class="stat-grid">
+<div class="stat"><div class="value" style="color:var(--danger)" id="redCount">2</div><div class="label">红色预警</div></div>
+<div class="stat"><div class="value" style="color:var(--warn)" id="orangeCount">3</div><div class="label">橙色预警</div></div>
+<div class="stat"><div class="value" style="color:#eab308" id="yellowCount">5</div><div class="label">黄色预警</div></div>
+<div class="stat"><div class="value" style="color:var(--accent)" id="blueCount">1</div><div class="label">蓝色预警</div></div>
+</div>
+</div>
+
+<div class="cd">
+<h2>预警地图</h2>
+<div class="weather-map">
+<div class="map-placeholder">
+<div style="font-size:3rem">🗺️</div>
+<div>全国天气预警分布图</div>
+</div>
+<div class="map-dots" id="mapDots"></div>
+</div>
+</div>
+
+<div class="cd">
+<h2>预警列表</h2>
+<div class="filter-tabs">
+<div class="filter-tab active" onclick="filterAlerts('all')">全部</div>
+<div class="filter-tab" onclick="filterAlerts('red')">红色</div>
+<div class="filter-tab" onclick="filterAlerts('orange')">橙色</div>
+<div class="filter-tab" onclick="filterAlerts('yellow')">黄色</div>
+<div class="filter-tab" onclick="filterAlerts('blue')">蓝色</div>
+</div>
+<div class="alert-list" id="alertList"></div>
+</div>
+
+<div class="cd">
+<h2>预警时间线</h2>
+<div class="timeline" id="timeline"></div>
+</div>
+
+<div class="cd">
+<h2>防御指南</h2>
+<div id="defenseGuide"></div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const alerts=[
+  {id:1,type:'暴雨',level:'red',time:'2024-01-15 14:30',area:'北京市朝阳区、海淀区',desc:'预计未来3小时内，朝阳区、海淀区将出现100毫米以上强降水，伴有雷电和短时大风。',detail:'请市民尽量避免外出，远离河道、低洼地带，做好防涝准备。相关部门已启动应急响应。'},
+  {id:2,type:'台风',level:'orange',time:'2024-01-15 12:00',area:'浙江省沿海地区',desc:'台风"海神"将于明日凌晨在浙江沿海登陆，预计风力12级以上。',detail:'请沿海地区居民做好防台准备，船只回港避风，加固门窗，储备应急物资。'},
+  {id:3,type:'高温',level:'yellow',time:'2024-01-15 10:00',area:'上海市全市',desc:'预计未来三天最高气温将达到37°C以上。',detail:'请注意防暑降温，避免午后高温时段户外活动，多喝水，注意用电安全。'},
+  {id:4,type:'大风',level:'blue',time:'2024-01-15 08:00',area:'河北省北部',desc:'预计未来24小时内将出现6-7级偏北风。',detail:'请注意防风，加固临时搭建物，避免高空作业，行人注意避开广告牌等。'},
+  {id:5,type:'暴雨',level:'orange',time:'2024-01-15 06:00',area:'广东省珠三角地区',desc:'预计未来6小时内将出现50-80毫米降水。',detail:'请注意防范城市内涝，远离低洼地带，驾驶员注意行车安全。'},
+  {id:6,type:'雷电',level:'yellow',time:'2024-01-14 22:00',area:'江苏省南部',desc:'预计未来12小时内将发生较强雷电活动。',detail:'请减少户外活动，远离金属物体，关闭电器设备，做好防雷措施。'},
+  {id:7,type:'大雾',level:'orange',time:'2024-01-14 20:00',area:'山东省半岛地区',desc:'预计今日夜间到明日上午将出现能见度小于200米的强浓雾。',detail:'请减少不必要的出行，驾车请开启雾灯，保持安全车距。'}
+];
+let currentFilter='all';
+
+function renderAlerts(){
+  const filtered=currentFilter==='all'?alerts:alerts.filter(a=>a.level===currentFilter);
+  $('alertList').innerHTML=filtered.map(a=>`<div class="alert-item ${a.level}" onclick="toggleAlert(this)">
+    <div class="alert-header">
+      <span class="alert-title">${getAlertIcon(a.type)} ${a.type}预警</span>
+      <span class="alert-badge ${a.level}">${getLevelText(a.level)}</span>
+    </div>
+    <div class="alert-time">${a.time}</div>
+    <div class="alert-area">📍 ${a.area}</div>
+    <div class="alert-desc">${a.desc}</div>
+    <div class="alert-detail">${a.detail}</div>
+  </div>`).join('');
+}
+
+function getAlertIcon(type){
+  const icons={暴雨:'🌧️',台风:'🌀',高温:'🌡️',大风:'💨',雷电:'⚡',大雾:'🌫️'};
+  return icons[type]||'⚠️';
+}
+
+function getLevelText(level){
+  return{red:'红色',orange:'橙色',yellow:'黄色',blue:'蓝色'}[level]||level;
+}
+
+function filterAlerts(level){
+  currentFilter=level;
+  document.querySelectorAll('.filter-tab').forEach((t,i)=>t.classList.toggle('active',['all','red','orange','yellow','blue'][i]===level));
+  renderAlerts();
+}
+
+function toggleAlert(el){
+  el.classList.toggle('expanded');
+}
+
+function renderMapDots(){
+  const dots=[
+    {x:'20%',y:'30%',color:'#ef4444'},
+    {x:'75%',y:'45%',color:'#f59e0b'},
+    {x:'60%',y:'70%',color:'#eab308'},
+    {x:'35%',y:'55%',color:'#3b82f6'},
+    {x:'85%',y:'25%',color:'#ef4444'},
+    {x:'45%',y:'40%',color:'#f59e0b'}
+  ];
+  $('mapDots').innerHTML=dots.map(d=>`<div class="map-dot" style="left:${d.x};top:${d.y};background:${d.color}"></div>`).join('');
+}
+
+function renderTimeline(){
+  const timeline=[
+    {time:'14:30',content:'北京市发布暴雨红色预警'},
+    {time:'12:00',content:'浙江省发布台风橙色预警'},
+    {time:'10:00',content:'上海市发布高温黄色预警'},
+    {time:'08:00',content:'河北省发布大风蓝色预警'},
+    {time:'06:00',content:'广东省发布暴雨橙色预警'},
+    {time:'昨日 22:00',content:'江苏省发布雷电黄色预警'}
+  ];
+  $('timeline').innerHTML=timeline.map(t=>`<div class="timeline-item"><div class="time">${t.time}</div><div class="content">${t.content}</div></div>`).join('');
+}
+
+function renderDefenseGuide(){
+  const guides=[
+    {icon:'🌧️',title:'暴雨防御',content:'远离河道、低洼地带，避免驾车涉水，准备应急物资'},
+    {icon:'🌀',title:'台风防御',content:'加固门窗，船只回港，储备食物和饮用水'},
+    {icon:'🌡️',title:'高温防御',content:'减少户外活动，多喝水，注意防暑降温'},
+    {icon:'💨',title:'大风防御',content:'加固临时搭建物，避免高空作业，远离广告牌'},
+    {icon:'⚡',title:'雷电防御',content:'远离金属物体，关闭电器，避免户外活动'}
+  ];
+  $('defenseGuide').innerHTML=guides.map(g=>`<div class="alert-item blue" style="margin-bottom:8px">
+    <div class="alert-title">${g.icon} ${g.title}</div>
+    <div class="alert-desc">${g.content}</div>
+  </div>`).join('');
+}
+
+renderAlerts();
+renderMapDots();
+renderTimeline();
+renderDefenseGuide();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

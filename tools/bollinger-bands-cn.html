@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="布林带计算器 - 计算和绘制布林带指标，判断价格波动范围和超买超卖">
+    <meta name="robots" content="index, follow">
+    <title>布林带计算器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .stat-box { text-align: center; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; }
+        .stat-box .num { font-size: 22px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .legend span { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+        .signal { padding: 12px; border-radius: 8px; margin-top: 12px; font-weight: bold; }
+        .signal-buy { background: rgba(40,167,69,0.15); color: var(--success-color); border: 1px solid var(--success-color); }
+        .signal-sell { background: rgba(220,53,69,0.15); color: var(--danger-color); border: 1px solid var(--danger-color); }
+        .signal-neutral { background: rgba(108,117,125,0.15); color: var(--secondary-color); border: 1px solid var(--secondary-color); }
+        .output { font-family: 'Courier New', monospace; font-size: 13px; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); white-space: pre-wrap; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>布林带计算器</h1>
+
+        <div class="card">
+            <div class="form-group">
+                <label>价格数据（逗号分隔，从旧到新）</label>
+                <input type="text" id="priceInput" value="50,51,53,52,54,56,55,57,59,58,56,54,52,53,55,57,59,61,60,58,56,57,59,61,63,62,60,58,59,61,63,65,64,62,60,61,63,65,67,66" placeholder="例: 50,51,53...">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>均线周期 (N)</label>
+                    <select id="bbPeriod">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="30">30</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>标准差倍数 (K)</label>
+                    <select id="bbMultiplier">
+                        <option value="1.5">1.5</option>
+                        <option value="2" selected>2</option>
+                        <option value="2.5">2.5</option>
+                        <option value="3">3</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="calculate()">计算布林带</button>
+        </div>
+
+        <div id="statsArea" class="grid-4" style="display:none;"></div>
+
+        <div class="card" id="signalCard" style="display:none;">
+            <div id="signalContent"></div>
+        </div>
+
+        <div class="card" id="chartCard" style="display:none;">
+            <h3>布林带图</h3>
+            <canvas id="bbChart" height="350"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> 价格</span>
+                <span><i style="background:#ffc107;"></i> 中轨 (SMA)</span>
+                <span><i style="background:rgba(220,53,69,0.5);"></i> 上轨</span>
+                <span><i style="background:rgba(40,167,69,0.5);"></i> 下轨</span>
+                <span><i style="background:rgba(0,123,255,0.1);"></i> 带宽区域</span>
+            </div>
+        </div>
+
+        <div class="card" id="widthCard" style="display:none;">
+            <h3>布林带带宽</h3>
+            <canvas id="widthChart" height="150"></canvas>
+            <div class="legend">
+                <span><i style="background:#9b59b6;"></i> 带宽 %</span>
+            </div>
+        </div>
+
+        <div class="card" id="detailCard" style="display:none;">
+            <h3>详细数据</h3>
+            <div id="detailContent" class="output"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parsePrices() {
+            return document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+        }
+
+        function calcSMA(data, period) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) sum += data[j];
+                result.push(sum / period);
+            }
+            return result;
+        }
+
+        function calcBollinger(prices, period, multiplier) {
+            const sma = calcSMA(prices, period);
+            const upper = [], lower = [], bandwidth = [];
+            for (let i = 0; i < prices.length; i++) {
+                if (sma[i] === null) { upper.push(null); lower.push(null); bandwidth.push(null); continue; }
+                let sqSum = 0;
+                for (let j = i - period + 1; j <= i; j++) sqSum += Math.pow(prices[j] - sma[i], 2);
+                const std = Math.sqrt(sqSum / period);
+                upper.push(sma[i] + multiplier * std);
+                lower.push(sma[i] - multiplier * std);
+                bandwidth.push(sma[i] !== 0 ? (multiplier * 2 * std / sma[i] * 100) : 0);
+            }
+            return { sma, upper, lower, bandwidth };
+        }
+
+        function calculate() {
+            const prices = parsePrices();
+            if (prices.length < 5) { alert('请输入至少5个价格数据'); return; }
+
+            const period = parseInt(document.getElementById('bbPeriod').value);
+            const multiplier = parseFloat(document.getElementById('bbMultiplier').value);
+            const bb = calcBollinger(prices, period, multiplier);
+            const n = prices.length;
+            const lastIdx = n - 1;
+            const currentPrice = prices[lastIdx];
+            const lastSMA = bb.sma[lastIdx];
+            const lastUpper = bb.upper[lastIdx];
+            const lastLower = bb.lower[lastIdx];
+            const lastBW = bb.bandwidth[lastIdx];
+
+            const pctB = lastUpper !== lastLower ? (currentPrice - lastLower) / (lastUpper - lastLower) * 100 : 50;
+            let signalText, signalClass;
+            if (pctB > 100) { signalText = '🔴 超买信号 — 价格突破上轨，可能回调'; signalClass = 'signal-sell'; }
+            else if (pctB > 80) { signalText = '🟡 接近超买 — 关注回调风险'; signalClass = 'signal-neutral'; }
+            else if (pctB < 0) { signalText = '🟢 超卖信号 — 价格跌破下轨，可能反弹'; signalClass = 'signal-buy'; }
+            else if (pctB < 20) { signalText = '🟡 接近超卖 — 关注反弹机会'; signalClass = 'signal-neutral'; }
+            else { signalText = '⚪ 中性区间 — 价格在正常范围内波动'; signalClass = 'signal-neutral'; }
+
+            document.getElementById('statsArea').style.display = 'grid';
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${currentPrice.toFixed(2)}</div><div class="label">当前价格</div></div>
+                <div class="stat-box"><div class="num">${lastSMA.toFixed(2)}</div><div class="label">中轨 (SMA${period})</div></div>
+                <div class="stat-box"><div class="num">${pctB.toFixed(1)}%</div><div class="label">%B 指标</div></div>
+                <div class="stat-box"><div class="num">${lastBW.toFixed(2)}%</div><div class="label">带宽</div></div>
+            `;
+
+            document.getElementById('signalCard').style.display = 'block';
+            document.getElementById('signalContent').innerHTML = `<div class="signal ${signalClass}">${signalText}</div>`;
+
+            drawBBChart(prices, bb);
+            drawWidthChart(bb.bandwidth);
+            showDetail(prices, bb, period, multiplier);
+        }
+
+        function drawLineChart(canvas, datasets, labels) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            let allVals = [];
+            datasets.forEach(d => d.data.forEach(v => { if (v !== null) allVals.push(v); }));
+            if (allVals.length === 0) return;
+            const minV = Math.min(...allVals) * 0.97;
+            const maxV = Math.max(...allVals) * 1.03;
+            const padL = 70, padR = 20, padT = 20, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = labels.length;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + chartH - (i / 5) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minV + (i / 5) * (maxV - minV)).toFixed(1), 4, y + 5);
+            }
+
+            const xPos = (i) => padL + (i / (n - 1)) * chartW;
+            const yPos = (v) => padT + chartH - ((v - minV) / (maxV - minV)) * chartH;
+
+            const upperDS = datasets.find(d => d.name === 'upper');
+            const lowerDS = datasets.find(d => d.name === 'lower');
+            if (upperDS && lowerDS) {
+                ctx.fillStyle = 'rgba(0,123,255,0.08)';
+                ctx.beginPath();
+                let started = false;
+                for (let i = 0; i < n; i++) {
+                    if (upperDS.data[i] === null || lowerDS.data[i] === null) continue;
+                    if (!started) { ctx.moveTo(xPos(i), yPos(upperDS.data[i])); started = true; }
+                    else ctx.lineTo(xPos(i), yPos(upperDS.data[i]));
+                }
+                for (let i = n - 1; i >= 0; i--) {
+                    if (upperDS.data[i] === null || lowerDS.data[i] === null) continue;
+                    ctx.lineTo(xPos(i), yPos(lowerDS.data[i]));
+                }
+                ctx.closePath(); ctx.fill();
+            }
+
+            datasets.forEach(ds => {
+                ctx.strokeStyle = ds.color;
+                ctx.lineWidth = ds.width || 2;
+                if (ds.dash) ctx.setLineDash(ds.dash); else ctx.setLineDash([]);
+                ctx.beginPath();
+                let started = false;
+                ds.data.forEach((v, i) => {
+                    if (v === null) return;
+                    if (!started) { ctx.moveTo(xPos(i), yPos(v)); started = true; } else ctx.lineTo(xPos(i), yPos(v));
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+        }
+
+        function drawBBChart(prices, bb) {
+            const labels = prices.map((_, i) => i + 1);
+            drawLineChart(document.getElementById('bbChart'), [
+                { data: prices, color: '#007bff', width: 2.5, name: 'price' },
+                { data: bb.sma, color: '#ffc107', width: 2, name: 'sma' },
+                { data: bb.upper, color: 'rgba(220,53,69,0.7)', width: 1.5, name: 'upper', dash: [6, 3] },
+                { data: bb.lower, color: 'rgba(40,167,69,0.7)', width: 1.5, name: 'lower', dash: [6, 3] }
+            ], labels);
+            document.getElementById('chartCard').style.display = 'block';
+        }
+
+        function drawWidthChart(bandwidth) {
+            const labels = bandwidth.map((_, i) => i + 1);
+            const validBW = bandwidth.filter(v => v !== null);
+            if (validBW.length === 0) return;
+
+            const canvas = document.getElementById('widthChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const maxV = Math.max(...validBW) * 1.2;
+            const padL = 70, padR = 20, padT = 20, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = bandwidth.length;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padT + chartH - (i / 4) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((maxV * i / 4).toFixed(1) + '%', 4, y + 5);
+            }
+
+            ctx.fillStyle = 'rgba(155,89,182,0.15)';
+            ctx.beginPath();
+            let started = false;
+            bandwidth.forEach((v, i) => {
+                if (v === null) return;
+                const x = padL + (i / (n - 1)) * chartW;
+                const y = padT + chartH - (v / maxV) * chartH;
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            });
+            for (let i = n - 1; i >= 0; i--) {
+                if (bandwidth[i] === null) continue;
+                const x = padL + (i / (n - 1)) * chartW;
+                ctx.lineTo(x, padT + chartH);
+            }
+            ctx.closePath(); ctx.fill();
+
+            ctx.strokeStyle = '#9b59b6'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            started = false;
+            bandwidth.forEach((v, i) => {
+                if (v === null) return;
+                const x = padL + (i / (n - 1)) * chartW;
+                const y = padT + chartH - (v / maxV) * chartH;
+                if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            document.getElementById('widthCard').style.display = 'block';
+        }
+
+        function showDetail(prices, bb, period, multiplier) {
+            const n = prices.length;
+            let text = `布林带分析报告\n${'='.repeat(40)}\n`;
+            text += `参数: SMA(${period}) × ${multiplier}倍标准差\n`;
+            text += `数据点: ${n}\n\n`;
+            text += `最新数据:\n`;
+            text += `  价格: ${prices[n-1].toFixed(2)}\n`;
+            text += `  中轨: ${bb.sma[n-1].toFixed(2)}\n`;
+            text += `  上轨: ${bb.upper[n-1].toFixed(2)}\n`;
+            text += `  下轨: ${bb.lower[n-1].toFixed(2)}\n`;
+            text += `  带宽: ${bb.bandwidth[n-1].toFixed(2)}%\n`;
+
+            const bwArr = bb.bandwidth.filter(v => v !== null);
+            const avgBW = bwArr.reduce((a, b) => a + b, 0) / bwArr.length;
+            const maxBW = Math.max(...bwArr);
+            const minBW = Math.min(...bwArr);
+            text += `\n带宽统计:\n`;
+            text += `  平均: ${avgBW.toFixed(2)}%\n`;
+            text += `  最大: ${maxBW.toFixed(2)}%\n`;
+            text += `  最小: ${minBW.toFixed(2)}%\n`;
+            text += `  当前占比: ${((bb.bandwidth[n-1] / avgBW) * 100).toFixed(0)}% (平均)\n`;
+            text += `\n解读:\n`;
+            text += bb.bandwidth[n-1] < avgBW * 0.7 ? '  带宽收窄，可能即将出现突破行情\n' :
+                     bb.bandwidth[n-1] > avgBW * 1.3 ? '  带宽扩张，当前波动性较高\n' :
+                     '  带宽适中，市场波动正常\n';
+
+            document.getElementById('detailCard').style.display = 'block';
+            document.getElementById('detailContent').textContent = text;
+        }
+
+        calculate();
+    </script>
+</body>
+</html>

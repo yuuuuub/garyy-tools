@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="收益率曲线分析工具 - 国债收益率曲线绘制、期限结构分析和利差计算">
+    <meta name="robots" content="index, follow">
+    <title>收益率曲线</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #0ea5e9; --secondary-color: #6b7280; --success-color: #10b981; --warning-color: #f59e0b; --danger-color: #ef4444; --border-color: #e5e7eb; --card-bg: #f9fafb; }
+        [data-theme="dark"] { --bg-color: #111827; --text-color: #f9fafb; --primary-color: #38bdf8; --secondary-color: #9ca3af; --success-color: #34d399; --warning-color: #fbbf24; --danger-color: #f87171; --border-color: #374151; --card-bg: #1f2937; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 14px; }
+        input:focus { outline: 2px solid var(--primary-color); border-color: transparent; }
+        button { background: var(--primary-color); color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; transition: opacity 0.2s; }
+        button:hover { opacity: 0.85; }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 14px; background: var(--secondary-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; z-index: 100; }
+        .result-chart { width: 100%; height: 320px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+        .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 130px; text-align: center; padding: 14px; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 20px; font-weight: 700; color: var(--primary-color); }
+        .stat-box .lbl { font-size: 11px; color: var(--secondary-color); margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th { font-weight: 600; color: var(--secondary-color); }
+        .spread-pos { color: var(--success-color); font-weight: 600; }
+        .spread-neg { color: var(--danger-color); font-weight: 600; }
+        .curve-shape { display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 600; }
+        .shape-normal { background: #d1fae5; color: #065f46; }
+        .shape-flat { background: #fef3c7; color: #92400e; }
+        .shape-invert { background: #fee2e2; color: #991b1b; }
+        .shape-steep { background: #dbeafe; color: #1e40af; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>📉 收益率曲线</h1>
+        <p style="color:var(--secondary-color)">分析国债收益率曲线形态、期限结构和收益率利差</p>
+
+        <div class="card">
+            <h3>收益率数据</h3>
+            <div class="grid-3" style="margin-bottom:12px">
+                <div><label>1个月</label><input type="number" id="y1m" value="1.82" step="0.01"></div>
+                <div><label>3个月</label><input type="number" id="y3m" value="1.95" step="0.01"></div>
+                <div><label>6个月</label><input type="number" id="y6m" value="2.08" step="0.01"></div>
+            </div>
+            <div class="grid-3" style="margin-bottom:12px">
+                <div><label>1年</label><input type="number" id="y1y" value="2.15" step="0.01"></div>
+                <div><label>2年</label><input type="number" id="y2y" value="2.28" step="0.01"></div>
+                <div><label>3年</label><input type="number" id="y3y" value="2.35" step="0.01"></div>
+            </div>
+            <div class="grid-3" style="margin-bottom:12px">
+                <div><label>5年</label><input type="number" id="y5y" value="2.48" step="0.01"></div>
+                <div><label>7年</label><input type="number" id="y7y" value="2.62" step="0.01"></div>
+                <div><label>10年</label><input type="number" id="y10y" value="2.75" step="0.01"></div>
+            </div>
+            <div class="grid-3">
+                <div><label>15年</label><input type="number" id="y15y" value="2.88" step="0.01"></div>
+                <div><label>20年</label><input type="number" id="y20y" value="2.98" step="0.01"></div>
+                <div><label>30年</label><input type="number" id="y30y" value="3.10" step="0.01"></div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:8px">
+                <button onclick="plotCurve()">绘制曲线</button>
+                <button onclick="loadPreset('normal')" style="background:var(--success-color)" class="btn-sm">正常形态</button>
+                <button onclick="loadPreset('flat')" style="background:var(--warning-color)" class="btn-sm">平坦化</button>
+                <button onclick="loadPreset('invert')" style="background:var(--danger-color)" class="btn-sm">倒挂</button>
+                <button onclick="loadPreset('steep')" style="background:#6366f1" class="btn-sm">陡峭化</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>收益率曲线</h3>
+            <div class="result-chart"><canvas id="curveCanvas"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h3>曲线分析</h3>
+            <div class="stat-row" id="curveStats"></div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>收益率利差</h3>
+                <table id="spreadTable"></table>
+            </div>
+            <div class="card">
+                <h3>期限结构详情</h3>
+                <table id="termTable"></table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>曲线形态判断</h3>
+            <div id="shapeAnalysis"></div>
+        </div>
+    </div>
+
+    <script>
+        const TENORS = [
+            { key: 'y1m', label: '1M', years: 1/12 },
+            { key: 'y3m', label: '3M', years: 0.25 },
+            { key: 'y6m', label: '6M', years: 0.5 },
+            { key: 'y1y', label: '1Y', years: 1 },
+            { key: 'y2y', label: '2Y', years: 2 },
+            { key: 'y3y', label: '3Y', years: 3 },
+            { key: 'y5y', label: '5Y', years: 5 },
+            { key: 'y7y', label: '7Y', years: 7 },
+            { key: 'y10y', label: '10Y', years: 10 },
+            { key: 'y15y', label: '15Y', years: 15 },
+            { key: 'y20y', label: '20Y', years: 20 },
+            { key: 'y30y', label: '30Y', years: 30 }
+        ];
+
+        function getRates() {
+            return TENORS.map(t => ({ ...t, rate: +document.getElementById(t.key).value }));
+        }
+
+        function loadPreset(type) {
+            const presets = {
+                normal: [1.82, 1.95, 2.08, 2.15, 2.28, 2.35, 2.48, 2.62, 2.75, 2.88, 2.98, 3.10],
+                flat: [2.30, 2.32, 2.35, 2.38, 2.40, 2.42, 2.43, 2.44, 2.45, 2.46, 2.47, 2.48],
+                invert: [3.20, 3.15, 3.05, 2.90, 2.70, 2.55, 2.35, 2.20, 2.10, 2.05, 2.02, 2.00],
+                steep: [1.50, 1.55, 1.65, 1.80, 2.10, 2.35, 2.80, 3.15, 3.50, 3.75, 3.95, 4.15]
+            };
+            presets[type].forEach((v, i) => document.getElementById(TENORS[i].key).value = v);
+            plotCurve();
+        }
+
+        function plotCurve() {
+            const rates = getRates();
+            const canvas = document.getElementById('curveCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.parentElement.clientWidth;
+            const H = 320;
+            canvas.width = W * 2; canvas.height = H * 2;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.scale(2, 2);
+            ctx.clearRect(0, 0, W, H);
+
+            const pad = { l: 55, r: 20, t: 25, b: 45 };
+            const rMin = Math.floor(Math.min(...rates.map(r => r.rate)) * 10 - 5) / 10;
+            const rMax = Math.ceil(Math.max(...rates.map(r => r.rate)) * 10 + 5) / 10;
+            const xScale = Math.log10;
+
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 5; i++) {
+                const y = pad.t + (i / 5) * (H - pad.t - pad.b);
+                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+                ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText((rMax - i / 5 * (rMax - rMin)).toFixed(2) + '%', pad.l - 5, y + 4);
+            }
+
+            rates.forEach((r, i) => {
+                const x = pad.l + (xScale(r.years) / xScale(30)) * (W - pad.l - pad.r);
+                ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
+                ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+                ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(r.label, x, H - 12);
+            });
+
+            ctx.beginPath();
+            rates.forEach((r, i) => {
+                const x = pad.l + (xScale(r.years) / xScale(30)) * (W - pad.l - pad.r);
+                const y = pad.t + ((rMax - r.rate) / (rMax - rMin)) * (H - pad.t - pad.b);
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = '#0ea5e9'; ctx.lineWidth = 2.5; ctx.stroke();
+
+            rates.forEach(r => {
+                const x = pad.l + (xScale(r.years) / xScale(30)) * (W - pad.l - pad.r);
+                const y = pad.t + ((rMax - r.rate) / (rMax - rMin)) * (H - pad.t - pad.b);
+                ctx.fillStyle = '#0ea5e9';
+                ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#333'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(r.rate.toFixed(2) + '%', x, y - 10);
+            });
+
+            ctx.fillStyle = '#999'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('期限 (对数刻度)', W / 2, H - 5);
+            ctx.save(); ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText('收益率 (%)', 0, 0); ctx.restore();
+
+            analyzeCurve(rates);
+        }
+
+        function analyzeCurve(rates) {
+            const y1 = rates[0].rate;
+            const y2 = rates[4].rate;
+            const y10 = rates[8].rate;
+            const y30 = rates[11].rate;
+            const spread10_2 = y10 - y2;
+            const spread30_10 = y30 - y10;
+            const spread10_1 = y10 - y1;
+            const slope = (y30 - y1) / 30;
+
+            let shape, shapeClass;
+            if (spread10_2 > 0.5) { shape = '陡峭向上'; shapeClass = 'shape-steep'; }
+            else if (spread10_2 > 0.1) { shape = '正常向上'; shapeClass = 'shape-normal'; }
+            else if (spread10_2 > -0.1) { shape = '平坦化'; shapeClass = 'shape-flat'; }
+            else { shape = '倒挂 (衰退信号)'; shapeClass = 'shape-invert'; }
+
+            document.getElementById('curveStats').innerHTML = `
+                <div class="stat-box"><div class="num">${y10.toFixed(2)}%</div><div class="lbl">10年期收益率</div></div>
+                <div class="stat-box"><div class="num">${spread10_2.toFixed(2)}%</div><div class="lbl">10Y-2Y利差</div></div>
+                <div class="stat-box"><div class="num">${spread30_10.toFixed(2)}%</div><div class="lbl">30Y-10Y利差</div></div>
+                <div class="stat-box"><div class="num">${slope.toFixed(4)}</div><div class="lbl">曲线斜率</div></div>
+                <div class="stat-box"><div class="num"><span class="curve-shape ${shapeClass}">${shape}</span></div><div class="lbl">曲线形态</div></div>
+            `;
+
+            const spreads = [
+                { label: '10Y - 2Y', value: spread10_2 },
+                { label: '10Y - 1Y', value: spread10_1 },
+                { label: '30Y - 10Y', value: spread30_10 },
+                { label: '5Y - 2Y', value: rates[6].rate - rates[4].rate },
+                { label: '7Y - 3Y', value: rates[7].rate - rates[5].rate },
+                { label: '20Y - 5Y', value: rates[10].rate - rates[6].rate }
+            ];
+
+            let spreadHtml = '<table><tr><th>利差</th><th>值</th><th>状态</th></tr>';
+            spreads.forEach(s => {
+                const cls = s.value > 0.3 ? 'spread-pos' : s.value < 0 ? 'spread-neg' : '';
+                const status = s.value > 0.5 ? '陡峭' : s.value > 0.1 ? '正常' : s.value > -0.1 ? '平坦' : '倒挂';
+                spreadHtml += `<tr><td>${s.label}</td><td class="${cls}">${s.value.toFixed(2)}%</td><td>${status}</td></tr>`;
+            });
+            spreadHtml += '</table>';
+            document.getElementById('spreadTable').innerHTML = spreadHtml;
+
+            let termHtml = '<table><tr><th>期限</th><th>收益率</th><th>变动</th></tr>';
+            rates.forEach((r, i) => {
+                const change = i > 0 ? (r.rate - rates[i - 1].rate).toFixed(3) : '-';
+                const cls = i > 0 && r.rate > rates[i - 1].rate ? 'spread-pos' : i > 0 && r.rate < rates[i - 1].rate ? 'spread-neg' : '';
+                termHtml += `<tr><td>${r.label}</td><td>${r.rate.toFixed(2)}%</td><td class="${cls}">${change}${change !== '-' ? '%' : ''}</td></tr>`;
+            });
+            termHtml += '</table>';
+            document.getElementById('termTable').innerHTML = termHtml;
+
+            let analysis = '';
+            if (spread10_2 < -0.1) {
+                analysis = `<div style="padding:16px;background:rgba(239,68,68,0.1);border-radius:8px;border-left:4px solid var(--danger-color)">
+                    <h4 style="color:var(--danger-color)">⚠️ 收益率曲线倒挂</h4>
+                    <p>10年期-2年期利差为 ${spread10_2.toFixed(2)}%，曲线出现倒挂。历史上，收益率曲线倒挂通常是经济衰退的领先指标。</p>
+                    <ul style="color:var(--secondary-color)"><li>短端利率高于长端，反映市场对短期经济前景的担忧</li>
+                    <li>央行可能维持较高短期利率以抑制通胀</li>
+                    <li>长端收益率下行反映市场对远期经济增长和通胀预期下调</li></ul></div>`;
+            } else if (spread10_2 > 0.8) {
+                analysis = `<div style="padding:16px;background:rgba(16,185,129,0.1);border-radius:8px;border-left:4px solid var(--success-color)">
+                    <h4 style="color:var(--success-color)">📈 收益率曲线陡峭</h4>
+                    <p>10年期-2年期利差为 ${spread10_2.toFixed(2)}%，曲线陡峭。通常出现在经济复苏初期。</p></div>`;
+            } else {
+                analysis = `<div style="padding:16px;background:rgba(14,165,233,0.1);border-radius:8px;border-left:4px solid var(--primary-color)">
+                    <h4 style="color:var(--primary-color)">📊 收益率曲线正常</h4>
+                    <p>10年期-2年期利差为 ${spread10_2.toFixed(2)}%，曲线形态正常。长端收益率高于短端，反映正常的期限溢价。</p></div>`;
+            }
+            document.getElementById('shapeAnalysis').innerHTML = analysis;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        plotCurve();
+    </script>
+</body>
+</html>
