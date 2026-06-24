@@ -410,6 +410,7 @@ function applyLang(lang){
 }
 
 window.garyyApplyLang = applyLang;
+window.garyyEsc = function(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');};
 
 function createToggle(){
   var langBtn = document.getElementById('lang-toggle');
