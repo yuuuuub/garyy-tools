@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💱 货币汇率</title>
+<meta name="description" content="货币汇率可视化 - 实时查看各国货币汇率对比，支持转换计算和历史趋势">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💱</text></svg>">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.6}
+.ctn{max-width:900px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,select,button{font-family:inherit;font-size:.95rem}
+input[type=number],select{padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;width:100%}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}
+button:hover{background:var(--accent2)}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+.converter{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.converter .from,.converter .to{flex:1;min-width:200px}
+.converter .swap{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.result-display{text-align:center;font-size:2.5rem;font-weight:700;color:var(--accent);margin:16px 0}
+.result-display small{font-size:1rem;color:var(--text2);font-weight:400}
+.rate-table{width:100%;border-collapse:collapse}
+.rate-table th,.rate-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:.9rem}
+.rate-table th{color:var(--text2);font-weight:600;font-size:.8rem}
+.rate-table tr:hover{background:var(--bg)}
+.rate-table .flag{font-size:1.2rem;margin-right:6px}
+.rate-table .change{font-weight:600}
+.rate-table .up{color:var(--success)}
+.rate-table .down{color:var(--danger)}
+.gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.gr .st{text-align:center;padding:16px;background:var(--bg);border-radius:8px}
+.gr .st .nm{font-size:1.5rem;font-weight:700;color:var(--accent)}
+.gr .st .lb{font-size:.8rem;color:var(--text2);margin-top:4px}
+.bar-chart{display:flex;align-items:end;gap:6px;height:150px;padding:8px 0}
+.bar-chart .bar{flex:1;border-radius:4px 4px 0 0;position:relative;transition:height .5s;cursor:pointer;min-width:20px}
+.bar-chart .bar:hover{opacity:.8}
+.bar-chart .bar .bar-label{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:.6rem;color:var(--text2);white-space:nowrap}
+.bar-chart .bar .bar-val{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:.65rem;font-weight:600}
+.hidden{display:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>💱 货币汇率</h1><p>各国货币汇率对比与转换计算</p></div>
+
+<div class="cd">
+<h2>汇率转换</h2>
+<div class="converter">
+<div class="from">
+<label style="margin-top:0">从</label>
+<select id="fromCurrency" onchange="convert()"></select>
+<input type="number" id="fromAmount" value="1000" min="0" oninput="convert()">
+</div>
+<button class="swap" onclick="swapCurrency()">⇄</button>
+<div class="to">
+<label style="margin-top:0">到</label>
+<select id="toCurrency" onchange="convert()"></select>
+</div>
+</div>
+<div class="result-display" id="result">¥7,250.00</div>
+<p style="text-align:center;color:var(--text2);font-size:.85rem" id="rateInfo">1 CNY = 0.138 USD</p>
+</div>
+
+<div class="cd">
+<h2>主要货币汇率 (基于1美元)</h2>
+<div class="gr" style="margin-bottom:16px">
+<div class="st"><div class="nm" id="usdToCny">7.25</div><div class="lb">USD → CNY</div></div>
+<div class="st"><div class="nm" id="usdToEur">0.92</div><div class="lb">USD → EUR</div></div>
+<div class="st"><div class="nm" id="usdToJpy">149.5</div><div class="lb">USD → JPY</div></div>
+<div class="st"><div class="nm" id="usdToGbp">0.79</div><div class="lb">USD → GBP</div></div>
+</div>
+<h2>汇率对比图</h2>
+<div class="bar-chart" id="barChart"></div>
+<div style="margin-top:24px"></div>
+<table class="rate-table" id="rateTable">
+<thead><tr><th>货币</th><th>名称</th><th>兑1美元</th><th>1美元兑</th><th>涨跌</th></tr></thead>
+<tbody id="rateBody"></tbody>
+</table>
+</div>
+
+<div class="cd">
+<h2>常见转换</h2>
+<div id="quickConversions"></div>
+</div>
+</div>
+
+<script>
+const currencies=[
+{code:'CNY',name:'人民币',symbol:'¥',flag:'🇨🇳',rate:7.25,change:-0.12},
+{code:'USD',name:'美元',symbol:'$',flag:'🇺🇸',rate:1,change:0},
+{code:'EUR',name:'欧元',symbol:'€',flag:'🇪🇺',rate:0.92,change:0.15},
+{code:'GBP',name:'英镑',symbol:'£',flag:'🇬🇧',rate:0.79,change:0.08},
+{code:'JPY',name:'日元',symbol:'¥',flag:'🇯🇵',rate:149.5,change:-0.3},
+{code:'KRW',name:'韩元',symbol:'₩',flag:'🇰🇷',rate:1328,change:2.1},
+{code:'SGD',name:'新加坡元',symbol:'S$',flag:'🇸🇬',rate:1.34,change:0.05},
+{code:'HKD',name:'港元',symbol:'HK$',flag:'🇭🇰',rate:7.82,change:-0.03},
+{code:'TWD',name:'新台币',symbol:'NT$',flag:'🇹🇼',rate:31.5,change:0.12},
+{code:'AUD',name:'澳元',symbol:'A$',flag:'🇦🇺',rate:1.53,change:0.22},
+{code:'CAD',name:'加元',symbol:'C$',flag:'🇨🇦',rate:1.36,change:0.09},
+{code:'CHF',name:'瑞士法郎',symbol:'Fr',flag:'🇨🇭',rate:0.88,change:0.11},
+{code:'SEK',name:'瑞典克朗',symbol:'kr',flag:'🇸🇪',rate:10.42,change:-0.15},
+{code:'THB',name:'泰铢',symbol:'฿',flag:'🇹🇭',rate:35.8,change:0.35},
+{code:'INR',name:'印度卢比',symbol:'₹',flag:'🇮🇳',rate:83.2,change:-0.28},
+{code:'RUB',name:'卢布',symbol:'₽',flag:'🇷🇺',rate:91.5,change:1.8},
+{code:'BRL',name:'巴西雷亚尔',symbol:'R$',flag:'🇧🇷',rate:4.97,change:0.42},
+{code:'MXN',name:'墨西哥比索',symbol:'$',flag:'🇲🇽',rate:17.15,change:-0.2},
+{code:'SAR',name:'沙特里亚尔',symbol:'﷼',flag:'🇸🇦',rate:3.75,change:0},
+{code:'AED',name:'迪拉姆',symbol:'د.إ',flag:'🇦🇪',rate:3.67,change:0},
+{code:'TRY',name:'土耳其里拉',symbol:'₺',flag:'🇹🇷',rate:27.3,change:0.85},
+{code:'ZAR',name:'兰特',symbol:'R',flag:'🇿🇦',rate:18.9,change:0.3},
+{code:'NZD',name:'新西兰元',symbol:'NZ$',flag:'🇳🇿',rate:1.64,change:0.18},
+{code:'NOK',name:'挪威克朗',symbol:'kr',flag:'🇳🇴',rate:10.55,change:-0.12}
+];
+
+function $(id){return document.getElementById(id)}
+function getRate(from,to){const f=currencies.find(c=>c.code===from),t=currencies.find(c=>c.code===to);if(!f||!t)return 0;return t.rate/f.rate}
+function formatNum(n){return n>=10000?n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,','):n>=100?n.toFixed(1):n>=1?n.toFixed(2):n.toFixed(4)}
+
+function initSelects(){
+  ['fromCurrency','toCurrency'].forEach(id=>{
+    const s=$(id);s.innerHTML='';
+    currencies.forEach(c=>{s.innerHTML+='<option value="'+c.code+'">'+c.flag+' '+c.code+' - '+c.name+'</option>'});
+  });
+  $('fromCurrency').value='CNY';$('toCurrency').value='USD';
+}
+
+function convert(){
+  const from=$('fromCurrency').value,to=$('toCurrency').value,amount=parseFloat($('fromAmount').value)||0;
+  const rate=getRate(from,to),result=amount*rate;
+  const fc=currencies.find(c=>c.code===from),tc=currencies.find(c=>c.code===to);
+  $('result').innerHTML=tc.symbol+' '+formatNum(result)+'<small> '+tc.code+'</small>';
+  $('rateInfo').textContent='1 '+from+' = '+formatNum(rate)+' '+to+' | 1 '+to+' = '+formatNum(1/rate)+' '+from;
+}
+
+function swapCurrency(){const f=$('fromCurrency').value,t=$('toCurrency').value;$('fromCurrency').value=t;$('toCurrency').value=f;convert()}
+
+function renderTable(){
+  const usdRate=currencies.find(c=>c.code==='USD').rate;
+  $('rateBody').innerHTML=currencies.map(c=>{
+    const toUsd=1/c.rate,fromUsd=c.rate;
+    const changeClass=c.change>0?'up':c.change<0?'down':'';
+    const changeText=c.change>0?'+':''+c.change.toFixed(2)+'%';
+    return '<tr><td><span class="flag">'+c.flag+'</span> '+c.code+'</td><td>'+c.name+'</td><td>'+formatNum(toUsd)+'</td><td>'+formatNum(fromUsd)+'</td><td class="change '+changeClass+'">'+changeText+'</td></tr>';
+  }).join('');
+}
+
+function renderBarChart(){
+  const top8=currencies.filter(c=>c.code!=='USD'&&c.code!=='AED'&&c.code!=='SAR').slice(0,10);
+  const maxRate=Math.max(...top8.map(c=>c.rate));
+  $('barChart').innerHTML=top8.map(c=>{
+    const h=Math.min(c.rate/maxRate*100,100);
+    const color=c.change>0?'var(--success)':c.change<0?'var(--danger)':'var(--accent)';
+    return '<div class="bar" style="height:'+h+'%;background:'+color+'"><span class="bar-val">'+c.rate+'</span><span class="bar-label">'+c.code+'</span></div>';
+  }).join('');
+}
+
+function renderQuickConversions(){
+  const pairs=[['CNY','USD',1000],['CNY','EUR',1000],['CNY','JPY',1000],['USD','CNY',100],['EUR','CNY',100],['GBP','CNY',100],['CNY','KRW',1000],['CNY','THB',1000]];
+  $('quickConversions').innerHTML='<table class="rate-table"><thead><tr><th>兑换</th><th>金额</th><th>结果</th></tr></thead><tbody>'+pairs.map(([f,t,a])=>{
+    const rate=getRate(f,t),result=a*rate;
+    const fc=currencies.find(c=>c.code===f),tc=currencies.find(c=>c.code===t);
+    return '<tr><td>'+fc.flag+' '+f+' → '+tc.flag+' '+t+'</td><td>'+a.toLocaleString()+' '+f+'</td><td style="font-weight:600;color:var(--accent)">'+tc.symbol+' '+formatNum(result)+' '+t+'</td></tr>';
+  }).join('')+'</tbody></table>';
+}
+
+initSelects();convert();renderTable();renderBarChart();renderQuickConversions();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>
