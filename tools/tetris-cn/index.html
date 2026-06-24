@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>俄罗斯方块</title>
+<meta name="description" content="经典俄罗斯方块游戏，旋转方块填满整行消除得分">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow-x:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation;padding:16px;scroll-behavior:smooth}
+h1{font-size:1.5rem;margin-bottom:12px;color:#00ff88;text-shadow:0 0 10px #00ff8866}
+.container{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.game-area{position:relative;border:2px solid #00ff88;box-shadow:0 0 20px #00ff8844;border-radius:4px}
+canvas#board{display:block;background:#0a0a12}
+.side{display:flex;flex-direction:column;gap:16px;min-width:140px}
+.panel{border:2px solid #ff00ff;border-radius:4px;padding:14px;text-align:center;background:var(--bg);box-shadow:0 0 10px #ff00ff22}
+.panel h3{color:#ff00ff;font-size:14px;letter-spacing:1px;margin-bottom:8px}
+.panel .val{color:#00ff88;font-size:24px;font-weight:bold;text-shadow:0 0 8px #00ff8888}
+canvas#next{display:block;margin:0 auto;background:#0a0a1288}
+.info{border:2px solid #00aaff;border-radius:4px;padding:12px;color:#00aaff;font-size:12px;line-height:1.8;background:var(--bg)}
+.info .k{color:#00ff88;font-weight:bold}
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#000000dd;border-radius:4px;z-index:10}
+.overlay.hidden{display:none}
+.overlay h2{color:#ff00ff;font-size:32px;text-shadow:0 0 20px #ff00ff88;margin-bottom:10px;letter-spacing:2px}
+.overlay .sub{color:#00ff88;font-size:15px;margin-bottom:18px}
+.overlay button{background:transparent;border:2px solid #00ff88;color:#00ff88;padding:10px 26px;font-size:17px;cursor:pointer;font-family:inherit;letter-spacing:2px;border-radius:4px;transition:all .2s}
+.overlay button:hover{background:#00ff88;color:#0a0a0f;box-shadow:0 0 20px #00ff8888}
+.touch{display:none;gap:6px;margin-top:10px;justify-content:center;flex-wrap:wrap}
+.touch-row{display:flex;gap:6px;justify-content:center;width:100%}
+.tb{width:50px;height:50px;border:2px solid #00ff88;background:var(--bg);color:#00ff88;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;box-shadow:0 0 8px #00ff8833;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.tb:active{background:#00ff8833}
+.tb.w{width:120px;font-size:14px;letter-spacing:2px}
+@media(max-width:700px),(hover:none)and(pointer:coarse){.touch{display:flex;flex-direction:column;align-items:center}.container{flex-direction:column;align-items:center;gap:10px}.side{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:8px}.panel{min-width:90px}canvas#board{max-width:88vw;max-height:65vh}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧱</text></svg>">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<h1>🧱 俄罗斯方块</h1>
+<div class="container">
+<div class="game-area">
+<canvas id="board" width="300" height="600"></canvas>
+<div id="overlay" class="overlay">
+<h2>俄罗斯方块</h2>
+<div class="sub">按任意键开始</div>
+<button onclick="startGame()">开始游戏</button>
+</div>
+</div>
+<div class="side">
+<div class="panel"><h3>分 数</h3><div class="val" id="score">0</div></div>
+<div class="panel"><h3>等 级</h3><div class="val" id="level">1</div></div>
+<div class="panel"><h3>消 行</h3><div class="val" id="lines">0</div></div>
+<div class="panel"><h3>下一个</h3><canvas id="next" width="120" height="80"></canvas></div>
+<div class="info"><span class="k">←→</span> 移动<br><span class="k">↑</span> 旋转<br><span class="k">↓</span> 加速<br><span class="k">空格</span> 直落<br><span class="k">P</span> 暂停</div>
+</div>
+</div>
+<div class="touch">
+<div class="touch-row"><div class="tb" ontouchstart="act('rotate')">↻</div></div>
+<div class="touch-row"><div class="tb" ontouchstart="act('left')">←</div><div class="tb" ontouchstart="act('down')">↓</div><div class="tb" ontouchstart="act('right')">→</div></div>
+<div class="touch-row"><div class="tb w" ontouchstart="act('drop')">直落</div></div>
+</div>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+<script>
+const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
+const nc=document.getElementById('next'),nctx=nc.getContext('2d');
+const COLS=10,ROWS=20,S=30,NS=20;
+const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
+const COLORS=['#00f0f0','#f0f000','#a000f0','#0000f0','#f0a000','#00f000','#f00000'];
+let board,cur,next,curX,curY,running=false,paused=false,over=false,score=0,level=1,lines=0,dropTimer=0,dropInterval=600;
+
+function initBoard(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0))}
+function newPiece(){const i=Math.floor(Math.random()*7);return{shape:SHAPES[i],color:COLORS[i],type:i}}
+function spawn(){cur=next||newPiece();next=newPiece();curX=Math.floor((COLS-cur.shape[0].length)/2);curY=0;over=checkCollision(cur.shape,curX,curY)}
+function checkCollision(s,ox,oy){for(let r=0;r<s.length;r++)for(let c=0;c<s[r].length;c++){if(!s[r][c])continue;const nx=ox+c,ny=oy+r;if(nx<0||nx>=COLS||ny>=ROWS)return true;if(ny>=0&&board[ny][nx])return true}return false}
+function merge(){for(let r=0;r<cur.shape.length;r++)for(let c=0;c<cur.shape[r].length;c++){if(!cur.shape[r][c])continue;const ny=curY+r;if(ny>=0)board[ny][curX+c]=cur.color}}
+function clearLines(){let cleared=0;for(let r=ROWS-1;r>=0;r--){if(board[r].every(v=>v)){board.splice(r,1);board.unshift(Array(COLS).fill(0));cleared++;r++}}if(cleared){lines+=cleared;score+=[0,100,300,500,800][cleared]*level;level=Math.floor(lines/10)+1;dropInterval=Math.max(100,600-level*50);document.getElementById('score').textContent=score;document.getElementById('level').textContent=level;document.getElementById('lines').textContent=lines}}
+function rotate(){const s=cur.shape,rows=s.length,cols=s[0].length,rot=Array.from({length:cols},()=>Array(rows).fill(0));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)rot[c][rows-1-r]=s[r][c];if(!checkCollision(rot,curX,curY))cur.shape=rot}
+function move(dx){if(!checkCollision(cur.shape,curX+dx,curY))curX+=dx}
+function softDrop(){if(!checkCollision(cur.shape,curX,curY+1)){curY++;return true}return false}
+function hardDrop(){while(!checkCollision(cur.shape,curX,curY+1))curY++;place()}
+function place(){merge();clearLines();if(over){running=false;showOverlay('游戏结束',`最终分数: ${score}`,true)}else spawn()}
+function showOverlay(t,s,btn){const o=document.getElementById('overlay');o.classList.remove('hidden');o.querySelector('h2').textContent=t;o.querySelector('.sub').textContent=s;o.querySelector('button').style.display=btn?'inline-block':'none'}
+function hideOverlay(){document.getElementById('overlay').classList.add('hidden')}
+
+function drawCell(x,y,color,ctx2,sz){ctx2.fillStyle=color;ctx2.fillRect(x*sz,y*sz,sz-1,sz-1);ctx2.fillStyle='rgba(255,255,255,0.15)';ctx2.fillRect(x*sz,y*sz,sz-1,2)}
+function draw(){
+ctx.fillStyle='#0a0a12';ctx.fillRect(0,0,COLS*S,ROWS*S);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c])drawCell(c,r,board[r][c],ctx,S);
+if(cur){for(let r=0;r<cur.shape.length;r++)for(let c=0;c<cur.shape[r].length;c++)if(cur.shape[r][c])drawCell(curX+c,curY+r,cur.color,ctx,S)}
+nctx.fillStyle='#0a0a1288';nctx.fillRect(0,0,120,80);
+if(next){const os=20,ox=(120-next.shape[0].length*os)/2,oy=(80-next.shape.length*os)/2;for(let r=0;r<next.shape.length;r++)for(let c=0;c<next.shape[r].length;c++)if(next.shape[r][c]){nctx.fillStyle=next.color;nctx.fillRect(ox+c*os,oy+r*os,os-1,os-1)}}
+if(paused&&running){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,COLS*S,ROWS*S);ctx.fillStyle='#00aaff';ctx.font='bold 28px system-ui';ctx.textAlign='center';ctx.fillText('暂 停',COLS*S/2,ROWS*S/2)}
+}
+
+function gameLoop(t){
+if(!running||paused||over){draw();requestAnimationFrame(gameLoop);return}
+dropTimer+=16;if(dropTimer>=dropInterval){dropTimer=0;if(!softDrop())place()}
+draw();requestAnimationFrame(gameLoop)
+}
+
+function startGame(){initBoard();score=0;level=1;lines=0;dropInterval=600;dropTimer=0;over=false;paused=false;running=true;next=null;spawn();hideOverlay();document.getElementById('score').textContent=0;document.getElementById('level').textContent=1;document.getElementById('lines').textContent=0;requestAnimationFrame(gameLoop)}
+function act(a){if(!running||over)return;if(a==='left')move(-1);else if(a==='right')move(1);else if(a==='down')softDrop();else if(a==='rotate')rotate();else if(a==='drop')hardDrop()}
+
+document.addEventListener('keydown',e=>{
+if(!running&&!over){startGame();return}
+if(e.key==='p'||e.key==='P'){paused=!paused;return}
+if(paused||over)return;
+switch(e.key){case'ArrowLeft':case'a':e.preventDefault();move(-1);break;case'ArrowRight':case'd':e.preventDefault();move(1);break;case'ArrowDown':case's':e.preventDefault();softDrop();break;case'ArrowUp':case'w':e.preventDefault();rotate();break;case' ':e.preventDefault();hardDrop();break}
+});
+
+initBoard();draw();
+</script>
+</body>
+</html>
