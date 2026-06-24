@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 周报生成器</title>
+<meta name="description" content="周报生成器，快速生成专业的工作周报">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#bf8700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:700px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-family:inherit}
+button:hover{opacity:.9}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+button.grn{background:var(--green)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.item-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--border)}
+.item-row input,.item-row select{margin-bottom:0;flex:1}
+.item-row select{width:auto;min-width:80px}
+.item-row .del{background:var(--red);padding:4px 10px;font-size:.8rem;white-space:nowrap}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-high{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-mid{background:rgba(210,153,34,.2);color:var(--yellow)}
+.badge-low{background:rgba(63,185,80,.2);color:var(--green)}
+.preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:20px;white-space:pre-wrap;font-size:.9rem;line-height:1.8}
+.preview h3{color:var(--accent);margin:12px 0 6px;font-size:1rem}
+.history-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s}
+.history-item:hover{background:rgba(59,130,246,.05)}
+.history-item:last-child{border-bottom:none}
+.hidden{display:none!important}
+@media(max-width:600px){body{padding:10px}.ctn{max-width:100%}.cd{padding:14px}h1{font-size:1.4rem}.item-row{flex-wrap:wrap}.item-row input,.item-row select{min-width:100%}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.ctn{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📊 周报生成器">
+<meta property="og:description" content="周报生成器，快速生成专业的工作周报">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/weekly-report-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn" id="app"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='wkrpt_data';
+let data=JSON.parse(localStorage.getItem(STORE)||'[]');
+let editing=-1;
+const TEMPLATES={dev:{name:'开发工程师',done:['完成功能开发','修复BUG','代码审查','技术方案设计','接口联调'],todo:['新需求开发','技术债重构','文档更新'],support:['需要测试环境','需求评审排期']},pm:{name:'产品经理',done:['需求文档编写','用户调研','竞品分析','数据分析','版本规划'],todo:['新功能策划','用户体验优化','AB测试方案'],support:['设计资源协调','开发排期确认']},design:{name:'设计师',done:['UI设计稿','交互原型','设计走查','素材制作','设计规范更新'],todo:['新页面设计','品牌物料','动效设计'],support:['需求确认','开发还原度验证']}};
+function save(){localStorage.setItem(STORE,JSON.stringify(data))}
+function getWeekNum(d){const s=new Date(d.getFullYear(),0,1);const days=Math.floor((d-s)/864e5);return Math.ceil((days+s.getDay()+1)/7)}
+function render(){
+  let h=`<div class="hdr"><h1>📊 周报生成器</h1><p>快速生成专业的工作周报</p></div>`;
+  h+=`<div class="flex" style="margin-bottom:16px;justify-content:center"><button onclick="showView('form')">新建周报</button><button class="sec" onclick="showView('history')">历史记录</button></div>`;
+  h+=`<div id="formView">`;
+  h+=renderForm();
+  h+=`</div>`;
+  h+=`<div id="histView" class="hidden">`;
+  h+=renderHistory();
+  h+=`</div>`;
+  $('app').innerHTML=h;
+}
+function renderForm(){
+  const now=new Date();const wn=getWeekNum(now);
+  let h=`<div class="cd"><h2>基本信息</h2>`;
+  h+=`<label>模板</label><select id="tpl" onchange="applyTemplate()"><option value="">自定义</option><option value="dev">开发工程师</option><option value="pm">产品经理</option><option value="design">设计师</option></select>`;
+  h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label>姓名</label><input type="text" id="fName" placeholder="您的姓名"></div>`;
+  h+=`<div><label>部门</label><input type="text" id="fDept" placeholder="所属部门"></div></div>`;
+  h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label>周次</label><input type="text" id="fWeek" value="${now.getFullYear()}年 第${wn}周" readonly></div>`;
+  h+=`<div><label>日期范围</label><input type="text" id="fDate" value="${getWeekRange(now)}" readonly></div></div></div>`;
+  h+=`<div class="cd"><h2>本周工作总结 <button class="sec" style="float:right;padding:4px 12px;font-size:.8rem" onclick="addItem('done')">+ 添加</button></h2><div id="doneItems"></div></div>`;
+  h+=`<div class="cd"><h2>未完成事项 <button class="sec" style="float:right;padding:4px 12px;font-size:.8rem" onclick="addItem('undone')">+ 添加</button></h2><div id="undoneItems"></div></div>`;
+  h+=`<div class="cd"><h2>下周工作计划 <button class="sec" style="float:right;padding:4px 12px;font-size:.8rem" onclick="addItem('next')">+ 添加</button></h2><div id="nextItems"></div></div>`;
+  h+=`<div class="cd"><h2>需要的支持/资源 <button class="sec" style="float:right;padding:4px 12px;font-size:.8rem" onclick="addItem('support')">+ 添加</button></h2><div id="supportItems"></div></div>`;
+  h+=`<div class="cd"><h2>自我评价</h2><div id="starRating" style="font-size:1.5rem;cursor:pointer"></div></div>`;
+  h+=`<div class="bg" style="justify-content:center"><button onclick="previewReport()">预览周报</button><button class="sec" onclick="resetForm()">重置</button></div>`;
+  return h;
+}
+function getWeekRange(d){const day=d.getDay()||7;const mon=new Date(d);mon.setDate(d.getDate()-day+1);const fri=new Date(mon);fri.setDate(mon.getDate()+4);return `${mon.getMonth()+1}/${mon.getDate()} - ${fri.getMonth()+1}/${fri.getDate()}`}
+let items={done:[],undone:[],next:[],support:[]};
+let stars=3;
+function addItem(type){items[type].push({text:'',priority:'中'});renderItems(type)}
+function removeItem(type,i){items[type].splice(i,1);renderItems(type)}
+function renderItems(type){
+  const el=$(type==='done'?'doneItems':type==='undone'?'undoneItems':type==='next'?'nextItems':'supportItems');
+  if(!el)return;
+  let h='';
+  items[type].forEach((item,i)=>{
+    h+=`<div class="item-row"><input type="text" value="${item.text}" placeholder="输入内容..." onchange="items['${type}'][${i}].text=this.value">`;
+    h+=`<select onchange="items['${type}'][${i}].priority=this.value"><option${item.priority==='高'?' selected':''}>高</option><option${item.priority==='中'?' selected':''}>中</option><option${item.priority==='低'?' selected':''}>低</option></select>`;
+    h+=`<button class="del" onclick="removeItem('${type}',${i})">✕</button></div>`;
+  });
+  el.innerHTML=h;
+}
+function renderStars(){
+  const el=$('starRating');if(!el)return;
+  let h='';
+  for(let i=1;i<=5;i++)h+=`<span onclick="stars=${i};renderStars()" style="color:${i<=stars?'var(--yellow)':'var(--border)'};cursor:pointer">${i<=stars?'★':'☆'}</span>`;
+  el.innerHTML=h+' <span style="font-size:.85rem;color:var(--text2);margin-left:8px">'+['','很差','较差','一般','良好','优秀'][stars]+'</span>';
+}
+function applyTemplate(){
+  const t=$('tpl').value;
+  if(!t)return;
+  const tpl=TEMPLATES[t];
+  items.done=tpl.done.map(text=>({text,priority:'高'}));
+  items.undone=tpl.todo.map(text=>({text,priority:'中'}));
+  items.next=tpl.todo.map(text=>({text,priority:'中'}));
+  items.support=tpl.support.map(text=>({text,priority:'中'}));
+  ['done','undone','next','support'].forEach(renderItems);
+}
+function resetForm(){items={done:[],undone:[],next:[],support:[]};stars=3;render()}
+function previewReport(){
+  const name=$('fName').value.trim()||'未填写';
+  const dept=$('fDept').value.trim()||'未填写';
+  const week=$('fWeek').value;
+  const date=$('fDate').value;
+  let rpt=`${'═'.repeat(40)}\n`;
+  rpt+=`工 作 周 报\n`;
+  rpt+=`${'═'.repeat(40)}\n\n`;
+  rpt+=`姓名：${name}\n部门：${dept}\n周次：${week}\n日期：${date}\n自我评价：${'★'.repeat(stars)}${'☆'.repeat(5-stars)}\n\n`;
+  rpt+=`${'─'.repeat(40)}\n一、本周工作总结\n${'─'.repeat(40)}\n`;
+  if(items.done.length===0)rpt+=`（无）\n`;
+  else items.done.forEach((it,i)=>rpt+=`${i+1}. [${it.priority}] ${it.text||'（未填写）'}\n`);
+  rpt+=`\n${'─'.repeat(40)}\n二、未完成事项\n${'─'.repeat(40)}\n`;
+  if(items.undone.length===0)rpt+=`（无）\n`;
+  else items.undone.forEach((it,i)=>rpt+=`${i+1}. [${it.priority}] ${it.text||'（未填写）'}\n`);
+  rpt+=`\n${'─'.repeat(40)}\n三、下周工作计划\n${'─'.repeat(40)}\n`;
+  if(items.next.length===0)rpt+=`（无）\n`;
+  else items.next.forEach((it,i)=>rpt+=`${i+1}. [${it.priority}] ${it.text||'（未填写）'}\n`);
+  rpt+=`\n${'─'.repeat(40)}\n四、需要的支持/资源\n${'─'.repeat(40)}\n`;
+  if(items.support.length===0)rpt+=`（无）\n`;
+  else items.support.forEach((it,i)=>rpt+=`${i+1}. ${it.text||'（未填写）'}\n`);
+  rpt+=`\n${'═'.repeat(40)}`;
+  let ph=`<div class="cd"><h2>周报预览</h2><div class="preview" id="rptText">${rpt.replace(/\n/g,'<br>')}</div>`;
+  ph+=`<div class="bg"><button onclick="copyReport()">复制到剪贴板</button><button class="grn" onclick="saveReport()">保存记录</button><button class="sec" onclick="showView('form')">返回编辑</button></div></div>`;
+  $('formView').innerHTML=ph;
+}
+function copyReport(){
+  const t=$('rptText').innerText;
+  navigator.clipboard.writeText(t).then(()=>alert('已复制到剪贴板！')).catch(()=>alert('复制失败'));
+}
+function saveReport(){
+  const rpt={id:Date.now(),date:new Date().toISOString(),name:$('fName').value||'',dept:$('fDept').value||'',week:$('fWeek').value,items:JSON.parse(JSON.stringify(items)),stars};
+  data.unshift(rpt);save();alert('已保存！');showView('history');
+}
+function showView(v){$('formView').classList.toggle('hidden',v!=='form');$('histView').classList.toggle('hidden',v!=='history');render()}
+function renderHistory(){
+  let h=`<div class="cd"><h2>历史周报</h2>`;
+  if(data.length===0)h+=`<div style="text-align:center;color:var(--text2);padding:30px">暂无历史记录</div>`;
+  else data.forEach((r,i)=>{
+    const d=new Date(r.date);
+    h+=`<div class="history-item"><div><b>${r.week}</b><br><span style="font-size:.8rem;color:var(--text2)">${r.name} · ${r.dept} · ${d.toLocaleDateString('zh-CN')}</span></div>`;
+    h+=`<div style="display:flex;gap:6px"><button class="sec" style="padding:4px 10px;font-size:.8rem" onclick="loadReport(${i})">查看</button><button class="dng" style="padding:4px 10px;font-size:.8rem" onclick="delReport(${i})">删除</button></div></div>`;
+  });
+  h+=`</div>`;
+  $('histView').innerHTML=h;
+}
+function loadReport(i){
+  const r=data[i];
+  items=JSON.parse(JSON.stringify(r.items));stars=r.stars;
+  showView('form');['done','undone','next','support'].forEach(renderItems);renderStars();
+}
+function delReport(i){if(!confirm('确定删除？'))return;data.splice(i,1);save();renderHistory()}
+render();setTimeout(renderStars,50);
+</script>
+</body>
+</html>
