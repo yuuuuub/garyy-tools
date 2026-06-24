@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="问卷构建器V2 - 拖拽式创建专业调查问卷，支持多种题型和逻辑跳转">
+    <meta name="robots" content="index, follow">
+    <title>问卷构建器 V2</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #6366f1; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; --hover-color: #f1f3f5; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #818cf8; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; --hover-color: #3a3a3a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; margin-bottom: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+        .question-list { list-style: none; padding: 0; }
+        .question-item { padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; background: var(--bg-color); cursor: grab; display: flex; align-items: center; justify-content: space-between; }
+        .question-item:hover { border-color: var(--primary-color); }
+        .question-item .q-num { font-weight: bold; color: var(--primary-color); margin-right: 12px; min-width: 30px; }
+        .question-item .q-title { flex: 1; }
+        .question-item .q-type { color: var(--secondary-color); font-size: 12px; margin-left: 12px; white-space: nowrap; }
+        .question-item .q-actions { display: flex; gap: 4px; }
+        .option-list { list-style: none; padding: 0; }
+        .option-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .option-item input[type="text"] { flex: 1; }
+        .preview-section { border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px; min-height: 400px; }
+        .preview-question { margin-bottom: 24px; }
+        .preview-question .q-label { font-weight: bold; margin-bottom: 8px; display: flex; gap: 8px; }
+        .preview-question .q-required { color: var(--danger-color); }
+        .preview-question .q-desc { font-size: 13px; color: var(--secondary-color); margin-bottom: 8px; }
+        .preview-option { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 6px 10px; border-radius: 4px; }
+        .preview-option:hover { background: var(--hover-color); }
+        .preview-rating { display: flex; gap: 8px; }
+        .preview-rating span { padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; }
+        .preview-rating span:hover { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .output-code { white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 13px; background: var(--bg-color); padding: 16px; border-radius: 6px; border: 1px solid var(--border-color); max-height: 400px; overflow-y: auto; }
+        .tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+        .tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--secondary-color); }
+        .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .survey-title-input { font-size: 18px; font-weight: bold; border: none; border-bottom: 2px solid var(--primary-color); background: transparent; color: var(--text-color); padding: 8px 0; width: 100%; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>问卷构建器 V2</h1>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('builder')">构建问卷</div>
+            <div class="tab" onclick="switchTab('preview')">预览</div>
+            <div class="tab" onclick="switchTab('code')">导出代码</div>
+            <div class="tab" onclick="switchTab('stats')">响应统计</div>
+        </div>
+
+        <div id="tab-builder" class="tab-content active">
+            <div class="card">
+                <div class="form-group">
+                    <label>问卷标题</label>
+                    <input type="text" class="survey-title-input" id="surveyTitle" value="我的问卷" oninput="updatePreview()">
+                </div>
+                <div class="form-group">
+                    <label>问卷描述</label>
+                    <textarea id="surveyDesc" placeholder="请输入问卷说明..." oninput="updatePreview()"></textarea>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>添加题目</h3>
+                    <div class="form-group">
+                        <label>题目类型</label>
+                        <select id="newQType">
+                            <option value="single">单选题</option>
+                            <option value="multi">多选题</option>
+                            <option value="text">文本题</option>
+                            <option value="textarea">多行文本</option>
+                            <option value="rating">评分题</option>
+                            <option value="scale">量表题 (1-10)</option>
+                            <option value="dropdown">下拉选择</option>
+                            <option value="date">日期题</option>
+                            <option value="number">数字题</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>题目标题</label>
+                        <input type="text" id="newQTitle" placeholder="请输入题目...">
+                    </div>
+                    <div class="form-group">
+                        <label>题目说明（可选）</label>
+                        <input type="text" id="newQDesc" placeholder="补充说明...">
+                    </div>
+                    <div id="optionsEditor" class="form-group">
+                        <label>选项（每行一个）</label>
+                        <textarea id="newQOptions" rows="4" placeholder="选项1&#10;选项2&#10;选项3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="newQRequired"> 必填</label>
+                    </div>
+                    <button onclick="addQuestion()">+ 添加题目</button>
+                </div>
+
+                <div class="card">
+                    <h3>题目列表 <span id="qCount" style="font-size:14px;color:var(--secondary-color)">(0)</span></h3>
+                    <ul class="question-list" id="questionList"></ul>
+                    <div id="emptyMsg" style="color:var(--secondary-color);text-align:center;padding:40px 0;">
+                        点击左侧按钮添加题目
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-preview" class="tab-content">
+            <div class="card">
+                <div class="preview-section" id="previewArea">
+                    <div style="text-align:center;color:var(--secondary-color);padding:40px 0;">请先添加题目</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-code" class="tab-content">
+            <div class="card">
+                <h3>导出HTML代码</h3>
+                <button onclick="exportHTML()" class="btn-success">生成HTML</button>
+                <button onclick="exportJSON()" class="btn-secondary">导出JSON</button>
+                <button onclick="copyCode()" class="btn-sm">复制代码</button>
+                <div class="output-code" id="codeOutput" style="margin-top:16px;">点击上方按钮生成代码</div>
+            </div>
+        </div>
+
+        <div id="tab-stats" class="tab-content">
+            <div class="card">
+                <h3>响应数据</h3>
+                <div id="statsArea" style="color:var(--secondary-color);">暂无响应数据</div>
+                <button onclick="simulateResponse()" style="margin-top:12px;" class="btn-sm">模拟提交响应</button>
+                <button onclick="clearResponses()" class="btn-danger btn-sm">清空数据</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let questions = [];
+        let responses = [];
+        let editIdx = -1;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', ['builder','preview','code','stats'][i] === name);
+            });
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            if (name === 'preview') updatePreview();
+        }
+
+        function updateOptionsEditor() {
+            const type = document.getElementById('newQType').value;
+            const show = ['single','multi','dropdown'].includes(type);
+            document.getElementById('optionsEditor').style.display = show ? 'block' : 'none';
+        }
+        document.getElementById('newQType').addEventListener('change', updateOptionsEditor);
+
+        function addQuestion() {
+            const type = document.getElementById('newQType').value;
+            const title = document.getElementById('newQTitle').value.trim();
+            if (!title) { alert('请输入题目标题'); return; }
+
+            const needsOpts = ['single','multi','dropdown'].includes(type);
+            const optsText = document.getElementById('newQOptions').value.trim();
+            const options = needsOpts ? optsText.split('\n').filter(o => o.trim()) : [];
+            if (needsOpts && options.length < 2) { alert('至少需要2个选项'); return; }
+
+            const q = {
+                type, title,
+                desc: document.getElementById('newQDesc').value.trim(),
+                required: document.getElementById('newQRequired').checked,
+                options,
+                id: Date.now()
+            };
+
+            if (editIdx >= 0) {
+                q.id = questions[editIdx].id;
+                questions[editIdx] = q;
+                editIdx = -1;
+            } else {
+                questions.push(q);
+            }
+
+            document.getElementById('newQTitle').value = '';
+            document.getElementById('newQDesc').value = '';
+            document.getElementById('newQOptions').value = '';
+            document.getElementById('newQRequired').checked = false;
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const list = document.getElementById('questionList');
+            const empty = document.getElementById('emptyMsg');
+            document.getElementById('qCount').textContent = '(' + questions.length + ')';
+            if (!questions.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+            empty.style.display = 'none';
+
+            const typeNames = { single:'单选', multi:'多选', text:'文本', textarea:'多行', rating:'评分', scale:'量表', dropdown:'下拉', date:'日期', number:'数字' };
+            list.innerHTML = questions.map((q, i) => `
+                <li class="question-item">
+                    <span class="q-num">${i + 1}.</span>
+                    <span class="q-title">${q.title} ${q.required ? '<span style="color:var(--danger-color)">*</span>' : ''}</span>
+                    <span class="q-type">${typeNames[q.type]}</span>
+                    <span class="q-actions">
+                        <button class="btn-sm btn-secondary" onclick="editQuestion(${i})">编辑</button>
+                        <button class="btn-sm btn-danger" onclick="removeQuestion(${i})">删除</button>
+                    </span>
+                </li>
+            `).join('');
+        }
+
+        function editQuestion(i) {
+            const q = questions[i];
+            editIdx = i;
+            document.getElementById('newQType').value = q.type;
+            document.getElementById('newQTitle').value = q.title;
+            document.getElementById('newQDesc').value = q.desc || '';
+            document.getElementById('newQOptions').value = (q.options || []).join('\n');
+            document.getElementById('newQRequired').checked = q.required;
+            updateOptionsEditor();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function removeQuestion(i) {
+            if (confirm('确定删除此题目？')) {
+                questions.splice(i, 1);
+                renderQuestions();
+            }
+        }
+
+        function moveQuestion(i, dir) {
+            const j = i + dir;
+            if (j < 0 || j >= questions.length) return;
+            [questions[i], questions[j]] = [questions[j], questions[i]];
+            renderQuestions();
+        }
+
+        function updatePreview() {
+            const area = document.getElementById('previewArea');
+            const title = document.getElementById('surveyTitle').value || '我的问卷';
+            const desc = document.getElementById('surveyDesc').value;
+
+            if (!questions.length) {
+                area.innerHTML = '<div style="text-align:center;color:var(--secondary-color);padding:40px 0;">请先添加题目</div>';
+                return;
+            }
+
+            let html = `<div style="margin-bottom:24px;"><h2 style="margin-bottom:8px;">${escHtml(title)}</h2>`;
+            if (desc) html += `<p style="color:var(--secondary-color);">${escHtml(desc)}</p>`;
+            html += '</div>';
+
+            questions.forEach((q, i) => {
+                html += `<div class="preview-question">`;
+                html += `<div class="q-label"><span>${i+1}. ${escHtml(q.title)}</span>${q.required ? '<span class="q-required">*</span>' : ''}</div>`;
+                if (q.desc) html += `<div class="q-desc">${escHtml(q.desc)}</div>`;
+
+                if (q.type === 'single') {
+                    html += q.options.map(o => `<label class="preview-option"><input type="radio" name="q${i}"> ${escHtml(o)}</label>`).join('');
+                } else if (q.type === 'multi') {
+                    html += q.options.map(o => `<label class="preview-option"><input type="checkbox" name="q${i}"> ${escHtml(o)}</label>`).join('');
+                } else if (q.type === 'text') {
+                    html += '<input type="text" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;">';
+                } else if (q.type === 'textarea') {
+                    html += '<textarea style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;min-height:80px;"></textarea>';
+                } else if (q.type === 'rating') {
+                    html += '<div class="preview-rating">' + [1,2,3,4,5].map(n => `<span onclick="this.parentNode.querySelectorAll('span').forEach(s=>s.style.background='');this.style.background='var(--primary-color)'">${n} ★</span>`).join('') + '</div>';
+                } else if (q.type === 'scale') {
+                    html += '<div class="preview-rating">' + Array.from({length:10},(_,n) => `<span onclick="this.parentNode.querySelectorAll('span').forEach(s=>s.style.background='');this.style.background='var(--primary-color)'">${n+1}</span>`).join('') + '</div>';
+                } else if (q.type === 'dropdown') {
+                    html += '<select style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;"><option value="">请选择...</option>' + q.options.map(o => `<option>${escHtml(o)}</option>`).join('') + '</select>';
+                } else if (q.type === 'date') {
+                    html += '<input type="date" style="padding:8px;border:1px solid var(--border-color);border-radius:4px;">';
+                } else if (q.type === 'number') {
+                    html += '<input type="number" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;">';
+                }
+                html += '</div>';
+            });
+
+            html += '<button style="width:100%;margin-top:20px;padding:14px;font-size:16px;">提交问卷</button>';
+            area.innerHTML = html;
+        }
+
+        function escHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        function exportHTML() {
+            const title = document.getElementById('surveyTitle').value || '我的问卷';
+            const desc = document.getElementById('surveyDesc').value;
+            let html = `<form class="survey-form" style="max-width:640px;margin:0 auto;font-family:sans-serif;">\n`;
+            html += `  <h2>${escHtml(title)}</h2>\n`;
+            if (desc) html += `  <p>${escHtml(desc)}</p>\n`;
+
+            questions.forEach((q, i) => {
+                html += `  <div class="question" style="margin-bottom:20px;">\n`;
+                html += `    <label style="font-weight:bold;">${i+1}. ${escHtml(q.title)}${q.required ? ' <span style="color:red">*</span>' : ''}</label>\n`;
+                if (q.type === 'single') {
+                    q.options.forEach(o => { html += `    <div><label><input type="radio" name="q${i}"${q.required ? ' required' : ''}> ${escHtml(o)}</label></div>\n`; });
+                } else if (q.type === 'multi') {
+                    q.options.forEach(o => { html += `    <div><label><input type="checkbox" name="q${i}"> ${escHtml(o)}</label></div>\n`; });
+                } else if (q.type === 'text') {
+                    html += `    <input type="text" style="width:100%;padding:8px;"${q.required ? ' required' : ''}>\n`;
+                } else if (q.type === 'textarea') {
+                    html += `    <textarea style="width:100%;padding:8px;"${q.required ? ' required' : ''}></textarea>\n`;
+                } else if (q.type === 'rating') {
+                    html += `    <div>${[1,2,3,4,5].map(n=>`<label style="margin-right:8px;"><input type="radio" name="q${i}" value="${n}"> ${n}★</label>`).join('')}</div>\n`;
+                } else if (q.type === 'scale') {
+                    html += `    <div>${Array.from({length:10},(_,n)=>`<label style="margin-right:4px;"><input type="radio" name="q${i}" value="${n+1}"> ${n+1}</label>`).join('')}</div>\n`;
+                } else if (q.type === 'dropdown') {
+                    html += `    <select style="width:100%;padding:8px;"${q.required ? ' required' : ''}><option value="">请选择</option>`;
+                    q.options.forEach(o => { html += `<option>${escHtml(o)}</option>`; });
+                    html += `</select>\n`;
+                } else if (q.type === 'date') {
+                    html += `    <input type="date"${q.required ? ' required' : ''}>\n`;
+                } else if (q.type === 'number') {
+                    html += `    <input type="number" style="width:100%;padding:8px;"${q.required ? ' required' : ''}>\n`;
+                }
+                html += `  </div>\n`;
+            });
+
+            html += `  <button type="submit" style="width:100%;padding:12px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:16px;cursor:pointer;">提交</button>\n`;
+            html += `</form>`;
+            document.getElementById('codeOutput').textContent = html;
+        }
+
+        function exportJSON() {
+            const data = {
+                title: document.getElementById('surveyTitle').value,
+                description: document.getElementById('surveyDesc').value,
+                questions
+            };
+            document.getElementById('codeOutput').textContent = JSON.stringify(data, null, 2);
+        }
+
+        function copyCode() {
+            const code = document.getElementById('codeOutput').textContent;
+            navigator.clipboard.writeText(code).then(() => alert('已复制到剪贴板'));
+        }
+
+        function simulateResponse() {
+            if (!questions.length) return;
+            const r = { timestamp: new Date().toLocaleString(), answers: {} };
+            questions.forEach((q, i) => {
+                if (q.type === 'single' || q.type === 'dropdown') r.answers[i] = q.options[Math.floor(Math.random() * q.options.length)] || '';
+                else if (q.type === 'multi') r.answers[i] = [q.options[Math.floor(Math.random() * q.options.length)]];
+                else if (q.type === 'rating') r.answers[i] = Math.ceil(Math.random() * 5);
+                else if (q.type === 'scale') r.answers[i] = Math.ceil(Math.random() * 10);
+                else if (q.type === 'number') r.answers[i] = Math.floor(Math.random() * 100);
+                else r.answers[i] = '示例文本回答';
+            });
+            responses.push(r);
+            renderStats();
+        }
+
+        function renderStats() {
+            const area = document.getElementById('statsArea');
+            if (!responses.length) { area.innerHTML = '暂无响应数据'; return; }
+            let html = `<p>共 <strong>${responses.length}</strong> 条响应</p>`;
+            html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
+            html += `<tr><th style="border:1px solid var(--border-color);padding:6px;text-align:left;">时间</th>`;
+            questions.forEach((q, i) => { html += `<th style="border:1px solid var(--border-color);padding:6px;text-align:left;">Q${i+1}</th>`; });
+            html += `</tr>`;
+            responses.forEach(r => {
+                html += `<tr><td style="border:1px solid var(--border-color);padding:6px;">${r.timestamp}</td>`;
+                questions.forEach((q, i) => { html += `<td style="border:1px solid var(--border-color);padding:6px;">${r.answers[i] ?? ''}</td>`; });
+                html += `</tr>`;
+            });
+            html += `</table>`;
+            area.innerHTML = html;
+        }
+
+        function clearResponses() {
+            if (confirm('确定清空所有响应数据？')) { responses = []; renderStats(); }
+        }
+
+        renderQuestions();
+    </script>
+</body>
+</html>

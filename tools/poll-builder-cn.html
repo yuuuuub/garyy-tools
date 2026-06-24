@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="投票构建器 - 快速创建投票并实时查看结果，支持单选和多选">
+    <meta name="robots" content="index, follow">
+    <title>投票构建器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #f59e0b; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; --hover-color: #f1f3f5; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #fbbf24; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; --hover-color: #3a3a3a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; margin-bottom: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .opt-input { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .opt-input input[type="text"] { flex: 1; }
+        .poll-option { padding: 16px; border: 2px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; cursor: pointer; position: relative; overflow: hidden; transition: border-color 0.2s; }
+        .poll-option:hover { border-color: var(--primary-color); }
+        .poll-option.voted { border-color: var(--primary-color); }
+        .poll-option .bar { position: absolute; top: 0; left: 0; height: 100%; background: color-mix(in srgb, var(--primary-color) 15%, transparent); transition: width 0.5s; }
+        .poll-option .label { position: relative; z-index: 1; display: flex; justify-content: space-between; font-size: 16px; }
+        .poll-option .pct { font-weight: bold; color: var(--primary-color); }
+        .poll-option .count { font-size: 13px; color: var(--secondary-color); }
+        .poll-title { font-size: 22px; font-weight: bold; margin-bottom: 16px; }
+        .poll-meta { color: var(--secondary-color); font-size: 14px; margin-bottom: 20px; }
+        .chart-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .chart-bar .name { min-width: 100px; font-size: 14px; text-align: right; }
+        .chart-bar .bar-wrap { flex: 1; height: 28px; background: var(--border-color); border-radius: 4px; overflow: hidden; }
+        .chart-bar .bar-fill { height: 100%; background: var(--primary-color); border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s; min-width: 0; }
+        .poll-mode { display: flex; gap: 8px; margin-bottom: 16px; }
+        .poll-mode button { flex: 1; border: 2px solid var(--border-color); background: var(--card-bg); color: var(--text-color); }
+        .poll-mode button.active { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 10%, var(--card-bg)); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>投票构建器</h1>
+
+        <div class="poll-mode">
+            <button id="modeCreate" class="active" onclick="setMode('create')">创建投票</button>
+            <button id="modeVote" onclick="setMode('vote')">参与投票</button>
+            <button id="modeResults" onclick="setMode('results')">查看结果</button>
+        </div>
+
+        <div id="panelCreate" class="card">
+            <div class="form-group"><label>投票标题</label><input type="text" id="pollTitle" value="你最喜欢的编程语言是？"></div>
+            <div class="form-group"><label>投票说明（可选）</label><textarea id="pollDesc" rows="2"></textarea></div>
+            <div class="form-group">
+                <label>投票类型</label>
+                <select id="pollType">
+                    <option value="single">单选</option>
+                    <option value="multi">多选（最多选3个）</option>
+                </select>
+            </div>
+            <div class="form-group"><label>选项</label>
+                <div id="optInputs"></div>
+                <button onclick="addPollOpt()" class="btn-secondary btn-sm">+ 添加选项</button>
+            </div>
+            <div class="form-group"><label><input type="checkbox" id="anonPoll"> 匿名投票</label></div>
+            <button onclick="createPoll()">创建投票</button>
+            <button onclick="loadDemo()" class="btn-secondary">加载示例</button>
+        </div>
+
+        <div id="panelVote" class="card" style="display:none;"></div>
+        <div id="panelResults" class="card" style="display:none;"></div>
+    </div>
+
+    <script>
+        let poll = null;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        let pollOpts = ['JavaScript', 'Python', 'TypeScript', 'Go'];
+        function renderOptInputs() {
+            document.getElementById('optInputs').innerHTML = pollOpts.map((o, i) =>
+                `<div class="opt-input"><input type="text" value="${esc(o)}" onchange="pollOpts[${i}]=this.value"><button class="btn-danger btn-sm" onclick="pollOpts.splice(${i},1);renderOptInputs()">×</button></div>`
+            ).join('');
+        }
+
+        function addPollOpt() { pollOpts.push('新选项 ' + (pollOpts.length + 1)); renderOptInputs(); }
+
+        function setMode(m) {
+            document.querySelectorAll('.poll-mode button').forEach(b => b.classList.remove('active'));
+            document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1)).classList.add('active');
+            document.getElementById('panelCreate').style.display = m === 'create' ? 'block' : 'none';
+            document.getElementById('panelVote').style.display = m === 'vote' ? 'block' : 'none';
+            document.getElementById('panelResults').style.display = m === 'results' ? 'block' : 'none';
+            if (m === 'vote' && poll) renderVote();
+            if (m === 'results' && poll) renderResults();
+        }
+
+        function loadDemo() {
+            poll = {
+                title: '你最喜欢的编程语言是？',
+                desc: '多选不超过3个',
+                type: 'multi',
+                options: [
+                    { name: 'JavaScript', votes: 156 },
+                    { name: 'Python', votes: 203 },
+                    { name: 'TypeScript', votes: 89 },
+                    { name: 'Go', votes: 67 },
+                    { name: 'Rust', votes: 45 }
+                ],
+                totalVotes: 560,
+                userVoted: false
+            };
+            setMode('vote');
+        }
+
+        function createPoll() {
+            const title = document.getElementById('pollTitle').value.trim();
+            if (!title) { alert('请输入标题'); return; }
+            const type = document.getElementById('pollType').value;
+            const opts = pollOpts.filter(o => o.trim()).map(o => ({ name: o.trim(), votes: 0 }));
+            if (opts.length < 2) { alert('至少需要2个选项'); return; }
+
+            poll = { title, desc: document.getElementById('pollDesc').value, type, options: opts, totalVotes: 0, userVoted: false };
+            setMode('vote');
+        }
+
+        function renderVote() {
+            const area = document.getElementById('panelVote');
+            const inputType = poll.type === 'single' ? 'radio' : 'checkbox';
+            area.innerHTML = `
+                <div class="poll-title">${esc(poll.title)}</div>
+                ${poll.desc ? `<div class="poll-meta">${esc(poll.desc)}</div>` : ''}
+                <div id="voteOpts">
+                    ${poll.options.map((o, i) => `
+                        <div class="poll-option" onclick="toggleVoteOpt(${i})">
+                            <div class="label"><span><input type="${inputType}" name="vote" id="vopt${i}"> ${esc(o.name)}</span></div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top:16px;">
+                    <button onclick="submitVote()">提交投票</button>
+                    <button onclick="setMode('results')" class="btn-secondary">查看结果</button>
+                </div>
+            `;
+        }
+
+        function toggleVoteOpt(i) {
+            const el = document.getElementById('vopt' + i);
+            if (poll.type === 'single') {
+                document.querySelectorAll('#voteOpts input[type="radio"]').forEach(r => r.checked = false);
+                el.checked = true;
+            } else {
+                const checked = document.querySelectorAll('#voteOpts input[type="checkbox"]:checked').length;
+                if (!el.checked && checked >= 3) { alert('最多选择3个选项'); return; }
+                el.checked = !el.checked;
+            }
+            document.querySelectorAll('.poll-option').forEach((p, j) => {
+                p.classList.toggle('voted', document.getElementById('vopt' + j).checked);
+            });
+        }
+
+        function submitVote() {
+            const opts = document.querySelectorAll('#voteOpts input');
+            let hasVote = false;
+            opts.forEach((input, i) => {
+                if (input.checked) { poll.options[i].votes++; poll.totalVotes++; hasVote = true; }
+            });
+            if (!hasVote) { alert('请至少选择一个选项'); return; }
+            poll.userVoted = true;
+            setMode('results');
+        }
+
+        function renderResults() {
+            const area = document.getElementById('panelResults');
+            const maxVotes = Math.max(...poll.options.map(o => o.votes), 1);
+            area.innerHTML = `
+                <div class="poll-title">${esc(poll.title)}</div>
+                <div class="poll-meta">共 ${poll.totalVotes} 票</div>
+                ${poll.options.map(o => {
+                    const pct = poll.totalVotes ? Math.round(o.votes / poll.totalVotes * 100) : 0;
+                    return `<div class="chart-bar">
+                        <div class="name">${esc(o.name)}</div>
+                        <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;">${pct > 8 ? pct + '%' : ''}</div></div>
+                        <div style="min-width:60px;font-size:13px;color:var(--secondary-color);">${o.votes} 票</div>
+                    </div>`;
+                }).join('')}
+                <div style="margin-top:20px;">
+                    <button onclick="setMode('vote')">返回投票</button>
+                    <button onclick="resetPoll()" class="btn-secondary">重置投票</button>
+                </div>
+            `;
+        }
+
+        function resetPoll() {
+            if (!poll) return;
+            poll.options.forEach(o => o.votes = 0);
+            poll.totalVotes = 0;
+            poll.userVoted = false;
+            setMode('vote');
+        }
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        renderOptInputs();
+    </script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="共情地图工具 - 创建用户共情地图，深入理解用户的想法、感受、行为和需求">
+    <meta name="robots" content="index, follow">
+    <title>共情地图</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #d946ef; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; --hover-color: #f1f3f5; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #e879f9; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; --hover-color: #3a3a3a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; margin-bottom: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .empathy-canvas { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; gap: 2px; background: var(--border-color); border-radius: 12px; overflow: hidden; }
+        .empathy-cell { background: var(--bg-color); padding: 20px; min-height: 160px; }
+        .empathy-cell h3 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .empathy-cell .icon { font-size: 20px; }
+        .empathy-cell.thinks h3 { color: #6366f1; }
+        .empathy-cell.feels h3 { color: #ec4899; }
+        .empathy-cell.says h3 { color: #14b8a6; }
+        .empathy-cell.does h3 { color: #f59e0b; }
+        .empathy-cell.pains h3 { color: #ef4444; }
+        .empathy-cell.gains h3 { color: #22c55e; }
+        .empathy-cell.pains, .empathy-cell.gains { grid-column: 1 / -1; }
+        .empathy-cell.pains { background: color-mix(in srgb, #ef4444 5%, var(--bg-color)); }
+        .empathy-cell.gains { background: color-mix(in srgb, #22c55e 5%, var(--bg-color)); }
+        .sticky-list { list-style: none; padding: 0; }
+        .sticky { padding: 8px 12px; background: color-mix(in srgb, var(--primary-color) 8%, var(--card-bg)); border-radius: 4px; margin-bottom: 6px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); }
+        .sticky:hover { border-color: var(--primary-color); }
+        .sticky button { padding: 2px 6px; font-size: 11px; background: transparent; color: var(--danger-color); margin: 0; }
+        .add-sticky { display: flex; gap: 6px; margin-top: 8px; }
+        .add-sticky input { flex: 1; padding: 6px 10px; font-size: 13px; }
+        .add-sticky button { padding: 6px 12px; font-size: 13px; margin: 0; }
+        .map-list-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; background: var(--bg-color); cursor: pointer; }
+        .map-list-item:hover { border-color: var(--primary-color); }
+        .map-list-item.active { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 5%, var(--bg-color)); }
+        .controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>共情地图</h1>
+
+        <div class="controls">
+            <button onclick="createNewMap()">新建共情地图</button>
+            <button onclick="loadDemo()" class="btn-secondary">加载示例</button>
+            <button onclick="exportMap()" class="btn-success btn-sm">导出JSON</button>
+        </div>
+
+        <div class="grid-2" style="grid-template-columns: 260px 1fr;">
+            <div class="card">
+                <h3>共情地图列表 <span id="mapCount" style="color:var(--secondary-color)">(0)</span></h3>
+                <div id="mapList"></div>
+            </div>
+
+            <div>
+                <div class="card" id="mapConfig" style="display:none;">
+                    <div class="form-group"><label>地图名称</label><input type="text" id="mapName" oninput="updateMapName()"></div>
+                    <div class="form-group"><label>目标用户</label><input type="text" id="mapUser" placeholder="如：王小明 - 25岁产品经理"></div>
+                    <div class="form-group"><label>场景/上下文</label><input type="text" id="mapContext" placeholder="如：使用购物App时"></div>
+                </div>
+
+                <div id="empathyCanvas" style="display:none;">
+                    <div class="empathy-canvas">
+                        <div class="empathy-cell thinks">
+                            <h3><span class="icon">💭</span> 想什么 Think</h3>
+                            <ul class="sticky-list" id="thinks"></ul>
+                            <div class="add-sticky"><input type="text" id="thinksInput" placeholder="添加..." onkeypress="if(event.key==='Enter')addSticky('thinks')"><button onclick="addSticky('thinks')">+</button></div>
+                        </div>
+                        <div class="empathy-cell feels">
+                            <h3><span class="icon">❤️</span> 感受什么 Feel</h3>
+                            <ul class="sticky-list" id="feels"></ul>
+                            <div class="add-sticky"><input type="text" id="feelsInput" placeholder="添加..." onkeypress="if(event.key==='Enter')addSticky('feels')"><button onclick="addSticky('feels')">+</button></div>
+                        </div>
+                        <div class="empathy-cell says">
+                            <h3><span class="icon">💬</span> 说什么 Say</h3>
+                            <ul class="sticky-list" id="says"></ul>
+                            <div class="add-sticky"><input type="text" id="saysInput" placeholder="添加..." onkeypress="if(event.key==='Enter')addSticky('says')"><button onclick="addSticky('says')">+</button></div>
+                        </div>
+                        <div class="empathy-cell does">
+                            <h3><span class="icon">🏃</span> 做什么 Do</h3>
+                            <ul class="sticky-list" id="does"></ul>
+                            <div class="add-sticky"><input type="text" id="doesInput" placeholder="添加..." onkeypress="if(event.key==='Enter')addSticky('does')"><button onclick="addSticky('does')">+</button></div>
+                        </div>
+                        <div class="empathy-cell pains">
+                            <h3><span class="icon">😣</span> 痛点 Pains</h3>
+                            <ul class="sticky-list" id="pains"></ul>
+                            <div class="add-sticky"><input type="text" id="painsInput" placeholder="添加痛点..." onkeypress="if(event.key==='Enter')addSticky('pains')"><button onclick="addSticky('pains')">+</button></div>
+                        </div>
+                        <div class="empathy-cell gains">
+                            <h3><span class="icon">🌟</span> 收获 Gains</h3>
+                            <ul class="sticky-list" id="gains"></ul>
+                            <div class="add-sticky"><input type="text" id="gainsInput" placeholder="添加收获..." onkeypress="if(event.key==='Enter')addSticky('gains')"><button onclick="addSticky('gains')">+</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="emptyState" class="card" style="text-align:center;color:var(--secondary-color);padding:60px;">
+                    <p style="font-size:48px;">🧠</p>
+                    <p>选择或创建一个共情地图开始</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let maps = [];
+        let activeMapIdx = -1;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        function createNewMap() {
+            maps.push({
+                name: '新共情地图 ' + (maps.length + 1),
+                user: '', context: '',
+                data: { thinks: [], feels: [], says: [], does: [], pains: [], gains: [] },
+                id: Date.now()
+            });
+            renderMapList();
+            selectMap(maps.length - 1);
+        }
+
+        function renderMapList() {
+            const el = document.getElementById('mapList');
+            document.getElementById('mapCount').textContent = '(' + maps.length + ')';
+            el.innerHTML = maps.map((m, i) => `
+                <div class="map-list-item ${i === activeMapIdx ? 'active' : ''}" onclick="selectMap(${i})">
+                    <div style="flex:1;"><strong style="font-size:14px;">${esc(m.name)}</strong><div style="font-size:12px;color:var(--secondary-color);">${esc(m.user || '未设置用户')}</div></div>
+                    <button class="btn-sm btn-danger" onclick="event.stopPropagation();maps.splice(${i},1);if(activeMapIdx===i){activeMapIdx=-1;hideCanvas();}renderMapList()">×</button>
+                </div>
+            `).join('') || '<div style="color:var(--secondary-color);text-align:center;padding:20px;">暂无地图</div>';
+        }
+
+        function selectMap(i) {
+            activeMapIdx = i;
+            const m = maps[i];
+            document.getElementById('mapName').value = m.name;
+            document.getElementById('mapUser').value = m.user;
+            document.getElementById('mapContext').value = m.context;
+            document.getElementById('mapConfig').style.display = 'block';
+            document.getElementById('empathyCanvas').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            renderAllStickies();
+            renderMapList();
+        }
+
+        function hideCanvas() {
+            document.getElementById('mapConfig').style.display = 'none';
+            document.getElementById('empathyCanvas').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+
+        function updateMapName() {
+            if (activeMapIdx >= 0) {
+                maps[activeMapIdx].name = document.getElementById('mapName').value;
+                renderMapList();
+            }
+        }
+
+        function addSticky(section) {
+            if (activeMapIdx < 0) return;
+            const input = document.getElementById(section + 'Input');
+            const val = input.value.trim();
+            if (!val) return;
+            maps[activeMapIdx].data[section].push({ text: val, id: Date.now() });
+            input.value = '';
+            renderStickyList(section);
+        }
+
+        function removeSticky(section, idx) {
+            maps[activeMapIdx].data[section].splice(idx, 1);
+            renderStickyList(section);
+        }
+
+        function renderStickyList(section) {
+            const el = document.getElementById(section);
+            const items = maps[activeMapIdx].data[section];
+            el.innerHTML = items.map((s, i) => `
+                <li class="sticky"><span>${esc(s.text)}</span><button onclick="removeSticky('${section}',${i})">×</button></li>
+            `).join('');
+        }
+
+        function renderAllStickies() {
+            ['thinks','feels','says','does','pains','gains'].forEach(renderStickyList);
+        }
+
+        function exportMap() {
+            if (activeMapIdx < 0) return;
+            const json = JSON.stringify(maps[activeMapIdx], null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = maps[activeMapIdx].name + '.json'; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadDemo() {
+            maps = [{
+                name: '电商App用户 - 小红', user: '小红, 28岁, 互联网从业者', context: '在手机上购物时',
+                data: {
+                    thinks: ['这个商品值不值这个价？', '有没有更好的替代品？', '别人买了觉得怎么样？', '优惠券快过期了'],
+                    feels: ['选择太多有些焦虑', '看到好评会开心', '等快递时很期待', '退货流程感到麻烦'],
+                    says: ['"这款和那款哪个好？"', '"有没有优惠券？"', '"上次买的那个不错"', '"这个评价看着不太真实"'],
+                    does: ['对比多个平台价格', '看商品评价和晒图', '加入购物车等降价', '关注品牌官方直播间'],
+                    pains: ['商品信息不透明', '物流追踪不够及时', '退换货流程复杂', '推荐算法不够精准'],
+                    gains: ['找到性价比高的商品', '便捷的退换货体验', '真实可靠的商品评价', '个性化的推荐']
+                }, id: 1
+            }];
+            renderMapList();
+            selectMap(0);
+        }
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        renderMapList();
+    </script>
+</body>
+</html>

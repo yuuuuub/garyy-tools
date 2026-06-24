@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="测验制作器 - 创建交互式知识测验，支持自动评分和结果统计">
+    <meta name="robots" content="index, follow">
+    <title>测验制作器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #e11d48; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; --hover-color: #f1f3f5; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #fb7185; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; --hover-color: #3a3a3a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; margin-bottom: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .q-card { border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; margin-bottom: 12px; background: var(--bg-color); }
+        .q-card h4 { margin: 0 0 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .opt-row input[type="text"] { flex: 1; }
+        .opt-row input[type="radio"] { margin: 0; }
+        .answer-badge { display: inline-block; background: var(--success-color); color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+        .quiz-play { max-width: 700px; margin: 0 auto; }
+        .quiz-option { display: block; padding: 14px 18px; border: 2px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+        .quiz-option:hover { border-color: var(--primary-color); background: var(--hover-color); }
+        .quiz-option.selected { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 15%, var(--bg-color)); }
+        .quiz-option.correct { border-color: var(--success-color); background: color-mix(in srgb, var(--success-color) 15%, var(--bg-color)); }
+        .quiz-option.wrong { border-color: var(--danger-color); background: color-mix(in srgb, var(--danger-color) 15%, var(--bg-color)); }
+        .result-card { text-align: center; padding: 40px; }
+        .result-score { font-size: 64px; font-weight: bold; color: var(--primary-color); }
+        .result-bar { height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; margin: 20px 0; }
+        .result-bar-fill { height: 100%; background: var(--primary-color); border-radius: 6px; transition: width 0.5s; }
+        .progress-bar { height: 6px; background: var(--border-color); border-radius: 3px; margin-bottom: 20px; }
+        .progress-fill { height: 100%; background: var(--primary-color); border-radius: 3px; transition: width 0.3s; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>测验制作器</h1>
+
+        <div id="modeSelect" class="card" style="text-align:center;">
+            <h3>选择模式</h3>
+            <button onclick="setMode('create')" style="font-size:18px;padding:16px 32px;margin:8px;">创建测验</button>
+            <button onclick="setMode('take')" class="btn-success" style="font-size:18px;padding:16px 32px;margin:8px;">参加测验</button>
+        </div>
+
+        <div id="createMode" style="display:none;">
+            <div class="card">
+                <div class="grid-2">
+                    <div class="form-group"><label>测验标题</label><input type="text" id="quizTitle" value="我的测验"></div>
+                    <div class="form-group"><label>每题分值</label><input type="number" id="pointsPerQ" value="10" min="1"></div>
+                </div>
+                <div class="form-group"><label>测验说明</label><textarea id="quizDesc" placeholder="可选的测验说明..."></textarea></div>
+            </div>
+
+            <div class="card">
+                <h3>添加题目</h3>
+                <div class="form-group"><label>题目</label><input type="text" id="newQ" placeholder="请输入问题..."></div>
+                <div id="optsList"></div>
+                <button onclick="addOption()" class="btn-secondary btn-sm">+ 添加选项</button>
+                <div class="form-group" style="margin-top:12px;">
+                    <label>正确答案</label>
+                    <select id="correctIdx"><option value="0">选项 1</option></select>
+                </div>
+                <div class="form-group"><label>解析说明（可选）</label><input type="text" id="newExplain" placeholder="解释为什么选这个答案"></div>
+                <button onclick="addQuizQ()">+ 添加题目</button>
+            </div>
+
+            <div class="card">
+                <h3>题目列表 <span id="qCount" style="color:var(--secondary-color)">(0)</span></h3>
+                <div id="quizQList"></div>
+            </div>
+        </div>
+
+        <div id="takeMode" style="display:none;">
+            <div id="quizPlayArea"></div>
+        </div>
+    </div>
+
+    <script>
+        let quizData = { title: '我的测验', desc: '', pointsPerQ: 10, questions: [] };
+        let optCount = 0;
+        let playState = { current: 0, answers: [], showing: false };
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        function setMode(mode) {
+            document.getElementById('modeSelect').style.display = 'none';
+            document.getElementById('createMode').style.display = mode === 'create' ? 'block' : 'none';
+            document.getElementById('takeMode').style.display = mode === 'take' ? 'block' : 'none';
+            if (mode === 'take') startQuiz();
+        }
+
+        function renderOptInputs() {
+            const list = document.getElementById('optsList');
+            const correct = document.getElementById('correctIdx');
+            list.innerHTML = '';
+            correct.innerHTML = '';
+            for (let i = 0; i < optCount; i++) {
+                list.innerHTML += `<div class="opt-row"><input type="text" id="opt${i}" placeholder="选项 ${i+1}"><button class="btn-danger btn-sm" onclick="removeOpt(${i})">×</button></div>`;
+                correct.innerHTML += `<option value="${i}">选项 ${i+1}</option>`;
+            }
+        }
+
+        function addOption() { optCount++; renderOptInputs(); }
+        function removeOpt(i) {
+            optCount = Math.max(2, optCount - 1);
+            renderOptInputs();
+        }
+        optCount = 4; renderOptInputs();
+
+        function addQuizQ() {
+            const q = document.getElementById('newQ').value.trim();
+            if (!q) { alert('请输入问题'); return; }
+            const opts = [];
+            for (let i = 0; i < optCount; i++) {
+                const v = document.getElementById('opt' + i).value.trim();
+                if (v) opts.push(v);
+            }
+            if (opts.length < 2) { alert('至少需要2个选项'); return; }
+            const ci = parseInt(document.getElementById('correctIdx').value);
+            if (ci >= opts.length) { alert('正确答案索引无效'); return; }
+            quizData.questions.push({
+                question: q, options: opts,
+                correct: ci, explain: document.getElementById('newExplain').value.trim()
+            });
+            quizData.title = document.getElementById('quizTitle').value;
+            quizData.desc = document.getElementById('quizDesc').value;
+            quizData.pointsPerQ = parseInt(document.getElementById('pointsPerQ').value) || 10;
+            document.getElementById('newQ').value = '';
+            document.getElementById('newExplain').value = '';
+            renderQuizList();
+        }
+
+        function renderQuizList() {
+            const el = document.getElementById('quizQList');
+            document.getElementById('qCount').textContent = '(' + quizData.questions.length + ')';
+            el.innerHTML = quizData.questions.map((q, i) => `
+                <div class="q-card">
+                    <h4><span>Q${i+1}. ${esc(q.question)}</span>
+                        <button class="btn-danger btn-sm" onclick="removeQuizQ(${i})">删除</button>
+                    </h4>
+                    <div>${q.options.map((o, j) =>
+                        `<div style="padding:4px 0;">${j === q.correct ? '<span class="answer-badge">✓</span>' : '○'} ${esc(o)}</div>`
+                    ).join('')}</div>
+                    ${q.explain ? `<div style="margin-top:6px;font-size:13px;color:var(--secondary-color);">解析: ${esc(q.explain)}</div>` : ''}
+                </div>
+            `).join('') || '<div style="color:var(--secondary-color);text-align:center;padding:20px;">暂无题目</div>';
+        }
+
+        function removeQuizQ(i) { quizData.questions.splice(i, 1); renderQuizList(); }
+
+        function startQuiz() {
+            playState = { current: 0, answers: new Array(quizData.questions.length).fill(-1), showing: false };
+            if (!quizData.questions.length) {
+                document.getElementById('quizPlayArea').innerHTML = '<div class="card" style="text-align:center;"><p>请先创建测验</p><button onclick="setMode(\'create\')" class="btn-secondary">返回创建</button></div>';
+                return;
+            }
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const area = document.getElementById('quizPlayArea');
+            const qi = playState.current;
+            const total = quizData.questions.length;
+            if (qi >= total) { showResults(); return; }
+            const q = quizData.questions[qi];
+            const pct = ((qi) / total * 100).toFixed(0);
+
+            area.innerHTML = `
+                <div class="quiz-play">
+                    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                    <div style="text-align:center;margin-bottom:8px;color:var(--secondary-color);">${qi+1} / ${total}</div>
+                    <div class="card">
+                        <h3 style="margin-top:0;">${esc(q.question)}</h3>
+                        <div id="playOpts">
+                            ${q.options.map((o, j) => `
+                                <div class="quiz-option ${playState.answers[qi]===j?'selected':''}" onclick="selectAnswer(${j})">${esc(o)}</div>
+                            `).join('')}
+                        </div>
+                        <div id="explainBox" style="display:none;margin-top:12px;padding:12px;border-radius:6px;background:var(--hover-color);font-size:14px;"></div>
+                        <div style="margin-top:16px;display:flex;justify-content:space-between;">
+                            <button onclick="prevQuestion()" class="btn-secondary" ${qi===0?'disabled':''}>上一题</button>
+                            <button onclick="submitAnswer()">${qi===total-1?'提交测验':'下一题'}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectAnswer(idx) {
+            playState.answers[playState.current] = idx;
+            document.querySelectorAll('.quiz-option').forEach((el, i) => {
+                el.classList.toggle('selected', i === idx);
+            });
+        }
+
+        function nextQuestion() { playState.current++; renderQuestion(); }
+        function prevQuestion() { if (playState.current > 0) { playState.current--; renderQuestion(); } }
+
+        function submitAnswer() {
+            const qi = playState.current;
+            const q = quizData.questions[qi];
+            const ans = playState.answers[qi];
+
+            document.querySelectorAll('.quiz-option').forEach((el, i) => {
+                el.classList.remove('selected');
+                el.style.pointerEvents = 'none';
+                if (i === q.correct) el.classList.add('correct');
+                if (i === ans && i !== q.correct) el.classList.add('wrong');
+            });
+
+            if (q.explain) {
+                const box = document.getElementById('explainBox');
+                box.style.display = 'block';
+                box.innerHTML = '<strong>解析：</strong>' + esc(q.explain);
+            }
+
+            setTimeout(() => { playState.current++; renderQuestion(); }, 1200);
+        }
+
+        function showResults() {
+            let correct = 0;
+            playState.answers.forEach((a, i) => { if (a === quizData.questions[i].correct) correct++; });
+            const total = quizData.questions.length;
+            const score = correct * quizData.pointsPerQ;
+            const pct = total ? Math.round(correct / total * 100) : 0;
+
+            document.getElementById('quizPlayArea').innerHTML = `
+                <div class="card result-card">
+                    <div class="result-score">${pct}%</div>
+                    <p style="font-size:20px;margin:8px 0;">${score} 分</p>
+                    <p>答对 ${correct} / ${total} 题</p>
+                    <div class="result-bar"><div class="result-bar-fill" style="width:${pct}%"></div></div>
+                    <div style="margin-top:20px;">
+                        <button onclick="startQuiz()" class="btn-secondary">重新测验</button>
+                        <button onclick="setMode('create')">返回编辑</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>答题详情</h3>
+                    ${quizData.questions.map((q, i) => {
+                        const isCorrect = playState.answers[i] === q.correct;
+                        return `<div style="padding:10px 0;border-bottom:1px solid var(--border-color);">
+                            <div>${isCorrect ? '✅' : '❌'} Q${i+1}. ${esc(q.question)}</div>
+                            <div style="font-size:13px;color:var(--secondary-color);">你的答案: ${playState.answers[i]>=0?q.options[playState.answers[i]]:'未作答'} | 正确答案: ${q.options[q.correct]}</div>
+                            ${q.explain?`<div style="font-size:13px;margin-top:4px;">${esc(q.explain)}</div>`:''}
+                        </div>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        renderQuizList();
+    </script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="数据表格构建器 - 创建可编辑的数据表格并导出">
+    <meta name="robots" content="index, follow">
+    <title>数据表格构建器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #06b6d4; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #22d3ee; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .btn-success { background-color: var(--success-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-outline { background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .data-table th { background: var(--primary-color); color: white; padding: 10px 12px; text-align: left; cursor: pointer; user-select: none; white-space: nowrap; }
+        .data-table th:hover { opacity: 0.9; }
+        .data-table td { padding: 8px 12px; border: 1px solid var(--border-color); }
+        .data-table tr:nth-child(even) { background: var(--card-bg); }
+        .data-table tr:hover { background: rgba(6,182,212,0.1); }
+        .data-table td[contenteditable="true"]:focus { outline: 2px solid var(--primary-color); background: rgba(6,182,212,0.05); }
+        .table-wrapper { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        .col-config { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); }
+        .col-config input { flex: 1; }
+        .col-config select { width: 100px !important; }
+        .code-output { white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 12px; background: var(--bg-color); padding: 16px; border-radius: 6px; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto; }
+        .table-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .formula-bar { display: flex; gap: 8px; align-items: center; padding: 8px; background: var(--card-bg); border-radius: 6px; margin-bottom: 12px; }
+        .formula-bar input { flex: 1; font-family: 'Courier New', monospace; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>数据表格构建器</h1>
+
+        <div class="card">
+            <h3>表格配置</h3>
+            <div class="grid-2">
+                <div class="form-group"><label>表格标题</label><input type="text" id="tableTitle" value="销售数据表" onchange="renderTable()"></div>
+                <div class="form-group">
+                    <label>表格样式</label>
+                    <select id="tableStyle" onchange="renderTable()">
+                        <option value="striped">斑马纹</option>
+                        <option value="bordered">边框</option>
+                        <option value="compact">紧凑</option>
+                        <option value="hover">悬停高亮</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4>列配置</h4>
+            <div id="colConfigs"></div>
+            <button class="btn-sm" onclick="addColumn()">+ 添加列</button>
+        </div>
+
+        <div class="card">
+            <h3>数据编辑</h3>
+            <div class="table-actions">
+                <button class="btn-sm" onclick="addRow()">+ 添加行</button>
+                <button class="btn-sm" onclick="deleteRow()">- 删除行</button>
+                <button class="btn-sm" onclick="sortData()">排序</button>
+                <button class="btn-sm" onclick="generateSampleData()">生成示例</button>
+                <button class="btn-sm btn-outline" onclick="importCSV()">导入CSV</button>
+            </div>
+            <div class="formula-bar">
+                <span style="font-weight:bold;">fx</span>
+                <input type="text" id="formulaInput" placeholder="选择单元格查看内容，或输入新值...">
+                <button class="btn-sm" onclick="applyFormula()">应用</button>
+            </div>
+            <div class="table-wrapper" id="tableWrapper"></div>
+        </div>
+
+        <div class="card">
+            <h3>汇总统计</h3>
+            <div id="statsArea"></div>
+        </div>
+
+        <div class="card">
+            <h3>导出 <button class="btn-sm" onclick="exportHTML()">HTML</button> <button class="btn-sm" onclick="exportCSV()">CSV</button> <button class="btn-sm" onclick="exportJSON()">JSON</button> <button class="btn-sm" onclick="copyMarkdown()">Markdown</button></h3>
+            <div class="code-output" id="exportArea">点击上方按钮导出</div>
+        </div>
+    </div>
+
+    <script defer src="i18n.js"></script>
+    <script>
+        let columns = [
+            { name: '姓名', type: 'text', width: 100 },
+            { name: '部门', type: 'text', width: 100 },
+            { name: '销售额', type: 'number', width: 100 },
+            { name: '完成率', type: 'percent', width: 100 },
+            { name: '状态', type: 'text', width: 80 }
+        ];
+        let rows = [
+            ['张三', '销售一部', '125000', '85%', '优秀'],
+            ['李四', '销售二部', '98000', '72%', '良好'],
+            ['王五', '销售一部', '142000', '95%', '优秀'],
+            ['赵六', '销售三部', '67000', '55%', '待改进'],
+            ['陈七', '销售二部', '110000', '80%', '良好']
+        ];
+        let selectedCell = null;
+        let sortCol = -1;
+        let sortAsc = true;
+
+        function init() { renderColConfigs(); renderTable(); updateStats(); }
+
+        function renderColConfigs() {
+            document.getElementById('colConfigs').innerHTML = columns.map((c, i) => `
+                <div class="col-config">
+                    <input type="text" value="${c.name}" onchange="columns[${i}].name=this.value;renderTable()" placeholder="列名">
+                    <select onchange="columns[${i}].type=this.value;renderTable()">
+                        <option value="text" ${c.type==='text'?'selected':''}>文本</option>
+                        <option value="number" ${c.type==='number'?'selected':''}>数字</option>
+                        <option value="percent" ${c.type==='percent'?'selected':''}>百分比</option>
+                        <option value="currency" ${c.type==='currency'?'selected':''}>货币</option>
+                        <option value="date" ${c.type==='date'?'selected':''}>日期</option>
+                    </select>
+                    <button class="btn-sm btn-danger" onclick="deleteColumn(${i})">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addColumn() {
+            columns.push({ name: `列${columns.length+1}`, type: 'text', width: 100 });
+            rows.forEach(r => r.push(''));
+            renderColConfigs(); renderTable();
+        }
+
+        function deleteColumn(i) {
+            if (columns.length <= 1) return;
+            columns.splice(i, 1);
+            rows.forEach(r => r.splice(i, 1));
+            renderColConfigs(); renderTable(); updateStats();
+        }
+
+        function addRow() {
+            rows.push(columns.map(() => ''));
+            renderTable(); updateStats();
+        }
+
+        function deleteRow() {
+            if (rows.length > 0) {
+                rows.pop();
+                renderTable(); updateStats();
+            }
+        }
+
+        function renderTable() {
+            const style = document.getElementById('tableStyle').value;
+            const table = document.createElement('table');
+            table.className = 'data-table';
+
+            let headerHtml = '<thead><tr>';
+            columns.forEach((c, i) => {
+                const sortIcon = sortCol === i ? (sortAsc ? ' ↑' : ' ↓') : '';
+                headerHtml += `<th onclick="sortByCol(${i})">${c.name}${sortIcon}</th>`;
+            });
+            headerHtml += '</tr></thead>';
+
+            let bodyHtml = '<tbody>';
+            rows.forEach((row, ri) => {
+                const rowClass = style === 'striped' && ri % 2 === 1 ? ' style="background:var(--card-bg);"' : '';
+                bodyHtml += `<tr${rowClass}>`;
+                row.forEach((cell, ci) => {
+                    bodyHtml += `<td contenteditable="true" onclick="selectCell(${ri},${ci})" onblur="updateCell(${ri},${ci},this.textContent)">${cell}</td>`;
+                });
+                bodyHtml += '</tr>';
+            });
+            bodyHtml += '</tbody>';
+
+            document.getElementById('tableWrapper').innerHTML = '';
+            table.innerHTML = headerHtml + bodyHtml;
+            document.getElementById('tableWrapper').appendChild(table);
+        }
+
+        function selectCell(r, c) {
+            selectedCell = { r, c };
+            document.getElementById('formulaInput').value = rows[r][c];
+        }
+
+        function updateCell(r, c, val) {
+            rows[r][c] = val;
+            updateStats();
+        }
+
+        function applyFormula() {
+            if (!selectedCell) return;
+            const val = document.getElementById('formulaInput').value;
+            rows[selectedCell.r][selectedCell.c] = val;
+            renderTable();
+        }
+
+        function sortByCol(i) {
+            if (sortCol === i) { sortAsc = !sortAsc; } else { sortCol = i; sortAsc = true; }
+            rows.sort((a, b) => {
+                const va = a[i], vb = b[i];
+                const na = parseFloat(va), nb = parseFloat(vb);
+                if (!isNaN(na) && !isNaN(nb)) return sortAsc ? na - nb : nb - na;
+                return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            renderTable();
+        }
+
+        function sortData() { sortByCol(sortCol >= 0 ? sortCol : 0); }
+
+        function generateSampleData() {
+            const names = ['周杰','吴佳','郑强','冯明','蒋华','韩梅','杨磊','朱峰','许涛','何琳'];
+            const depts = ['销售一部','销售二部','销售三部','销售四部'];
+            const statuses = ['优秀','良好','合格','待改进'];
+            rows = names.map(n => [
+                n,
+                depts[Math.floor(Math.random()*depts.length)],
+                String(Math.floor(Math.random()*200000+50000)),
+                Math.floor(Math.random()*50+50) + '%',
+                statuses[Math.floor(Math.random()*statuses.length)]
+            ]);
+            renderTable(); updateStats();
+        }
+
+        function updateStats() {
+            const numCols = columns.map((c,i) => ({...c, idx:i})).filter(c => c.type === 'number' || c.type === 'percent' || c.type === 'currency');
+            if (numCols.length === 0) { document.getElementById('statsArea').innerHTML = '<p style="color:var(--secondary-color);">无数字列可统计</p>'; return; }
+
+            document.getElementById('statsArea').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+                ${numCols.map(c => {
+                    const vals = rows.map(r => parseFloat(r[c.idx])).filter(v => !isNaN(v));
+                    const sum = vals.reduce((s,v) => s+v, 0);
+                    const avg = vals.length ? (sum / vals.length).toFixed(1) : 0;
+                    const max = vals.length ? Math.max(...vals) : 0;
+                    const min = vals.length ? Math.min(...vals) : 0;
+                    return `<div style="padding:12px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);">
+                        <div style="font-weight:bold;margin-bottom:8px;">${c.name}</div>
+                        <div style="font-size:12px;color:var(--secondary-color);">
+                            总计: ${sum.toLocaleString()}<br>
+                            平均: ${avg}<br>
+                            最大: ${max.toLocaleString()}<br>
+                            最小: ${min.toLocaleString()}<br>
+                            数量: ${vals.length}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        function importCSV() {
+            const csv = prompt('粘贴CSV数据（逗号分隔）：');
+            if (!csv) return;
+            const lines = csv.trim().split('\n');
+            if (lines.length > 0) {
+                const newCols = lines[0].split(',').map(c => ({ name: c.trim(), type: 'text', width: 100 }));
+                columns = newCols;
+                rows = lines.slice(1).map(l => l.split(',').map(c => c.trim()));
+                renderColConfigs(); renderTable(); updateStats();
+            }
+        }
+
+        function exportHTML() {
+            let html = `<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">\n<thead><tr>\n`;
+            columns.forEach(c => { html += `  <th style="background:#06b6d4;color:white;">${c.name}</th>\n`; });
+            html += '</tr></thead>\n<tbody>\n';
+            rows.forEach(row => {
+                html += '<tr>\n';
+                row.forEach(cell => { html += `  <td>${cell}</td>\n`; });
+                html += '</tr>\n';
+            });
+            html += '</tbody></table>';
+            document.getElementById('exportArea').textContent = html;
+        }
+
+        function exportCSV() {
+            let csv = columns.map(c => c.name).join(',') + '\n';
+            rows.forEach(r => { csv += r.map(c => `"${c}"`).join(',') + '\n'; });
+            document.getElementById('exportArea').textContent = csv;
+        }
+
+        function exportJSON() {
+            const data = rows.map(r => {
+                const obj = {};
+                columns.forEach((c, i) => { obj[c.name] = r[i]; });
+                return obj;
+            });
+            document.getElementById('exportArea').textContent = JSON.stringify(data, null, 2);
+        }
+
+        function copyMarkdown() {
+            let md = '| ' + columns.map(c => c.name).join(' | ') + ' |\n';
+            md += '| ' + columns.map(() => '---').join(' | ') + ' |\n';
+            rows.forEach(r => { md += '| ' + r.join(' | ') + ' |\n'; });
+            navigator.clipboard.writeText(md).then(() => alert('Markdown已复制'));
+            document.getElementById('exportArea').textContent = md;
+        }
+
+        function toggleTheme() {
+            const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        }
+
+        init();
+    </script>
+</body>
+</html>
