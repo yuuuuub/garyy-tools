@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💱 外汇追踪器</title>
-<meta name="description" content="外汇追踪器，实时追踪主要货币对汇率变化、历史走势">
+<title>📈 债券收益率计算器</title>
+<meta name="description" content="债券收益率计算器，计算到期收益率、当前收益率、赎回收益率等">
 <style>
 :root {--bg: #f5f7fa;
 --card-bg: #ffffff;
@@ -187,47 +187,47 @@ input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:foc
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 body,.container{animation:fadeIn .4s ease-out}
 </style>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💱</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
   <meta name="robots" content="index, follow">
-  <meta property="og:title" content="💱 外汇追踪器">
-  <meta property="og:description" content="外汇追踪器，实时追踪主要货币对汇率变化、历史走势">
+  <meta property="og:title" content="📈 债券收益率计算器">
+  <meta property="og:description" content="债券收益率计算器，计算到期收益率、当前收益率、赎回收益率等">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://garyy.top/tools/forex-tracker-cn/">
+  <meta property="og:url" content="https://garyy.top/tools/bond-yield/">
   <meta property="og:image" content="https://garyy.top/og-image.png">
 </head>
 <body>
 <div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
 <div class="app">
   <div class="header">
-    <h1>💱 外汇追踪器</h1>
+    <h1>📈 债券收益率计算器</h1>
     <div class="header-actions">
       <button class="theme-toggle" id="themeToggle" title="切换暗色模式" aria-label="切换暗色模式">🌙</button>
     </div>
   </div>
-  <div class="disclaimer">⚠️ 汇率数据仅供参考，实际交易以银行牌价为准</div>
+  <div class="disclaimer">⚠️ 计算结果仅供参考，实际投资请咨询专业人士</div>
 
   <div class="quick-section">
-    <div class="quick-title">主要货币对</div>
+    <div class="quick-title">快捷面值</div>
     <div class="quick-chips" id="quickChips"></div>
   </div>
 
   <div class="card">
     <div class="converter-row">
       <div class="field-group">
-        <label>货币对</label>
-        <select class="amount-input" id="pairInput">
-          <option value="USD/CNY">USD/CNY</option>
-          <option value="EUR/CNY">EUR/CNY</option>
-          <option value="GBP/CNY">GBP/CNY</option>
-          <option value="JPY/CNY">JPY/CNY</option>
-          <option value="EUR/USD">EUR/USD</option>
-          <option value="GBP/USD">GBP/USD</option>
-          <option value="USD/JPY">USD/JPY</option>
-        </select>
+        <label>债券面值（元）</label>
+        <input type="number" class="amount-input" id="faceValueInput" value="100" min="0" step="any" placeholder="0">
       </div>
       <div class="field-group">
-        <label>金额</label>
-        <input type="number" class="amount-input" id="amountInput" value="1000" min="0" step="any" placeholder="0">
+        <label>票面利率（%）</label>
+        <input type="number" class="amount-input" id="couponRateInput" value="5" min="0" step="any" placeholder="0">
+      </div>
+      <div class="field-group">
+        <label>当前价格（元）</label>
+        <input type="number" class="amount-input" id="priceInput" value="95" min="0" step="any" placeholder="0">
+      </div>
+      <div class="field-group">
+        <label>剩余期限（年）</label>
+        <input type="number" class="amount-input" id="maturityInput" value="5" min="1" step="1" placeholder="1">
       </div>
     </div>
   </div>
@@ -237,59 +237,65 @@ body,.container{animation:fadeIn .4s ease-out}
     <div class="result-rate" id="resultRate"></div>
   </div>
 
-  <div class="update-time" id="updateTime">汇率更新：模拟数据</div>
+  <div class="update-time" id="updateTime">计算结果：实时计算</div>
 </div>
 
 <script>
-const rates = {
-  'USD/CNY': 7.2456,
-  'EUR/CNY': 6.6745,
-  'GBP/CNY': 9.1823,
-  'JPY/CNY': 0.0461,
-  'EUR/USD': 1.0856,
-  'GBP/USD': 1.2678,
-  'USD/JPY': 157.32
-};
-const quickPairs = ['USD/CNY', 'EUR/CNY', 'GBP/CNY', 'EUR/USD'];
+const quickFaceValues = [100, 1000, 10000];
 function renderQuickChips() {
   const container = document.getElementById('quickChips');
-  container.innerHTML = quickPairs.map(pair => {
-    const rate = rates[pair];
-    return `<button class="chip" onclick="setPair('${pair}')">${pair} ${rate}</button>`;
+  container.innerHTML = quickFaceValues.map(value => {
+    const activeClass = (value === parseFloat(document.getElementById('faceValueInput').value)) ? ' active' : '';
+    return `<button class="chip${activeClass}" onclick="setFaceValue(${value})">¥${value.toLocaleString()}</button>`;
   }).join('');
 }
-function setPair(pair) {
-  document.getElementById('pairInput').value = pair;
+function setFaceValue(value) {
+  document.getElementById('faceValueInput').value = value;
+  renderQuickChips();
   calculate();
 }
 function calculate() {
-  const pair = document.getElementById('pairInput').value;
-  const amount = parseFloat(document.getElementById('amountInput').value) || 0;
-  const rate = rates[pair] || 1;
-  const result = amount * rate;
+  const faceValue = parseFloat(document.getElementById('faceValueInput').value) || 100;
+  const couponRate = parseFloat(document.getElementById('couponRateInput').value) / 100 || 0;
+  const price = parseFloat(document.getElementById('priceInput').value) || 0;
+  const maturity = parseInt(document.getElementById('maturityInput').value) || 5;
   
-  const [from, to] = pair.split('/');
-  document.getElementById('resultValue').textContent = `¥${result.toFixed(2)}`;
-  document.getElementById('resultRate').textContent = `1 ${from} = ${rate} ${to}`;
+  const coupon = faceValue * couponRate;
+  const currentYield = price > 0 ? (coupon / price * 100) : 0;
+  
+  // 简化的到期收益率计算
+  let ytm = 0;
+  if (price > 0 && maturity > 0) {
+    const totalCoupon = coupon * maturity;
+    const capitalGain = faceValue - price;
+    const totalReturn = totalCoupon + capitalGain;
+    const averageReturn = totalReturn / maturity;
+    ytm = (averageReturn / price) * 100;
+  }
+  
+  document.getElementById('resultValue').textContent = `到期收益率 ${ytm.toFixed(2)}%`;
+  document.getElementById('resultRate').textContent = `当前收益率 ${currentYield.toFixed(2)}% | 票面利率 ${(couponRate * 100).toFixed(2)}%`;
   renderQuickChips();
 }
 function initTheme() {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const saved = localStorage.getItem('forex-tracker-cn-theme');
+  const saved = localStorage.getItem('bond-yield-theme');
   const isDark = saved ? saved === 'dark' : prefersDark;
   applyTheme(isDark);
 }
 function applyTheme(isDark) {
   document.documentElement.classList.toggle('dark', isDark);
   document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
-  localStorage.setItem('forex-tracker-cn-theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('bond-yield-theme', isDark ? 'dark' : 'light');
 }
 document.getElementById('themeToggle').addEventListener('click', () => {
   const isDark = document.documentElement.classList.contains('dark');
   applyTheme(!isDark);
 });
-document.getElementById('pairInput').addEventListener('change', calculate);
-document.getElementById('amountInput').addEventListener('input', calculate);
+document.getElementById('faceValueInput').addEventListener('input', calculate);
+document.getElementById('couponRateInput').addEventListener('input', calculate);
+document.getElementById('priceInput').addEventListener('input', calculate);
+document.getElementById('maturityInput').addEventListener('input', calculate);
 function init() {
   initTheme();
   calculate();
@@ -297,8 +303,10 @@ function init() {
 init();
 </script>
 <script src="../i18n.js" defer>
-document.getElementById("pairInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("amountInput").focus();}});
-document.getElementById("amountInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();calculate();}});
+document.getElementById("faceValueInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("couponRateInput").focus();}});
+document.getElementById("couponRateInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("priceInput").focus();}});
+document.getElementById("priceInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("maturityInput").focus();}});
+document.getElementById("maturityInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();calculate();}});
 
 document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
 </script>
