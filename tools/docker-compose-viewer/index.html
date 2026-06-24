@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker Compose 查看器 | Docker Compose Viewer</title>
+<meta property="og:title" content="Docker Compose 查看器 | Docker Compose Viewer">
+<meta property="og:description" content="在线查看和编辑Docker Compose配置，可视化服务依赖关系">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="在线Docker Compose配置查看器和编辑器，可视化服务依赖关系">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐳</text></svg>">
+<script src="i18n.js" defer></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg-secondary:#161b22;--bg-tertiary:#21262d;--border:#30363d;--text:#c9d1d9;--text-secondary:#8b949e;--accent:#58a6ff;--accent-hover:#79c0ff;--green:#3fb950;--green-bg:rgba(63,185,80,.15);--red:#f85149;--red-bg:rgba(248,81,73,.15);--orange:#d2991d;--cyan:#39d2c0;--blue:#79c0ff;--purple:#bc8cff;--radius:8px;--radius-sm:6px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--bg-secondary:#fff;--bg-tertiary:#f0f2f5;--border:#d0d7de;--text:#1f2328;--text-secondary:#656d76;--accent:#0969da;--accent-hover:#0550ae;--green:#1a7f37;--green-bg:rgba(26,127,55,.1);--red:#cf222e;--red-bg:rgba(207,34,46,.1);--orange:#9a6700;--cyan:#0598bc;--blue:#0969da;--purple:#8250df}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+.app-header{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.app-header h1{font-size:1.25rem;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.app-header .subtitle{font-size:.8rem;color:var(--text-secondary)}
+.main{max-width:1400px;margin:0 auto;padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+.card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
+.card-header{padding:10px 16px;border-bottom:1px solid var(--border);font-size:.85rem;font-weight:500;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.btn{padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-tertiary);color:var(--text);cursor:pointer;font-size:.8rem;transition:var(--transition)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.editor{width:100%;flex:1;min-height:500px;padding:16px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',Consolas,monospace;font-size:.85rem;line-height:1.6;resize:none;outline:none;tab-size:2}
+.editor:focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--radius-sm)}
+.service-list{flex:1;padding:16px;overflow:auto;min-height:500px}
+.service-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden}
+.service-header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:var(--transition)}
+.service-header:hover{background:var(--bg-tertiary)}
+.service-name{font-weight:600;color:var(--cyan);font-family:'Fira Code',Consolas,monospace}
+.service-image{font-size:.75rem;color:var(--text-secondary);font-family:'Fira Code',Consolas,monospace;margin-left:8px}
+.service-body{padding:0 16px 16px;display:none}
+.service-body.open{display:block}
+.detail-row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.detail-row:last-child{border-bottom:none}
+.detail-key{color:var(--text-secondary);min-width:100px}
+.detail-val{color:var(--text);font-family:'Fira Code',Consolas,monospace;word-break:break-all}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;margin:2px}
+.tag-port{background:rgba(57,210,192,.15);color:var(--cyan)}
+.tag-volume{background:rgba(188,140,255,.15);color:var(--purple)}
+.tag-env{background:rgba(63,185,80,.15);color:var(--green)}
+.tag-dep{background:rgba(210,153,29,.15);color:var(--orange)}
+.dep-graph{padding:16px;background:var(--bg);border-radius:var(--radius-sm);margin-top:12px}
+.dep-item{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:.8rem}
+.dep-arrow{color:var(--text-secondary)}
+.dep-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.8rem}
+.dep-node{padding:4px 10px;border-radius:4px;background:var(--bg-tertiary);border:1px solid var(--border);font-family:'Fira Code',Consolas,monospace;font-size:.8rem}
+.empty-state{text-align:center;padding:40px;color:var(--text-secondary);font-size:.85rem}
+.parse-error{color:var(--red);padding:16px;font-size:.85rem}
+.yaml-hint{background:var(--bg-tertiary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:.8rem;color:var(--text-secondary);line-height:1.6;margin-top:12px}
+</style>
+</head>
+<body>
+<header class="app-header">
+<div>
+<h1>🐳 Docker Compose 查看器</h1>
+<span class="subtitle">查看和分析 Docker Compose 配置</span>
+</div>
+<div>
+<button class="btn" onclick="loadSample()">加载示例</button>
+<button class="btn" onclick="copyYAML()">📋 复制 YAML</button>
+<button class="btn" onclick="copyJSON()">📋 复制 JSON</button>
+</div>
+</header>
+<div class="main">
+<div class="card">
+<div class="card-header"><span>📝 YAML 编辑器</span><span id="lineCount">0 行</span></div>
+<textarea class="editor" id="yamlEditor" placeholder="在此粘贴 docker-compose.yml 内容..." spellcheck="false"></textarea>
+</div>
+<div class="card">
+<div class="card-header"><span>📊 解析结果</span><span id="serviceCount">0 个服务</span></div>
+<div class="service-list" id="serviceList">
+<div class="empty-state">粘贴 YAML 后自动解析</div>
+</div>
+<div class="dep-graph" id="depGraph" style="display:none"></div>
+</div>
+</div>
+
+<script>
+const SAMPLE=`version: '3.8'
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./html:/usr/share/nginx/html
+    depends_on:
+      - app
+    environment:
+      - NODE_ENV=production
+    networks:
+      - frontend
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://cache:6379
+    depends_on:
+      - db
+      - cache
+    volumes:
+      - ./src:/app/src
+    networks:
+      - frontend
+      - backend
+
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=myapp
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=secret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  frontend:
+  backend:
+`;
+
+function parseYAML(text){
+  const result={version:'',services:{},volumes:{},networks:{}};
+  const lines=text.split('\n');
+  let currentSection='';
+  let currentService='';
+  let currentKey='';
+  let indent=0;
+
+  lines.forEach(line=>{
+    const trimmed=line.trim();
+    if(!trimmed||trimmed.startsWith('#'))return;
+
+    const match=line.match(/^(\s*)/);
+    const currentIndent=match?match[1].length:0;
+
+    if(trimmed==='version:'){
+      currentSection='version';
+      return;
+    }
+    if(trimmed.startsWith('version:')){
+      result.version=trimmed.split(':').slice(1).join(':').trim().replace(/['"]/g,'');
+      currentSection='version';
+      return;
+    }
+    if(trimmed==='services:'){currentSection='services';currentService='';return}
+    if(trimmed==='volumes:'){currentSection='volumes';return}
+    if(trimmed==='networks:'){currentSection='networks';return}
+
+    if(currentSection==='services'){
+      if(currentIndent<=2&&trimmed.endsWith(':')&&!trimmed.includes(':')){
+        currentService=trimmed.slice(0,-1).trim().replace(/['"]/g,'');
+        result.services[currentService]={image:'',ports:[],volumes:[],environment:[],depends_on:[],networks:[],build:''};
+        currentKey='';
+        return;
+      }
+      if(currentService){
+        const service=result.services[currentService];
+        if(trimmed.startsWith('image:'))service.image=trimmed.split(':').slice(1).join(':').trim().replace(/['"]/g,'');
+        else if(trimmed.startsWith('build:'))service.build=trimmed.split(':').slice(1).join(':').trim().replace(/['"]/g,'');
+        else if(trimmed.startsWith('ports:')||currentKey==='ports'){
+          currentKey='ports';
+          if(trimmed.startsWith('- ')||trimmed.match(/^-\s/)){
+            service.ports.push(trimmed.replace(/^-\s*/,'').replace(/['"]/g,''));
+          }
+        }
+        else if(trimmed.startsWith('volumes:')||currentKey==='volumes'){
+          currentKey='volumes';
+          if(trimmed.startsWith('- ')||trimmed.match(/^-\s/)){
+            service.volumes.push(trimmed.replace(/^-\s*/,'').replace(/['"]/g,''));
+          }
+        }
+        else if(trimmed.startsWith('environment:')||currentKey==='environment'){
+          currentKey='environment';
+          if(trimmed.startsWith('- ')||trimmed.match(/^-\s/)){
+            service.environment.push(trimmed.replace(/^-\s*/,'').replace(/['"]/g,''));
+          }
+        }
+        else if(trimmed.startsWith('depends_on:')||currentKey==='depends_on'){
+          currentKey='depends_on';
+          if(trimmed.startsWith('- ')||trimmed.match(/^-\s/)){
+            service.depends_on.push(trimmed.replace(/^-\s*/,'').replace(/['"]/g,''));
+          }
+        }
+        else if(trimmed.startsWith('networks:')||currentKey==='networks'){
+          currentKey='networks';
+          if(trimmed.startsWith('- ')||trimmed.match(/^-\s/)){
+            service.networks.push(trimmed.replace(/^-\s*/,'').replace(/['"]/g,''));
+          }
+        }
+      }
+    }
+  });
+
+  return result;
+}
+
+function renderServices(parsed){
+  const el=document.getElementById('serviceList');
+  const entries=Object.entries(parsed.services);
+
+  if(!entries.length){
+    el.innerHTML='<div class="empty-state">未找到服务定义</div>';
+    document.getElementById('depGraph').style.display='none';
+    return;
+  }
+
+  document.getElementById('serviceCount').textContent=entries.length+' 个服务';
+
+  el.innerHTML=entries.map(([name,svc],i)=>{
+    const tags=[];
+    if(svc.ports.length) tags.push(`<span class="tag tag-port">${svc.ports.length} 端口</span>`);
+    if(svc.volumes.length) tags.push(`<span class="tag tag-volume">${svc.volumes.length} 卷</span>`);
+    if(svc.environment.length) tags.push(`<span class="tag tag-env">${svc.environment.length} 环境变量</span>`);
+    if(svc.depends_on.length) tags.push(`<span class="tag tag-dep">${svc.depends_on.length} 依赖</span>`);
+
+    let details='';
+    if(svc.image) details+=`<div class="detail-row"><span class="detail-key">镜像</span><span class="detail-val">${esc(svc.image)}</span></div>`;
+    if(svc.build) details+=`<div class="detail-row"><span class="detail-key">构建</span><span class="detail-val">${esc(svc.build)}</span></div>`;
+    if(svc.ports.length) details+=`<div class="detail-row"><span class="detail-key">端口</span><span class="detail-val">${svc.ports.map(p=>'<span class="tag tag-port">'+esc(p)+'</span>').join(' ')}</span></div>`;
+    if(svc.volumes.length) details+=`<div class="detail-row"><span class="detail-key">卷</span><span class="detail-val">${svc.volumes.map(v=>'<span class="tag tag-volume">'+esc(v)+'</span>').join(' ')}</span></div>`;
+    if(svc.environment.length) details+=`<div class="detail-row"><span class="detail-key">环境变量</span><span class="detail-val">${svc.environment.map(e=>'<span class="tag tag-env">'+esc(e)+'</span>').join(' ')}</span></div>`;
+    if(svc.depends_on.length) details+=`<div class="detail-row"><span class="detail-key">依赖</span><span class="detail-val">${svc.depends_on.map(d=>'<span class="tag tag-dep">'+esc(d)+'</span>').join(' ')}</span></div>`;
+    if(svc.networks.length) details+=`<div class="detail-row"><span class="detail-key">网络</span><span class="detail-val">${svc.networks.map(n=>esc(n)).join(', ')}</span></div>`;
+
+    return`<div class="service-item">
+      <div class="service-header" onclick="toggleService(${i})">
+        <div><span class="service-name">${esc(name)}</span><span class="service-image">${esc(svc.image||svc.build||'')}</span></div>
+        <div>${tags.join('')}</div>
+      </div>
+      <div class="service-body" id="svc-${i}">${details}</div>
+    </div>`;
+  }).join('');
+
+  renderDepGraph(parsed);
+}
+
+function renderDepGraph(parsed){
+  const el=document.getElementById('depGraph');
+  const deps=Object.entries(parsed.services)
+    .filter(([_,s])=>s.depends_on.length)
+    .map(([name,s])=>({name,deps:s.depends_on}));
+
+  if(!deps.length){el.style.display='none';return}
+  el.style.display='block';
+
+  let html='<h3 style="font-size:.9rem;margin-bottom:10px;color:var(--text)">依赖关系</h3>';
+  deps.forEach(d=>{
+    html+=`<div class="dep-line">
+      <span class="dep-node">${esc(d.name)}</span>
+      <span class="dep-arrow">→</span>
+      ${d.deps.map(dep=>`<span class="dep-node">${esc(dep)}</span>`).join(' → ')}
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function toggleService(i){
+  const el=document.getElementById('svc-'+i);
+  el.classList.toggle('open');
+}
+
+function loadSample(){
+  document.getElementById('yamlEditor').value=SAMPLE;
+  parse();
+}
+
+function parse(){
+  const text=document.getElementById('yamlEditor').value;
+  const lines=text.split('\n').length;
+  document.getElementById('lineCount').textContent=lines+' 行';
+  const parsed=parseYAML(text);
+  renderServices(parsed);
+}
+
+function copyYAML(){
+  const text=document.getElementById('yamlEditor').value;
+  navigator.clipboard.writeText(text).then(()=>showToast('YAML 已复制','success'));
+}
+
+function copyJSON(){
+  const text=document.getElementById('yamlEditor').value;
+  const parsed=parseYAML(text);
+  navigator.clipboard.writeText(JSON.stringify(parsed,null,2)).then(()=>showToast('JSON 已复制','success'));
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function showToast(msg,type='success'){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:.85rem;font-weight:500;z-index:99999;transition:opacity .3s;background:var(--green);color:#fff';
+  if(type==='error')t.style.background='var(--red)';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},2000);
+}
+
+document.getElementById('yamlEditor').addEventListener('input',parse);
+document.getElementById('yamlEditor').addEventListener('keydown',function(e){
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const start=this.selectionStart;
+    this.value=this.value.substring(0,start)+'  '+this.value.substring(this.selectionEnd);
+    this.selectionStart=this.selectionEnd=start+2;
+    parse();
+  }
+});
+
+loadSample();
+</script>
+</body>
+</html>
