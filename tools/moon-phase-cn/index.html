@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌙 月相日历</title>
+<meta property="og:title" content="🌙 月相日历">
+<meta property="og:description" content="🌙 月相日历 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="月相日历 - 查看任意日期的月相、农历日期、潮汐信息和月球数据">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌙</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px;line-height:1.4}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.date-picker{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.date-picker input{padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;outline:none}
+.date-picker input:focus{border-color:var(--accent)}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.9}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.moon-display{text-align:center;padding:20px}
+.moon-canvas{display:inline-block}
+.moon-info{margin-top:16px}
+.moon-phase-name{font-size:1.8rem;font-weight:700;color:var(--accent)}
+.moon-detail{font-size:.9rem;color:var(--text2);margin-top:4px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:16px}
+.info-grid .item{background:var(--bg);padding:12px;border-radius:8px;text-align:center}
+.info-grid .item .label{font-size:.75rem;color:var(--text2)}
+.info-grid .item .val{font-size:1rem;font-weight:600;margin-top:4px}
+.tide-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.tide-box{background:var(--bg);padding:12px;border-radius:8px;text-align:center}
+.tide-box .type{font-size:.8rem;color:var(--text2)}
+.tide-box .time{font-size:1.1rem;font-weight:600;margin-top:4px}
+.nav-row{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.nav-row button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.nav-row button:hover{border-color:var(--accent);color:var(--accent)}
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px}
+.month-grid .day-header{text-align:center;font-size:.7rem;color:var(--text2);padding:4px}
+.month-grid .day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:.75rem;transition:all .2s;border:1px solid transparent}
+.month-grid .day:hover{border-color:var(--accent)}
+.month-grid .day.today{background:var(--accent);color:#fff;border-color:var(--accent)}
+.month-grid .day .mini-moon{font-size:.8rem}
+.phase-list{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.phase-item{background:var(--bg);padding:8px 12px;border-radius:8px;text-align:center;font-size:.75rem;cursor:pointer;transition:all .2s;border:1px solid var(--border)}
+.phase-item:hover{border-color:var(--accent)}
+.phase-item .icon{font-size:1.2rem}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="hdr"><h1>🌙 月相日历</h1><p>查看任意日期的月相、农历日期、潮汐信息</p></div>
+<div class="date-picker">
+<button class="btn btn-secondary" onclick="changeDate(-1)">◀ 前一天</button>
+<input type="date" id="dateInput" onchange="updateMoon()">
+<button class="btn btn-secondary" onclick="changeDate(1)">后一天 ▶</button>
+<button class="btn btn-primary" onclick="goToday()">今天</button>
+</div>
+<div class="card moon-display">
+<canvas id="moonCanvas" width="200" height="200"></canvas>
+<div class="moon-info">
+<div class="moon-phase-name" id="phaseName">—</div>
+<div class="moon-detail" id="phaseDetail">—</div>
+</div>
+</div>
+<div class="card">
+<h3 style="font-size:.95rem;color:var(--accent);margin-bottom:10px">月球数据</h3>
+<div class="info-grid" id="moonGrid"></div>
+</div>
+<div class="card">
+<h3 style="font-size:.95rem;color:var(--accent);margin-bottom:10px">潮汐预报</h3>
+<div class="tide-info" id="tideInfo"></div>
+</div>
+<div class="card">
+<h3 style="font-size:.95rem;color:var(--accent);margin-bottom:10px">月相速查</h3>
+<div class="phase-list" id="phaseList"></div>
+</div>
+<div class="card">
+<h3 style="font-size:.95rem;color:var(--accent);margin-bottom:10px" id="monthTitle">月历</h3>
+<div class="nav-row">
+<button onclick="changeMonth(-1)">◀ 上月</button>
+<button onclick="changeMonth(0)">本月</button>
+<button onclick="changeMonth(1)">下月 ▶</button>
+</div>
+<div class="month-grid" id="monthGrid"></div>
+</div>
+
+<script>
+let currentDate=new Date();
+let viewMonth=new Date();
+
+const phaseEmojis=['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+const phaseNames=['新月','蛾眉月','上弦月','盈凸月','满月','亏凸月','下弦月','残月'];
+const phaseDescs=['月亮不可见','细弯月牙','半圆形月面','接近满月','月亮最圆最亮','圆月渐亏','下半月半圆','月末细弯月牙'];
+
+function getMoonPhase(date){
+const year=date.getFullYear(),month=date.getMonth()+1,day=date.getDate();
+let y=year,m=month;
+if(m<=2){y--;m+=12}
+const A=Math.floor(y/100),B=Math.floor(A/4);
+const JD=Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+day+B-A+1524.5;
+const daysSinceNew=JD-2451549.5;
+const lunation=daysSinceNew/29.53058867;
+const phase=(lunation-Math.floor(lunation));
+return{phase,lunation:daysSinceNew/29.53058867,JD,daysSinceNew};
+}
+
+function getPhaseIndex(phase){
+return Math.round(phase*8)%8;
+}
+
+function drawMoon(canvas,phase,size=100){
+const ctx=canvas.getContext('2d');
+const dpr=window.devicePixelRatio||1;
+canvas.width=size*dpr;canvas.height=size*dpr;
+canvas.style.width=size+'px';canvas.style.height=size+'px';
+ctx.scale(dpr,dpr);
+const cx=size/2,cy=size/2,r=size/2-4;
+ctx.clearRect(0,0,size,size);
+ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+ctx.fillStyle='#1a1a2e';ctx.fill();
+const phaseAngle=phase*2*Math.PI;
+const sweep=Math.cos(phaseAngle);
+ctx.beginPath();
+ctx.arc(cx,cy,r,0,Math.PI*2);
+ctx.save();
+ctx.beginPath();
+ctx.arc(cx,cy,r,0,Math.PI*2);
+ctx.clip();
+ctx.beginPath();
+if(sweep>=0){
+ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+phaseAngle,false);
+if(phase>0.25&&phase<0.75)ctx.arc(cx,cy,Math.abs(sweep)*r,Math.PI/2,-Math.PI/2,false);
+else ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+phaseAngle,true);
+}else{
+ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+phaseAngle,true);
+}
+ctx.fillStyle='#e8e8e8';ctx.fill();
+ctx.restore();
+ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.stroke();
+}
+
+function updateMoon(){
+currentDate=new Date(document.getElementById('dateInput').value);
+const{phase,JD}=getMoonPhase(currentDate);
+const phaseIdx=getPhaseIndex(phase);
+const illumination=Math.round((1-Math.cos(phase*2*Math.PI))/2*100);
+document.getElementById('phaseName').textContent=phaseEmojis[phaseIdx]+' '+phaseNames[phaseIdx];
+document.getElementById('phaseDetail').textContent=`光照率: ${illumination}% · 月龄: ${Math.round(phase*29.53)}天`;
+drawMoon(document.getElementById('moonCanvas'),phase,200);
+const moonAge=Math.round(phase*29.53);
+const distance=Math.round(384400+Math.sin(JD/27.55455)*21000);
+const nextFull=new Date(currentDate);
+nextFull.setDate(nextFull.getDate()+Math.round((0.5-phase+1)%1*29.53));
+const nextNew=new Date(currentDate);
+nextNew.setDate(nextNew.getDate()+Math.round(((1-phase)%1)*29.53));
+document.getElementById('moonGrid').innerHTML=`
+<div class="item"><div class="label">月龄</div><div class="val">${moonAge}天</div></div>
+<div class="item"><div class="label">光照率</div><div class="val">${illumination}%</div></div>
+<div class="item"><div class="label">月地距离</div><div class="val">${distance.toLocaleString()}km</div></div>
+<div class="item"><div class="label">下次满月</div><div class="val">${nextFull.getMonth()+1}/${nextFull.getDate()}</div></div>
+<div class="item"><div class="label">下次新月</div><div class="val">${nextNew.getMonth()+1}/${nextNew.getDate()}</div></div>
+<div class="item"><div class="label">潮汐力</div><div class="val">${illumination>50?'大潮':'小潮'}</div></div>`;
+const tideBase=new Date(currentDate);tideBase.setHours(6,0,0,0);
+const tideHourOffset=phase*6;
+document.getElementById('tideInfo').innerHTML=`
+<div class="tide-box"><div class="type">🌅 高潮</div><div class="time">${String(Math.floor((6+tideHourOffset)%24)).padStart(2,'0')}:${String(Math.floor((tideHourOffset*60)%60)).padStart(2,'0')}</div></div>
+<div class="tide-box"><div class="type">🌅 低潮</div><div class="time">${String(Math.floor((12+tideHourOffset)%24)).padStart(2,'0')}:${String(Math.floor((tideHourOffset*60)%60)).padStart(2,'0')}</div></div>
+<div class="tide-box"><div class="type">🌊 潮差</div><div class="time">${illumination>80?'大潮':illumination>40?'中潮':'小潮'}</div></div>
+<div class="item"><div class="label">潮汐类型</div><div class="val">半日潮</div></div>`;
+renderMonthGrid();
+}
+
+function changeDate(d){
+currentDate.setDate(currentDate.getDate()+d);
+document.getElementById('dateInput').value=currentDate.toISOString().split('T')[0];
+updateMoon();
+}
+
+function goToday(){
+currentDate=new Date();
+document.getElementById('dateInput').value=currentDate.toISOString().split('T')[0];
+updateMoon();
+}
+
+function changeMonth(d){
+if(d===0)viewMonth=new Date();
+else{viewMonth.setMonth(viewMonth.getMonth()+d)}
+renderMonthGrid();
+}
+
+function renderMonthGrid(){
+const year=viewMonth.getFullYear(),month=viewMonth.getMonth();
+document.getElementById('monthTitle').textContent=`${year}年${month+1}月`;
+const firstDay=new Date(year,month,1).getDay();
+const daysInMonth=new Date(year,month+1,0).getDate();
+let html='';
+['日','一','二','三','四','五','六'].forEach(d=>html+=`<div class="day-header">${d}</div>`);
+for(let i=0;i<firstDay;i++)html+=`<div class="day"></div>`;
+for(let d=1;d<=daysInMonth;d++){
+const date=new Date(year,month,d);
+const{phase}=getMoonPhase(date);
+const idx=getPhaseIndex(phase);
+const isToday=date.toDateString()===new Date().toDateString();
+html+=`<div class="day${isToday?' today':''}" onclick="selectDate(${year},${month},${d})"><span class="mini-moon">${phaseEmojis[idx]}</span><span>${d}</span></div>`;
+}
+document.getElementById('monthGrid').innerHTML=html;
+}
+
+function selectDate(y,m,d){
+currentDate=new Date(y,m,d);
+document.getElementById('dateInput').value=currentDate.toISOString().split('T')[0];
+updateMoon();
+}
+
+function initPhaseList(){
+document.getElementById('phaseList').innerHTML=phaseEmojis.map((e,i)=>`<div class="phase-item"><div class="icon">${e}</div><div>${phaseNames[i]}</div></div>`).join('');
+}
+
+document.getElementById('dateInput').value=currentDate.toISOString().split('T')[0];
+initPhaseList();
+updateMoon();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪐 太阳系探索</title>
+<meta property="og:title" content="🪐 太阳系探索">
+<meta property="og:description" content="🪐 太阳系探索 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="太阳系交互式探索工具 - 8大行星详细信息、轨道模拟、大小对比">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px;line-height:1.4}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.view-tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.view-tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.view-tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.orbit-view{position:relative;width:100%;max-width:600px;margin:0 auto;aspect-ratio:1}
+.sun{position:absolute;top:50%;left:50%;width:40px;height:40px;background:radial-gradient(circle,#fff700,#ff8c00);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 30px #ff8c00;z-index:2}
+.orbit{position:absolute;top:50%;left:50%;border:1px solid rgba(255,255,255,.1);border-radius:50%;transform:translate(-50%,-50%);animation:orbit-spin linear infinite}
+.planet{position:absolute;width:var(--size);height:var(--size);background:var(--color);border-radius:50%;top:-var(--size);left:50%;transform:translateX(-50%);cursor:pointer;transition:box-shadow .2s}
+.planet:hover{box-shadow:0 0 15px var(--color);z-index:10}
+@keyframes orbit-spin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+.size-compare{display:flex;align-items:flex-end;justify-content:center;gap:20px;min-height:300px;padding:20px;flex-wrap:wrap}
+.size-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.size-item .planet-sphere{border-radius:50%;transition:all .3s}
+.size-item:hover .planet-sphere{box-shadow:0 0 20px var(--color)}
+.size-item span{font-size:.7rem;color:var(--text2)}
+.info-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:16px;display:none}
+.info-panel.show{display:block}
+.info-panel h2{font-size:1.3rem;margin-bottom:10px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:12px}
+.info-grid .item{background:var(--bg);padding:10px;border-radius:8px}
+.info-grid .item .label{font-size:.75rem;color:var(--text2)}
+.info-grid .item .val{font-size:1rem;font-weight:600}
+.planet-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:16px}
+.planet-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;cursor:pointer;transition:all .2s}
+.planet-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.planet-card .icon{font-size:2rem;margin-bottom:6px}
+.planet-card .name{font-size:.85rem;font-weight:600}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="hdr"><h1>🪐 太阳系探索</h1><p>8大行星详细信息、轨道模拟、大小对比</p></div>
+<div class="view-tabs"><button class="active" onclick="setView('orbit')">轨道视图</button><button onclick="setView('size')">大小对比</button><button onclick="setView('list')">行星列表</button></div>
+<div id="viewContent"></div>
+<div class="info-panel" id="infoPanel"><h2 id="infoName"></h2><div class="info-grid" id="infoGrid"></div></div>
+
+<script>
+const planets=[
+{name:'水星',icon:'☿',color:'#8c7e6d',diameter:4879,distance:57.9,orbitalPeriod:88,dayPeriod:1408,gravity:3.7,moons:0,temp:-180,desc:'最接近太阳的行星，表面温差极大'},
+{name:'金星',icon:'♀',color:'#c4a35a',diameter:12104,distance:108.2,orbitalPeriod:225,dayPeriod:5832,gravity:8.87,moons:0,temp:465,desc:'最热的行星，自转方向与其他行星相反'},
+{name:'地球',icon:'♁',color:'#4a90d9',diameter:12742,distance:149.6,orbitalPeriod:365,dayPeriod:24,gravity:9.81,moons:1,temp:15,desc:'唯一已知存在生命的行星'},
+{name:'火星',icon:'♂',color:'#c1440e',diameter:6779,distance:227.9,orbitalPeriod:687,dayPeriod:24.6,gravity:3.72,moons:2,temp:-65,desc:'红色星球，拥有太阳系最高的山'},
+{name:'木星',icon:'♃',color:'#c88b3a',diameter:139820,distance:778.5,orbitalPeriod:4333,dayPeriod:9.9,gravity:24.79,moons:95,temp:-110,desc:'最大的行星，大红斑风暴持续数百年'},
+{name:'土星',icon:'♄',color:'#e4c07a',diameter:116460,distance:1432,orbitalPeriod:10759,dayPeriod:10.7,gravity:10.44,moons:146,temp:-140,desc:'美丽的光环系统由冰和岩石组成'},
+{name:'天王星',icon:'♅',color:'#73c2d0',diameter:50724,distance:2867,orbitalPeriod:30687,dayPeriod:17.2,gravity:8.69,moons:28,temp:-195,desc:'自转轴倾斜98度的冰巨星'},
+{name:'海王星',icon:'♆',color:'#3f54ba',diameter:49244,distance:4515,orbitalPeriod:60190,dayPeriod:16.1,gravity:11.15,moons:16,temp:-200,desc:'风速最快的行星，可达2100km/h'}
+];
+let curView='orbit';
+let animSpeed=1;
+
+function setView(v){
+curView=v;
+document.querySelectorAll('.view-tabs button').forEach((b,i)=>{b.classList.toggle('active',['orbit','size','list'][i]===v)});
+render();
+}
+
+function render(){
+const el=document.getElementById('viewContent');
+if(curView==='orbit')renderOrbit(el);
+else if(curView==='size')renderSize(el);
+else renderList(el);
+document.getElementById('infoPanel').classList.remove('show');
+}
+
+function renderOrbit(el){
+let html='<div class="orbit-view"><div class="sun"></div>';
+planets.forEach((p,i)=>{
+const orbitSize=60+i*55;
+const duration=8+i*12;
+const pSize=Math.max(6,Math.min(20,Math.log10(p.diameter)*6));
+html+=`<div class="orbit" style="width:${orbitSize}%;height:${orbitSize}%;border-color:rgba(255,255,255,${0.05+i*0.02});animation-duration:${duration}s"><div class="planet" style="--size:${pSize}px;--color:${p.color}" onclick="showInfo(${i})" title="${p.name}"></div></div>`;
+});
+html+='</div>';
+el.innerHTML=html;
+}
+
+function renderSize(el){
+const maxD=planets[0].diameter;
+planets.forEach(p=>{if(p.diameter>maxD)});
+const sorted=[...planets].sort((a,b)=>a.diameter-b.diameter);
+let html='<div class="size-compare">';
+sorted.forEach((p,i)=>{
+const h=Math.max(20,Math.log10(p.diameter)*40);
+html+=`<div class="size-item" onclick="showInfo(${planets.indexOf(p)})"><div class="planet-sphere" style="width:${h}px;height:${h}px;background:${p.color};--color:${p.color}"></div><span>${p.name}</span><span>${p.diameter.toLocaleString()}km</span></div>`;
+});
+html+='</div>';
+el.innerHTML=html;
+}
+
+function renderList(el){
+let html='<div class="planet-list">';
+planets.forEach((p,i)=>{
+html+=`<div class="planet-card" onclick="showInfo(${i})"><div class="icon">${p.icon}</div><div class="name">${p.name}</div></div>`;
+});
+html+='</div>';
+el.innerHTML=html;
+}
+
+function showInfo(i){
+const p=planets[i];
+const panel=document.getElementById('infoPanel');
+document.getElementById('infoName').textContent=p.icon+' '+p.name;
+const items=[
+{label:'直径',val:p.diameter.toLocaleString()+' km'},
+{label:'与太阳距离',val:p.distance+'百万km'},
+{label:'公转周期',val:p.orbitalPeriod+'天'},
+{label:'自转周期',val:p.dayPeriod+'小时'},
+{label:'表面重力',val:p.gravity+' m/s²'},
+{label:'卫星数量',val:p.moons+'颗'},
+{label:'平均温度',val:p.temp+'°C'},
+{label:'描述',val:p.desc}
+];
+document.getElementById('infoGrid').innerHTML=items.map(it=>`<div class="item"><div class="label">${it.label}</div><div class="val">${it.val}</div></div>`).join('');
+panel.classList.add('show');
+panel.scrollIntoView({behavior:'smooth'});
+}
+
+render();
+</script>
+</body>
+</html>

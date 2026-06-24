@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⭐ 星空图</title>
+<meta property="og:title" content="⭐ 星空图">
+<meta property="og:description" content="⭐ 星空图 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="星空图 - 交互式星图可视化、行星位置、亮星搜索、天文观测指南">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⭐</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px;line-height:1.4}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.controls{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.controls input,.controls select{padding:6px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.8rem;outline:none}
+.controls input:focus,.controls select:focus{border-color:var(--accent)}
+.btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.sky-container{position:relative;background:radial-gradient(ellipse at center,#0a0e27,#000);border-radius:var(--radius);overflow:hidden}
+canvas{display:block;width:100%;cursor:grab}
+.info-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px;display:none}
+.info-panel.show{display:block}
+.info-panel h3{color:var(--accent);margin-bottom:8px}
+.star-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:12px}
+.star-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;transition:all .2s}
+.star-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.star-card .name{font-weight:600}
+.star-card .info{font-size:.75rem;color:var(--text2);margin-top:4px}
+.star-card .mag{color:var(--warn);font-weight:700}
+.legend{display:flex;gap:12px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--text2)}
+.legend-dot{width:8px;height:8px;border-radius:50%}
+.planet-legend{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap}
+.planet-badge{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.75rem;display:flex;align-items:center;gap:4px}
+.planet-badge .dot{width:8px;height:8px;border-radius:50%}
+.obs-guide{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;font-size:.85rem;color:var(--text2);line-height:1.6}
+.obs-guide h4{color:var(--accent);margin-bottom:6px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="hdr"><h1>⭐ 星空图</h1><p>交互式星图可视化、行星位置、亮星搜索</p></div>
+<div class="controls">
+<input type="text" id="searchStar" placeholder="搜索恒星" oninput="searchStars()">
+<select id="magLimit" onchange="drawSky()"><option value="1">≤1等</option><option value="2">≤2等</option><option value="3" selected>≤3等</option><option value="4">≤4等</option><option value="5">≤5等</option></select>
+<button class="btn btn-secondary" onclick="toggleConstellations()">星座连线</button>
+<button class="btn btn-secondary" onclick="toggleLabels()">星名标注</button>
+<button class="btn btn-primary" onclick="centerOnZenith()">天顶视角</button>
+</div>
+<div class="sky-container"><canvas id="skyCanvas"></canvas></div>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background:#fff"></div> 0等星</div>
+<div class="legend-item"><div class="legend-dot" style="background:#ffd"></div> 1等星</div>
+<div class="legend-item"><div class="legend-dot" style="background:#dda"></div> 2等星</div>
+<div class="legend-item"><div class="legend-dot" style="background:#aab"></div> 3等+</div>
+</div>
+<div class="planet-legend" id="planetLegend"></div>
+<div class="info-panel" id="infoPanel">
+<h3 id="infoTitle"></h3>
+<div class="star-grid" id="starGrid"></div>
+</div>
+<div class="obs-guide">
+<h4>观测指南</h4>
+<p>点击星星查看详情。使用滑块调整可见星等。星座连线和星名标注可切换显示。</p>
+</div>
+
+<script>
+let canvas,ctx,W,H;
+let showConstellations=true,showLabels=true;
+let rotX=0,rotY=0,dragging=false,lastMouse={x:0,y:0};
+
+const stars=[
+{name:'天狼星',ra:101.3,dec:-16.7,mag:-1.46,english:'Sirius'},
+{name:'老人星',ra:95.99,dec:-52.7,mag:-0.74,english:'Canopus'},
+{name:'南河三',ra:114.8,dec:5.2,mag:0.34,english:'Procyon'},
+{name:'大角星',ra:213.9,dec:19.2,mag:-0.05,english:'Arcturus'},
+{name:'参宿四',ra:88.8,dec:7.4,mag:0.42,english:'Betelgeuse'},
+{name:'参宿七',ra:78.6,dec:-8.2,mag:0.13,english:'Rigel'},
+{name:'牛郎星',ra:297.7,dec:8.9,mag:0.76,english:'Altair'},
+{name:'织女星',ra:279.2,dec:38.8,mag:0.03,english:'Vega'},
+{name:'天津四',ra:310.4,dec:45.3,mag:1.25,english:'Deneb'},
+{name:'北极星',ra:37.9,dec:89.3,mag:1.98,english:'Polaris'},
+{name:'五车二',ra:79.2,dec:46.0,mag:0.08,english:'Capella'},
+{name:'南门二',ra:219.9,dec:-60.8,mag:-0.01,english:'Alpha Centauri'},
+{name:'心宿二',ra:247.4,dec:-26.4,mag:1.06,english:'Antares'},
+{name:'角宿一',ra:201.3,dec:-11.2,mag:0.97,english:'Spica'},
+{name:'轩辕十四',ra:152.1,dec:12.0,mag:1.35,english:'Regulus'},
+{name:'北河三',ra:116.3,dec:28.0,mag:1.14,english:'Pollux'},
+{name:'北河二',ra:113.6,dec:31.9,mag:1.58,english:'Castor'},
+{name:'毕宿五',ra:68.98,dec:16.5,mag:0.87,english:'Aldebaran'},
+{name:'昴宿六',ra:56.9,dec:24.1,mag:2.87,english:'Alcyone'},
+{name:'娄宿三',ra:31.8,dec:23.5,mag:2.06,english:'Hamal'},
+{name:'室宿二',ra:346.2,dec:15.2,mag:2.39,english:'Markab'},
+{name:'壁宿一',ra:346.6,dec:28.1,mag:2.83,english:'Algenib'},
+{name:'奎宿九',ra:14.2,dec:23.5,mag:2.06,english:'Mirach'},
+{name:'天枢',ra:165.9,dec:61.8,mag:1.79,english:'Dubhe'},
+{name:'天璇',ra:165.5,dec:56.4,mag:2.37,english:'Merak'},
+{name:'天玑',ra:178.5,dec:53.7,mag:2.44,english:'Phecda'},
+{name:'天权',ra:183.9,dec:57.0,mag:3.31,english:'Megrez'},
+{name:'玉衡',ra:193.5,dec:55.3,mag:1.77,english:'Alioth'},
+{name:'开阳',ra:200.9,dec:54.9,mag:2.27,english:'Mizar'},
+{name:'摇光',ra:206.9,dec:49.3,mag:1.86,english:'Alkaid'},
+{name:'河鼓二',ra:297.7,dec:8.9,mag:0.76,english:'Altair'},
+{name:'天津一',ra:305.6,dec:45.3,mag:2.48,english:'Sadr'},
+{name:'天津九',ra:310.4,dec:45.3,mag:1.25,english:'Deneb'},
+{name:'天津四',ra:310.4,dec:45.3,mag:1.25,english:'Deneb'},
+{name:'北极星',ra:37.9,dec:89.3,mag:1.98,english:'Polaris'}
+];
+
+const planets=[
+{name:'水星',color:'#8c7e6d',offset:Math.random()*360},
+{name:'金星',color:'#c4a35a',offset:Math.random()*360},
+{name:'地球',color:'#4a90d9',offset:Math.random()*360},
+{name:'火星',color:'#c1440e',offset:Math.random()*360},
+{name:'木星',color:'#c88b3a',offset:Math.random()*360},
+{name:'土星',color:'#e4c07a',offset:Math.random()*360}
+];
+
+const constellationLines=[
+{name:'北斗七星',stars:['天枢','天璇','天玑','天权','玉衡','开阳','摇光'],color:'rgba(100,150,255,0.3)'},
+{name:'夏季大三角',stars:['织女星','牛郎星','天津四'],color:'rgba(255,200,100,0.3)'},
+{name:'冬季大三角',stars:['参宿四','天狼星','南河三'],color:'rgba(255,150,150,0.3)'}
+];
+
+function initCanvas(){
+canvas=document.getElementById('skyCanvas');
+ctx=canvas.getContext('2d');
+const dpr=window.devicePixelRatio||1;
+W=canvas.parentElement.offsetWidth;
+H=Math.min(500,window.innerHeight*0.5);
+canvas.width=W*dpr;canvas.height=H*dpr;
+canvas.style.height=H+'px';
+ctx.scale(dpr,dpr);
+canvas.addEventListener('mousedown',e=>{dragging=true;lastMouse={x:e.clientX,y:e.clientY}});
+canvas.addEventListener('mousemove',e=>{
+if(!dragging)return;
+rotY+=(e.clientX-lastMouse.x)*0.5;rotX+=(e.clientY-lastMouse.y)*0.5;
+rotX=Math.max(-90,Math.min(90,rotX));
+lastMouse={x:e.clientX,y:e.clientY};drawSky();
+});
+canvas.addEventListener('mouseup',()=>dragging=false);
+canvas.addEventListener('mouseleave',()=>dragging=false);
+}
+
+function project(ra,dec){
+const raRad=(ra+rotY)*Math.PI/180;
+const decRad=(dec-rotX)*Math.PI/180;
+const x=W/2+W/2.5*Math.cos(decRad)*Math.sin(raRad);
+const y=H/2-H/2.5*Math.sin(decRad);
+const z=Math.cos(decRad)*Math.cos(raRad);
+return{x,y,z,visible:z>-0.2};
+}
+
+function drawSky(){
+ctx.fillStyle='#050816';ctx.fillRect(0,0,W,H);
+for(let i=0;i<300;i++){
+ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.3+0.05})`;
+ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H,Math.random()*0.8,0,Math.PI*2);ctx.fill();
+}
+const magLimit=parseFloat(document.getElementById('magLimit').value);
+const visibleStars=stars.filter(s=>s.mag<=magLimit).map(s=>({...s,proj:project(s.ra,s.dec)})).filter(s=>s.proj.visible);
+visibleStars.sort((a,b)=>a.proj.z-b.proj.z);
+if(showConstellations){
+const namedStars={};visibleStars.forEach(s=>namedStars[s.name]=s);
+const drawnLines=new Set();
+const sortedStars=visibleStars.filter(s=>s.mag<=magLimit);
+for(let i=0;i<sortedStars.length;i++){
+for(let j=i+1;j<sortedStars.length;j++){
+const s1=sortedStars[i],s2=sortedStars[j];
+const dist=Math.sqrt((s1.proj.x-s2.proj.x)**2+(s1.proj.y-s2.proj.y)**2);
+if(dist<W*0.15){
+const key=[s1.name,s2.name].sort().join('-');
+if(!drawnLines.has(key)){
+ctx.strokeStyle='rgba(100,150,255,0.15)';ctx.lineWidth=0.5;
+ctx.beginPath();ctx.moveTo(s1.proj.x,s1.proj.y);ctx.lineTo(s2.proj.x,s2.proj.y);ctx.stroke();
+drawnLines.add(key);
+}
+}
+}
+}
+}
+visibleStars.forEach(s=>{
+const brightness=Math.max(0.2,1-s.mag/6);
+const size=Math.max(1,4-s.mag*0.8);
+const glow=size*3;
+const grad=ctx.createRadialGradient(s.proj.x,s.proj.y,0,s.proj.x,s.proj.y,glow);
+let color='#fff';
+if(s.mag<0)color='#aaf';
+else if(s.mag<1)color='#ffd';
+else if(s.mag<2)color='#dda';
+else color='#aab';
+grad.addColorStop(0,color);grad.addColorStop(1,'transparent');
+ctx.fillStyle=grad;ctx.beginPath();ctx.arc(s.proj.x,s.proj.y,glow,0,Math.PI*2);ctx.fill();
+ctx.fillStyle=color;ctx.beginPath();ctx.arc(s.proj.x,s.proj.y,size,0,Math.PI*2);ctx.fill();
+if(showLabels&&s.mag<2.5){
+ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='10px sans-serif';
+ctx.fillText(s.name,s.proj.x+size+3,s.proj.y+3);
+}
+});
+const t=Date.now()/60000;
+planets.forEach((p,i)=>{
+const ra=(p.offset+t*2)%360;
+const dec=Math.sin(t*0.1+i)*30+Math.cos(i*1.5)*20;
+const proj=project(ra,dec);
+if(proj.visible&&proj.z>-0.1){
+ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(proj.x,proj.y,5,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px sans-serif';ctx.fillText(p.name,proj.x+8,proj.y+3);
+}
+});
+requestAnimationFrame(drawSky);
+}
+
+function toggleConstellations(){showConstellations=!showConstellations}
+function toggleLabels(){showLabels=!showLabels}
+function centerOnZenith(){rotX=0;rotY=0}
+function searchStars(){
+const q=document.getElementById('searchStar').value.toLowerCase();
+const found=stars.filter(s=>s.name.includes(q)||s.english.toLowerCase().includes(q));
+const panel=document.getElementById('infoPanel');
+if(found.length&&q){
+panel.classList.add('show');
+document.getElementById('infoTitle').textContent=`搜索结果 (${found.length})`;
+document.getElementById('starGrid').innerHTML=found.map(s=>`<div class="star-card"><div class="name">${s.name} <span class="mag">M${s.mag}</span></div><div class="info">${s.english}<br>RA: ${s.ra.toFixed(1)}° Dec: ${s.dec.toFixed(1)}°</div></div>`).join('');
+}else{panel.classList.remove('show')}
+}
+
+function initPlanetLegend(){
+document.getElementById('planetLegend').innerHTML=planets.map(p=>`<div class="planet-badge"><div class="dot" style="background:${p.color}"></div>${p.name}</div>`).join('');
+}
+
+initCanvas();drawSky();initPlanetLegend();
+</script>
+</body>
+</html>
