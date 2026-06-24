@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔊 声音合成器</title>
+<meta property="og:title" content="🔊 声音合成器">
+<meta property="og:description" content="🔊 声音合成器 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="声音合成器 - 合成各种波形声音">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔊</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0;flex-wrap:wrap}
+.info-bar span{color:var(--accent);font-weight:600}
+.keyboard{display:flex;gap:2px;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
+.key{width:40px;height:80px;background:var(--card);border:1px solid var(--border);border-radius:0 0 6px 6px;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-size:.65rem;color:var(--text2);transition:all .1s}
+.key:active,.key.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.key.black{width:28px;height:50px;background:#1a1a2e;border-color:#000;z-index:1;margin:0 -14px;color:#888}
+.key.black:active,.key.black.active{background:var(--accent)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🔊 声音合成器</h1><p>合成各种波形声音 - 键盘演奏</p></div>
+
+<div class="tabs" id="waveTabs">
+<button class="active" data-wave="sine">正弦波</button>
+<button data-wave="square">方波</button>
+<button data-wave="sawtooth">锯齿波</button>
+<button data-wave="triangle">三角波</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c" width="800" height="300"></canvas></div>
+
+<div class="keyboard" id="keyboard"></div>
+
+<div class="info-bar">
+<span>频率: <b id="curFreq">440</b> Hz</span>
+<span>音符: <b id="curNote">A4</b></span>
+<span>音量: <b id="curVol">50</b>%</span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-success" id="btnPlay">▶ 播放</button>
+<button class="btn btn-danger" id="btnStop">⏹ 停止</button>
+<button class="btn btn-outline" id="btnRecord">⏺ 录制</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>频率</label><input type="range" id="freqRange" min="20" max="2000" value="440"><span class="val" id="freqVal">440 Hz</span></div>
+<div class="row"><label>音量</label><input type="range" id="volRange" min="0" max="100" value="50"><span class="val" id="volVal">50%</span></div>
+<div class="row"><label>衰减</label><input type="range" id="decayRange" min="0" max="100" value="30"><span class="val" id="decayVal">30%</span></div>
+<div class="row"><label>混响</label><input type="range" id="reverbRange" min="0" max="100" value="20"><span class="val" id="reverbVal">20%</span></div>
+</div>
+
+<script>
+let audioCtx=null,osc=null,gainNode=null,reverbNode=null,analyser=null;
+let waveType='sine',freq=440,vol=0.5,decay=0.3,reverbAmount=0.2;
+let isPlaying=false,isRecording=false,recordedNotes=[];
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height,animId=null;
+let waveData=new Float32Array(2048);
+
+const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const keyMap={'a':0,'w':1,'s':2,'e':3,'d':4,'f':5,'t':6,'g':7,'y':8,'h':9,'u':10,'j':11,'k':12,'o':13,'l':14,'p':15,';':16};
+
+function initAudio(){
+if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+gainNode=audioCtx.createGain();
+gainNode.gain.value=vol;
+analyser=audioCtx.createAnalyser();
+analyser.fftSize=2048;
+gainNode.connect(analyser);
+analyser.connect(audioCtx.destination);
+}
+
+function playNote(f){
+initAudio();stopNote();
+osc=audioCtx.createOscillator();
+osc.type=waveType;osc.frequency.value=f;
+osc.connect(gainNode);
+gainNode.gain.setValueAtTime(vol,audioCtx.currentTime);
+gainNode.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+decay+0.5);
+osc.start();isPlaying=true;
+freq=f;document.getElementById('curFreq').textContent=f.toFixed(0);
+const noteIdx=Math.round(12*Math.log2(f/440))+69;
+const noteName=notes[noteIdx%12]+Math.floor(noteIdx/12-1);
+document.getElementById('curNote').textContent=noteName;
+if(isRecording)recordedNotes.push({freq:f,time:Date.now(),wave:waveType});
+}
+
+function stopNote(){
+if(osc){try{osc.stop();}catch(e){}osc=null;}
+isPlaying=false;
+}
+
+function playFreq(){playNote(freq);}
+
+function draw(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+if(analyser){
+analyser.getFloatTimeDomainData(waveData);
+ctx.beginPath();
+const sliceWidth=W/waveData.length;
+let x=0;
+for(let i=0;i<waveData.length;i++){
+const y=(1-waveData[i])*H/2;
+if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+x+=sliceWidth;
+}
+const colors={sine:'#3b82f6',square:'#22c55e',sawtooth:'#a855f7',triangle:'#f59e0b'};
+ctx.strokeStyle=colors[waveType]||'#3b82f6';ctx.lineWidth=2;ctx.stroke();
+}
+const grad=ctx.createLinearGradient(0,0,0,H);
+grad.addColorStop(0,'transparent');grad.addColorStop(0.5,(waveType==='sine'?'#3b82f6':waveType==='square'?'#22c55e':waveType==='sawtooth'?'#a855f7':'#f59e0b')+'20');grad.addColorStop(1,'transparent');
+ctx.fillStyle=grad;ctx.beginPath();ctx.moveTo(0,H/2);
+if(analyser){
+analyser.getFloatTimeDomainData(waveData);
+const sliceWidth=W/waveData.length;
+let x=0;
+for(let i=0;i<waveData.length;i++){
+const y=(1-waveData[i])*H/2;
+ctx.lineTo(x,y);x+=sliceWidth;
+}
+ctx.lineTo(W,H/2);
+}
+ctx.fill();
+requestAnimationFrame(draw);
+}
+
+function buildKeyboard(){
+const kb=document.getElementById('keyboard');
+kb.innerHTML='';
+const octaves=[4,5];
+octaves.forEach(oct=>{
+notes.forEach((n,i)=>{
+const isBlack=n.includes('#');
+const key=document.createElement('div');
+key.className='key'+(isBlack?' black':'');
+const midi=i+12*(oct+1);
+const f=440*Math.pow(2,(midi-69)/12);
+key.dataset.freq=f;
+key.textContent=n+oct;
+key.addEventListener('mousedown',()=>playNote(f));
+key.addEventListener('mouseup',stopNote);
+key.addEventListener('mouseleave',stopNote);
+kb.appendChild(key);
+});
+});
+}
+
+function handleKey(e){
+const idx=keyMap[e.key.toLowerCase()];
+if(idx!==undefined){
+const midi=idx+12*5;
+const f=440*Math.pow(2,(midi-69)/12);
+playNote(f);
+const keys=document.querySelectorAll('.key');
+if(keys[idx])keys[idx].classList.add('active');
+}
+}
+function handleKeyUp(e){
+const idx=keyMap[e.key.toLowerCase()];
+if(idx!==undefined){stopNote();const keys=document.querySelectorAll('.key');if(keys[idx])keys[idx].classList.remove('active');}
+}
+
+document.addEventListener('keydown',e=>{if(!e.repeat)handleKey(e);});
+document.addEventListener('keyup',handleKeyUp);
+
+document.getElementById('waveTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#waveTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');waveType=btn.dataset.wave;
+};
+
+document.getElementById('btnPlay').onclick=playFreq;
+document.getElementById('btnStop').onclick=stopNote;
+document.getElementById('btnRecord').onclick=function(){isRecording=!isRecording;this.textContent=isRecording?'⏹ 停止录制':'⏺ 录制';};
+
+document.getElementById('freqRange').oninput=function(){freq=+this.value;document.getElementById('freqVal').textContent=this.value+' Hz';};
+document.getElementById('volRange').oninput=function(){vol=this.value/100;if(gainNode)gainNode.gain.value=vol;document.getElementById('volVal').textContent=this.value+'%';document.getElementById('curVol').textContent=this.value;};
+document.getElementById('decayRange').oninput=function(){decay=this.value/100;document.getElementById('decayVal').textContent=this.value+'%';};
+document.getElementById('reverbRange').oninput=function(){reverbAmount=this.value/100;document.getElementById('reverbVal').textContent=this.value+'%';};
+
+buildKeyboard();draw();
+</script>
+</body>
+</html>

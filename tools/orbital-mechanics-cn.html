@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪐 轨道力学</title>
+<meta property="og:title" content="🪐 轨道力学">
+<meta property="og:description" content="🪐 轨道力学 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="轨道力学 - 模拟天体引力与轨道运动">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0;flex-wrap:wrap}
+.info-bar span{color:var(--accent);font-weight:600}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🪐 轨道力学</h1><p>模拟天体引力与轨道运动 - 点击画布放置天体</p></div>
+
+<div class="tabs" id="sceneTabs">
+<button class="active" data-scene="solar">太阳系</button>
+<button data-scene="binary">双星系统</button>
+<button data-scene="slingshot">引力弹弓</button>
+<button data-scene="custom">自定义</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c" width="800" height="500"></canvas></div>
+
+<div class="info-bar">
+<span>天体: <b id="bodyCount">0</b></span>
+<span>总质量: <b id="totalMass">0</b></span>
+<span>时间: <b id="simTime">0</b>年</span>
+<span>速度: <b id="simSpeed">1</b>x</span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" id="btnAdd">+ 添加天体</button>
+<button class="btn btn-success" id="btnStart">▶ 运行</button>
+<button class="btn btn-danger" id="btnReset">↺ 重置</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>引力常数</label><input type="range" id="gravity" min="1" max="100" value="20"><span class="val" id="gravVal">20</span></div>
+<div class="row"><label>时间步长</label><input type="range" id="timestep" min="1" max="10" value="3"><span class="val" id="timeVal">3</span></div>
+<div class="row"><label>轨迹长度</label><input type="range" id="tracelen" min="0" max="500" value="200"><span class="val" id="traceVal">200</span></div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height,running=false,scene='solar',animId=null;
+let G=.2,dt=3,maxTrace=200,simT=0,stepsPerFrame=3;
+
+const starColors=['#fbbf24','#f97316','#ef4444','#a78bfa','#60a5fa','#34d399'];
+
+class Body{
+constructor(x,y,m,r,vx,vy,color){
+this.x=x;this.y=y;this.m=m;this.r=r||Math.sqrt(m)*2;
+this.vx=vx||0;this.vy=vy||0;this.color=color||starColors[Math.floor(Math.random()*starColors.length)];
+this.trail=[];this.name='天体';
+}
+update(){
+this.trail.push({x:this.x,y:this.y});
+if(this.trail.length>maxTrace)this.trail.shift();
+bodies.forEach(b=>{
+if(b===this)return;
+const dx=b.x-this.x,dy=b.y-this.y;
+const dist=Math.sqrt(dx*dx+dy*dy)+5;
+const force=G*this.m*b.m/(dist*dist);
+this.vx+=dx/dist*force/this.m*dt;
+this.vy+=dy/dist*force/this.m*dt;
+});
+this.x+=this.vx*dt;this.y+=this.vy*dt;
+if(this.x<-100||this.x>W+100||this.y<-100||this.y>H+100)return false;
+return true;
+}
+draw(){
+this.trail.forEach((t,i)=>{
+const a=i/this.trail.length*.4;
+ctx.beginPath();ctx.arc(t.x,t.y,1,0,Math.PI*2);
+ctx.fillStyle=this.color+Math.floor(a*255).toString(16).padStart(2,'0');ctx.fill();
+});
+ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+ctx.fillStyle=this.color;ctx.fill();
+const glow=ctx.createRadialGradient(this.x,this.y,this.r,this.x,this.y,this.r*3);
+glow.addColorStop(0,this.color+'40');glow.addColorStop(1,'transparent');
+ctx.fillStyle=glow;ctx.beginPath();ctx.arc(this.x,this.y,this.r*3,0,Math.PI*2);ctx.fill();
+}
+}
+
+let bodies=[];
+
+function initSolar(){
+bodies=[];
+const cx=W/2,cy=H/2;
+bodies.push(new Body(cx,cy,500,25,0,0,'#fbbf24'));
+const colors=['#a78bfa','#60a5fa','#34d399','#f97316','#ef4444'];
+const dists=[60,100,150,210,280];
+const masses=[2,5,8,4,15];
+const radii=[5,8,10,7,12];
+for(let i=0;i<5;i++){
+const speed=Math.sqrt(G*500/dists[i]);
+bodies.push(new Body(cx+dists[i],cy,masses[i],radii[i],0,speed,colors[i]));
+}
+}
+
+function initBinary(){
+bodies=[];
+bodies.push(new Body(W/2-80,H/2,200,18,0,-2,'#fbbf24'));
+bodies.push(new Body(W/2+80,H/2,200,18,0,2,'#60a5fa'));
+}
+
+function initSlingshot(){
+bodies=[];
+bodies.push(new Body(W/2,H/2,800,30,0,0,'#fbbf24'));
+bodies.push(new Body(100,H/2,10,4,3,0,'#34d399'));
+bodies.push(new Body(100,H/2+100,10,4,3.5,0,'#a78bfa'));
+}
+
+function reset(){
+cancelAnimationFrame(animId);running=false;simT=0;
+switch(scene){
+case'solar':initSolar();break;
+case'binary':initBinary();break;
+case'slingshot':initSlingshot();break;
+case'custom':bodies=[];break;
+}
+draw();
+}
+
+function draw(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+for(let i=0;i<200;i++){
+ctx.beginPath();
+ctx.arc(Math.random()*W,Math.random()*H,.5,0,Math.PI*2);
+ctx.fillStyle=`rgba(255,255,255,${Math.random()*.3})`;ctx.fill();
+}
+bodies.forEach(b=>b.draw());
+document.getElementById('bodyCount').textContent=bodies.length;
+document.getElementById('totalMass').textContent=bodies.reduce((s,b)=>s+b.m,0).toFixed(0);
+document.getElementById('simTime').textContent=(simT/100).toFixed(1);
+}
+
+function loop(){
+if(!running)return;
+for(let i=0;i<stepsPerFrame;i++){
+bodies=bodies.filter(b=>b.update());simT++;
+}
+draw();animId=requestAnimationFrame(loop);
+}
+
+document.getElementById('btnAdd').onclick=()=>{
+bodies.push(new Body(W/2+Math.random()*200-100,H/2+Math.random()*200-100,5+Math.random()*50,5+Math.random()*10,(Math.random()-.5)*2,(Math.random()-.5)*2));
+};
+document.getElementById('btnStart').onclick=()=>{running=!running;document.getElementById('btnStart').textContent=running?'⏸ 暂停':'▶ 运行';if(running)loop();};
+document.getElementById('btnReset').onclick=reset;
+
+canvas.addEventListener('click',e=>{
+if(scene!=='custom')return;
+const rect=canvas.getBoundingClientRect();
+const x=(e.clientX-rect.left)*W/rect.width;
+const y=(e.clientY-rect.top)*H/rect.height;
+bodies.push(new Body(x,y,10+Math.random()*100,5+Math.random()*10,(Math.random()-.5)*2,(Math.random()-.5)*2));
+});
+
+document.getElementById('sceneTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#sceneTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');scene=btn.dataset.scene;reset();
+};
+
+document.getElementById('gravity').oninput=function(){G=this.value*.01;document.getElementById('gravVal').textContent=this.value;};
+document.getElementById('timestep').oninput=function(){dt=+this.value;stepsPerFrame=Math.max(1,Math.floor(this.value));document.getElementById('timeVal').textContent=this.value;};
+document.getElementById('tracelen').oninput=function(){maxTrace=+this.value;document.getElementById('traceVal').textContent=this.value;};
+
+reset();
+</script>
+</body>
+</html>

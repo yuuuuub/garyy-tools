@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔮 图案生成器</title>
+<meta property="og:title" content="🔮 图案生成器">
+<meta property="og:description" content="🔮 图案生成器 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="图案生成器 - 生成各种数学图案与分形">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0;flex-wrap:wrap}
+.info-bar span{color:var(--accent);font-weight:600}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🔮 图案生成器</h1><p>生成各种数学图案与分形 - 参数可调</p></div>
+
+<div class="tabs" id="patTabs">
+<button class="active" data-pat="spirograph">万花尺</button>
+<button data-pat="mandelbrot">曼德博集</button>
+<button data-pat="lissajous">利萨如图形</button>
+<button data-pat="sacred">神圣几何</button>
+<button data-pat="flow">流场</button>
+<button data-pat="voronoi">泰森多边形</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c" width="800" height="600"></canvas></div>
+
+<div class="info-bar">
+<span>类型: <b id="patType">万花尺</b></span>
+<span>迭代: <b id="iterCount">0</b></span>
+<span>参数: <b id="paramInfo">R=200 r=80 d=120</b></span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" id="btnGenerate">🔄 生成</button>
+<button class="btn btn-success" id="btnAnimate">▶ 动画</button>
+<button class="btn btn-outline" id="btnExport">📷 导出PNG</button>
+<button class="btn btn-danger" id="btnClear">🗑 清除</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>参数A</label><input type="range" id="paramA" min="1" max="200" value="100"><span class="val" id="paramAVal">100</span></div>
+<div class="row"><label>参数B</label><input type="range" id="paramB" min="1" max="200" value="65"><span class="val" id="paramBVal">65</span></div>
+<div class="row"><label>参数C</label><input type="range" id="paramC" min="1" max="200" value="80"><span class="val" id="paramCVal">80</span></div>
+<div class="row"><label>颜色偏移</label><input type="range" id="colorOff" min="0" max="360" value="0"><span class="val" id="colorOffVal">0°</span></div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height;
+let patType='spirograph',animating=false,t=0,iter=0,animId=null;
+let pA=100,pB=65,pC=80,colorOff=0;
+let points=[];
+
+function drawSpirograph(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const cx=W/2,cy=H/2;
+ctx.beginPath();
+points=[];
+for(let a=0;a<Math.PI*200;a+=0.01){
+const R=pA,r=pB,d=pC;
+const x=cx+(R-r)*Math.cos(a)+d*Math.cos((R-r)/r*a);
+const y=cy+(R-r)*Math.sin(a)-d*Math.sin((R-r)/r*a);
+points.push({x,y});
+const hue=(a*50+colorOff)%360;
+if(a===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+}
+ctx.strokeStyle=`hsl(${colorOff},70%,60%)`;ctx.lineWidth=1;ctx.stroke();
+ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+document.getElementById('paramInfo').textContent=`R=${pA} r=${pB} d=${pC}`;
+}
+
+function drawMandelbrot(){
+ctx.clearRect(0,0,W,H);
+const imgData=ctx.createImageData(W,H);
+const maxIter=pA*2;
+for(let px=0;px<W;px++){
+for(let py=0;py<H;py++){
+const x0=(px-W/2)/(H*.3);
+const y0=(py-H/2)/(H*.3);
+let x=0,y=0,iter=0;
+while(x*x+y*y<=4&&iter<maxIter){
+const xt=x*x-y*y+x0;y=2*x*y+y0;x=xt;iter++;
+}
+const hue=(iter/maxIter*360+colorOff)%360;
+const i=(py*W+px)*4;
+if(iter===maxIter){imgData.data[i]=0;imgData.data[i+1]=0;imgData.data[i+2]=0;}
+else{
+const rgb=hslToRgb(hue,80,iter/maxIter*60);
+imgData.data[i]=rgb[0];imgData.data[i+1]=rgb[1];imgData.data[i+2]=rgb[2];
+}
+imgData.data[i+3]=255;
+}
+}
+ctx.putImageData(imgData,0,0);
+}
+
+function drawLissajous(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const cx=W/2,cy=H/2;
+const freqX=pA/30,freqY=pB/30;
+const phase=pC/100*Math.PI;
+ctx.beginPath();
+for(let a=0;a<Math.PI*20;a+=0.01){
+const x=cx+Math.sin(freqX*a+phase)*pA*1.5;
+const y=cy+Math.sin(freqY*a)*pB*1.5;
+const hue=(a*30+colorOff)%360;
+ctx.strokeStyle=`hsl(${hue},70%,60%)`;
+if(a===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+}
+ctx.strokeStyle=`hsl(${colorOff},70%,60%)`;ctx.lineWidth=1.5;ctx.stroke();
+document.getElementById('paramInfo').textContent=`a=${freqX.toFixed(1)} b=${freqY.toFixed(1)} δ=${(phase*180/Math.PI).toFixed(0)}°`;
+}
+
+function drawSacred(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const cx=W/2,cy=H/2;
+const layers=pA/10;
+const sides=Math.max(3,Math.floor(pB/10));
+const baseR=Math.min(W,H)*0.35;
+for(let layer=0;layer<layers;layer++){
+const r=baseR*(layer+1)/layers;
+const hue=(layer*30+colorOff)%360;
+ctx.beginPath();
+for(let i=0;i<=sides;i++){
+const angle=i/sides*Math.PI*2-Math.PI/2;
+const x=cx+Math.cos(angle)*r;
+const y=cy+Math.sin(angle)*r;
+if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+}
+ctx.closePath();ctx.strokeStyle=`hsl(${hue},60%,55%)`;ctx.lineWidth=1;ctx.stroke();
+for(let i=0;i<sides;i++){
+const a1=i/sides*Math.PI*2-Math.PI/2;
+const a2=((i+2)%sides)/sides*Math.PI*2-Math.PI/2;
+ctx.beginPath();
+ctx.moveTo(cx+Math.cos(a1)*r,cy+Math.sin(a1)*r);
+ctx.lineTo(cx+Math.cos(a2)*r,cy+Math.sin(a2)*r);
+ctx.strokeStyle=`hsl(${(hue+60)%360},50%,45%)`;ctx.stroke();
+}
+}
+document.getElementById('paramInfo').textContent=`层=${layers} 边=${sides}`;
+}
+
+function drawFlow(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const step=10;
+for(let x=0;x<W;x+=step){
+for(let y=0;y<H;y+=step){
+const angle=noise(x*.005+t*.01,y*.005)*Math.PI*4+pC*.01;
+const len=step*.8;
+ctx.beginPath();
+ctx.moveTo(x,y);
+ctx.lineTo(x+Math.cos(angle)*len,y+Math.sin(angle)*len);
+const hue=(angle*50+colorOff)%360;
+ctx.strokeStyle=`hsl(${hue},60%,50%)`;ctx.lineWidth=1;ctx.stroke();
+}
+}
+}
+
+function noise(x,y){
+return Math.sin(x*12.9898+y*78.233)*43758.5453%1;
+}
+
+function drawVoronoi(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const numPoints=Math.max(5,Math.floor(pA/5));
+const pts=[];
+for(let i=0;i<numPoints;i++){
+pts.push({x:Math.random()*W,y:Math.random()*H,hue:(i*360/numPoints+colorOff)%360});
+}
+const imgData=ctx.createImageData(W,H);
+for(let px=0;px<W;px+=2){
+for(let py=0;py<H;py+=2){
+let minD=Infinity,closest=0;
+pts.forEach((p,i)=>{
+const d=(px-p.x)**2+(py-p.y)**2;
+if(d<minD){minD=d;closest=i;}
+});
+const rgb=hslToRgb(pts[closest].hue,60,40);
+for(let dx=0;dx<2;dx++)for(let dy=0;dy<2;dy++){
+const i=((py+dy)*W+(px+dx))*4;
+imgData.data[i]=rgb[0];imgData.data[i+1]=rgb[1];imgData.data[i+2]=rgb[2];imgData.data[i+3]=255;
+}
+}
+}
+ctx.putImageData(imgData,0,0);
+pts.forEach(p=>{
+ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+});
+}
+
+function generate(){
+switch(patType){
+case'spirograph':drawSpirograph();break;
+case'mandelbrot':drawMandelbrot();break;
+case'lissajous':drawLissajous();break;
+case'sacred':drawSacred();break;
+case'flow':drawFlow();break;
+case'voronoi':drawVoronoi();break;
+}
+}
+
+function animateLoop(){
+if(!animating)return;
+t+=0.02;
+switch(patType){
+case'flow':drawFlow();break;
+case'spirograph':
+ctx.fillStyle='rgba(13,17,23,0.02)';ctx.fillRect(0,0,W,H);
+const R=pA,r=pB,d=pC;
+const x=W/2+(R-r)*Math.cos(t)+d*Math.cos((R-r)/r*t);
+const y=H/2+(R-r)*Math.sin(t)-d*Math.sin((R-r)/r*t);
+ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);
+ctx.fillStyle=`hsl(${(t*50+colorOff)%360},70%,60%)`;ctx.fill();
+break;
+}
+document.getElementById('iterCount').textContent=Math.floor(t*100);
+animId=requestAnimationFrame(animateLoop);
+}
+
+function hslToRgb(h,s,l){h/=360;s/=100;l/=100;let r,g,b;if(s===0){r=g=b=l}else{const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p};const q=l<.5?l*(1+s):l+s-l*s;const p=2*l-q;r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3)}return[Math.round(r*255),Math.round(g*255),Math.round(b*255)]}
+
+document.getElementById('patTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#patTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');patType=btn.dataset.pat;
+document.getElementById('patType').textContent=btn.textContent;
+animating=false;document.getElementById('btnAnimate').textContent='▶ 动画';
+generate();
+};
+
+document.getElementById('btnGenerate').onclick=()=>{animating=false;generate();};
+document.getElementById('btnAnimate').onclick=()=>{animating=!animating;document.getElementById('btnAnimate').textContent=animating?'⏸ 暂停':'▶ 动画';if(animating)animateLoop();};
+document.getElementById('btnExport').onclick=()=>{const link=document.createElement('a');link.download='pattern.png';link.href=canvas.toDataURL();link.click();};
+document.getElementById('btnClear').onclick=()=>{ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);};
+
+document.getElementById('paramA').oninput=function(){pA=+this.value;document.getElementById('paramAVal').textContent=this.value;};
+document.getElementById('paramB').oninput=function(){pB=+this.value;document.getElementById('paramBVal').textContent=this.value;};
+document.getElementById('paramC').oninput=function(){pC=+this.value;document.getElementById('paramCVal').textContent=this.value;};
+document.getElementById('colorOff').oninput=function(){colorOff=+this.value;document.getElementById('colorOffVal').textContent=this.value+'°';generate();};
+
+generate();
+</script>
+</body>
+</html>

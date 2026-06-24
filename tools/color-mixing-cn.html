@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎨 色彩混合</title>
+<meta property="og:title" content="🎨 色彩混合">
+<meta property="og:description" content="🎨 色彩混合 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="色彩混合 - RGB、CMYK、HSL色彩空间混合实验">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls input[type=color]{width:40px;height:30px;border:none;border-radius:6px;cursor:pointer}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0;flex-wrap:wrap}
+.info-bar span{color:var(--accent);font-weight:600}
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;margin-bottom:12px}
+.color-swatch{aspect-ratio:1;border-radius:8px;border:1px solid var(--border);cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding:4px;font-size:.6rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🎨 色彩混合</h1><p>RGB、CMYK、HSL色彩空间混合实验</p></div>
+
+<div class="tabs" id="modeTabs">
+<button class="active" data-mode="rgb">RGB混合</button>
+<button data-mode="cmyk">CMYK混合</button>
+<button data-mode="hsl">HSL调色</button>
+<button data-mode="palette">调色板</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c" width="800" height="400"></canvas></div>
+
+<div class="info-bar">
+<span>HEX: <b id="hexColor">#3b82f6</b></span>
+<span>RGB: <b id="rgbColor">59,130,246</b></span>
+<span>HSL: <b id="hslColor">217,91%,60%</b></span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" id="btnRandom">🎲 随机颜色</button>
+<button class="btn btn-success" id="btnAdd">+ 添加到调色板</button>
+<button class="btn btn-danger" id="btnClear">🗑 清除</button>
+<button class="btn btn-outline" id="btnCopy">📋 复制HEX</button>
+</div>
+
+<div class="controls" id="rgbControls">
+<div class="row"><label>红色</label><input type="range" id="rSlider" min="0" max="255" value="59"><span class="val" id="rVal">59</span></div>
+<div class="row"><label>绿色</label><input type="range" id="gSlider" min="0" max="255" value="130"><span class="val" id="gVal">130</span></div>
+<div class="row"><label>蓝色</label><input type="range" id="bSlider" min="0" max="255" value="246"><span class="val" id="bVal">246</span></div>
+<div class="row"><label>预览</label><div id="colorPreview" style="width:60px;height:30px;border-radius:6px;background:#3b82f6;border:1px solid var(--border)"></div><input type="color" id="colorPicker" value="#3b82f6"></div>
+</div>
+
+<div id="paletteArea">
+<div class="color-grid" id="paletteGrid"></div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height;
+let mode='rgb',r=59,g=130,b=246;
+let h=217,s=91,l=60;
+let c=76,m=47,y=0,k=4;
+let palette=[];
+
+function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const max=Math.max(r,g,b),min=Math.min(r,g,b);let h,s,l=(max+min)/2;if(max===min){h=s=0}else{const d=max-min;s=l>.5?d/(2-max-min):d/(max+min);switch(max){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break}}return[Math.round(h*360),Math.round(s*100),Math.round(l*100)]}
+function hslToRgb(h,s,l){h/=360;s/=100;l/=100;let r,g,b;if(s===0){r=g=b=l}else{const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p};const q=l<.5?l*(1+s):l+s-l*s;const p=2*l-q;r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3)}return[Math.round(r*255),Math.round(g*255),Math.round(b*255)]}
+function rgbToCmyk(r,g,b){r/=255;g/=255;b/=255;const k=1-Math.max(r,g,b);if(k===1)return[0,0,0,100];return[Math.round((1-r-k)/(1-k)*100),Math.round((1-g-k)/(1-k)*100),Math.round((1-b-k)/(1-k)*100),Math.round(k*100)]}
+function cmykToRgb(c,m,y,k){c/=100;m/=100;y/=100;k/=100;return[Math.round(255*(1-c)*(1-k)),Math.round(255*(1-m)*(1-k)),Math.round(255*(1-y)*(1-k))]}
+
+function drawRGB(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const cw=W/3,ch=H*.7;
+// Red
+const rGrad=ctx.createLinearGradient(0,H*.15,0,H*.15+ch);
+rGrad.addColorStop(0,`rgba(255,0,0,${r/255})`);rGrad.addColorStop(1,'transparent');
+ctx.fillStyle=rGrad;ctx.beginPath();ctx.arc(cw/2+50,H/2,ch/2,0,Math.PI*2);ctx.fill();
+// Green
+const gGrad=ctx.createLinearGradient(0,H*.15,0,H*.15+ch);
+gGrad.addColorStop(0,`rgba(0,255,0,${g/255})`);gGrad.addColorStop(1,'transparent');
+ctx.fillStyle=gGrad;ctx.beginPath();ctx.arc(cw*1.5,H/2-30,ch/2,0,Math.PI*2);ctx.fill();
+// Blue
+const bGrad=ctx.createLinearGradient(0,H*.15,0,H*.15+ch);
+bGrad.addColorStop(0,`rgba(0,0,255,${b/255})`);bGrad.addColorStop(1,'transparent');
+ctx.fillStyle=bGrad;ctx.beginPath();ctx.arc(cw*2.5-50,H/2,ch/2,0,Math.PI*2);ctx.fill();
+// Mixed
+ctx.fillStyle=rgbToHex(r,g,b);ctx.beginPath();ctx.arc(W/2,H/2,60,0,Math.PI*2);ctx.fill();
+ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+}
+
+function drawCMYK(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const colors=[{n:'C',v:c,col:'#00ffff'},{n:'M',v:m,col:'#ff00ff'},{n:'Y',v:y,col:'#ffff00'},{n:'K',v:k,col:'#000000'}];
+colors.forEach((col,i)=>{
+const cx=W*(i+.5)/4,cy=H/2;
+const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,80);
+grad.addColorStop(0,col.col);grad.addColorStop(1,'transparent');
+ctx.globalAlpha=col.v/100;
+ctx.fillStyle=grad;ctx.fillRect(cx-80,cy-80,160,160);
+ctx.globalAlpha=1;
+ctx.fillStyle='#fff';ctx.font='bold 16px sans-serif';ctx.textAlign='center';
+ctx.fillText(`${col.n}: ${col.v}%`,cx,H-20);
+});
+const rgb=cmykToRgb(c,m,y,k);
+ctx.fillStyle=rgbToHex(...rgb);ctx.beginPath();ctx.arc(W/2,H/2,50,0,Math.PI*2);ctx.fill();
+ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+}
+
+function drawHSL(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const imgData=ctx.createImageData(W,H);
+for(let x=0;x<W;x++){
+for(let y=0;y<H;y++){
+const hue=x/W*360;
+const sat=(1-y/H)*100;
+const [rr,gg,bb]=hslToRgb(hue,sat,l);
+const i=(y*W+x)*4;
+imgData.data[i]=rr;imgData.data[i+1]=gg;imgData.data[i+2]=bb;imgData.data[i+3]=255;
+}
+}
+ctx.putImageData(imgData,0,0);
+const cx=s/100*W,cy=(1-l/100)*H;
+ctx.beginPath();ctx.arc(cx,cy,8,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
+}
+
+function drawPalette(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+if(palette.length===0){
+ctx.fillStyle='#8b949e';ctx.font='14px sans-serif';ctx.textAlign='center';
+ctx.fillText('点击"+ 添加到调色板"收集颜色',W/2,H/2);
+return;
+}
+const sw=Math.min(80,W/palette.length-10);
+palette.forEach((col,i)=>{
+const x=i*(sw+10)+10;
+ctx.fillStyle=col;ctx.fillRect(x,20,sw,H-80);
+ctx.fillStyle='#fff';ctx.font='10px monospace';ctx.textAlign='center';
+ctx.fillText(col,x+sw/2,H-40);
+});
+}
+
+function draw(){
+const hex=rgbToHex(r,g,b);
+const [hh,ss,ll]=rgbToHsl(r,g,b);
+const [cc,mm,yy,kk]=rgbToCmyk(r,g,b);
+document.getElementById('hexColor').textContent=hex;
+document.getElementById('rgbColor').textContent=`${r},${g},${b}`;
+document.getElementById('hslColor').textContent=`${hh},${ss}%,${ll}%`;
+document.getElementById('colorPreview').style.background=hex;
+document.getElementById('colorPicker').value=hex;
+h=hh;s=ss;l=ll;c=cc;m=mm;y=yy;k=kk;
+document.getElementById('rVal').textContent=r;
+document.getElementById('gVal').textContent=g;
+document.getElementById('bVal').textContent=b;
+switch(mode){
+case'rgb':drawRGB();break;
+case'cmyk':drawCMYK();break;
+case'hsl':drawHSL();break;
+case'palette':drawPalette();break;
+}
+updatePaletteGrid();
+}
+
+function updatePaletteGrid(){
+const grid=document.getElementById('paletteGrid');
+grid.innerHTML='';
+palette.forEach((col,i)=>{
+const sw=document.createElement('div');sw.className='color-swatch';
+sw.style.background=col;sw.textContent=col;
+sw.onclick=()=>{const m=col.match(/^#(..)(..)(..)$/);if(m){r=parseInt(m[1],16);g=parseInt(m[2],16);b=parseInt(m[3],16);draw();}};
+grid.appendChild(sw);
+});
+}
+
+function syncSliders(){
+document.getElementById('rSlider').value=r;
+document.getElementById('gSlider').value=g;
+document.getElementById('bSlider').value=b;
+}
+
+document.getElementById('rSlider').oninput=function(){r=+this.value;draw();};
+document.getElementById('gSlider').oninput=function(){g=+this.value;draw();};
+document.getElementById('bSlider').oninput=function(){b=+this.value;draw();};
+document.getElementById('colorPicker').oninput=function(){
+const m=this.value.match(/^#(..)(..)(..)$/);
+if(m){r=parseInt(m[1],16);g=parseInt(m[2],16);b=parseInt(m[3],16);syncSliders();draw();}
+};
+document.getElementById('btnRandom').onclick=()=>{r=Math.floor(Math.random()*256);g=Math.floor(Math.random()*256);b=Math.floor(Math.random()*256);syncSliders();draw();};
+document.getElementById('btnAdd').onclick=()=>{palette.push(rgbToHex(r,g,b));draw();};
+document.getElementById('btnClear').onclick=()=>{palette=[];draw();};
+document.getElementById('btnCopy').onclick=()=>{navigator.clipboard.writeText(rgbToHex(r,g,b));};
+
+document.getElementById('modeTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#modeTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');mode=btn.dataset.mode;draw();
+};
+
+draw();
+</script>
+</body>
+</html>

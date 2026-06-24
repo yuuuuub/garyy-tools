@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌊 波动模拟器</title>
+<meta property="og:title" content="🌊 波动模拟器">
+<meta property="og:description" content="🌊 波动模拟器 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="波动模拟器 - 模拟各种波形与干涉现象">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌊</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0;flex-wrap:wrap}
+.info-bar span{color:var(--accent);font-weight:600}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🌊 波动模拟器</h1><p>模拟各种波形与干涉现象 - 正弦波、方波、锯齿波</p></div>
+
+<div class="tabs" id="waveTabs">
+<button class="active" data-wave="sine">正弦波</button>
+<button data-wave="square">方波</button>
+<button data-wave="sawtooth">锯齿波</button>
+<button data-wave="interference">干涉</button>
+<button data-wave="standing">驻波</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c" width="800" height="500"></canvas></div>
+
+<div class="info-bar">
+<span>频率: <b id="freq">2</b> Hz</span>
+<span>振幅: <b id="amp">50</b></span>
+<span>波长: <b id="wavelength">200</b> px</span>
+<span>相位: <b id="phase">0</b>°</span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" id="btnPlay">▶ 播放</button>
+<button class="btn btn-danger" id="btnReset">↺ 重置</button>
+<button class="btn btn-outline" id="btnAddSource">+ 添加波源</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>频率</label><input type="range" id="freqRange" min="1" max="20" value="2"><span class="val" id="freqVal">2 Hz</span></div>
+<div class="row"><label>振幅</label><input type="range" id="ampRange" min="5" max="150" value="50"><span class="val" id="ampVal">50</span></div>
+<div class="row"><label>相位差</label><input type="range" id="phaseRange" min="0" max="360" value="0"><span class="val" id="phaseVal">0°</span></div>
+<div class="row"><label>阻尼</label><input type="range" id="damping" min="0" max="100" value="10"><span class="val" id="dampVal">10%</span></div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height;
+let waveType='sine',playing=true,t=0;
+let freq=2,amp=50,phaseDiff=0,damp=0.1;
+let sources=[{x:W/4,y:H/2,amp:50,freq:2,phase:0}];
+
+function generateWave(x,source,t){
+const dx=x-source.x;
+const dist=Math.sqrt(dx*dx+(source.y-H/2)*(source.y-H/2));
+const dampedAmp=source.amp*Math.exp(-damp*dist/500);
+const w=source.freq*0.05;
+return dampedAmp*Math.sin(w*dist-source.freq*t*0.05+source.phase);
+}
+
+function drawSine(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+ctx.beginPath();
+for(let x=0;x<W;x++){
+let y=0;
+sources.forEach(s=>{y+=generateWave(x,s,t);});
+const py=H/2+y;
+if(x===0)ctx.moveTo(x,py);else ctx.lineTo(x,py);
+}
+ctx.strokeStyle='#3b82f6';ctx.lineWidth=2;ctx.stroke();
+sources.forEach(s=>{
+ctx.beginPath();ctx.arc(s.x,s.y,6,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+ctx.beginPath();ctx.arc(s.x,s.y,10,0,Math.PI*2);ctx.strokeStyle='#f59e0b40';ctx.stroke();
+});
+document.getElementById('wavelength').textContent=(2*Math.PI/(freq*0.05)).toFixed(0);
+}
+
+function drawInterference(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+const imgData=ctx.createImageData(W,H);
+for(let x=0;x<W;x+=2){
+for(let y=0;y<H;y+=2){
+let val=0;
+sources.forEach(s=>{
+const dx=x-s.x,dy=y-s.y;
+const dist=Math.sqrt(dx*dx+dy*dy);
+const w=s.freq*0.03;
+val+=s.amp*Math.sin(w*dist-s.freq*t*0.05+s.phase);
+});
+const norm=(val+150)/300;
+const r=Math.floor(norm*59+180*(1-norm));
+const g=Math.floor(norm*130+100*(1-norm));
+const b=Math.floor(246*norm+50*(1-norm));
+for(let dx=0;dx<2;dx++)for(let dy=0;dy<2;dy++){
+const i=((y+dy)*W+(x+dx))*4;
+imgData.data[i]=r;imgData.data[i+1]=g;imgData.data[i+2]=b;imgData.data[i+3]=255;
+}
+}
+}
+ctx.putImageData(imgData,0,0);
+sources.forEach(s=>{
+ctx.beginPath();ctx.arc(s.x,s.y,8,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+});
+}
+
+function drawStanding(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+const waves=3;
+for(let n=1;n<=waves;n++){
+ctx.beginPath();
+for(let x=0;x<W;x++){
+const y=amp*Math.sin(n*Math.PI*x/W)*Math.cos(freq*t*0.03);
+const py=H/2+y*2/(n+1);
+if(x===0)ctx.moveTo(x,py);else ctx.lineTo(x,py);
+}
+const hue=(n/waves)*270;
+ctx.strokeStyle=`hsl(${hue},70%,60%)`;ctx.lineWidth=2;ctx.stroke();
+}
+const nodeCount=freq+1;
+for(let i=0;i<=nodeCount;i++){
+const nx=i*W/nodeCount;
+ctx.beginPath();ctx.arc(nx,H/2,3,0,Math.PI*2);ctx.fillStyle='#ef4444';ctx.fill();
+}
+document.getElementById('wavelength').textContent=(2*W/freq).toFixed(0);
+}
+
+function drawSquare(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+const period=W/freq;
+ctx.beginPath();
+for(let x=0;x<W;x++){
+const phase=(x/period+t*0.02)%1;
+const y=amp*(phase<0.5?1:-1);
+const py=H/2+y;
+if(x===0)ctx.moveTo(x,py);else ctx.lineTo(x,py);
+}
+ctx.strokeStyle='#22c55e';ctx.lineWidth=2;ctx.stroke();
+}
+
+function drawSawtooth(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+const period=W/freq;
+ctx.beginPath();
+for(let x=0;x<W;x++){
+const phase=(x/period+t*0.02)%1;
+const y=amp*(2*phase-1);
+const py=H/2+y;
+if(x===0)ctx.moveTo(x,py);else ctx.lineTo(x,py);
+}
+ctx.strokeStyle='#a855f7';ctx.lineWidth=2;ctx.stroke();
+}
+
+function draw(){
+switch(waveType){
+case'sine':drawSine();break;
+case'square':drawSquare();break;
+case'sawtooth':drawSawtooth();break;
+case'interference':drawInterference();break;
+case'standing':drawStanding();break;
+}
+document.getElementById('freq').textContent=freq;
+document.getElementById('amp').textContent=amp;
+document.getElementById('phase').textContent=phaseDiff;
+}
+
+function loop(){
+if(!playing)return;
+t++;draw();requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click',e=>{
+const rect=canvas.getBoundingClientRect();
+const x=(e.clientX-rect.left)*W/rect.width;
+const y=(e.clientY-rect.top)*H/rect.height;
+if(sources.length<8)sources.push({x,y,amp,freq,phase:phaseDiff*Math.PI/180});
+});
+
+document.getElementById('waveTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#waveTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');waveType=btn.dataset.wave;
+};
+
+document.getElementById('btnPlay').onclick=()=>{playing=!playing;document.getElementById('btnPlay').textContent=playing?'⏸ 暂停':'▶ 播放';if(playing)loop();};
+document.getElementById('btnReset').onclick=()=>{t=0;sources=[{x:W/4,y:H/2,amp,freq,phase:0}];draw();};
+document.getElementById('btnAddSource').onclick=()=>{
+if(sources.length<8)sources.push({x:Math.random()*W,y:Math.random()*H,amp,freq,phase:phaseDiff*Math.PI/180});
+};
+
+document.getElementById('freqRange').oninput=function(){freq=+this.value;sources.forEach(s=>s.freq=freq);document.getElementById('freqVal').textContent=this.value+' Hz';};
+document.getElementById('ampRange').oninput=function(){amp=+this.value;sources.forEach(s=>s.amp=amp);document.getElementById('ampVal').textContent=this.value;};
+document.getElementById('phaseRange').oninput=function(){phaseDiff=+this.value;sources.forEach((s,i)=>s.phase=i*phaseDiff*Math.PI/180);document.getElementById('phaseVal').textContent=this.value+'°';};
+document.getElementById('damping').oninput=function(){damp=this.value/100;document.getElementById('dampVal').textContent=this.value+'%';};
+
+draw();loop();
+</script>
+</body>
+</html>
