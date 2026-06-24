@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外汇仪表盘</title>
+<meta name="description" content="外汇仪表盘，主要货币对汇率追踪和转换工具">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6;scroll-behavior:smooth}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:var(--text);font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+input,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:1fr 1fr 1fr}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:1.5rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.75rem;color:var(--text2)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.grid-2,.grid-3{grid-template-columns:1fr}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💱</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="外汇仪表盘">
+<meta property="og:description" content="外汇仪表盘，主要货币对汇率追踪和转换工具">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/forex-dashboard-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='💱 外汇仪表盘';
+const APP=document.getElementById('app');
+const PAIRS=[
+  {base:'USD',quote:'CNY',name:'美元/人民币',baseRate:7.24},
+  {base:'EUR',quote:'USD',name:'欧元/美元',baseRate:1.087},
+  {base:'GBP',quote:'USD',name:'英镑/美元',baseRate:1.265},
+  {base:'USD',quote:'JPY',name:'美元/日元',baseRate:148.5},
+  {base:'AUD',quote:'USD',name:'澳元/美元',baseRate:0.652},
+  {base:'USD',quote:'CHF',name:'美元/瑞郎',baseRate:0.872},
+  {base:'USD',quote:'CAD',name:'美元/加元',baseRate:1.362},
+  {base:'NZD',quote:'USD',name:'纽元/美元',baseRate:0.605},
+  {base:'EUR',quote:'CNY',name:'欧元/人民币',baseRate:7.87},
+  {base:'GBP',quote:'CNY',name:'英镑/人民币',baseRate:9.16}
+];
+const CURRENCIES=['USD','CNY','EUR','GBP','JPY','AUD','CHF','CAD','NZD','HKD','KRW'];
+let favorites=JSON.parse(localStorage.getItem('fd_fav')||'["USDCNY","EURUSD","GBPUSD","USDJPY"]');
+let rates={};
+let history={};
+
+function initRates(){
+  PAIRS.forEach(p=>{
+    const key=p.base+p.quote;
+    if(!rates[key]){
+      rates[key]=p.baseRate*(1+0.001*(Math.random()-0.5));
+      history[key]=[];
+      for(let i=0;i<20;i++){history[key].push(p.baseRate*(1+0.008*(Math.random()-0.5)))}
+      history[key].push(rates[key]);
+    }
+  });
+}
+
+function tickRates(){
+  PAIRS.forEach(p=>{
+    const key=p.base+p.quote;
+    const r=rates[key]||p.baseRate;
+    rates[key]=r*(1+0.0003*(Math.random()-0.5));
+    if(!history[key])history[key]=[];
+    history[key].push(rates[key]);
+    if(history[key].length>30)history[key].shift();
+  });
+  render();
+}
+
+function toggleFav(key){
+  if(favorites.includes(key))favorites=favorites.filter(f=>f!==key);
+  else favorites.push(key);
+  localStorage.setItem('fd_fav',JSON.stringify(favorites));
+  render();
+}
+
+function convert(){
+  const amt=parseFloat(document.getElementById('conv_amt')?.value)||0;
+  const from=document.getElementById('conv_from')?.value||'USD';
+  const to=document.getElementById('conv_to')?.value||'CNY';
+  let result=amt;
+  if(from===to){result=amt}
+  else{
+    const directKey=from+to;
+    const inverseKey=to+from;
+    if(rates[directKey])result=amt*rates[directKey];
+    else if(rates[inverseKey])result=amt/rates[inverseKey];
+    else{
+      const usdFrom=from==='USD'?amt:(rates['USD'+from]?amt/rates['USD'+from]:null);
+      if(usdFrom!==null&&rates['USD'+to])result=usdFrom*rates['USD'+to];
+    }
+  }
+  const el=document.getElementById('conv_result');
+  if(el)el.textContent=`${amt} ${from} = ${result.toFixed(4)} ${to}`;
+}
+
+function render(){
+  initRates();
+  let h=`<h1>💱 外汇仪表盘</h1><p class="subtitle">主要货币对汇率实时追踪</p>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">货币转换</h3>`;
+  h+=`<div class="grid grid-3">`;
+  h+=`<div><label>金额</label><input id="conv_amt" type="number" value="1000" oninput="convert()"></div>`;
+  const curOpts=CURRENCIES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  h+=`<div><label>从</label><select id="conv_from" onchange="convert()">${curOpts.replace('value="USD"','value="USD" selected')}</select></div>`;
+  h+=`<div><label>到</label><select id="conv_to" onchange="convert()">${curOpts.replace('value="CNY"','value="CNY" selected')}</select></div>`;
+  h+=`</div>`;
+  h+=`<div id="conv_result" style="text-align:center;font-size:1.3rem;font-weight:700;color:var(--accent);margin-top:12px"></div>`;
+  h+=`</div>`;
+
+  h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">收藏货币对</span></div>`;
+  const favPairs=PAIRS.filter(p=>favorites.includes(p.base+p.quote));
+  if(favPairs.length===0)h+=`<div class="empty">暂无收藏，点击星标添加</div>`;
+  else{
+    h+=`<div class="grid grid-2">`;
+    favPairs.forEach(p=>{
+      const key=p.base+p.quote;
+      const r=rates[key]||p.baseRate;
+      const prev=history[key]&&history[key].length>1?history[key][history[key].length-2]:r;
+      const chg=((r-prev)/prev*100);
+      const isUp=chg>=0;
+      h+=`<div class="card" style="margin-bottom:0"><div class="flex-between"><strong>${p.base}/${p.quote}</strong><span style="cursor:pointer;font-size:1.2rem" onclick="toggleFav('${key}')">★</span></div><div style="font-size:1.5rem;font-weight:700;margin:8px 0">${r.toFixed(p.quote==='JPY'?2:4)}</div><div class="flex-between"><span style="font-size:.8rem;color:var(--text2)">${p.name}</span><span class="badge ${isUp?'badge-green':'badge-red'}">${isUp?'+':''}${chg.toFixed(3)}%</span></div></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+
+  h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">全部汇率</span></div>`;
+  h+=`<table class="table"><thead><tr><th>货币对</th><th>汇率</th><th>变化</th><th>收藏</th></tr></thead><tbody>`;
+  PAIRS.forEach(p=>{
+    const key=p.base+p.quote;
+    const r=rates[key]||p.baseRate;
+    const prev=history[key]&&history[key].length>1?history[key][history[key].length-2]:r;
+    const chg=((r-prev)/prev*100);
+    const isUp=chg>=0;
+    const isFav=favorites.includes(key);
+    h+=`<tr><td><strong>${p.base}/${p.quote}</strong> <span style="color:var(--text2);font-size:.8rem">${p.name}</span></td><td>${r.toFixed(p.quote==='JPY'?2:4)}</td><td><span class="badge ${isUp?'badge-green':'badge-red'}">${isUp?'+':''}${chg.toFixed(3)}%</span></td><td style="cursor:pointer;font-size:1.2rem" onclick="toggleFav('${key}')">${isFav?'★':'☆'}</td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+
+  h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">汇率交叉矩阵</span></div>`;
+  const topCurrencies=['USD','CNY','EUR','GBP','JPY'];
+  h+=`<div style="overflow-x:auto"><table class="table"><thead><tr><th></th>`;
+  topCurrencies.forEach(c=>{h+=`<th>${c}</th>`});
+  h+=`</tr></thead><tbody>`;
+  topCurrencies.forEach(from=>{
+    h+=`<tr><td><strong>${from}</strong></td>`;
+    topCurrencies.forEach(to=>{
+      if(from===to){h+=`<td style="color:var(--text2)">-</td>`}
+      else{
+        const key=from+to;
+        const invKey=to+from;
+        let val='-';
+        if(rates[key])val=rates[key].toFixed(from==='JPY'||to==='JPY'?2:4);
+        else if(rates[invKey])val=(1/rates[invKey]).toFixed(from==='JPY'||to==='JPY'?2:4);
+        h+=`<td>${val}</td>`;
+      }
+    });
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div></div>`;
+
+  APP.innerHTML=h;
+  convert();
+}
+
+setInterval(tickRates,5000);
+render();
+</script>
+</body>
+</html>
