@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💼 投资组合分析器</title>
+<meta name="description" content="投资组合分析器，评估资产配置、风险收益、夏普比率等">
+<style>
+:root {--bg: #f5f7fa;
+--card-bg: #ffffff;
+--text: #1a1a2e;
+--text-secondary: #6b7280;
+--border: #e5e7eb;
+--accent: #2563eb;
+--accent-light: #eff6ff;
+--shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+--tag-bg: #f3f4f6;
+--input-bg: #f9fafb;
+--hover-bg: #f3f4f6}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+.dark {--bg: #0f172a;
+--card-bg: #1e293b;
+--text: #e2e8f0;
+--text-secondary: #94a3b8;
+--border: #334155;
+--accent: #3b82f6;
+--accent-light: #1e3a5f;
+--shadow: 0 1px 3px rgba(0,0,0,0.4);
+--tag-bg: #334155;
+--input-bg: #1e293b;
+--hover-bg: #334155}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+background: var(--bg);
+color: var(--text);
+min-height: 100vh;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 16px;
+transition: background 0.3s, color 0.3s}
+.app {width: 100%;
+max-width: 480px}
+.header {display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 12px}
+.header h1 {font-size: 1.5rem;
+font-weight: 700;
+letter-spacing: -0.02em;
+color: var(--text)}
+.header-actions {display: flex;
+gap: 8px;
+align-items: center}
+.theme-toggle {width: 40px; height: 40px;
+border: 1px solid var(--border);
+border-radius: 12px;
+background: var(--card-bg);
+cursor: pointer;
+font-size: 1.2rem;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.2s}
+.theme-toggle:hover { background: var(--hover-bg); }
+.disclaimer {font-size: 0.75rem;
+color: var(--text-secondary);
+background: var(--accent-light);
+padding: 8px 12px;
+border-radius: 10px;
+margin-bottom: 16px;
+line-height: 1.5;
+text-align: center;
+border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent)}
+.card {background: var(--card-bg);
+border-radius: 16px;
+padding: 20px;
+box-shadow: var(--shadow);
+border: 1px solid var(--border);
+margin-bottom: 12px}
+.converter-row {display: flex;
+flex-direction: column;
+gap: 12px}
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group label {font-size: 0.8rem;
+font-weight: 600;
+color: var(--text-secondary);
+text-transform: uppercase;
+letter-spacing: 0.05em}
+.amount-input {width: 100%;
+padding: 12px 16px;
+font-size: 1.5rem;
+font-weight: 700;
+border: 2px solid var(--border);
+border-radius: 12px;
+background: var(--input-bg);
+color: var(--text);
+outline: none;
+transition: border-color 0.2s;
+-moz-appearance: textfield}
+.amount-input::-webkit-outer-spin-button,
+.amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.amount-input:focus { border-color: var(--accent); }
+.result-card { text-align: center; }
+.result-value {font-size: 2.2rem;
+font-weight: 800;
+color: var(--text);
+word-break: break-all;
+letter-spacing: -0.02em}
+.result-rate {font-size: 0.85rem;
+color: var(--text-secondary);
+margin-top: 6px}
+.quick-section { margin-bottom: 12px; }
+.quick-title {font-size: 0.75rem;
+font-weight: 600;
+color: var(--text-secondary);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+margin-bottom: 8px}
+.quick-chips {display: flex;
+flex-wrap: wrap;
+gap: 6px}
+.chip {padding: 6px 14px;
+border-radius: 20px;
+border: 1px solid var(--border);
+background: var(--tag-bg);
+cursor: pointer;
+font-size: 0.8rem;
+font-weight: 500;
+color: var(--text);
+transition: all 0.15s;
+white-space: nowrap}
+.chip:hover, .chip.active {background: var(--accent);
+color: var(--text);
+border-color: var(--accent)}
+.update-time {text-align: center;
+font-size: 0.7rem;
+color: var(--text-secondary);
+margin-top: 12px}
+@media (max-width: 400px) {.card { padding: 14px; }
+.amount-input { font-size: 1.3rem; padding: 10px 14px; }
+.result-value { font-size: 1.8rem; }}
+
+/* === Smooth Animations === */
+@keyframes animFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes animScaleIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+body, .container, main, .container-fluid, .wrapper {
+  animation: animFadeIn .45s ease-out both;
+}
+.weather-card, .word-card, .result-card, .output-card, .info-card,
+.card, [class*="card"], [class*="panel"], [class*="result"], [class*="output"],
+[class*="detail"], [class*="item"], [class*="section"]:not(header):not(nav),
+[class*="box"]:not(.search-box) {
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+.weather-card:hover, .word-card:hover, .result-card:hover, .output-card:hover,
+.info-card:hover, .card:hover, [class*="card"]:hover, [class*="panel"]:hover,
+[class*="result"]:hover, [class*="output"]:hover, [class*="detail"]:hover,
+[class*="item"]:hover, [class*="box"]:not(.search-box):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+button, input[type="submit"], .btn, [class*="btn"], .search-box button,
+.filter-btn, .refresh-btn, .retry-btn {
+  transition: transform .12s ease, opacity .2s ease, background .2s ease, box-shadow .2s ease;
+}
+button:active, input[type="submit"]:active, .btn:active, [class*="btn"]:active,
+.search-box button:active, .filter-btn:active, .refresh-btn:active, .retry-btn:active {
+  transform: scale(.96);
+  opacity: .88;
+}
+button:hover, .btn:hover, [class*="btn"]:hover {
+  box-shadow: 0 2px 8px rgba(59,130,246,.18);
+}
+html { scroll-behavior: smooth; }
+.coin-item { transition: transform .2s ease, box-shadow .2s ease; }
+.coin-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.city-item { transition: transform .2s ease, background .2s ease, border-color .2s ease; }
+.city-item:hover { transform: translateX(4px); }
+input[type="text"], input[type="number"], textarea, select {
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+}
+/* end animations */
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💼</text></svg>">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="💼 投资组合分析器">
+  <meta property="og:description" content="投资组合分析器，评估资产配置、风险收益、夏普比率等">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://garyy.top/tools/investment-portfolio/">
+  <meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="app">
+  <div class="header">
+    <h1>💼 投资组合分析器</h1>
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle" title="切换暗色模式" aria-label="切换暗色模式">🌙</button>
+    </div>
+  </div>
+  <div class="disclaimer">⚠️ 计算结果仅供参考，投资需谨慎</div>
+
+  <div class="quick-section">
+    <div class="quick-title">快捷配置</div>
+    <div class="quick-chips" id="quickChips"></div>
+  </div>
+
+  <div class="card">
+    <div class="converter-row">
+      <div class="field-group">
+        <label>股票比例（%）</label>
+        <input type="number" class="amount-input" id="stockInput" value="60" min="0" max="100" step="1" placeholder="0">
+      </div>
+      <div class="field-group">
+        <label>债券比例（%）</label>
+        <input type="number" class="amount-input" id="bondInput" value="30" min="0" max="100" step="1" placeholder="0">
+      </div>
+      <div class="field-group">
+        <label>现金比例（%）</label>
+        <input type="number" class="amount-input" id="cashInput" value="10" min="0" max="100" step="1" placeholder="0">
+      </div>
+      <div class="field-group">
+        <label>投资金额（万元）</label>
+        <input type="number" class="amount-input" id="amountInput" value="100" min="0" step="any" placeholder="0">
+      </div>
+    </div>
+  </div>
+
+  <div class="card result-card">
+    <div class="result-value" id="resultValue">--</div>
+    <div class="result-rate" id="resultRate"></div>
+  </div>
+
+  <div class="update-time" id="updateTime">分析结果：模拟数据</div>
+</div>
+
+<script>
+const presets = [
+  { name: '保守型', stock: 20, bond: 60, cash: 20 },
+  { name: '平衡型', stock: 50, bond: 40, cash: 10 },
+  { name: '进取型', stock: 80, bond: 15, cash: 5 },
+  { name: '激进型', stock: 90, bond: 5, cash: 5 }
+];
+function renderQuickChips() {
+  const container = document.getElementById('quickChips');
+  container.innerHTML = presets.map(p => {
+    return `<button class="chip" onclick="applyPreset('${p.name}')">${p.name}</button>`;
+  }).join('');
+}
+function applyPreset(name) {
+  const p = presets.find(p => p.name === name);
+  if (p) {
+    document.getElementById('stockInput').value = p.stock;
+    document.getElementById('bondInput').value = p.bond;
+    document.getElementById('cashInput').value = p.cash;
+    calculate();
+  }
+}
+function calculate() {
+  const stock = parseFloat(document.getElementById('stockInput').value) || 0;
+  const bond = parseFloat(document.getElementById('bondInput').value) || 0;
+  const cash = parseFloat(document.getElementById('cashInput').value) || 0;
+  const amount = parseFloat(document.getElementById('amountInput').value) || 0;
+  
+  const total = stock + bond + cash;
+  const stockAmount = amount * stock / 100;
+  const bondAmount = amount * bond / 100;
+  const cashAmount = amount * cash / 100;
+  
+  // 模拟预期年化收益和风险
+  const expectedReturn = stock * 0.1 + bond * 0.04 + cash * 0.02;
+  const risk = stock * 0.2 + bond * 0.05 + cash * 0.01;
+  const sharpeRatio = risk > 0 ? (expectedReturn - 0.02) / risk : 0;
+  
+  document.getElementById('resultValue').textContent = `预期收益 ${(expectedReturn / 100).toFixed(2)}%`;
+  document.getElementById('resultRate').textContent = `夏普比率 ${sharpeRatio.toFixed(2)} | 风险 ${(risk / 100).toFixed(2)}%`;
+  renderQuickChips();
+}
+function initTheme() {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const saved = localStorage.getItem('investment-portfolio-theme');
+  const isDark = saved ? saved === 'dark' : prefersDark;
+  applyTheme(isDark);
+}
+function applyTheme(isDark) {
+  document.documentElement.classList.toggle('dark', isDark);
+  document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('investment-portfolio-theme', isDark ? 'dark' : 'light');
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const isDark = document.documentElement.classList.contains('dark');
+  applyTheme(!isDark);
+});
+document.getElementById('stockInput').addEventListener('input', calculate);
+document.getElementById('bondInput').addEventListener('input', calculate);
+document.getElementById('cashInput').addEventListener('input', calculate);
+document.getElementById('amountInput').addEventListener('input', calculate);
+function init() {
+  initTheme();
+  calculate();
+}
+init();
+</script>
+<script src="../i18n.js" defer>
+document.getElementById("stockInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("bondInput").focus();}});
+document.getElementById("bondInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("cashInput").focus();}});
+document.getElementById("cashInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();document.getElementById("amountInput").focus();}});
+document.getElementById("amountInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();calculate();}});
+
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
