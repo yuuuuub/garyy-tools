@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>决策矩阵工具</title>
+<meta name="description" content="决策矩阵工具，多维度加权评分对比，帮助做出理性决策">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:4px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.9rem;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn-danger{background:var(--red)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--text2);font-size:.85rem;font-weight:600;background:var(--bg)}
+td input[type="number"]{width:60px;padding:6px;margin:0;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text);text-align:center}
+.total{font-weight:700;font-size:1.1rem;color:var(--accent)}
+.winner{color:var(--green);font-weight:700}
+.result-card{text-align:center;padding:20px;background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(63,185,80,.1));border-radius:var(--radius);border:2px solid var(--green)}
+.result-card .winner-name{font-size:1.8rem;font-weight:700;color:var(--green);margin:8px 0}
+.result-card .winner-score{font-size:1.2rem;color:var(--accent)}
+.empty{text-align:center;color:var(--text2);padding:30px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}h1{font-size:1.4rem}.card{padding:14px}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>📊 决策矩阵</h1>
+<p class="subtitle">多维度加权评分，做出理性决策</p>
+
+<div class="card">
+  <div class="flex-between">
+    <b>决策设置</b>
+    <div class="flex">
+      <button class="btn btn-sm" onclick="addOption()">+ 添加选项</button>
+      <button class="btn btn-sm" onclick="addCriterion()">+ 添加维度</button>
+      <button class="btn btn-sm btn-danger" onclick="resetAll()">重置</button>
+    </div>
+  </div>
+  <div style="margin-top:12px">
+    <label>决策主题</label>
+    <input type="text" id="topic" placeholder="例：选择最佳技术方案" oninput="saveData()">
+  </div>
+</div>
+
+<div class="card">
+  <b>维度设置</b>
+  <p style="font-size:.8rem;color:var(--text2);margin:4px 0 8px">权重越高，该维度对决策影响越大（1-10）</p>
+  <div id="criteriaList"></div>
+</div>
+
+<div class="card">
+  <b>选项评分</b>
+  <p style="font-size:.8rem;color:var(--text2);margin:4px 0 8px">为每个选项在各维度打分（1-10）</p>
+  <div class="table-wrap">
+    <table id="scoreTable"></table>
+  </div>
+</div>
+
+<div class="card" id="resultCard" style="display:none">
+  <b style="display:block;margin-bottom:12px">📈 决策结果</b>
+  <div id="resultContent"></div>
+</div>
+</div>
+
+<script>
+document.title='📊 决策矩阵工具';
+let data=JSON.parse(localStorage.getItem('decision_matrix_cn')||'null')||{
+  topic:'',
+  options:['选项A','选项B','选项C'],
+  criteria:[{name:'成本',weight:5},{name:'时间',weight:4},{name:'质量',weight:7}],
+  scores:{'选项A':{},'选项B':{},'选项C':{}}
+};
+
+function save(){localStorage.setItem('decision_matrix_cn',JSON.stringify(data))}
+function saveData(){data.topic=document.getElementById('topic').value;save()}
+
+function addCriterion(){data.criteria.push({name:'新维度',weight:5});save();render()}
+function addOption(){
+  const name='选项'+(data.options.length+1);
+  data.options.push(name);data.scores[name]={};save();render();
+}
+function removeOption(i){data.options.splice(i,1);save();render()}
+function removeCriterion(i){data.criteria.splice(i,1);save();render()}
+
+function render(){
+  document.getElementById('topic').value=data.topic||'';
+  
+  let cHtml='';
+  data.criteria.forEach((c,i)=>{
+    cHtml+=`<div class="flex" style="margin-bottom:8px">
+      <input type="text" value="${c.name}" onchange="data.criteria[${i}].name=this.value;save();render()" style="flex:2;margin:0">
+      <div style="flex:1;text-align:center"><label>权重</label><input type="number" min="1" max="10" value="${c.weight}" onchange="data.criteria[${i}].weight=+this.value;save();render()" style="width:60px;margin:0;text-align:center"></div>
+      <button class="btn btn-sm btn-danger" onclick="removeCriterion(${i})" style="margin:0">✕</button>
+    </div>`;
+  });
+  document.getElementById('criteriaList').innerHTML=cHtml;
+  
+  let tHtml=`<thead><tr><th>选项</th>`;
+  data.criteria.forEach(c=>{tHtml+=`<th>${c.name}<br><span style="font-weight:400;font-size:.75rem;color:var(--text2)">权重:${c.weight}</span></th>`});
+  tHtml+=`<th>加权总分</th><th></th></tr></thead><tbody>`;
+  
+  let results=[];
+  data.options.forEach((opt,oi)=>{
+    tHtml+=`<tr><td><input type="text" value="${opt}" onchange="renameOption('${opt}',this.value)" style="margin:0;border:none;background:transparent;font-weight:600;padding:0;width:auto"></td>`;
+    let total=0;
+    data.criteria.forEach((c,ci)=>{
+      const val=data.scores[opt]?.[c.name]||0;
+      total+=val*c.weight;
+      tHtml+=`<td><input type="number" min="0" max="10" value="${val}" onchange="setScore('${opt}','${c.name}',+this.value)"></td>`;
+    });
+    tHtml+=`<td class="total">${total}</td><td><button class="btn btn-sm btn-danger" onclick="removeOption(${oi})">✕</button></td></tr>`;
+    results.push({name:opt,score:total});
+  });
+  tHtml+=`</tbody>`;
+  document.getElementById('scoreTable').innerHTML=tHtml;
+  
+  if(results.length>0){
+    const maxScore=Math.max(...results.map(r=>r.score));
+    const winner=results.find(r=>r.score===maxScore);
+    let rHtml=`<div class="result-card"><div class="winner-name">🏆 ${winner.name}</div><div class="winner-score">加权总分：${winner.score}</div></div>`;
+    rHtml+=`<div style="margin-top:16px"><table style="width:100%"><thead><tr><th>排名</th><th>选项</th><th>总分</th></tr></thead><tbody>`;
+    results.sort((a,b)=>b.score-a.score).forEach((r,i)=>{
+      rHtml+=`<tr><td>${i+1}</td><td class="${i===0?'winner':''}">${r.name}</td><td>${r.score}</td></tr>`;
+    });
+    rHtml+=`</tbody></table></div>`;
+    document.getElementById('resultContent').innerHTML=rHtml;
+    document.getElementById('resultCard').style.display='block';
+  }
+}
+
+function setScore(opt,criterion,val){if(!data.scores[opt])data.scores[opt]={};data.scores[opt][criterion]=val;save();render()}
+function renameOption(oldName,newName){
+  if(oldName===newName)return;
+  data.scores[newName]=data.scores[oldName];delete data.scores[oldName];
+  data.options=data.options.map(o=>o===oldName?newName:o);save();render();
+}
+function resetAll(){if(!confirm('确定重置所有数据？'))return;data={topic:'',options:['选项A','选项B','选项C'],criteria:[{name:'成本',weight:5},{name:'时间',weight:4},{name:'质量',weight:7}],scores:{}};save();render()}
+
+render();
+</script>
+</body>
+</html>

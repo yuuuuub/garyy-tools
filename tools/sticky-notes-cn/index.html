@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文便签工具</title>
+<meta name="description" content="在线便签工具，支持分类、颜色标记、拖拽排序，轻松管理碎片化想法">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:4px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:20px;font-size:.9rem}
+.toolbar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.9rem;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent)}
+.btn-danger{background:var(--red)}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.note{border-radius:12px;padding:16px;min-height:160px;display:flex;flex-direction:column;cursor:grab;transition:transform .2s,box-shadow .2s;position:relative}
+.note:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.note.dragging{opacity:.5;transform:scale(.95)}
+.note textarea{width:100%;flex:1;border:none;background:transparent;color:#1f2328;font-size:14px;line-height:1.5;resize:none;outline:none;font-family:inherit}
+.note .meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:.75rem;color:#555}
+.note .delete{position:absolute;top:8px;right:10px;cursor:pointer;font-size:14px;color:#999;transition:color .2s}
+.note .delete:hover{color:var(--red)}
+.color-bar{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+.color-dot{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s}
+.color-dot:hover,.color-dot.active{border-color:var(--text);transform:scale(1.15)}
+.filter-bar{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
+.filter-bar select{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.85rem}
+.search-box{display:flex;justify-content:center;margin-bottom:16px}
+.search-box input{max-width:400px;width:100%;padding:10px 16px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.9rem}
+.search-box input:focus{outline:none;border-color:var(--accent)}
+.stats{text-align:center;margin-bottom:16px;color:var(--text2);font-size:.85rem}
+.empty{text-align:center;color:var(--text2);padding:60px 20px;font-size:.95rem}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.note{animation:fadeIn .3s ease-out}
+@media(max-width:600px){body{padding:10px}.notes-grid{grid-template-columns:1fr}h1{font-size:1.4rem}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>📝 便签墙</h1>
+<p class="subtitle">管理碎片化想法与待办事项</p>
+<div class="search-box"><input type="text" id="searchInput" placeholder="搜索便签内容..." oninput="render()"></div>
+<div class="toolbar">
+  <button class="btn" onclick="addNote()">+ 新建便签</button>
+  <button class="btn btn-outline" onclick="sortByTime()">按时间排序</button>
+  <button class="btn btn-outline" onclick="sortByColor()">按颜色分组</button>
+  <button class="btn btn-outline" onclick="exportNotes()">导出 JSON</button>
+  <button class="btn btn-danger btn-sm" onclick="clearAll()">清空全部</button>
+</div>
+<div class="filter-bar">
+  <select id="categoryFilter" onchange="render()">
+    <option value="all">所有分类</option>
+    <option value="想法">💡 想法</option>
+    <option value="待办">✅ 待办</option>
+    <option value="灵感">✨ 灵感</option>
+    <option value="笔记">📋 笔记</option>
+  </select>
+</div>
+<div class="color-bar" id="colorBar"></div>
+<div class="stats" id="stats"></div>
+<div class="notes-grid" id="notesGrid"></div>
+</div>
+<script>
+document.title='📝 中文便签工具';
+const COLORS=['#fff740','#ff7eb9','#7afcff','#98fb98','#ffa07a','#dda0dd','#b0e0e6','#ffd700','#ffb6c1','#90ee90'];
+const CATEGORIES=['想法','待办','灵感','笔记'];
+const EMOJIS=['💡','✅','✨','📋'];
+let notes=JSON.parse(localStorage.getItem('sticky_notes_cn')||'[]');
+let selectedColor=COLORS[0];
+let draggedNote=null;
+
+function save(){localStorage.setItem('sticky_notes_cn',JSON.stringify(notes))}
+function addNote(){
+  const note={id:Date.now(),text:'',color:selectedColor,category:'想法',created:new Date().toISOString(),pinned:false};
+  notes.unshift(note);save();render();
+}
+function deleteNote(id){notes=notes.filter(n=>n.id!==id);save();render()}
+function updateNote(id,text){const n=notes.find(x=>x.id===id);if(n){n.text=text;save()}}
+function togglePin(id){const n=notes.find(x=>x.id===id);if(n){n.pinned=!n.pinned;save();render()}}
+function changeCategory(id,cat){const n=notes.find(x=>x.id===id);if(n){n.category=cat;save();render()}}
+function clearAll(){if(!confirm('确定清空所有便签？'))return;notes=[];save();render()}
+function exportNotes(){
+  const blob=new Blob([JSON.stringify(notes,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='sticky-notes.json';a.click();
+  URL.revokeObjectURL(url);
+}
+function sortByTime(){notes.sort((a,b)=>new Date(b.created)-new Date(a.created));save();render()}
+function sortByColor(){notes.sort((a,b)=>a.color.localeCompare(b.color));save();render()}
+
+function render(){
+  const search=document.getElementById('searchInput').value.toLowerCase();
+  const cat=document.getElementById('categoryFilter').value;
+  let filtered=notes.filter(n=>{
+    if(cat!=='all'&&n.category!==cat)return false;
+    if(search&&!n.text.toLowerCase().includes(search))return false;
+    return true;
+  });
+  filtered.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+  
+  let html='';
+  if(filtered.length===0)html='<div class="empty">暂无便签，点击上方按钮创建</div>';
+  filtered.forEach((n,i)=>{
+    const time=new Date(n.created).toLocaleString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const catIdx=CATEGORIES.indexOf(n.category);
+    html+=`<div class="note" style="background:${n.color}" draggable="true" ondragstart="startDrag(event,${n.id})" ondragover="event.preventDefault()" ondrop="drop(event,${n.id})">
+      <span class="delete" onclick="deleteNote(${n.id})">✕</span>
+      <textarea oninput="updateNote(${n.id},this.value)" placeholder="写点什么...">${n.text}</textarea>
+      <div class="meta">
+        <select onchange="changeCategory(${n.id},this.value)" style="border:none;background:transparent;font-size:.75rem;color:#555;cursor:pointer">
+          ${CATEGORIES.map((c,ci)=>`<option value="${c}" ${c===n.category?'selected':''}>${EMOJIS[ci]} ${c}</option>`).join('')}
+        </select>
+        <span>${time}</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById('notesGrid').innerHTML=html;
+  document.getElementById('stats').textContent=`共 ${notes.length} 条便签，当前显示 ${filtered.length} 条`;
+  
+  let colorHtml='<span style="color:var(--text2);font-size:.85rem">颜色：</span>';
+  COLORS.forEach(c=>{colorHtml+=`<div class="color-dot ${c===selectedColor?'active':''}" style="background:${c}" onclick="selectedColor='${c}';render()"></div>`});
+  document.getElementById('colorBar').innerHTML=colorHtml;
+}
+
+function startDrag(e,id){e.dataTransfer.setData('text/plain',id)}
+function drop(e,id){
+  e.preventDefault();
+  const fromId=parseInt(e.dataTransfer.getData('text/plain'));
+  if(fromId===id)return;
+  const fromIdx=notes.findIndex(n=>n.id===fromId);
+  const toIdx=notes.findIndex(n=>n.id===id);
+  const [moved]=notes.splice(fromIdx,1);
+  notes.splice(toIdx,0,moved);save();render();
+}
+
+render();
+</script>
+</body>
+</html>
