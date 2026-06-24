@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IP计算器</title><meta name="description" content="IP计算器 - 在线IP地址计算、子网划分、CIDR转换"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.input-group{margin-bottom:12px}.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px}.input-group input{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem}.input-group input:focus{border-color:var(--blue);outline:none}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.result-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;margin-top:12px}.copy-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.8rem;margin-top:8px}.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.85rem}th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}th{color:var(--text2);font-weight:600}</style>
+<meta property="og:title" content="IP计算器">
+<meta property="og:description" content="IP计算器 - 在线IP地址计算、子网划分、CIDR转换">
+<meta property="og:image" content="/og-default.png">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div class="container"><h1>🔢 IP计算器</h1><p class="sub">在线IP地址计算、子网划分、CIDR转换</p>
+<div class="card">
+<div class="input-group"><label>输入IP地址/CIDR (如 192.168.1.0/24)</label><input type="text" id="ipInput" placeholder="192.168.1.0/24" value="192.168.1.0/24"></div>
+<div class="btn-group">
+<button class="btn" onclick="calculate()">计算</button>
+<button class="btn" onclick="subnetDivide()">子网划分</button>
+</div>
+</div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+function ipToInt(ip){var p=ip.split('.').map(Number);return((p[0]<<24)|(p[1]<<16)|(p[2]<<8)|p[3])>>>0;}
+function intToIp(n){return((n>>>24)&255)+'.'+((n>>>16)&255)+'.'+((n>>>8)&255)+'.'+(n&255);}
+function intToBinary(n){var b=n.toString(2);while(b.length<32)b='0'+b;return b;}
+function isValidIp(ip){var p=ip.split('.');if(p.length!==4)return false;return p.every(function(x){return/^\d+$/.test(x)&&Number(x)>=0&&Number(x)<=255;});}
+function calculate(){
+  var input=document.getElementById('ipInput').value.trim();
+  var r=document.getElementById('result');
+  if(!input){r.innerHTML='';return;}
+  var parts=input.split('/');
+  var ip=parts[0],cidr=parts[1]?parseInt(parts[1]):24;
+  if(!isValidIp(ip)){r.innerHTML='<div class="card" style="color:var(--red)">无效的IP地址</div>';return;}
+  if(cidr<0||cidr>32){r.innerHTML='<div class="card" style="color:var(--red)">CIDR范围 0-32</div>';return;}
+  var ipNum=ipToInt(ip);
+  var mask=cidr===0?0:(0xFFFFFFFF<<(32-cidr))>>>0;
+  var network=(ipNum&mask)>>>0;
+  var broadcast=(network|(~mask>>>0))>>>0;
+  var hostMin=cidr>=31?network:(network+1)>>>0;
+  var hostMax=cidr>=31?broadcast:(broadcast-1)>>>0;
+  var totalHosts=Math.pow(2,32-cidr);
+  var usableHosts=cidr>=31?(cidr===32?1:2):totalHosts-2;
+  var hex='0x'+('00000000'+(ipNum>>>0).toString(16)).slice(-8).toUpperCase();
+  var html='<div class="card"><table>';
+  html+='<tr><th>属性</th><th>值</th></tr>';
+  html+='<tr><td>IP地址</td><td>'+ip+'</td></tr>';
+  html+='<tr><td>二进制</td><td>'+intToBinary(ipNum)+'</td></tr>';
+  html+='<tr><td>十六进制</td><td>'+hex+'</td></tr>';
+  html+='<tr><td>CIDR</td><td>/'+cidr+'</td></tr>';
+  html+='<tr><td>子网掩码</td><td>'+intToIp(mask)+'</td></tr>';
+  html+='<tr><td>网络地址</td><td>'+intToIp(network)+'</td></tr>';
+  html+='<tr><td>广播地址</td><td>'+intToIp(broadcast)+'</td></tr>';
+  html+='<tr><td>第一个可用IP</td><td>'+intToIp(hostMin)+'</td></tr>';
+  html+='<tr><td>最后一个可用IP</td><td>'+intToIp(hostMax)+'</td></tr>';
+  html+='<tr><td>总IP数</td><td>'+totalHosts.toLocaleString()+'</td></tr>';
+  html+='<tr><td>可用主机数</td><td>'+usableHosts.toLocaleString()+'</td></tr>';
+  html+='</table></div>';
+  r.innerHTML=html;
+}
+function subnetDivide(){
+  var input=document.getElementById('ipInput').value.trim();
+  var r=document.getElementById('result');
+  var parts=input.split('/');
+  var ip=parts[0],cidr=parts[1]?parseInt(parts[1]):24;
+  if(!isValidIp(ip)){r.innerHTML='<div class="card" style="color:var(--red)">无效的IP地址</div>';return;}
+  var newCidr=cidr+1;
+  if(newCidr>30){r.innerHTML='<div class="card" style="color:var(--red)">无法进一步划分</div>';return;}
+  var ipNum=ipToInt(ip);
+  var mask=(0xFFFFFFFF<<(32-cidr))>>>0;
+  var network=(ipNum&mask)>>>0;
+  var step=Math.pow(2,32-newCidr);
+  var html='<div class="card"><h3 style="color:var(--blue);margin-bottom:10px">/'+cidr+' → 两个 /'+newCidr+' 子网</h3><table>';
+  html+='<tr><th>子网</th><th>网络地址</th><th>可用IP范围</th><th>广播地址</th><th>可用数</th></tr>';
+  for(var i=0;i<2;i++){
+    var subNet=(network+i*step)>>>0;
+    var subBcast=(subNet|((~((0xFFFFFFFF<<(32-newCidr))>>>0))>>>0))>>>0;
+    var subMin=(subNet+1)>>>0;
+    var subMax=(subBcast-1)>>>0;
+    var usable=newCidr>=31?2:step-2;
+    html+='<tr><td>子网'+(i+1)+'</td><td>'+intToIp(subNet)+'/'+newCidr+'</td><td>'+intToIp(subMin)+' - '+intToIp(subMax)+'</td><td>'+intToIp(subBcast)+'</td><td>'+usable+'</td></tr>';
+  }
+  html+='</table></div>';
+  r.innerHTML=html;
+}
+calculate();
+</script></body></html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Base64文件转换器</title><meta name="description" content="Base64文件转换器 - 在线文件Base64编码解码"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.upload-area{border:2px dashed var(--border);border-radius:8px;padding:40px;text-align:center;cursor:pointer;transition:border-color .2s}.upload-area:hover{border-color:var(--blue)}.upload-area.dragover{border-color:var(--blue);background:rgba(59,130,246,0.1)}.upload-icon{font-size:3rem;margin-bottom:12px}.upload-text{color:var(--text2);font-size:.9rem}.upload-hint{color:var(--text2);font-size:.8rem;margin-top:8px}textarea{width:100%;min-height:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;outline:none}textarea:focus{border-color:var(--blue)}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.section{margin-top:16px}.section h3{font-size:.95rem;margin-bottom:10px;color:var(--blue)}.result-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto}.label{font-size:.75rem;color:var(--text2);margin-bottom:4px}.copy-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.8rem;margin-top:8px}.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tabs{display:flex;gap:8px;margin-bottom:12px}.tab{padding:8px 16px;background:var(--border);color:var(--text);border:none;border-radius:6px;cursor:pointer;font-size:.85rem}.tab.active{background:var(--blue);color:#fff}.file-info{margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;font-size:.85rem;color:var(--text2)}.preview{margin-top:12px;text-align:center}.preview img{max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--border)}</style><meta property="og:title" content="Base64文件转换器"><meta property="og:description" content="Base64文件转换器 - Gary's Tools"><meta property="og:image" content="https://garyy.top/og-image.png"><meta name="robots" content="index, follow"></head><body>
+<div class="container"><h1>📁 Base64文件转换器</h1><p class="sub">在线文件Base64编码解码</p>
+<div class="tabs">
+<button class="tab active" onclick="switchTab('encode')">文件→Base64</button>
+<button class="tab" onclick="switchTab('decode')">Base64→文件</button>
+</div>
+<div class="card" id="encodeCard">
+<div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+<div class="upload-icon">📤</div>
+<div class="upload-text">点击或拖拽文件到此处</div>
+<div class="upload-hint">支持所有文件类型</div>
+</div>
+<input type="file" id="fileInput" style="display:none" onchange="handleFile(event)">
+<div class="file-info" id="fileInfo" style="display:none"></div>
+<div class="preview" id="preview" style="display:none"></div>
+</div>
+<div class="card" id="decodeCard" style="display:none">
+<div class="label">输入Base64字符串</div>
+<textarea id="base64Input" placeholder="粘贴Base64编码的字符串..."></textarea>
+<div class="input-group">
+<label>文件名</label>
+<input type="text" id="fileName" placeholder="output.bin">
+</div>
+<button class="btn" onclick="decodeBase64()">解码并下载</button>
+</div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var currentTab='encode';
+var currentFile=null;
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  event.target.classList.add('active');
+  document.getElementById('encodeCard').style.display=tab==='encode'?'block':'none';
+  document.getElementById('decodeCard').style.display=tab==='decode'?'block':'none';
+  document.getElementById('result').innerHTML='';
+}
+var uploadArea=document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover',function(e){e.preventDefault();uploadArea.classList.add('dragover');});
+uploadArea.addEventListener('dragleave',function(){uploadArea.classList.remove('dragover');});
+uploadArea.addEventListener('drop',function(e){
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  if(e.dataTransfer.files.length>0){handleFile({target:{files:e.dataTransfer.files}});}
+});
+function handleFile(event){
+  var file=event.target.files[0];
+  if(!file)return;
+  currentFile=file;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var base64=e.target.result;
+    var info='文件名: '+file.name+'\n';
+    info+='类型: '+file.type+'\n';
+    info+='大小: '+formatSize(file.size)+'\n';
+    info+='Base64长度: '+base64.length+' 字符';
+    document.getElementById('fileInfo').textContent=info;
+    document.getElementById('fileInfo').style.display='block';
+    if(file.type.startsWith('image/')){
+      document.getElementById('preview').innerHTML='<img src="'+base64+'">';
+      document.getElementById('preview').style.display='block';
+    }else{
+      document.getElementById('preview').style.display='none';
+    }
+    showResult(base64,'Base64编码');
+  };
+  reader.readAsDataURL(file);
+}
+function decodeBase64(){
+  var base64=document.getElementById('base64Input').value.trim();
+  var fileName=document.getElementById('fileName').value||'output.bin';
+  var r=document.getElementById('result');
+  if(!base64){r.innerHTML='<div class="card" style="color:var(--red)">请输入Base64字符串</div>';return;}
+  try{
+    var byteString=atob(base64.split(',')[1]||base64);
+    var ab=new ArrayBuffer(byteString.length);
+    var ia=new Uint8Array(ab);
+    for(var i=0;i<byteString.length;i++){ia[i]=byteString.charCodeAt(i);}
+    var blob=new Blob([ab],{type:'application/octet-stream'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download=fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+    r.innerHTML='<div class="card" style="color:var(--green)">✅ 文件已下载: '+fileName+'</div>';
+  }catch(e){
+    r.innerHTML='<div class="card" style="color:var(--red)">解码失败: '+e.message+'</div>';
+  }
+}
+function formatSize(bytes){
+  if(bytes===0)return'0 B';
+  var k=1024;
+  var sizes=['B','KB','MB','GB'];
+  var i=Math.floor(Math.log(bytes)/Math.log(k));
+  return parseFloat((bytes/Math.pow(k,i)).toFixed(2))+' '+sizes[i];
+}
+function showResult(text,title){
+  var r=document.getElementById('result');
+  var html='<div class="card"><div class="section"><h3>📋 '+title+'</h3>';
+  html+='<div class="result-block" id="resultText">'+escapeHtml(text)+'</div>';
+  html+='<button class="copy-btn" onclick="copyResult()">复制Base64</button></div></div>';
+  r.innerHTML=html;
+}
+function escapeHtml(text){
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function copyResult(){
+  var text=document.getElementById('resultText').textContent;
+  navigator.clipboard.writeText(text).then(function(){alert('已复制到剪贴板');}).catch(function(){alert('复制失败');});
+}
+</script></body></html>

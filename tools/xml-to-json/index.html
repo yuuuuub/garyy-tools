@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XML转JSON</title><meta name="description" content="XML转JSON - 在线XML转JSON工具"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:1000px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}textarea{width:100%;min-height:300px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;outline:none}textarea:focus{border-color:var(--blue)}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.section{margin-top:16px}.section h3{font-size:.95rem;margin-bottom:10px;color:var(--blue)}.result-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-all;max-height:600px;overflow-y:auto}.label{font-size:.75rem;color:var(--text2);margin-bottom:4px}.copy-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.8rem;margin-top:8px}.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:768px){.layout{grid-template-columns:1fr}}</style><meta property="og:title" content="XML转JSON"><meta property="og:description" content="XML转JSON - Gary's Tools"><meta property="og:image" content="https://garyy.top/og-image.png"><meta name="robots" content="index, follow"></head><body>
+<div class="container"><h1>🔄 XML转JSON</h1><p class="sub">在线XML转JSON工具</p>
+<div class="layout">
+<div class="card">
+<div class="label">输入XML</div>
+<textarea id="xmlInput" placeholder="<root><item>value</item></root>"></textarea>
+</div>
+<div class="card">
+<div class="label">JSON输出</div>
+<textarea id="jsonOutput" readonly placeholder="JSON将显示在这里..."></textarea>
+</div>
+</div>
+<div class="btn-group" style="justify-content:center">
+<button class="btn" onclick="convertXmlToJson()">XML → JSON</button>
+<button class="btn" onclick="convertJsonToXml()">JSON → XML</button>
+<button class="btn" onclick="copyJson()">复制JSON</button>
+<button class="btn" onclick="copyXml()">复制XML</button>
+<button class="btn" onclick="clearAll()">清空</button>
+</div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+function convertXmlToJson(){
+  var xml=document.getElementById('xmlInput').value;
+  var r=document.getElementById('result');
+  if(!xml){r.innerHTML='<div class="card" style="color:var(--red)">请输入XML</div>';return;}
+  try{
+    var parser=new DOMParser();
+    var doc=parser.parseFromString(xml,'text/xml');
+    var errorNode=doc.querySelector('parsererror');
+    if(errorNode){throw new Error('XML解析错误');}
+    var obj=xmlNodeToObj(doc.documentElement);
+    var json=JSON.stringify(obj,null,2);
+    document.getElementById('jsonOutput').value=json;
+    r.innerHTML='<div class="card" style="color:var(--green)">✅ 转换成功</div>';
+  }catch(e){
+    r.innerHTML='<div class="card" style="color:var(--red)">XML格式错误: '+e.message+'</div>';
+  }
+}
+function xmlNodeToObj(node){
+  var obj={};
+  if(node.attributes&&node.attributes.length>0){
+    obj['@attributes']={};
+    for(var i=0;i<node.attributes.length;i++){
+      var attr=node.attributes[i];
+      obj['@attributes'][attr.name]=attr.value;
+    }
+  }
+  if(node.childNodes.length===1&&node.childNodes[0].nodeType===3){
+    var text=node.textContent.trim();
+    if(Object.keys(obj).length===0)return parseValue(text);
+    obj['#text']=parseValue(text);
+    return obj;
+  }
+  for(var i=0;i<node.childNodes.length;i++){
+    var child=node.childNodes[i];
+    if(child.nodeType===1){
+      var childObj=xmlNodeToObj(child);
+      if(obj[child.nodeName]!==undefined){
+        if(!Array.isArray(obj[child.nodeName])){
+          obj[child.nodeName]=[obj[child.nodeName]];
+        }
+        obj[child.nodeName].push(childObj);
+      }else{
+        obj[child.nodeName]=childObj;
+      }
+    }
+  }
+  return obj;
+}
+function parseValue(str){
+  if(str==='true')return true;
+  if(str==='false')return false;
+  if(str==='null')return null;
+  if(/^-?\d+$/.test(str))return parseInt(str);
+  if(/^-?\d+\.\d+$/.test(str))return parseFloat(str);
+  return str;
+}
+function convertJsonToXml(){
+  var json=document.getElementById('jsonOutput').value;
+  var r=document.getElementById('result');
+  if(!json){r.innerHTML='<div class="card" style="color:var(--red)">请输入JSON</div>';return;}
+  try{
+    var obj=JSON.parse(json);
+    var xml='<?xml version="1.0" encoding="UTF-8"?>\n'+jsonToXml(obj);
+    document.getElementById('xmlInput').value=xml;
+    r.innerHTML='<div class="card" style="color:var(--green)">✅ 转换成功</div>';
+  }catch(e){
+    r.innerHTML='<div class="card" style="color:var(--red)">JSON格式错误: '+e.message+'</div>';
+  }
+}
+function jsonToXml(obj,indent){
+  indent=indent||0;
+  var prefix='  '.repeat(indent);
+  var xml='';
+  var keys=Object.keys(obj);
+  keys.forEach(function(key){
+    if(key==='@attributes'){
+      return;
+    }
+    var value=obj[key];
+    if(key==='#text'){
+      xml+=escapeXml(String(value));
+      return;
+    }
+    if(Array.isArray(value)){
+      value.forEach(function(item){
+        xml+=prefix+'<'+key+'>\n';
+        if(typeof item==='object'&&item!==null){
+          xml+=jsonToXml(item,indent+1);
+        }else{
+          xml+=prefix+'  '+escapeXml(String(item))+'\n';
+        }
+        xml+=prefix+'</'+key+'>\n';
+      });
+    }else if(typeof value==='object'&&value!==null){
+      var attrs='';
+      if(value['@attributes']){
+        Object.keys(value['@attributes']).forEach(function(attr){
+          attrs+=' '+attr+'="'+escapeXml(value['@attributes'][attr])+'"';
+        });
+      }
+      xml+=prefix+'<'+key+attrs+'>\n';
+      if(value['#text']!==undefined){
+        xml+=prefix+'  '+escapeXml(String(value['#text']))+'\n';
+      }else{
+        xml+=jsonToXml(value,indent+1);
+      }
+      xml+=prefix+'</'+key+'>\n';
+    }else{
+      xml+=prefix+'<'+key+'>'+escapeXml(String(value))+'</'+key+'>\n';
+    }
+  });
+  return xml;
+}
+function escapeXml(str){
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function copyJson(){
+  var json=document.getElementById('jsonOutput').value;
+  if(!json){alert('没有JSON可复制');return;}
+  navigator.clipboard.writeText(json).then(function(){alert('已复制JSON');}).catch(function(){alert('复制失败');});
+}
+function copyXml(){
+  var xml=document.getElementById('xmlInput').value;
+  if(!xml){alert('没有XML可复制');return;}
+  navigator.clipboard.writeText(xml).then(function(){alert('已复制XML');}).catch(function(){alert('复制失败');});
+}
+function clearAll(){
+  document.getElementById('xmlInput').value='';
+  document.getElementById('jsonOutput').value='';
+  document.getElementById('result').innerHTML='';
+}
+</script></body></html>

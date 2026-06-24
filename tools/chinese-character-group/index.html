@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>汉字分组</title><meta name="description" content="汉字分组 - 在线分组汉字"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.section{margin-top:16px}.section h3{font-size:.95rem;margin-bottom:10px;color:var(--blue)}.result-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto}.label{font-size:.75rem;color:var(--text2);margin-bottom:4px}.copy-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.8rem;margin-top:8px}.group-area{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.group-item{padding:16px;background:var(--bg);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;font-size:1.5rem}.group-item:hover{border-color:var(--blue)}.group-item.selected{border-color:var(--green);background:rgba(35,134,54,.1)}.group-item.correct{border-color:var(--green);background:rgba(35,134,54,.2)}.group-item.wrong{border-color:var(--red);background:rgba(239,68,68,.1)}.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;justify-content:center}.score-display{font-size:1.2rem;margin:16px 0}.group-info{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.group-tag{padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.9rem}.group-tag.active{border-color:var(--green);background:rgba(35,134,54,.1)}</style><meta property="og:title" content="汉字分组"><meta property="og:description" content="汉字分组 - Gary's Tools"><meta property="og:image" content="https://garyy.top/og-image.png"><meta name="robots" content="index, follow"></head><body>
+<div class="container"><h1>📦 汉字分组</h1><p class="sub">在线分组汉字</p>
+<div class="card">
+<div class="btn-group">
+<button class="btn" onclick="startGroup()">开始游戏</button>
+<button class="btn" onclick="nextRound()">下一轮</button>
+<button class="btn" onclick="showAnswer()">查看答案</button>
+</div>
+<div class="score-display" id="scoreDisplay"></div>
+</div>
+<div id="result"></div>
+<div class="card" id="historyCard" style="display:none">
+<h3 style="margin-bottom:16px">游戏记录</h3>
+<div id="history" style="padding:12px;background:var(--bg);border-radius:8px"></div>
+</div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var characters=[
+  {char:'一',pinyin:'yī',strokes:1,radical:'一'},
+  {char:'二',pinyin:'èr',strokes:2,radical:'二'},
+  {char:'三',pinyin:'sān',strokes:3,radical:'一'},
+  {char:'四',pinyin:'sì',strokes:5,radical:'囗'},
+  {char:'五',pinyin:'wǔ',strokes:4,radical:'一'},
+  {char:'六',pinyin:'liù',strokes:4,radical:'八'},
+  {char:'七',pinyin:'qī',strokes:2,radical:'一'},
+  {char:'八',pinyin:'bā',strokes:2,radical:'八'},
+  {char:'九',pinyin:'jiǔ',strokes:2,radical:'丿'},
+  {char:'十',pinyin:'shí',strokes:2,radical:'十'},
+  {char:'大',pinyin:'dà',strokes:3,radical:'大'},
+  {char:'小',pinyin:'xiǎo',strokes:3,radical:'小'},
+  {char:'多',pinyin:'duō',strokes:6,radical:'夕'},
+  {char:'少',pinyin:'shǎo',strokes:4,radical:'小'},
+  {char:'上',pinyin:'shàng',strokes:3,radical:'一'},
+  {char:'下',pinyin:'xià',strokes:3,radical:'一'}
+];
+var currentGroupType='';
+var groups={};
+var selectedItems=[];
+var score=0;
+var total=0;
+var history=[];
+function startGroup(){
+  var groupTypes=['strokes','radical','pinyin'];
+  currentGroupType=groupTypes[Math.floor(Math.random()*groupTypes.length)];
+  var selectedCharacters=characters.slice(0,12);
+  groups={};
+  selectedCharacters.forEach(function(char){
+    var key='';
+    switch(currentGroupType){
+      case 'strokes':key=char.strokes+'画';break;
+      case 'radical':key=char.radical+'部';break;
+      case 'pinyin':key=char.pinyin.charAt(0).toUpperCase();break;
+    }
+    if(!groups[key])groups[key]=[];
+    groups[key].push(char);
+  });
+  selectedItems=[];
+  score=0;
+  total=0;
+  history=[];
+  renderGroup(selectedCharacters);
+}
+function renderGroup(items){
+  var html='<div class="card">';
+  html+='<div style="text-align:center;margin-bottom:12px">';
+  html+='<div style="font-size:1.1rem;color:var(--text2)">分组方式：'+getGroupTypeName()+'</div>';
+  html+='</div>';
+  html+='<div style="margin-bottom:16px">';
+  html+='<div style="font-size:.9rem;color:var(--text2);margin-bottom:8px">当前分组：</div>';
+  html+='<div class="group-info" id="groupInfo">';
+  var selectedGroup=selectedItems.length>0?selectedItems[0]:null;
+  if(selectedGroup){
+    html+='<div class="group-tag active">'+selectedGroup+'</div>';
+  }else{
+    html+='<div style="color:var(--text2)">请选择一个汉字开始分组</div>';
+  }
+  html+='</div></div>';
+  html+='<div class="group-area">';
+  items.forEach(function(item,index){
+    var isSelected=selectedItems.includes(item.char);
+    html+='<div class="group-item '+(isSelected?'selected':'')+'" onclick="selectItem('+index+',\''+item.char+'\')">'+item.char+'</div>';
+  });
+  html+='</div>';
+  html+='<div class="btn-group">';
+  html+='<button class="btn" onclick="checkGroup()">检查分组</button>';
+  html+='<button class="btn" onclick="clearGroup()">清空分组</button>';
+  html+='<button class="btn" onclick="showAnswer()">查看答案</button>';
+  html+='</div></div>';
+  document.getElementById('result').innerHTML=html;
+  updateScore();
+}
+function selectItem(index,char){
+  if(selectedItems.includes(char)){
+    selectedItems=selectedItems.filter(function(item){return item!==char;});
+  }else{
+    if(selectedItems.length===0){
+      selectedItems.push(char);
+    }else{
+      var firstChar=selectedItems[0];
+      var firstItem=characters.find(function(c){return c.char===firstChar;});
+      var currentItem=characters.find(function(c){return c.char===char;});
+      var sameGroup=false;
+      switch(currentGroupType){
+        case 'strokes':sameGroup=firstItem.strokes===currentItem.strokes;break;
+        case 'radical':sameGroup=firstItem.radical===currentItem.radical;break;
+        case 'pinyin':sameGroup=firstItem.pinyin.charAt(0)===currentItem.pinyin.charAt(0);break;
+      }
+      if(sameGroup){
+        selectedItems.push(char);
+      }else{
+        alert('这个字不属于当前分组');
+      }
+    }
+  }
+  var selectedCharacters=characters.slice(0,12);
+  renderGroup(selectedCharacters);
+}
+function checkGroup(){
+  if(selectedItems.length===0){
+    alert('请先选择汉字进行分组');
+    return;
+  }
+  total++;
+  var firstChar=selectedItems[0];
+  var firstItem=characters.find(function(c){return c.char===firstChar;});
+  var correctGroup=[];
+  characters.slice(0,12).forEach(function(char){
+    var sameGroup=false;
+    switch(currentGroupType){
+      case 'strokes':sameGroup=firstItem.strokes===char.strokes;break;
+      case 'radical':sameGroup=firstItem.radical===char.radical;break;
+      case 'pinyin':sameGroup=firstItem.pinyin.charAt(0)===char.pinyin.charAt(0);break;
+    }
+    if(sameGroup)correctGroup.push(char.char);
+  });
+  var isCorrect=selectedItems.length===correctGroup.length&&selectedItems.every(function(item){return correctGroup.includes(item);});
+  if(isCorrect){
+    score++;
+    history.push({type:getGroupTypeName(),correct:true});
+    alert('🎉 分组正确！');
+  }else{
+    history.push({type:getGroupTypeName(),correct:false});
+    alert('❌ 分组错误！正确分组：'+correctGroup.join(' '));
+  }
+  updateScore();
+  updateHistory();
+}
+function clearGroup(){
+  selectedItems=[];
+  var selectedCharacters=characters.slice(0,12);
+  renderGroup(selectedCharacters);
+}
+function showAnswer(){
+  if(selectedItems.length===0){
+    alert('请先选择一个汉字');
+    return;
+  }
+  var firstChar=selectedItems[0];
+  var firstItem=characters.find(function(c){return c.char===firstChar;});
+  var correctGroup=[];
+  characters.slice(0,12).forEach(function(char){
+    var sameGroup=false;
+    switch(currentGroupType){
+      case 'strokes':sameGroup=firstItem.strokes===char.strokes;break;
+      case 'radical':sameGroup=firstItem.radical===char.radical;break;
+      case 'pinyin':sameGroup=firstItem.pinyin.charAt(0)===char.pinyin.charAt(0);break;
+    }
+    if(sameGroup)correctGroup.push(char.char);
+  });
+  alert('正确分组：'+correctGroup.join(' '));
+}
+function getGroupTypeName(){
+  switch(currentGroupType){
+    case 'strokes':return'按笔画分组';
+    case 'radical':return'按部首分组';
+    case 'pinyin':return'按拼音首字母分组';
+    default:return'未知分组';
+  }
+}
+function updateScore(){
+  var percentage=total>0?Math.round(score/total*100):0;
+  document.getElementById('scoreDisplay').innerHTML='得分：'+score+'/'+total+' ('+percentage+'%)';
+}
+function updateHistory(){
+  if(history.length===0){
+    document.getElementById('historyCard').style.display='none';
+    return;
+  }
+  document.getElementById('historyCard').style.display='block';
+  var html='';
+  history.forEach(function(item){
+    html+='<div style="padding:8px;margin-bottom:4px;background:'+(item.correct?'rgba(35,134,54,.1)':'rgba(239,68,68,.1)')+';border-radius:4px">';
+    html+='<strong>'+item.type+'</strong> - '+(item.correct?'正确':'错误');
+    html+='</div>';
+  });
+  document.getElementById('history').innerHTML=html;
+}
+startGroup();
+</script></body></html>

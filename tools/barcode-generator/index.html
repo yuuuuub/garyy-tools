@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>条形码生成器</title><meta name="description" content="条形码生成器 - 在线生成EAN-13、UPC-A、Code128条形码"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.input-group{margin-bottom:12px}.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px}.input-group input,.input-group select{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem}.input-group input:focus,.input-group select:focus{border-color:var(--blue);outline:none}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.btn-green{background:var(--green)}.barcode-display{background:#fff;border-radius:8px;padding:20px;text-align:center;margin-top:16px}.barcode-display canvas{max-width:100%}.barcode-text{font-size:1.1rem;color:#333;margin-top:8px;font-family:monospace;letter-spacing:2px}</style>
+<meta property="og:title" content="条形码生成器">
+<meta property="og:description" content="条形码生成器 - 在线生成EAN-13、UPC-A、Code128条形码">
+<meta property="og:image" content="/og-default.png">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div class="container"><h1>📊 条形码生成器</h1><p class="sub">在线生成EAN-13、UPC-A、Code128条形码</p>
+<div class="card">
+<div class="input-group"><label>条形码内容</label><input type="text" id="barcodeValue" placeholder="输入数字或文本" value="5901234123457"></div>
+<div class="input-group"><label>条形码类型</label><select id="barcodeType" onchange="updatePlaceholder()">
+<option value="ean13">EAN-13 (13位数字)</option>
+<option value="upca">UPC-A (12位数字)</option>
+<option value="code128">Code128 (任意字符)</option>
+<option value="code39">Code39 (大写字母+数字)</option>
+<option value="i2of5">Interleaved 2 of 5 (偶数位数字)</option>
+</select></div>
+<button class="btn" onclick="generateBarcode()">生成条形码</button>
+<button class="btn btn-green" onclick="downloadBarcode()">下载PNG</button>
+</div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var codePatterns={
+  ean13:{l:[0x0d,0x19,0x13,0x3d,0x29,0x31,0x2c,0x21,0x1c,0x0b],g:[0x27,0x33,0x07,0x34,0x25,0x0e,0x3b,0x2f,0x0d,0x1f],r:[0x58,0x50,0x3d,0x6c,0x4c,0x54,0x5b,0x45,0x5e,0x4a]},
+  upca:{l:[0x0d,0x19,0x13,0x3d,0x29,0x31,0x2c,0x21,0x1c,0x0b],g:[0x27,0x33,0x07,0x34,0x25,0x0e,0x3b,0x2f,0x0d,0x1f],r:[0x58,0x50,0x3d,0x6c,0x4c,0x54,0x5b,0x45,0x5e,0x4a]}
+};
+function updatePlaceholder(){
+  var t=document.getElementById('barcodeType').value;
+  var inp=document.getElementById('barcodeValue');
+  var placeholders={ean13:'5901234123457',upca:'012345678905',code128:'Hello World',code39:'CODE39',i2of5:'1234567890'};
+  inp.placeholder=placeholders[t]||'';
+}
+function generateCode128(text){
+  var chars=' !"#€%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
+  var weights=[];
+  var startCode=text.charCodeAt(0)>127?104:(/[a-z]/.test(text)?103:104);
+  weights.push(startCode);
+  for(var i=0;i<text.length;i++){
+    var idx=chars.indexOf(text[i]);
+    if(idx===-1)idx=chars.indexOf(text[i].toUpperCase());
+    if(idx>=0)weights.push(idx+1);
+    else weights.push(chars.indexOf('?')+1);
+  }
+  var checksum=weights[0];
+  for(var i=1;i<weights.length;i++)checksum+=weights[i]*i;
+  weights.push(checksum%103);
+  weights.push(106);
+  var bits='';
+  for(var i=0;i<weights.length;i++){
+    var lookup=startCode===104?null:null;
+    var pattern=code128Patterns[weights[i]];
+    if(pattern)bits+=pattern;
+  }
+  return bits;
+}
+var code128Patterns=['11011001100','11001101100','11001100110','10010011000','10010001100','10001001100','10011001000','10011000100','10001100100','11001001000','11001000100','11000100100','10110011100','10011011100','10011001110','10111001100','10011101100','10011100110','11001110010','11001011100','11001001110','11011100100','11001110100','11101101110','11101001100','11100101100','11100100110','11101100100','11100110100','11100110010','11011011000','11011000110','11000110110','10100011000','10001011000','10001000110','10110001000','10001101000','10001100010','11010001000','11000101000','11000100010','10110111000','10110001110','10001101110','10111011000','10111000110','10001110110','11101110110','11010001110','11000101110','11011101000','11011100010','11011101110','11101011000','11101000110','11100010110','11101101000','11101100010','11100011010','11101111010','11001000010','11110001010','10100110000','10100001100','10010110000','10010000110','10000101100','10000100110','10110010000','10110000100','10011010000','10011000010','10000110100','10000110010','11000010010','11001010000','11110111010','11000010100','10001111010','10100111100','10010111100','10010011110','10111100100','10011110100','10011110010','11110100100','11110010100','11110010010','11011011110','11011110110','11110110110','10101111000','10100011110','10001011110','10111101000','10111100010','11110101000','11110100010','10111011110','10111101110','11101011110','11110101110','11010000100','11010010000','11010011100','11000111010'];
+function drawBarcode(canvas,bits){
+  var ctx=canvas.getContext('2d');
+  var scale=2;
+  canvas.width=bits.length*scale;
+  canvas.height=100*scale;
+  ctx.fillStyle='#fff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#000';
+  for(var i=0;i<bits.length;i++){
+    if(bits[i]==='1'){
+      ctx.fillRect(i*scale,0,scale,canvas.height-15*scale);
+    }
+  }
+}
+function generateBarcode(){
+  var value=document.getElementById('barcodeValue').value.trim();
+  var type=document.getElementById('barcodeType').value;
+  var r=document.getElementById('result');
+  if(!value){r.innerHTML='<div class="card" style="color:var(--red)">请输入内容</div>';return;}
+  var bits='';
+  if(type==='ean13'||type==='upca'){
+    var num=value.replace(/\D/g,'');
+    if(type==='ean13'&&num.length!==13){r.innerHTML='<div class="card" style="color:var(--red)">EAN-13需要13位数字</div>';return;}
+    if(type==='upca'&&num.length!==12){r.innerHTML='<div class="card" style="color:var(--red)">UPC-A需要12位数字</div>';return;}
+    bits=generateEAN13Bits(num);
+  }else if(type==='code128'){
+    bits=generateCode128(value);
+  }else if(type==='code39'){
+    bits=generateCode39(value.toUpperCase());
+  }else if(type==='i2of5'){
+    var num=value.replace(/\D/g,'');
+    if(num.length%2!==0)num='0'+num;
+    bits=generateI2of5(num);
+  }
+  var html='<div class="card"><div class="barcode-display"><canvas id="barcodeCanvas"></canvas><div class="barcode-text">'+escapeHtml(value)+'</div></div></div>';
+  r.innerHTML=html;
+  var c=document.getElementById('barcodeCanvas');
+  drawBarcode(c,bits);
+}
+function generateEAN13Bits(num){
+  var L=[0x0d,0x19,0x13,0x3d,0x29,0x31,0x2c,0x21,0x1c,0x0b];
+  var G=[0x27,0x33,0x07,0x34,0x25,0x0e,0x3b,0x2f,0x0d,0x1f];
+  var R=[0x58,0x50,0x3d,0x6c,0x4c,0x54,0x5b,0x45,0x5e,0x4a];
+  var bits='101';
+  var first=parseInt(num[0]);
+  var patterns=[[0,1,1,1,1,1],[1,1,1,0,1,0],[1,1,0,1,1,0],[1,0,1,1,1,0],[1,1,1,0,0,1],[1,1,0,0,1,1],[1,0,0,1,1,1],[1,1,1,0,1,1],[1,1,0,1,0,1],[1,0,1,0,1,1]];
+  var p=patterns[first];
+  for(var i=0;i<6;i++){
+    var d=parseInt(num[i+1]);
+    var pat=p[i]===0?L[d]:G[d];
+    bits+=pat.toString(2).padStart(7,'0');
+  }
+  bits+='01010';
+  for(var i=6;i<12;i++){
+    bits+=R[parseInt(num[i])].toString(2).padStart(7,'0');
+  }
+  bits+='101';
+  return bits;
+}
+function generateCode39(text){
+  var chars='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%*';
+  var patterns=['nwwnwnwnwn','wnnwnwnwnw','nnwwnwnwnw','wnwwnnwnwn','nnwwnnwnwn','wnnwwnwnwn','nnwnwwnwnw','wnwnwwnnwn','nnwwwwnnwn','wnnwnwwnnw','wwnnnnwnwn','nwnnwwnwnw','wwnnwnnnwn','nwnwwnnwnw','wwnnnwnnwn','nwnnwnwwnw','nnwnwwnnwn','wnnnnwwnwn','nnwnnwwwnw','wnwnnnwwnw','nnwwnnnwnw','wnwnnnnwwn','nnwnnnwwww','wwnnnnnwnn','nwwnnnnwnw','wwnwnnnnwn','nwwnnwnnnw','nwnnwnnwwn','nnwwnnnwnw','wwnnwnnwnn','nwwnwnnnwn','nwnwnnwwnw','nnwnwnnnww','wwnnnwnnwn','nwwnnwnnwn','nwnwwnnnwn','nwnwnnwnnw','nnnnwwwwnw','wwnnnnnnwn','nwwnnnnnwn','nwnwnnnnww','nnwwnwnnwn','wwnnwnwnwn','nwwnwnwnwn','nwnnwwnwn','nwnwnnwwn'];
+  var bits='0';
+  var start=chars.indexOf('*');
+  bits+=patterns[start].replace(/n/g,'1').replace(/w/g,'0');
+  bits+='0';
+  for(var i=0;i<text.length;i++){
+    var idx=chars.indexOf(text[i]);
+    if(idx<0)continue;
+    bits+=patterns[idx].replace(/n/g,'1').replace(/w/g,'0');
+    bits+='0';
+  }
+  bits+=patterns[start].replace(/n/g,'1').replace(/w/g,'0');
+  bits+='0';
+  return bits;
+}
+function generateI2of5(num){
+  var start='1010';
+  var stop='11101';
+  var encodings=['00110','10001','01001','11000','00101','10100','01100','00011','10010','01010'];
+  var bits=start;
+  for(var i=0;i<num.length;i+=2){
+    var d1=parseInt(num[i]),d2=parseInt(num[i+1]);
+    var b1=encodings[d1],b2=encodings[d2];
+    for(var j=0;j<5;j++){
+      bits+=b1[j]+b2[j];
+    }
+  }
+  bits+=stop;
+  return bits;
+}
+function downloadBarcode(){
+  var c=document.getElementById('barcodeCanvas');
+  if(!c)return;
+  var link=document.createElement('a');
+  link.download='barcode.png';
+  link.href=c.toDataURL('image/png');
+  link.click();
+}
+function escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+generateBarcode();
+</script></body></html>

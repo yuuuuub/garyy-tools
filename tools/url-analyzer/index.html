@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>URL分析器</title><meta name="description" content="URL分析器 - 在线解析URL各部分、查询参数、编码解码"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.input-group{margin-bottom:12px}.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px}.input-group input{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem}.input-group input:focus{border-color:var(--blue);outline:none}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.btn-green{background:var(--green)}.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.85rem}th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}th{color:var(--text2);font-weight:600;white-space:nowrap}td{word-break:break-all;font-family:monospace;font-size:.82rem}.copy-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.8rem;margin-top:8px}</style>
+<meta property="og:title" content="URL分析器">
+<meta property="og:description" content="URL分析器 - 在线解析URL各部分、查询参数、编码解码">
+<meta property="og:image" content="/og-default.png">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div class="container"><h1>🔗 URL分析器</h1><p class="sub">在线解析URL各部分、查询参数、编码解码</p>
+<div class="card">
+<div class="input-group"><label>输入URL</label><input type="text" id="urlInput" placeholder="https://example.com:8080/path?name=test&page=1#section" value="https://user:pass@example.com:8080/path/to/page?name=hello+world&page=1&lang=zh-CN#section1"></div>
+<div class="btn-group">
+<button class="btn" onclick="analyze()">分析URL</button>
+<button class="btn btn-green" onclick="copyResult()">复制结果</button>
+</div></div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var lastResult='';
+function analyze(){
+  var urlStr=document.getElementById('urlInput').value.trim();
+  var r=document.getElementById('result');
+  if(!urlStr){r.innerHTML='';return;}
+  try{
+    var url=new URL(urlStr);
+    var params=[];
+    url.searchParams.forEach(function(v,k){params.push({key:k,value:v});});
+    var protocol=url.protocol.replace(':','');
+    var isSecure=protocol==='https'||protocol==='wss';
+    var html='<div class="card"><table>';
+    html+='<tr><th>属性</th><th>值</th></tr>';
+    html+='<tr><td>完整URL</td><td>'+escapeHtml(url.href)+'</td></tr>';
+    html+='<tr><td>协议</td><td>'+escapeHtml(protocol)+' ('+(isSecure?'安全':'不安全')+')</td></tr>';
+    html+='<tr><td>用户名</td><td>'+(url.username?escapeHtml(url.username):'(无)')+'</td></tr>';
+    html+='<tr><td>密码</td><td>'+(url.password?'****':'(无)')+'</td></tr>';
+    html+='<tr><td>主机名</td><td>'+escapeHtml(url.hostname)+'</td></tr>';
+    html+='<tr><td>端口</td><td>'+(url.port||'(默认)')+'</td></tr>';
+    html+='<tr><td>主机</td><td>'+escapeHtml(url.host)+'</td></tr>';
+    html+='<tr><td>路径</td><td>'+escapeHtml(url.pathname)+'</td></tr>';
+    html+='<tr><td>查询字符串</td><td>'+(url.search?escapeHtml(url.search):'(无)')+'</td></tr>';
+    html+='<tr><td>片段标识</td><td>'+(url.hash?escapeHtml(url.hash):'(无)')+'</td></tr>';
+    html+='<tr><td>来源</td><td>'+escapeHtml(url.origin)+'</td></tr>';
+    html+='</table>';
+    if(params.length>0){
+      html+='<div style="margin-top:16px"><h3 style="color:var(--blue);font-size:.95rem;margin-bottom:8px">查询参数 ('+params.length+')</h3><table>';
+      html+='<tr><th>键</th><th>值</th><th>解码值</th></tr>';
+      params.forEach(function(p){
+        html+='<tr><td>'+escapeHtml(p.key)+'</td><td>'+escapeHtml(p.value)+'</td><td>'+escapeHtml(decodeURIComponent(p.value))+'</td></tr>';
+      });
+      html+='</table></div>';
+    }
+    html+='</div>';
+    r.innerHTML=html;
+    lastResult=url.href;
+  }catch(e){
+    r.innerHTML='<div class="card" style="color:var(--red)">无效的URL: '+escapeHtml(e.message)+'</div>';
+  }
+}
+function copyResult(){if(lastResult)navigator.clipboard.writeText(lastResult).then(function(){alert('已复制');});}
+function escapeHtml(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+analyze();
+</script></body></html>

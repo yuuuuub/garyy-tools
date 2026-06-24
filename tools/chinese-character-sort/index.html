@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>汉字排序</title><meta name="description" content="汉字排序 - 在线排序汉字"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.section{margin-top:16px}.section h3{font-size:.95rem;margin-bottom:10px;color:var(--blue)}.result-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto}.label{font-size:.75rem;color:var(--text2);margin-bottom:4px}.copy-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.8rem;margin-top:8px}.sort-area{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.sort-item{padding:16px;background:var(--bg);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;font-size:1.5rem}.sort-item:hover{border-color:var(--blue)}.sort-item.selected{border-color:var(--green);background:rgba(35,134,54,.1)}.sort-item.correct{border-color:var(--green);background:rgba(35,134,54,.2)}.sort-item.wrong{border-color:var(--red);background:rgba(239,68,68,.1)}.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;justify-content:center}.score-display{font-size:1.2rem;margin:16px 0}.sort-order{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.sort-order-item{padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:1.1rem}</style><meta property="og:title" content="汉字排序"><meta property="og:description" content="汉字排序 - Gary's Tools"><meta property="og:image" content="https://garyy.top/og-image.png"><meta name="robots" content="index, follow"></head><body>
+<div class="container"><h1>🔢 汉字排序</h1><p class="sub">在线排序汉字</p>
+<div class="card">
+<div class="btn-group">
+<button class="btn" onclick="startSort('strokes')">按笔画排序</button>
+<button class="btn" onclick="startSort('pinyin')">按拼音排序</button>
+<button class="btn" onclick="startSort('radical')">按部首排序</button>
+</div>
+<div class="score-display" id="scoreDisplay"></div>
+</div>
+<div id="result"></div>
+<div class="card" id="historyCard" style="display:none">
+<h3 style="margin-bottom:16px">排序记录</h3>
+<div id="history" style="padding:12px;background:var(--bg);border-radius:8px"></div>
+</div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var characters=[
+  {char:'一',pinyin:'yī',strokes:1,radical:'一'},
+  {char:'二',pinyin:'èr',strokes:2,radical:'二'},
+  {char:'三',pinyin:'sān',strokes:3,radical:'一'},
+  {char:'四',pinyin:'sì',strokes:5,radical:'囗'},
+  {char:'五',pinyin:'wǔ',strokes:4,radical:'一'},
+  {char:'六',pinyin:'liù',strokes:4,radical:'八'},
+  {char:'七',pinyin:'qī',strokes:2,radical:'一'},
+  {char:'八',pinyin:'bā',strokes:2,radical:'八'},
+  {char:'九',pinyin:'jiǔ',strokes:2,radical:'丿'},
+  {char:'十',pinyin:'shí',strokes:2,radical:'十'},
+  {char:'大',pinyin:'dà',strokes:3,radical:'大'},
+  {char:'小',pinyin:'xiǎo',strokes:3,radical:'小'},
+  {char:'多',pinyin:'duō',strokes:6,radical:'夕'},
+  {char:'少',pinyin:'shǎo',strokes:4,radical:'小'},
+  {char:'上',pinyin:'shàng',strokes:3,radical:'一'},
+  {char:'下',pinyin:'xià',strokes:3,radical:'一'}
+];
+var currentSortType='';
+var sortedItems=[];
+var userOrder=[];
+var score=0;
+var total=0;
+var history=[];
+function startSort(sortType){
+  currentSortType=sortType;
+  var selectedCharacters=characters.slice(0,8);
+  switch(sortType){
+    case 'strokes':
+      sortedItems=selectedCharacters.slice().sort(function(a,b){return a.strokes-b.strokes;});
+      break;
+    case 'pinyin':
+      sortedItems=selectedCharacters.slice().sort(function(a,b){return a.pinyin.localeCompare(b.pinyin);});
+      break;
+    case 'radical':
+      sortedItems=selectedCharacters.slice().sort(function(a,b){return a.radical.localeCompare(b.radical);});
+      break;
+  }
+  var shuffledItems=shuffleArray(selectedCharacters.slice());
+  userOrder=[];
+  score=0;
+  total=0;
+  history=[];
+  renderSort(shuffledItems);
+}
+function renderSort(items){
+  var html='<div class="card">';
+  html+='<div style="text-align:center;margin-bottom:12px">';
+  html+='<div style="font-size:1.1rem;color:var(--text2)">当前排序方式：'+getSortTypeName()+'</div>';
+  html+='</div>';
+  html+='<div style="margin-bottom:16px">';
+  html+='<div style="font-size:.9rem;color:var(--text2);margin-bottom:8px">你的排序：</div>';
+  html+='<div class="sort-order" id="userOrder">';
+  if(userOrder.length===0){
+    html+='<div style="color:var(--text2)">点击汉字进行排序</div>';
+  }else{
+    userOrder.forEach(function(item){
+      html+='<div class="sort-order-item">'+item.char+'</div>';
+    });
+  }
+  html+='</div></div>';
+  html+='<div class="sort-area">';
+  items.forEach(function(item,index){
+    var isSelected=userOrder.some(function(uo){return uo.char===item.char;});
+    html+='<div class="sort-item '+(isSelected?'selected':'')+'" onclick="selectItem('+index+')">'+item.char+'</div>';
+  });
+  html+='</div>';
+  html+='<div class="btn-group">';
+  html+='<button class="btn" onclick="checkSort()">检查排序</button>';
+  html+='<button class="btn" onclick="clearOrder()">清空排序</button>';
+  html+='<button class="btn" onclick="showAnswer()">查看答案</button>';
+  html+='</div></div>';
+  document.getElementById('result').innerHTML=html;
+  updateScore();
+}
+function selectItem(index){
+  var selectedCharacters=characters.slice(0,8);
+  var item=selectedCharacters[index];
+  if(!userOrder.some(function(uo){return uo.char===item.char;})){
+    userOrder.push(item);
+    renderSort(selectedCharacters);
+  }
+}
+function checkSort(){
+  if(userOrder.length===0){
+    alert('请先选择汉字进行排序');
+    return;
+  }
+  total++;
+  var isCorrect=true;
+  for(var i=0;i<userOrder.length;i++){
+    if(userOrder[i].char!==sortedItems[i].char){
+      isCorrect=false;
+      break;
+    }
+  }
+  if(isCorrect){
+    score++;
+    history.push({type:getSortTypeName(),correct:true});
+    alert('🎉 排序正确！');
+  }else{
+    history.push({type:getSortTypeName(),correct:false});
+    alert('❌ 排序错误！正确顺序：'+sortedItems.map(function(item){return item.char;}).join(' '));
+  }
+  updateScore();
+  updateHistory();
+}
+function clearOrder(){
+  userOrder=[];
+  var selectedCharacters=characters.slice(0,8);
+  renderSort(selectedCharacters);
+}
+function showAnswer(){
+  alert('正确顺序：'+sortedItems.map(function(item){return item.char;}).join(' '));
+}
+function getSortTypeName(){
+  switch(currentSortType){
+    case 'strokes':return'按笔画排序';
+    case 'pinyin':return'按拼音排序';
+    case 'radical':return'按部首排序';
+    default:return'未知排序';
+  }
+}
+function updateScore(){
+  var percentage=total>0?Math.round(score/total*100):0;
+  document.getElementById('scoreDisplay').innerHTML='得分：'+score+'/'+total+' ('+percentage+'%)';
+}
+function updateHistory(){
+  if(history.length===0){
+    document.getElementById('historyCard').style.display='none';
+    return;
+  }
+  document.getElementById('historyCard').style.display='block';
+  var html='';
+  history.forEach(function(item){
+    html+='<div style="padding:8px;margin-bottom:4px;background:'+(item.correct?'rgba(35,134,54,.1)':'rgba(239,68,68,.1)')+';border-radius:4px">';
+    html+='<strong>'+item.type+'</strong> - '+(item.correct?'正确':'错误');
+    html+='</div>';
+  });
+  document.getElementById('history').innerHTML=html;
+}
+function shuffleArray(array){
+  for(var i=array.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var temp=array[i];
+    array[i]=array[j];
+    array[j]=temp;
+  }
+  return array;
+}
+startSort('strokes');
+</script></body></html>
