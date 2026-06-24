@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日志分析工具</title>
+    <meta name="description" content="用于分析和过滤日志文件的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #2196f3;
+            --accent-hover: #42a5f5;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        textarea { min-height: 200px; font-family: monospace; }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--accent-hover); }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .stat-card { background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 1.5rem; font-weight: bold; margin: 0.5rem 0; }
+        .stat-label { color: var(--text-secondary); }
+        .log-line { font-family: monospace; padding: 0.5rem; margin: 0.25rem 0; border-radius: 4px; }
+        .log-error { background: rgba(244, 67, 54, 0.2); border-left: 3px solid var(--danger); }
+        .log-warning { background: rgba(255, 152, 0, 0.2); border-left: 3px solid var(--warning); }
+        .log-info { background: rgba(76, 175, 80, 0.2); border-left: 3px solid var(--success); }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>日志分析工具</h1>
+        
+        <div class="card">
+            <h2>日志输入</h2>
+            <form id="logForm">
+                <div class="form-group">
+                    <label>粘贴日志内容</label>
+                    <textarea id="logInput" placeholder="粘贴日志内容到这里...&#10;每行一条日志"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>过滤级别</label>
+                    <select id="levelFilter">
+                        <option value="all">所有级别</option>
+                        <option value="error">错误</option>
+                        <option value="warning">警告</option>
+                        <option value="info">信息</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>关键词过滤</label>
+                    <input type="text" id="keywordFilter" placeholder="输入关键词进行过滤">
+                </div>
+                <button type="submit">分析日志</button>
+                <button type="button" onclick="clearLogs()" style="margin-left: 1rem; background: var(--danger);">清空日志</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>分析结果</h2>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">总日志数</div>
+                    <div class="stat-value" id="totalLogs">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">错误数</div>
+                    <div class="stat-value" id="errorCount" style="color: var(--danger);">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">警告数</div>
+                    <div class="stat-value" id="warningCount" style="color: var(--warning);">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">信息数</div>
+                    <div class="stat-value" id="infoCount" style="color: var(--success);">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>过滤后的日志</h2>
+            <div id="filteredLogs" style="max-height: 400px; overflow-y: auto;">
+                <!-- 过滤后的日志将在这里显示 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 存储日志
+        let logs = [];
+        
+        // 分析日志
+        function analyzeLogs() {
+            const logInput = document.getElementById('logInput').value;
+            const levelFilter = document.getElementById('levelFilter').value;
+            const keywordFilter = document.getElementById('keywordFilter').value.toLowerCase();
+            
+            // 解析日志行
+            logs = logInput.split('\n').filter(line => line.trim());
+            
+            // 统计数量
+            let total = logs.length;
+            let errors = 0;
+            let warnings = 0;
+            let info = 0;
+            
+            // 过滤并分类
+            const filteredLogs = logs.filter(log => {
+                const lowerLog = log.toLowerCase();
+                
+                // 关键词过滤
+                if (keywordFilter && !lowerLog.includes(keywordFilter)) {
+                    return false;
+                }
+                
+                // 级别过滤
+                if (levelFilter !== 'all') {
+                    if (levelFilter === 'error' && !lowerLog.includes('error')) return false;
+                    if (levelFilter === 'warning' && !lowerLog.includes('warning')) return false;
+                    if (levelFilter === 'info' && !lowerLog.includes('info')) return false;
+                }
+                
+                return true;
+            });
+            
+            // 统计过滤后的数量
+            filteredLogs.forEach(log => {
+                const lowerLog = log.toLowerCase();
+                if (lowerLog.includes('error')) errors++;
+                else if (lowerLog.includes('warning')) warnings++;
+                else if (lowerLog.includes('info')) info++;
+            });
+            
+            // 更新统计
+            document.getElementById('totalLogs').textContent = total;
+            document.getElementById('errorCount').textContent = errors;
+            document.getElementById('warningCount').textContent = warnings;
+            document.getElementById('infoCount').textContent = info;
+            
+            // 显示过滤后的日志
+            renderFilteredLogs(filteredLogs);
+        }
+        
+        // 渲染过滤后的日志
+        function renderFilteredLogs(filteredLogs) {
+            const container = document.getElementById('filteredLogs');
+            container.innerHTML = '';
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">没有匹配的日志</p>';
+                return;
+            }
+            
+            filteredLogs.forEach(log => {
+                const div = document.createElement('div');
+                div.className = 'log-line';
+                
+                // 根据内容添加类别样式
+                const lowerLog = log.toLowerCase();
+                if (lowerLog.includes('error')) {
+                    div.classList.add('log-error');
+                } else if (lowerLog.includes('warning')) {
+                    div.classList.add('log-warning');
+                } else if (lowerLog.includes('info')) {
+                    div.classList.add('log-info');
+                }
+                
+                div.textContent = log;
+                container.appendChild(div);
+            });
+        }
+        
+        // 清空日志
+        function clearLogs() {
+            document.getElementById('logInput').value = '';
+            logs = [];
+            document.getElementById('totalLogs').textContent = '0';
+            document.getElementById('errorCount').textContent = '0';
+            document.getElementById('warningCount').textContent = '0';
+            document.getElementById('infoCount').textContent = '0';
+            document.getElementById('filteredLogs').innerHTML = '';
+        }
+        
+        // 表单提交
+        document.getElementById('logForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            analyzeLogs();
+        });
+        
+        // 示例日志
+        const exampleLogs = [
+            '2024-01-15 10:30:15 INFO Application started successfully',
+            '2024-01-15 10:30:16 WARNING Database connection slow',
+            '2024-01-15 10:30:17 ERROR Failed to connect to Redis',
+            '2024-01-15 10:30:18 INFO Request processed in 45ms',
+            '2024-01-15 10:30:19 ERROR NullPointerException at line 42',
+            '2024-01-15 10:30:20 WARNING Memory usage high: 85%',
+            '2024-01-15 10:30:21 INFO Cache hit ratio: 92%',
+            '2024-01-15 10:30:22 ERROR Disk space insufficient',
+            '2024-01-15 10:30:23 INFO User login successful',
+            '2024-01-15 10:30:24 WARNING Rate limit exceeded for IP 192.168.1.1'
+        ];
+        
+        // 加载示例日志
+        document.getElementById('logInput').value = exampleLogs.join('\n');
+    </script>
+</body>
+</html>

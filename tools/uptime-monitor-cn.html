@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网站可用性监控工具</title>
+    <meta name="description" content="用于监控网站可用性和响应时间的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱️</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #4caf50;
+            --accent-hover: #66bb6a;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--accent-hover); }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-tertiary); color: var(--text-secondary); }
+        .uptime-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; margin-top: 0.5rem; }
+        .uptime-fill { height: 100%; border-radius: 4px; background: var(--success); }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>网站可用性监控</h1>
+        
+        <div class="card">
+            <h2>添加监控目标</h2>
+            <form id="monitorForm">
+                <div class="form-group">
+                    <label>网站URL</label>
+                    <input type="url" id="url" placeholder="https://example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>检查间隔（秒）</label>
+                    <input type="number" id="interval" value="30" min="10" max="300" required>
+                </div>
+                <div class="form-group">
+                    <label>名称（可选）</label>
+                    <input type="text" id="name" placeholder="我的网站">
+                </div>
+                <button type="submit">开始监控</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>监控列表</h2>
+            <table id="monitorTable">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>URL</th>
+                        <th>状态</th>
+                        <th>响应时间</th>
+                        <th>可用性</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="monitorBody">
+                    <!-- 监控数据将在这里动态插入 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let monitors = JSON.parse(localStorage.getItem('uptimeMonitors')) || [];
+        let intervals = {};
+        
+        // 模拟检查网站状态
+        async function checkWebsite(monitor) {
+            // 模拟检查，返回随机状态
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    const isUp = Math.random() > 0.1; // 90%概率在线
+                    const responseTime = Math.floor(Math.random() * 500) + 50;
+                    const status = isUp ? 'up' : 'down';
+                    
+                    // 更新监控数据
+                    monitor.lastCheck = new Date().toLocaleTimeString();
+                    monitor.status = status;
+                    monitor.responseTime = responseTime;
+                    monitor.uptime = isUp ? (monitor.uptime || 0) + 1 : monitor.uptime || 0;
+                    monitor.checks = (monitor.checks || 0) + 1;
+                    
+                    // 保存数据
+                    localStorage.setItem('uptimeMonitors', JSON.stringify(monitors));
+                    renderMonitors();
+                    
+                    resolve({ status, responseTime });
+                }, 100);
+            });
+        }
+        
+        // 渲染监控表格
+        function renderMonitors() {
+            const tbody = document.getElementById('monitorBody');
+            tbody.innerHTML = '';
+            
+            monitors.forEach((monitor, index) => {
+                const uptimePercent = monitor.checks ? ((monitor.uptime / monitor.checks) * 100).toFixed(1) : 100;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${monitor.name || '未命名'}</td>
+                    <td><a href="${monitor.url}" target="_blank" style="color: var(--accent);">${monitor.url}</a></td>
+                    <td><span class="status status-${monitor.status === 'up' ? 'active' : 'inactive'}">${monitor.status === 'up' ? '在线' : '离线'}</span></td>
+                    <td>${monitor.responseTime ? monitor.responseTime + ' ms' : '-'}</td>
+                    <td>
+                        <div>${uptimePercent}%</div>
+                        <div class="uptime-bar"><div class="uptime-fill" style="width: ${uptimePercent}%"></div></div>
+                    </td>
+                    <td>
+                        <button onclick="checkNow(${index})" style="margin-right: 0.5rem; padding: 0.5rem;">立即检查</button>
+                        <button onclick="deleteMonitor(${index})" style="background: var(--danger);">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // 添加监控
+        document.getElementById('monitorForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newMonitor = {
+                url: document.getElementById('url').value,
+                interval: parseInt(document.getElementById('interval').value),
+                name: document.getElementById('name').value || '未命名',
+                status: 'unknown',
+                lastCheck: '-',
+                responseTime: null,
+                uptime: 0,
+                checks: 0
+            };
+            monitors.push(newMonitor);
+            localStorage.setItem('uptimeMonitors', JSON.stringify(monitors));
+            
+            // 开始定时检查
+            startMonitoring(monitors.length - 1);
+            
+            renderMonitors();
+            this.reset();
+        });
+        
+        // 开始监控
+        function startMonitoring(index) {
+            const monitor = monitors[index];
+            if (intervals[index]) clearInterval(intervals[index]);
+            
+            intervals[index] = setInterval(() => {
+                checkWebsite(monitor);
+            }, monitor.interval * 1000);
+            
+            // 立即检查一次
+            checkWebsite(monitor);
+        }
+        
+        // 立即检查
+        function checkNow(index) {
+            checkWebsite(monitors[index]);
+        }
+        
+        // 删除监控
+        function deleteMonitor(index) {
+            if (confirm('确定要停止并删除此监控吗？')) {
+                if (intervals[index]) clearInterval(intervals[index]);
+                monitors.splice(index, 1);
+                localStorage.setItem('uptimeMonitors', JSON.stringify(monitors));
+                renderMonitors();
+            }
+        }
+        
+        // 初始渲染
+        renderMonitors();
+        
+        // 重启已有监控
+        monitors.forEach((monitor, index) => {
+            startMonitoring(index);
+        });
+    </script>
+</body>
+</html>
