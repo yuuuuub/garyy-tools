@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖌️ 像素画编辑器</title>
+<meta name="description" content="在线像素画编辑器，支持多种画笔工具、调色板、撤销重做、导出PNG">
+<style>
+:root{--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--preview-bg:#fafafa;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--preview-bg:#0f3460;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:540px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.canvas-wrap{display:flex;justify-content:center;overflow:auto;padding:10px 0}
+canvas#pixelCanvas{image-rendering:pixelated;cursor:crosshair;border:1px solid var(--border);border-radius:8px}
+.tool-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tool-btn{width:40px;height:40px;border-radius:10px;border:2px solid var(--border);background:var(--card-bg);font-size:18px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.tool-btn:hover{border-color:var(--accent)}
+.tool-btn.active{border-color:var(--accent);background:var(--tag-bg);box-shadow:0 0 0 2px var(--accent)}
+.palette{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+.color-cell{width:28px;height:28px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:all .15s}
+.color-cell:hover{transform:scale(1.2)}
+.color-cell.active{border-color:var(--text);box-shadow:0 0 0 2px var(--accent)}
+.current-color{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.color-preview{width:32px;height:32px;border-radius:8px;border:2px solid var(--border)}
+.color-preview-label{font-size:13px;color:var(--text-secondary)}
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:50px}
+.slider-row input[type="range"]{flex:1}
+.slider-row span{font-size:13px;color:var(--text-secondary);min-width:30px;text-align:right}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:10px 16px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:4px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:var(--accent);color:#fff}
+.btn:active{transform:scale(.97)}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--card-bg);color:var(--text);padding:10px 24px;border-radius:12px;font-size:14px;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow);border:1px solid var(--border)}
+.toast.show{opacity:1}
+footer{text-align:center;padding:24px 0;color:var(--text-secondary);font-size:12px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖌️</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🖌️ 像素画编辑器">
+<meta property="og:description" content="在线像素画编辑器，多种画笔工具支持">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/pixel-art-editor-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text-secondary);font-size:.75rem;background:var(--card-bg);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>🖌️ 像素画编辑器</h1>
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+  </header>
+
+  <div class="card">
+    <div class="card-title">🖼️ 画布</div>
+    <div class="canvas-wrap"><canvas id="pixelCanvas"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔧 工具</div>
+    <div class="tool-bar" id="toolBar"></div>
+    <div class="current-color">
+      <div class="color-preview" id="colorPreview"></div>
+      <span class="color-preview-label" id="colorLabel">#000000</span>
+    </div>
+    <div class="palette" id="palette"></div>
+    <div class="slider-row"><label>画笔大小</label><input type="range" min="1" max="4" value="1" id="brushSize" oninput="document.getElementById('brushSizeVal').textContent=this.value"><span id="brushSizeVal">1</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📐 画布设置</div>
+    <div class="slider-row"><label>宽</label><input type="range" min="8" max="64" value="16" id="gridW" oninput="document.getElementById('gridWVal').textContent=this.value"><span id="gridWVal">16</span></div>
+    <div class="slider-row"><label>高</label><input type="range" min="8" max="64" value="16" id="gridH" oninput="document.getElementById('gridHVal').textContent=this.value"><span id="gridHVal">16</span></div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn btn-outline" onclick="resizeCanvas()">应用尺寸</button>
+      <button class="btn btn-outline" onclick="toggleGrid()">网格开关</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚙️ 操作</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="undo()">↩️ 撤销</button>
+      <button class="btn btn-primary" onclick="redo()">↪️ 重做</button>
+      <button class="btn btn-outline" onclick="clearCanvas()">🗑️ 清空</button>
+      <button class="btn btn-outline" onclick="fillCanvas()">🪣 填充</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn btn-primary" onclick="exportPNG()">💾 导出PNG</button>
+      <button class="btn btn-outline" onclick="exportScaled()">📥 导出大图</button>
+    </div>
+  </div>
+
+  <footer>像素画编辑器 · 所有数据本地处理</footer>
+</div>
+<div class="toast" id="toast"></div>
+<script src="../i18n.js" defer></script>
+<script>
+const palette = ['#000000','#ffffff','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800','#8800ff','#ff0088','#00ff88','#0088ff','#88ff00','#880000','#008800','#000088','#888888','#444444','#cccccc','#ff4444','#44ff44','#4444ff','#ffaa00','#aa00ff','#00aaff','#ff6699','#66ffcc','#cc66ff','#ffcc00','#6699ff','#99ff66'];
+
+const tools = [
+  { id:'pen', icon:'✏️', name:'画笔' },
+  { id:'eraser', icon:'🧹', name:'橡皮' },
+  { id:'fill', icon:'🪣', name:'填充' },
+  { id:'line', icon:'📏', name:'直线' },
+  { id:'rect', icon:'⬜', name:'矩形' },
+  { id:'circle', icon:'⭕', name:'圆形' },
+  { id:'eyedrop', icon:'💉', name:'取色' },
+  { id:'move', icon:'✋', name:'移动' }
+];
+
+let W = 16, H = 16, cellSize = 20;
+let color = '#000000', tool = 'pen', showGrid = true;
+let pixels = [], history = [], historyIdx = -1;
+let isDrawing = false, startX, startY, lastX, lastY;
+let tempCanvas = null;
+
+function init() {
+  pixels = Array.from({length: H}, () => Array(W).fill(null));
+  history = []; historyIdx = -1;
+  saveHistory();
+  renderToolbar();
+  renderPalette();
+  resizeAndDraw();
+}
+
+function renderToolbar() {
+  document.getElementById('toolBar').innerHTML = tools.map(t => `<div class="tool-btn${t.id===tool?' active':''}" data-val="${t.id}" onclick="setTool('${t.id}')" title="${t.name}">${t.icon}</div>`).join('');
+}
+
+function renderPalette() {
+  document.getElementById('palette').innerHTML = palette.map(c => `<div class="color-cell${c===color?' active':''}" style="background:${c}" onclick="setColor('${c}')"></div>`).join('');
+  document.getElementById('colorPreview').style.background = color;
+  document.getElementById('colorLabel').textContent = color;
+}
+
+function setTool(t) { tool = t; renderToolbar(); }
+function setColor(c) { color = c; renderPalette(); }
+
+function resizeAndDraw() {
+  const c = document.getElementById('pixelCanvas');
+  c.width = W * cellSize; c.height = H * cellSize;
+  drawPixels();
+}
+
+function drawPixels() {
+  const c = document.getElementById('pixelCanvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (pixels[y][x]) { ctx.fillStyle = pixels[y][x]; ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); }
+  }
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(128,128,128,0.2)';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x * cellSize, 0); ctx.lineTo(x * cellSize, H * cellSize); ctx.stroke(); }
+    for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(0, y * cellSize); ctx.lineTo(W * cellSize, y * cellSize); ctx.stroke(); }
+  }
+}
+
+function getCell(e) {
+  const c = document.getElementById('pixelCanvas');
+  const r = c.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / cellSize);
+  const y = Math.floor((e.clientY - r.top) / cellSize);
+  return { x: Math.max(0, Math.min(W - 1, x)), y: Math.max(0, Math.min(H - 1, y)) };
+}
+
+function setPixel(x, y, c) {
+  if (x >= 0 && x < W && y >= 0 && y < H) pixels[y][x] = c;
+}
+
+function getPixel(x, y) {
+  return (x >= 0 && x < W && y >= 0 && y < H) ? pixels[y][x] : null;
+}
+
+function floodFill(sx, sy, newColor) {
+  const old = getPixel(sx, sy);
+  if (old === newColor) return;
+  const stack = [[sx, sy]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (getPixel(x, y) !== old) continue;
+    setPixel(x, y, newColor);
+    stack.push([x-1,y],[x+1,y],[x,y-1],[x,y+1]);
+  }
+}
+
+function saveHistory() {
+  history = history.slice(0, historyIdx + 1);
+  history.push(JSON.parse(JSON.stringify(pixels)));
+  historyIdx = history.length - 1;
+  if (history.length > 50) { history.shift(); historyIdx--; }
+}
+
+function undo() { if (historyIdx > 0) { historyIdx--; pixels = JSON.parse(JSON.stringify(history[historyIdx])); drawPixels(); showToast('已撤销'); } }
+function redo() { if (historyIdx < history.length - 1) { historyIdx++; pixels = JSON.parse(JSON.stringify(history[historyIdx])); drawPixels(); showToast('已重做'); } }
+function clearCanvas() { pixels = Array.from({length: H}, () => Array(W).fill(null)); saveHistory(); drawPixels(); showToast('画布已清空'); }
+function fillCanvas() { pixels = Array.from({length: H}, () => Array(W).fill(color)); saveHistory(); drawPixels(); showToast('已填充'); }
+function toggleGrid() { showGrid = !showGrid; drawPixels(); showToast(showGrid ? '网格已显示' : '网格已隐藏'); }
+
+function resizeCanvas() {
+  W = +document.getElementById('gridW').value;
+  H = +document.getElementById('gridH').value;
+  const newPixels = Array.from({length: H}, (_, y) => Array.from({length: W}, (_, x) => (y < pixels.length && x < (pixels[0]||[]).length) ? pixels[y][x] : null));
+  pixels = newPixels;
+  saveHistory();
+  resizeAndDraw();
+  showToast(`${W}x${H} 画布已创建`);
+}
+
+const canvas = document.getElementById('pixelCanvas');
+canvas.addEventListener('mousedown', e => {
+  isDrawing = true;
+  const p = getCell(e);
+  startX = lastX = p.x; startY = lastY = p.y;
+  if (tool === 'pen') { setPixel(p.x, p.y, color); drawPixels(); }
+  else if (tool === 'eraser') { setPixel(p.x, p.y, null); drawPixels(); }
+  else if (tool === 'fill') { floodFill(p.x, p.y, color); saveHistory(); drawPixels(); }
+  else if (tool === 'eyedrop') { const c = getPixel(p.x, p.y); if (c) { setColor(c); showToast(`取色: ${c}`); } isDrawing = false; }
+  else if (tool === 'line' || tool === 'rect' || tool === 'circle') {
+    tempCanvas = JSON.parse(JSON.stringify(pixels));
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!isDrawing) return;
+  const p = getCell(e);
+  if (tool === 'pen') { setPixel(p.x, p.y, color); drawPixels(); }
+  else if (tool === 'eraser') { setPixel(p.x, p.y, null); drawPixels(); }
+  else if (tool === 'line') {
+    pixels = JSON.parse(JSON.stringify(tempCanvas));
+    drawLine(startX, startY, p.x, p.y, color);
+    drawPixels();
+  } else if (tool === 'rect') {
+    pixels = JSON.parse(JSON.stringify(tempCanvas));
+    drawRect(startX, startY, p.x, p.y, color);
+    drawPixels();
+  } else if (tool === 'circle') {
+    pixels = JSON.parse(JSON.stringify(tempCanvas));
+    drawCircle(startX, startY, p.x, p.y, color);
+    drawPixels();
+  }
+  lastX = p.x; lastY = p.y;
+});
+
+canvas.addEventListener('mouseup', () => { if (isDrawing) { isDrawing = false; saveHistory(); tempCanvas = null; } });
+canvas.addEventListener('mouseleave', () => { if (isDrawing && tool !== 'line' && tool !== 'rect' && tool !== 'circle') { isDrawing = false; saveHistory(); } });
+
+function drawLine(x0, y0, x1, y1, c) {
+  const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+  const sx = x0<x1?1:-1, sy = y0<y1?1:-1;
+  let err = dx-dy;
+  while(true) { setPixel(x0,y0,c); if(x0===x1&&y0===y1)break; const e2=2*err; if(e2>-dy){err-=dy;x0+=sx;} if(e2<dx){err+=dx;y0+=sy;} }
+}
+
+function drawRect(x0,y0,x1,y1,c) {
+  const minX=Math.min(x0,x1),maxX=Math.max(x0,x1),minY=Math.min(y0,y1),maxY=Math.max(y0,y1);
+  for(let x=minX;x<=maxX;x++){setPixel(x,minY,c);setPixel(x,maxY,c);}
+  for(let y=minY;y<=maxY;y++){setPixel(minX,y,c);setPixel(maxX,y,c);}
+}
+
+function drawCircle(x0,y0,x1,y1,c) {
+  const cx=Math.round((x0+x1)/2),cy=Math.round((y0+y1)/2);
+  const rx=Math.abs(x1-x0)/2,ry=Math.abs(y1-y0)/2;
+  for(let a=0;a<360;a++){const rad=a*Math.PI/180;const px=Math.round(cx+rx*Math.cos(rad));const py=Math.round(cy+ry*Math.sin(rad));setPixel(px,py,c);}
+}
+
+function exportPNG() {
+  const scale = Math.max(1, Math.floor(512 / Math.max(W, H)));
+  const oc = document.createElement('canvas'); oc.width = W * scale; oc.height = H * scale;
+  const ctx = oc.getContext('2d');
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(pixels[y][x]){ctx.fillStyle=pixels[y][x];ctx.fillRect(x*scale,y*scale,scale,scale);}}
+  const a=document.createElement('a');a.download='pixel-art.png';a.href=oc.toDataURL();a.click();
+  showToast('PNG已导出！');
+}
+
+function exportScaled() {
+  const scale = 16;
+  const oc = document.createElement('canvas'); oc.width = W * scale; oc.height = H * scale;
+  const ctx = oc.getContext('2d');
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(pixels[y][x]){ctx.fillStyle=pixels[y][x];ctx.fillRect(x*scale,y*scale,scale,scale);}}
+  const a=document.createElement('a');a.download='pixel-art-large.png';a.href=oc.toDataURL();a.click();
+  showToast('大图已导出！');
+}
+
+function toggleTheme() {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  document.querySelector('.theme-toggle').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+init();
+</script>
+</body>
+</html>

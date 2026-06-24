@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>航班信息查询</title>
+<meta name="description" content="查询航班信息，了解航班时刻和航线信息，比较价格和时间">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--radius:10px;--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;padding:16px}
+.header{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.header h1{font-size:20px;white-space:nowrap}
+.header h1 span{font-size:24px}
+.search-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--text2);font-weight:600}
+.field select,.field input{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.field input{width:160px}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600}
+.btn:hover{opacity:.85}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.filter-btn{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:all .15s}
+.filter-btn:hover,.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sort-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;font-size:13px;color:var(--text2)}
+.sort-bar select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px}
+.flights-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.flight-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:all .2s;position:relative}
+.flight-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.flight-card .airline{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.flight-card .airline-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff}
+.flight-card .airline-name{font-size:12px;color:var(--text2)}
+.flight-card .airline-code{font-size:14px;font-weight:600}
+.flight-card .route{display:flex;align-items:center;justify-content:space-between;margin:16px 0}
+.flight-card .city{text-align:center}
+.flight-card .city .code{font-size:24px;font-weight:700}
+.flight-card .city .time{font-size:16px;font-weight:600;margin-top:4px}
+.flight-card .city .name{font-size:11px;color:var(--text2)}
+.flight-card .route-line{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 12px}
+.flight-card .route-line .line{width:100%;height:2px;background:var(--border);position:relative}
+.flight-card .route-line .line::after{content:'✈';position:absolute;right:-4px;top:-8px;font-size:14px;color:var(--accent)}
+.flight-card .route-line .duration{font-size:11px;color:var(--text2)}
+.flight-card .route-line .stops{font-size:11px;color:var(--green)}
+.flight-card .bottom{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px}
+.flight-card .price{font-size:20px;font-weight:700;color:var(--accent)}
+.flight-card .price small{font-size:12px;font-weight:400;color:var(--text2)}
+.flight-card .bookmark{background:none;border:none;font-size:18px;cursor:pointer;opacity:.3;transition:opacity .2s}
+.flight-card .bookmark:hover,.flight-card .bookmark.saved{opacity:1}
+.flight-card .tag{position:absolute;top:8px;right:8px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.flight-card .tag.cheap{background:rgba(63,185,80,.15);color:var(--green)}
+.flight-card .tag.fast{background:rgba(59,130,246,.15);color:var(--accent)}
+.flight-card .tag.nonstop{background:rgba(163,113,247,.15);color:#a371f7}
+.empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text2)}
+.detail-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px}
+.detail-modal.show{display:flex}
+.detail-content{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto}
+.detail-content h2{margin-bottom:16px}
+.detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.detail-row .lbl{color:var(--text2)}
+.close-modal{background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;position:absolute;top:12px;right:12px}
+@media(max-width:600px){.flights-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>✈️</span> 航班信息查询</h1>
+<div style="margin-left:auto;font-size:13px;color:var(--text2)" id="resultCount"></div>
+</div>
+<div class="search-bar">
+<div class="field">
+<label>出发城市</label>
+<select id="fromCity"></select>
+</div>
+<div class="field">
+<label>到达城市</label>
+<select id="toCity"></select>
+</div>
+<div class="field">
+<label>出发日期</label>
+<input type="date" id="depDate">
+</div>
+<button class="btn" onclick="searchFlights()">🔍 搜索航班</button>
+</div>
+<div class="filters">
+<button class="filter-btn active" onclick="setFilter('all',this)">全部</button>
+<button class="filter-btn" onclick="setFilter('direct',this)">直飞</button>
+<button class="filter-btn" onclick="setFilter('transfer',this)">中转</button>
+<button class="filter-btn" onclick="setFilter('morning',this)">上午出发</button>
+<button class="filter-btn" onclick="setFilter('evening',this)">下午出发</button>
+<button class="filter-btn" onclick="setFilter('bookmarked',this)">⭐ 收藏</button>
+</div>
+<div class="sort-bar">
+<span>排序：</span>
+<select id="sortBy" onchange="renderFlights()">
+<option value="price">价格最低</option>
+<option value="duration">用时最短</option>
+<option value="departure">出发最早</option>
+<option value="arrival">到达最早</option>
+</select>
+</div>
+<div class="flights-grid" id="flightsGrid"></div>
+<div class="detail-modal" id="detailModal" onclick="if(event.target===this)closeDetail()">
+<div class="detail-content" id="detailContent"></div>
+</div>
+<script>
+const cities={PEK:'北京首都',PKX:'北京大兴',SHA:'上海虹桥',PVG:'上海浦东',CAN:'广州白云',SZX:'深圳宝安',CTU:'成都天府',CKG:'重庆江北',HGH:'杭州萧山',NKG:'南京禄口',WUH:'武汉天河',XIY:'西安咸阳',KMG:'昆明长水',HAK:'海口美兰',SYX:'三亚凤凰',DLC:'大连周水子',TAO:'青岛胶东',TSN:'天津滨海',XMN:'厦门高崎',CGO:'郑州新郑'};
+const airlines={CA:{name:'中国国航',color:'#e31837'},MU:{name:'东方航空',color:'#0055a5'},CZ:{name:'南方航空',color:'#003b7b'},HU:{name:'海南航空',color:'#d4232e'},3U:{name:'四川航空',color:'#e60012'},ZH:{name:'深圳航空',color:'#005596'},SC:{name:'山东航空',color:'#003580'},FM:{name:'上海航空',color:'#0055a5'},MF:{name:'厦门航空',color:'#003580'},GS:{name:'天津航空',color:'#c41230'},KN:{name:'联合航空',color:'#0055a5'},JD:{name:'首都航空',color:'#d4232e'},EU:{name:'成都航空',color:'#e60012'},HO:{name:'吉祥航空',color:'#d4232e'},QW:{name:'青岛航空',color:'#0055a5'},AQ:{name:'瑞丽航空',color:'#e31837'},GX:{name:'北部湾航空',color:'#003b7b'}};
+const cityCodes=Object.keys(cities);
+let allFlights=[];let currentFilter='all';let bookmarks=JSON.parse(localStorage.getItem('flightBookmarks')||'[]');
+function genFlights(){
+const now=new Date();const base=now.getHours();
+const flights=[];
+for(let i=0;i<60;i++){
+const from=cityCodes[Math.floor(Math.random()*cityCodes.length)];
+let to=cityCodes[Math.floor(Math.random()*cityCodes.length)];
+while(to===from)to=cityCodes[Math.floor(Math.random()*cityCodes.length)];
+const airlineCode=Object.keys(airlines)[Math.floor(Math.random()*Object.keys(airlines).length)];
+const num=Math.floor(Math.random()*9000)+1000;
+const depH=Math.floor(Math.random()*18)+5;
+const depM=Math.floor(Math.random()*60);
+const durationMin=Math.floor(Math.random()*240)+60;
+const arrH=(depH+Math.floor((depM+durationMin)/60))%24;
+const arrM=(depM+durationMin)%60;
+const stops=Math.random()>0.75?Math.floor(Math.random()*2)+1:0;
+const basePrice=Math.floor(durationMin*1.2+Math.random()*800)+400;
+const price=stops>0?Math.floor(basePrice*0.75):basePrice;
+flights.push({id:i,airline:airlineCode,flightNo:airlineCode+num,from,to,depTime:`${String(depH).padStart(2,'0')}:${String(depM).padStart(2,'0')}`,arrTime:`${String(arrH).padStart(2,'0')}:${String(arrM).padStart(2,'0')}`,duration:durationMin,stops,price,date:now.toISOString().slice(0,10)});
+}
+return flights;
+}
+function searchFlights(){allFlights=genFlights();renderFlights();}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderFlights();}
+function renderFlights(){
+let filtered=[...allFlights];
+if(currentFilter==='direct')filtered=filtered.filter(f=>f.stops===0);
+else if(currentFilter==='transfer')filtered=filtered.filter(f=>f.stops>0);
+else if(currentFilter==='morning')filtered=filtered.filter(f=>parseInt(f.depTime)<12);
+else if(currentFilter==='evening')filtered=filtered.filter(f=>parseInt(f.depTime)>=12);
+else if(currentFilter==='bookmarked')filtered=filtered.filter(f=>bookmarks.includes(f.id));
+const sort=document.getElementById('sortBy').value;
+if(sort==='price')filtered.sort((a,b)=>a.price-b.price);
+else if(sort==='duration')filtered.sort((a,b)=>a.duration-b.duration);
+else if(sort==='departure')filtered.sort((a,b)=>a.depTime.localeCompare(b.depTime));
+else if(sort==='arrival')filtered.sort((a,b)=>a.arrTime.localeCompare(b.arrTime));
+document.getElementById('resultCount').textContent=`共 ${filtered.length} 个航班`;
+const minPrice=Math.min(...allFlights.map(f=>f.price));
+const minDur=Math.min(...allFlights.map(f=>f.duration));
+const grid=document.getElementById('flightsGrid');
+if(!filtered.length){grid.innerHTML='<div class="empty">未找到符合条件的航班</div>';return;}
+grid.innerHTML=filtered.map(f=>{
+const al=airlines[f.airline];
+const durH=Math.floor(f.duration/60);const durM=f.duration%60;
+const tags=[];
+if(f.price<=minPrice*1.1)tags.push('<span class="tag cheap">低价</span>');
+if(f.duration<=minDur*1.2)tags.push('<span class="tag fast">快速</span>');
+if(f.stops===0)tags.push('<span class="tag nonstop">直飞</span>');
+return `<div class="flight-card" onclick="showDetail(${f.id})">
+${tags.join('')}
+<div class="airline"><div class="airline-icon" style="background:${al.color}">${f.airline}</div>
+<div><div class="airline-code">${f.flightNo}</div><div class="airline-name">${al.name}</div></div></div>
+<div class="route">
+<div class="city"><div class="code">${f.from}</div><div class="time">${f.depTime}</div><div class="name">${cities[f.from]||f.from}</div></div>
+<div class="route-line"><div class="line"></div><div class="duration">${durH}时${durM}分</div><div class="stops">${f.stops===0?'直飞':f.stops+'次中转'}</div></div>
+<div class="city"><div class="code">${f.to}</div><div class="time">${f.arrTime}</div><div class="name">${cities[f.to]||f.to}</div></div>
+</div>
+<div class="bottom"><div class="price">¥${f.price.toLocaleString()} <small>/人</small></div>
+<button class="bookmark ${bookmarks.includes(f.id)?'saved':''}" onclick="event.stopPropagation();toggleBookmark(${f.id})">${bookmarks.includes(f.id)?'⭐':'☆'}</button></div></div>`;
+}).join('');
+}
+function toggleBookmark(id){
+const idx=bookmarks.indexOf(id);
+if(idx>=0)bookmarks.splice(idx,1);else bookmarks.push(id);
+localStorage.setItem('flightBookmarks',JSON.stringify(bookmarks));
+renderFlights();
+}
+function showDetail(id){
+const f=allFlights.find(x=>x.id===id);if(!f)return;
+const al=airlines[f.airline];
+const durH=Math.floor(f.duration/60);const durM=f.duration%60;
+document.getElementById('detailContent').innerHTML=`<button class="close-modal" onclick="closeDetail()">✕</button>
+<h2>${f.flightNo} ${al.name}</h2>
+<div style="text-align:center;margin:20px 0"><span style="font-size:20px;font-weight:700">${f.from}</span>
+<span style="margin:0 16px;color:var(--accent);font-size:18px">→</span>
+<span style="font-size:20px;font-weight:700">${f.to}</span></div>
+<div class="detail-row"><span class="lbl">出发时间</span><span>${f.depTime} (${cities[f.from]})</span></div>
+<div class="detail-row"><span class="lbl">到达时间</span><span>${f.arrTime} (${cities[f.to]})</span></div>
+<div class="detail-row"><span class="lbl">飞行时长</span><span>${durH}小时${durM}分钟</span></div>
+<div class="detail-row"><span class="lbl">中转</span><span>${f.stops===0?'直飞':f.stops+'次中转'}</span></div>
+<div class="detail-row"><span class="lbl">价格</span><span style="color:var(--accent);font-weight:700">¥${f.price.toLocaleString()}</span></div>
+<div class="detail-row"><span class="lbl">日期</span><span>${f.date}</span></div>
+<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text2)">
+💡 提示：实际航班信息请以航空公司官网为准，本工具仅供参考。</div>`;
+document.getElementById('detailModal').classList.add('show');
+}
+function closeDetail(){document.getElementById('detailModal').classList.remove('show');}
+function initSelects(){
+const fromSel=document.getElementById('fromCity');
+const toSel=document.getElementById('toCity');
+Object.entries(cities).forEach(([code,name])=>{
+fromSel.innerHTML+=`<option value="${code}">${code} ${name}</option>`;
+toSel.innerHTML+=`<option value="${code}">${code} ${name}</option>`;
+});
+fromSel.value='PEK';toSel.value='PVG';
+const today=new Date().toISOString().slice(0,10);
+document.getElementById('depDate').value=today;
+}
+initSelects();searchFlights();
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();}if(e.key==='Escape')closeDetail();});
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:20px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
