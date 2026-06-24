@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API文档查看器</title>
+<meta name="description" content="可视化查看和编辑API文档，支持OpenAPI/Swagger格式导入">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.6rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:16px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.9rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-danger{background:var(--red)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+input,textarea,select{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:8px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{font-family:'Fira Code',monospace;font-size:.82rem;resize:vertical;min-height:80px}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.hidden{display:none!important}
+.method{display:inline-block;padding:3px 10px;border-radius:4px;font-size:.75rem;font-weight:700;letter-spacing:.5px;min-width:60px;text-align:center}
+.method-get{background:rgba(63,185,80,.2);color:var(--green)}
+.method-post{background:rgba(59,130,246,.2);color:var(--accent2)}
+.method-put{background:rgba(210,153,34,.2);color:var(--yellow)}
+.method-delete{background:rgba(248,81,73,.2);color:var(--red)}
+.method-patch{background:rgba(139,92,246,.2);color:#a78bfa}
+.endpoint{padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.endpoint:hover{border-color:var(--accent);background:rgba(59,130,246,.03)}
+.endpoint.expanded{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.ep-header{display:flex;align-items:center;gap:10px}
+.ep-path{font-family:'Fira Code',monospace;font-size:.9rem;flex:1}
+.ep-summary{color:var(--text2);font-size:.82rem;margin-top:4px}
+.ep-detail{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.param-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.param-table th,.param-table td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.param-table th{color:var(--text2);font-size:.78rem;font-weight:600}
+.code-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'Fira Code',monospace;font-size:.82rem;overflow-x:auto;white-space:pre;color:var(--text2)}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;background:var(--bg);border:1px solid var(--border);margin:2px}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:600px;max-height:80vh;overflow-y:auto}
+@media(max-width:600px){body{padding:10px}h1{font-size:1.3rem}}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="API文档查看器">
+<meta property="og:description" content="可视化查看和编辑API文档，支持OpenAPI格式">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='📖 API文档查看器';
+const APP=document.getElementById('app');
+let apis=JSON.parse(localStorage.getItem('api_docs')||'[]');
+let curApi=-1;
+let expandedEp=-1;
+let filterMethod='all';
+
+function save(){localStorage.setItem('api_docs',JSON.stringify(apis))}
+
+function render(){
+  let h=`<h1>📖 API文档查看器</h1><p class="subtitle">查看和管理API接口文档</p>`;
+  if(curApi>=0&&curApi<apis.length){
+    let a=apis[curApi];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm btn-outline" onclick="curApi=-1;render()">← 返回</button><div><b>${esc(a.title)}</b><span style="color:var(--text2);font-size:.85rem;margin-left:8px">v${esc(a.version||'1.0')}</span></div><div class="flex"><button class="btn btn-sm" onclick="addEndpoint()">+ 接口</button><button class="btn btn-sm btn-outline" onclick="importOpenAPI()">导入OpenAPI</button><button class="btn btn-sm btn-danger" onclick="delApi()">删除</button></div></div></div>`;
+    if(a.description){h+=`<div class="card" style="font-size:.9rem">${esc(a.description)}</div>`}
+    let methods=[...new Set(a.endpoints.map(e=>e.method))];
+    h+=`<div class="flex" style="margin-bottom:12px"><button class="btn btn-sm ${filterMethod==='all'?'':'btn-outline'}" onclick="filterMethod='all';render()" style="${filterMethod==='all'?'':'border-color:var(--border)'}">全部 (${a.endpoints.length})</button>`;
+    ['GET','POST','PUT','DELETE','PATCH'].forEach(m=>{
+      if(methods.includes(m))h+=`<button class="btn btn-sm ${filterMethod===m?'':'btn-outline'}" onclick="filterMethod='${m}';render()" style="${filterMethod===m?'':'border-color:var(--border)'}">${m} (${a.endpoints.filter(e=>e.method===m).length})</button>`;
+    });
+    h+=`</div>`;
+    let filtered=a.endpoints.filter(e=>filterMethod==='all'||e.method===filterMethod);
+    if(filtered.length===0)h+=`<div class="empty">暂无接口</div>`;
+    filtered.forEach((ep,fi)=>{
+      let realIdx=a.endpoints.indexOf(ep);
+      let isExpanded=expandedEp===realIdx;
+      h+=`<div class="endpoint ${isExpanded?'expanded':''}" onclick="expandedEp=${isExpanded?-1:${realIdx}};render()">`;
+      h+=`<div class="ep-header"><span class="method method-${ep.method.toLowerCase()}">${ep.method}</span><span class="ep-path">${esc(ep.path)}</span></div>`;
+      h+=`<div class="ep-summary">${esc(ep.summary||'')}</div>`;
+      if(isExpanded){
+        h+=`<div class="ep-detail">`;
+        if(ep.description)h+=`<p style="margin-bottom:12px;font-size:.9rem">${esc(ep.description)}</p>`;
+        if(ep.tags&&ep.tags.length){h+=`<div style="margin-bottom:8px">${ep.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`}
+        if(ep.parameters&&ep.parameters.length){
+          h+=`<h4 style="margin-bottom:6px;font-size:.85rem">参数</h4>`;
+          h+=`<table class="param-table"><thead><tr><th>名称</th><th>位置</th><th>类型</th><th>必填</th><th>说明</th></tr></thead><tbody>`;
+          ep.parameters.forEach(p=>{h+=`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.in)}</td><td>${esc(p.type)}</td><td>${p.required?'✅':'-'}</td><td>${esc(p.desc||'')}</td></tr>`});
+          h+=`</tbody></table>`;
+        }
+        if(ep.requestBody){
+          h+=`<h4 style="margin:12px 0 6px;font-size:.85rem">请求体</h4>`;
+          h+=`<div class="code-block">${esc(ep.requestBody)}</div>`;
+        }
+        if(ep.responses){
+          h+=`<h4 style="margin:12px 0 6px;font-size:.85rem">响应</h4>`;
+          Object.entries(ep.responses).forEach(([code,body])=>{
+            h+=`<div style="margin-bottom:8px"><span class="tag" style="background:${parseInt(code)<300?'rgba(63,185,80,.2);color:var(--green)':parseInt(code)<400?'rgba(59,130,246,.2);color:var(--accent2)':'rgba(248,81,73,.2);color:var(--red)'}">${code}</span></div>`;
+            h+=`<div class="code-block">${esc(body)}</div>`;
+          });
+        }
+        h+=`<div class="flex" style="margin-top:12px"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();editEndpoint(${realIdx})">编辑</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation();delEndpoint(${realIdx})">删除</button></div>`;
+        h+=`</div>`;
+      }
+      h+=`</div>`;
+    });
+  } else {
+    h+=`<div class="card"><div class="flex-between"><b>我的API文档</b><button class="btn" onclick="addApi()">+ 新建API</button></div></div>`;
+    if(apis.length===0)h+=`<div class="empty">暂无API文档，点击上方按钮新建</div>`;
+    apis.forEach((a,i)=>{
+      h+=`<div class="card" style="cursor:pointer" onclick="curApi=${i};render()"><div class="flex-between"><div><b>${esc(a.title)}</b><span style="color:var(--text2);font-size:.85rem;margin-left:8px">v${esc(a.version||'1.0')}</span></div><span style="color:var(--text2);font-size:.85rem">${a.endpoints.length} 个接口</span></div></div>`;
+    });
+  }
+  APP.innerHTML=h;
+}
+
+function addApi(){
+  let title=prompt('API名称：');if(!title)return;
+  let version=prompt('版本号：','1.0');
+  let desc=prompt('描述：','');
+  apis.push({title,version:version||'1.0',description:desc||'',endpoints:[]});
+  save();render();
+}
+
+function delApi(){if(!confirm('确定删除？'))return;apis.splice(curApi,1);curApi=-1;save();render()}
+
+function addEndpoint(){editEndpoint(-1)}
+
+function editEndpoint(idx){
+  let ep=idx>=0?apis[curApi].endpoints[idx]:{method:'GET',path:'/api/resource',summary:'',description:'',parameters:[],requestBody:'',responses:{200:'{\n  "code": 200,\n  "data": {}\n}'},tags:[]};
+  let method=prompt('方法 (GET/POST/PUT/DELETE/PATCH)：',ep.method);if(!method)return;
+  let path=prompt('路径：',ep.path);if(!path)return;
+  let summary=prompt('摘要：',ep.summary);
+  let description=prompt('描述：',ep.description);
+  let newEp={...ep,method:method.toUpperCase(),path,summary:summary||'',description:description||''};
+  if(idx>=0)apis[curApi].endpoints[idx]=newEp;
+  else apis[curApi].endpoints.push(newEp);
+  save();expandedEp=apis[curApi].endpoints.indexOf(newEp);render();
+}
+
+function delEndpoint(idx){apis[curApi].endpoints.splice(idx,1);expandedEp=-1;save();render()}
+
+function importOpenAPI(){
+  let json=prompt('粘贴OpenAPI JSON：');
+  if(!json)return;
+  try{
+    let spec=JSON.parse(json);
+    let a={title:spec.info?.title||'导入的API',version:spec.info?.version||'1.0',description:spec.info?.description||'',endpoints:[]};
+    let paths=spec.paths||{};
+    Object.entries(paths).forEach(([path,methods])=>{
+      Object.entries(methods).forEach(([method,op])=>{
+        if(['get','post','put','delete','patch'].includes(method)){
+          let params=(op.parameters||[]).map(p=>({name:p.name||'',in:p.in||'query',type:p.schema?.type||'string',required:!!p.required,desc:p.description||''}));
+          let rb=op.requestBody?.content?.['application/json']?.schema?JSON.stringify(op.requestBody.content['application/json'].schema,null,2):'';
+          let resps={};
+          Object.entries(op.responses||{}).forEach(([code,r])=>{resps[code]=r.description||JSON.stringify(r.content||{},null,2)});
+          a.endpoints.push({method:method.toUpperCase(),path,summary:op.summary||'',description:op.description||'',parameters:params,requestBody:rb,responses:resps,tags:op.tags||[]});
+        }
+      });
+    });
+    apis.push(a);save();curApi=apis.length-1;render();
+  }catch(e){alert('JSON解析失败：'+e.message)}
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>

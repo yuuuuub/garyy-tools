@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据库Schema查看器</title>
+<meta name="description" content="可视化查看和编辑数据库表结构，支持SQL导入和关系图">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:1400px;margin:0 auto}
+h1{font-size:1.6rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:16px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.9rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-danger{background:var(--red)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+textarea{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Fira Code',monospace;font-size:.85rem;resize:vertical;min-height:120px}
+textarea:focus{outline:none;border-color:var(--accent)}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.tabs{display:flex;gap:4px;margin-bottom:12px;overflow-x:auto}
+.tab{padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.82rem;white-space:nowrap;color:var(--text2);transition:all .2s;border:1px solid transparent}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){border-color:var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--text2);font-weight:600;font-size:.8rem}
+tr:hover{background:rgba(59,130,246,.05)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600}
+.badge-pk{background:rgba(245,158,11,.2);color:var(--yellow)}
+.badge-fk{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-nn{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-uq{background:rgba(63,185,80,.2);color:var(--green)}
+.table-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.table-header{padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);font-weight:700;font-size:.9rem;display:flex;justify-content:space-between;align-items:center}
+.table-header .cnt{color:var(--text2);font-size:.8rem;font-weight:400}
+.hidden{display:none!important}
+#schema-canvas{width:100%;min-height:500px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:auto;position:relative}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:600px;max-height:80vh;overflow-y:auto}
+@media(max-width:600px){body{padding:10px}h1{font-size:1.3rem}}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗃</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="数据库Schema查看器">
+<meta property="og:description" content="可视化查看和编辑数据库表结构">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🗃 数据库Schema查看器';
+const APP=document.getElementById('app');
+let schemas=JSON.parse(localStorage.getItem('db_schema')||'[]');
+let curSchema=-1;
+let viewMode='tables';
+
+function save(){localStorage.setItem('db_schema',JSON.stringify(schemas))}
+
+function render(){
+  let h=`<h1>🗃 数据库Schema查看器</h1><p class="subtitle">可视化数据库表结构和关系</p>`;
+  if(curSchema>=0&&curSchema<schemas.length){
+    let s=schemas[curSchema];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm btn-outline" onclick="curSchema=-1;render()">← 返回</button><b>${esc(s.name)}</b><div class="flex"><button class="btn btn-sm" onclick="addTable()">+ 新建表</button><button class="btn btn-sm btn-outline" onclick="importSQL()">导入SQL</button><button class="btn btn-sm btn-danger" onclick="delSchema()">删除</button></div></div></div>`;
+    h+=`<div class="tabs"><div class="tab ${viewMode==='tables'?'active':''}" onclick="viewMode='tables';render()">表格视图</div><div class="tab ${viewMode==='diagram'?'active':''}" onclick="viewMode='diagram';render()">关系图</div><div class="tab ${viewMode==='sql'?'active':''}" onclick="viewMode='sql';render()">生成SQL</div></div>`;
+    if(viewMode==='tables'){
+      if(s.tables.length===0)h+=`<div class="empty">暂无表，点击上方按钮新建或导入SQL</div>`;
+      s.tables.forEach((t,ti)=>{
+        h+=`<div class="table-card"><div class="table-header"><span>${esc(t.name)} ${t.comment?'<span style="color:var(--text2);font-weight:400;font-size:.8rem">('+esc(t.comment)+')</span>':''}</span><span class="cnt">${t.columns.length} 列 <button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="addColumn(${ti})">+ 列</button> <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="delTable(${ti})">×</button></span></div>`;
+        h+=`<table><thead><tr><th>列名</th><th>类型</th><th>约束</th><th>默认值</th><th>注释</th><th></th></tr></thead><tbody>`;
+        t.columns.forEach((c,ci)=>{
+          let badges='';
+          if(c.pk)badges+=`<span class="badge badge-pk">PK</span> `;
+          if(c.fk)badges+=`<span class="badge badge-fk">FK→${esc(c.fk)}</span> `;
+          if(c.nn)badges+=`<span class="badge badge-nn">NOT NULL</span> `;
+          if(c.unique)badges+=`<span class="badge badge-uq">UNIQUE</span> `;
+          h+=`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.type)}</td><td>${badges||'-'}</td><td>${esc(c.def||'')}</td><td style="color:var(--text2)">${esc(c.comment||'')}</td><td><button class="btn btn-sm btn-danger" onclick="delColumn(${ti},${ci})">×</button></td></tr>`;
+        });
+        h+=`</tbody></table></div>`;
+      });
+    } else if(viewMode==='diagram'){
+      h+=`<div id="schema-canvas">`;
+      let x=30;
+      s.tables.forEach((t,ti)=>{
+        let colH=t.columns.length*28+40;
+        h+=`<div style="position:absolute;left:${x}px;top:30px;width:200px;border:2px solid var(--accent);border-radius:8px;overflow:hidden;background:var(--card)">`;
+        h+=`<div style="background:var(--accent);color:#fff;padding:8px 12px;font-weight:700;font-size:.85rem">${esc(t.name)}</div>`;
+        t.columns.forEach(c=>{
+          let icon=c.pk?'🔑':c.fk?'🔗':'  ';
+          h+=`<div style="padding:4px 12px;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span>${icon} ${esc(c.name)}</span><span style="color:var(--text2)">${esc(c.type)}</span></div>`;
+        });
+        h+=`</div>`;
+        x+=240;
+      });
+      h+=`</div>`;
+    } else if(viewMode==='sql'){
+      let sql=generateSQL(s);
+      h+=`<div class="card"><textarea readonly style="min-height:300px;font-size:.82rem">${esc(sql)}</textarea>`;
+      h+=`<div class="flex" style="margin-top:8px"><button class="btn btn-sm" onclick="copySQL()">复制SQL</button></div></div>`;
+    }
+  } else {
+    h+=`<div class="card"><div class="flex-between"><b>我的数据库Schema</b><button class="btn" onclick="addSchema()">+ 新建Schema</button></div></div>`;
+    if(schemas.length===0){
+      h+=`<div class="empty">暂无Schema，点击上方按钮新建或导入SQL</div>`;
+    } else {
+      schemas.forEach((s,i)=>{
+        h+=`<div class="card" style="cursor:pointer" onclick="curSchema=${i};render()"><div class="flex-between"><b>${esc(s.name)}</b><span style="color:var(--text2);font-size:.85rem">${s.tables.length} 个表</span></div></div>`;
+      });
+    }
+  }
+  APP.innerHTML=h;
+}
+
+function addSchema(){
+  let name=prompt('Schema名称：');
+  if(!name)return;
+  schemas.push({name,tables:[]});
+  save();render();
+}
+
+function delSchema(){
+  if(!confirm('确定删除？'))return;
+  schemas.splice(curSchema,1);curSchema=-1;save();render();
+}
+
+function addTable(){
+  let name=prompt('表名：');
+  if(!name)return;
+  schemas[curSchema].tables.push({name,comment:'',columns:[{name:'id',type:'INT',pk:true,nn:true,unique:false,def:'',fk:'',comment:'主键'}]});
+  save();render();
+}
+
+function delTable(ti){
+  if(!confirm('确定删除此表？'))return;
+  schemas[curSchema].tables.splice(ti,1);save();render();
+}
+
+function addColumn(ti){
+  let name=prompt('列名：');
+  if(!name)return;
+  schemas[curSchema].tables[ti].columns.push({name,type:'VARCHAR(255)',pk:false,nn:false,unique:false,def:'',fk:'',comment:''});
+  save();render();
+}
+
+function delColumn(ti,ci){
+  schemas[curSchema].tables[ti].columns.splice(ci,1);save();render();
+}
+
+function generateSQL(s){
+  let sql='';
+  s.tables.forEach(t=>{
+    sql+=`CREATE TABLE ${t.name} (\n`;
+    let pks=[];
+    t.columns.forEach(c=>{
+      let parts=[`  ${c.name} ${c.type}`];
+      if(c.nn)parts.push('NOT NULL');
+      if(c.unique)parts.push('UNIQUE');
+      if(c.def)parts.push(`DEFAULT ${c.def}`);
+      if(c.pk)pks.push(c.name);
+      sql+=parts.join(' ')+',\n';
+    });
+    if(pks.length)sql+=`  PRIMARY KEY (${pks.join(', ')}),\n`;
+    sql=`${sql.slice(0,-2)}\n);\n\n`;
+    if(t.comment)sql+=`COMMENT ON TABLE ${t.name} IS '${t.comment}';\n\n`;
+  });
+  return sql;
+}
+
+function importSQL(){
+  let sql=prompt('粘贴CREATE TABLE语句：');
+  if(!sql)return;
+  let tableRegex=/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?(\w+)[`"']?\s*\(([\s\S]*?)\)/gi;
+  let match;
+  while((match=tableRegex.exec(sql))!==null){
+    let tableName=match[1];
+    let body=match[2];
+    let columns=[];
+    let lines=body.split(',').map(l=>l.trim()).filter(l=>l&&!l.toUpperCase().startsWith('PRIMARY')&&!l.toUpperCase().startsWith('CONSTRAINT')&&!l.toUpperCase().startsWith('INDEX'));
+    lines.forEach(line=>{
+      let parts=line.replace(/`/g,'').replace(/"/g,'').split(/\s+/);
+      if(parts.length<2)return;
+      let name=parts[0];
+      let type=parts.slice(1).join(' ');
+      let pk=/PRIMARY/i.test(line);
+      let nn=/NOT\s+NULL/i.test(line);
+      let unique=/UNIQUE/i.test(line);
+      let defMatch=/DEFAULT\s+(['"\w.]+)/i.exec(line);
+      columns.push({name,type:type.replace(/NOT\s+NULL/i,'').replace(/UNIQUE/i,'').replace(/PRIMARY/i,'').trim(),pk,nn,unique,def:defMatch?defMatch[1]:'',fk:'',comment:''});
+    });
+    if(!schemas[curSchema])schemas.push({name:'导入',tables:[]});
+    schemas[curSchema].tables.push({name:tableName,comment:'',columns});
+  }
+  save();render();
+}
+
+function copySQL(){
+  let s=schemas[curSchema];
+  navigator.clipboard.writeText(generateSQL(s));
+  alert('已复制到剪贴板');
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>

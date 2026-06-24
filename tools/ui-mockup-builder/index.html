@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI原型构建器</title>
+<meta name="description" content="可视化UI原型设计工具，拖拽创建高保真界面原型">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+#sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:var(--card);border-right:1px solid var(--border);padding:16px;overflow-y:auto;z-index:100}
+#sidebar h3{font-size:.8rem;color:var(--text2);margin:16px 0 8px;text-transform:uppercase;letter-spacing:1px}
+#sidebar .w{padding:8px 10px;margin:3px 0;border:1px solid var(--border);border-radius:6px;cursor:grab;font-size:.82rem;transition:all .15s;display:flex;align-items:center;gap:8px}
+#sidebar .w:hover{border-color:var(--accent);background:rgba(59,130,246,.08)}
+#sidebar .w .ic{width:24px;height:24px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px}
+#top{position:fixed;top:0;left:220px;right:240px;height:46px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:6px;z-index:100}
+#top button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:var(--transition)}
+#top button:hover{border-color:var(--accent);color:var(--accent)}
+#top .sp{width:1px;height:22px;background:var(--border);margin:0 4px}
+#canvas{position:fixed;top:46px;left:220px;right:240px;bottom:0;overflow:auto;display:flex;justify-content:center;padding:30px}
+#phone{width:375px;min-height:700px;background:#fff;border-radius:32px;box-shadow:0 12px 48px rgba(0,0,0,.4);position:relative;overflow:hidden;border:3px solid #333}
+.ui-el{position:absolute;cursor:move;border:2px dashed transparent;transition:border-color .1s;user-select:none}
+.ui-el:hover{border-color:var(--accent)}
+.ui-el.sel{border-color:var(--accent);box-shadow:0 0 8px rgba(59,130,246,.3)}
+.ui-el .rz{position:absolute;bottom:-5px;right:-5px;width:10px;height:10px;background:var(--accent);border-radius:2px;cursor:se-resize;display:none}
+.ui-el.sel .rz{display:block}
+.ui-nav{background:#1a1a2e;color:#fff;width:100%;height:100%;display:flex;align-items:center;padding:0 16px;font-size:15px;font-weight:600}
+.ui-status{background:#000;color:#fff;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px}
+.ui-card{background:#f3f4f6;border-radius:12px;width:100%;height:100%;padding:12px}
+.ui-btn{background:var(--accent);color:#fff;border-radius:10px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+.ui-input{background:#f9fafb;border:1px solid #d1d5db;border-radius:8px;width:100%;height:100%;padding:0 12px;color:#333;font-size:13px;display:flex;align-items:center}
+.ui-text{color:#111;font-size:14px;width:100%;height:100%;display:flex;align-items:center;padding:0 4px;white-space:pre-wrap}
+.ui-avatar{background:#e5e7eb;border-radius:50%;width:100%;height:100%}
+.ui-divider{width:100%;height:1px;background:#e5e7eb}
+.ui-toggle{width:51px;height:31px;background:#ccc;border-radius:16px;position:relative}
+.ui-toggle.on{background:var(--green)}
+.ui-toggle::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;background:#fff;border-radius:50%;transition:transform .2s}
+.ui-toggle.on::after{transform:translateX(20px)}
+.ui-icon{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px}
+.ui-img{background:#e5e7eb;border-radius:8px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:24px}
+#right{position:fixed;right:0;top:0;width:240px;height:100vh;background:var(--card);border-left:1px solid var(--border);padding:16px;overflow-y:auto;z-index:100}
+#right h3{font-size:.8rem;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+#right label{display:block;font-size:.78rem;color:var(--text2);margin:8px 0 3px}
+#right input,#right select{width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.82rem}
+#right input:focus{outline:none;border-color:var(--accent)}
+#right .color-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+#right .color-swatch{width:24px;height:24px;border-radius:4px;border:2px solid transparent;cursor:pointer}
+#right .color-swatch.active{border-color:#fff}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="UI原型构建器">
+<meta property="og:description" content="可视化UI原型设计工具，拖拽创建高保真界面原型">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:6px;left:228px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div id="sidebar">
+  <h3>基础组件</h3>
+  <div class="w" draggable="true" data-t="nav"><div class="ic">☰</div>导航栏</div>
+  <div class="w" draggable="true" data-t="status"><div class="ic">●</div>状态栏</div>
+  <div class="w" draggable="true" data-t="text"><div class="ic">T</div>文本</div>
+  <div class="w" draggable="true" data-t="btn"><div class="ic">▣</div>按钮</div>
+  <div class="w" draggable="true" data-t="input"><div class="ic">▭</div>输入框</div>
+  <div class="w" draggable="true" data-t="card"><div class="ic">▢</div>卡片</div>
+  <div class="w" draggable="true" data-t="avatar"><div class="ic">◎</div>头像</div>
+  <div class="w" draggable="true" data-t="img"><div class="ic">🖼</div>图片</div>
+  <div class="w" draggable="true" data-t="divider"><div class="ic">—</div>分割线</div>
+  <div class="w" draggable="true" data-t="toggle"><div class="ic">◉</div>开关</div>
+  <div class="w" draggable="true" data-t="icon"><div class="ic">★</div>图标</div>
+  <h3>模板</h3>
+  <div class="w" onclick="loadT('home')" style="cursor:pointer"><div class="ic">📄</div>首页</div>
+  <div class="w" onclick="loadT('detail')" style="cursor:pointer"><div class="ic">📄</div>详情页</div>
+  <div class="w" onclick="loadT('settings')" style="cursor:pointer"><div class="ic">📄</div>设置页</div>
+</div>
+<div id="top">
+  <b>🎨 UI原型</b><div class="sp"></div>
+  <button onclick="undo()">↩</button><button onclick="redo()">↪</button><div class="sp"></div>
+  <button onclick="delSel()">🗑</button><button onclick="dupSel()">📋</button><div class="sp"></div>
+  <button onclick="exportImg()">导出PNG</button><button onclick="exportJSON()">导出JSON</button>
+</div>
+<div id="canvas"><div id="phone"></div></div>
+<div id="right">
+  <h3>属性</h3>
+  <div id="pc"><p style="color:var(--text2);font-size:.82rem">选择元素编辑</p></div>
+</div>
+<script>
+document.title='🎨 UI原型构建器';
+const phone=document.getElementById('phone');
+const pc=document.getElementById('pc');
+let els=[],sel=null,hist=[],hi=-1,dType=null;
+
+const COLORS=['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#1f2937','#6b7280','#ffffff'];
+
+function push(){hist=hist.slice(0,hi+1);hist.push(JSON.parse(JSON.stringify(els)));hi++;if(hist.length>40){hist.shift();hi--}}
+function undo(){if(hi>0){hi--;els=JSON.parse(JSON.stringify(hist[hi]));sel=null;render();updP()}}
+function redo(){if(hi<hist.length-1){hi++;els=JSON.parse(JSON.stringify(hist[hi]));sel=null;render();updP()}}
+
+function render(){
+  phone.innerHTML='';
+  els.forEach((el,i)=>{
+    const d=document.createElement('div');
+    d.className='ui-el'+(sel===i?' sel':'');
+    d.style.cssText=`left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;${el.bg?'background:'+el.bg:''}`;
+    const cls={nav:'ui-nav',status:'ui-status',card:'ui-card',btn:'ui-btn',input:'ui-input',text:'ui-text',avatar:'ui-avatar',divider:'ui-divider',img:'ui-img',icon:'ui-icon'};
+    d.innerHTML=`<div class="${cls[el.type]||'ui-text'}" style="${el.color?'color:'+el.color:''}">${el.type==='toggle'?`<div class="ui-toggle${el.on?' on':''}"></div>`:el.type==='avatar'?'':el.type==='divider'?'':(el.text||'')}</div><div class="rz"></div>`;
+    d.addEventListener('mousedown',e=>{
+      if(e.target.className==='rz'){
+        e.stopPropagation();sel=i;
+        const sx=e.clientX,sy=e.clientY,sw=el.w,sh=el.h;
+        const mv=ev=>{el.w=Math.max(30,sw+ev.clientX-sx);el.h=Math.max(16,sh+ev.clientY-sy);render()};
+        const up=()=>{push();document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
+        document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);return;
+      }
+      e.stopPropagation();sel=i;
+      const sx=e.clientX,sy=e.clientY,ox=el.x,oy=el.y;
+      const mv=ev=>{el.x=ox+ev.clientX-sx;el.y=oy+ev.clientY-sy;render()};
+      const up=()=>{push();document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+      render();updP();
+    });
+    phone.appendChild(d);
+  });
+}
+
+function updP(){
+  if(sel===null||sel>=els.length){pc.innerHTML='<p style="color:var(--text2);font-size:.82rem">选择元素编辑</p>';return}
+  const e=els[sel];
+  pc.innerHTML=`
+    <label>类型</label><input value="${e.type}" disabled>
+    <label>X</label><input type="number" value="${e.x}" onchange="els[${sel}].x=+this.value;push();render()">
+    <label>Y</label><input type="number" value="${e.y}" onchange="els[${sel}].y=+this.value;push();render()">
+    <label>宽</label><input type="number" value="${e.w}" onchange="els[${sel}].w=+this.value;push();render()">
+    <label>高</label><input type="number" value="${e.h}" onchange="els[${sel}].h=+this.value;push();render()">
+    <label>文字</label><input value="${e.text||''}" onchange="els[${sel}].text=this.value;push();render()">
+    <label>背景色</label><div class="color-row">${COLORS.map(c=>`<div class="color-swatch${e.bg===c?' active':''}" style="background:${c}" onclick="els[${sel}].bg='${c}';push();render();updP()"></div>`).join('')}<div class="color-swatch" style="background:transparent;border:1px dashed var(--border)" onclick="els[${sel}].bg='';push();render();updP()"></div></div>
+    <label>文字色</label><div class="color-row">${COLORS.map(c=>`<div class="color-swatch${e.color===c?' active':''}" style="background:${c}" onclick="els[${sel}].color='${c}';push();render();updP()"></div>`).join('')}</div>
+    <button onclick="delSel()" style="margin-top:12px;width:100%;padding:6px;background:var(--red);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.82rem">删除</button>
+  `;
+}
+
+function delSel(){if(sel!==null){els.splice(sel,1);sel=null;push();render();updP()}}
+function dupSel(){if(sel!==null){const e=JSON.parse(JSON.stringify(els[sel]));e.x+=15;e.y+=15;els.push(e);sel=els.length-1;push();render();updP()}}
+
+document.querySelectorAll('.w[draggable]').forEach(w=>{w.addEventListener('dragstart',e=>{dType=e.target.dataset.t;e.dataTransfer.effectAllowed='copy'})});
+phone.addEventListener('dragover',e=>e.preventDefault());
+phone.addEventListener('drop',e=>{
+  e.preventDefault();if(!dType)return;
+  const r=phone.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  const defs={nav:{w:375,h:50,text:'标题',bg:'#1a1a2e',color:'#fff'},status:{w:375,h:44,text:'9:41',bg:'#000',color:'#fff'},text:{w:200,h:30,text:'文本内容'},btn:{w:160,h:44,text:'按钮',bg:'#3b82f6',color:'#fff'},input:{w:280,h:44,text:'请输入...'},card:{w:340,h:120},avatar:{w:48,h:48},img:{w:200,h:120},divider:{w:340,h:1},toggle:{w:51,h:31},icon:{w:32,h:32,text:'★'}};
+  const d=defs[dType]||{w:100,h:40};
+  els.push({type:dType,x,y,...d,on:false});sel=els.length-1;dType=null;push();render();updP();
+});
+
+phone.addEventListener('click',e=>{if(e.target===phone){sel=null;render();updP()}});
+
+function loadT(name){
+  els=[];
+  const t={
+    home:[{type:'status',x:0,y:0,w:375,h:44,text:'9:41',bg:'#000',color:'#fff'},{type:'nav',x:0,y:44,w:375,h:50,text:'首页',bg:'#1a1a2e',color:'#fff'},{type:'search',x:16,y:110,w:343,h:40,text:'搜索...',bg:'#f3f4f6'},{type:'card',x:16,y:165,w:343,h:100},{type:'card',x:16,y:280,w:165,h:80},{type:'card',x:194,y:280,w:165,h:80}],
+    detail:[{type:'status',x:0,y:0,w:375,h:44,text:'9:41',bg:'#000',color:'#fff'},{type:'nav',x:0,y:44,w:375,h:50,text:'详情',bg:'#1a1a2e',color:'#fff'},{type:'img',x:0,y:94,w:375,h:240},{type:'text',x:16,y:350,w:343,h:30,text:'商品标题'},{type:'text',x:16,y:390,w:100,h:24,text:'¥99.00',color:'#ef4444'},{type:'btn',x:16,y:440,w:343,h:48,text:'加入购物车',bg:'#3b82f6',color:'#fff'}],
+    settings:[{type:'status',x:0,y:0,w:375,h:44,text:'9:41',bg:'#000',color:'#fff'},{type:'nav',x:0,y:44,w:375,h:50,text:'设置',bg:'#1a1a2e',color:'#fff'},{type:'avatar',x:16,y:110,w:56,h:56},{type:'text',x:84,y:120,w:200,h:36,text:'用户名'},{type:'divider',x:16,y:180,w:343,h:1},{type:'text',x:16,y:195,w:200,h:44,text:'通知设置'},{type:'divider',x:16,y:244,w:343,h:1},{type:'text',x:16,y:258,w:200,h:44,text:'隐私'},{type:'divider',x:16,y:308,w:343,h:1},{type:'text',x:16,y:320,w:200,h:44,text:'深色模式'},{type:'toggle',x:308,y:330,w:51,h:31,on:true}]
+  };
+  els=t[name]||[];sel=null;push();render();updP();
+}
+
+function exportImg(){
+  const c=document.createElement('canvas');c.width=750;c.height=1400;
+  const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,750,1400);ctx.scale(2,2);
+  els.forEach(el=>{
+    ctx.fillStyle=el.bg||'#f3f4f6';ctx.fillRect(el.x,el.y,el.w,el.h);
+    ctx.fillStyle=el.color||'#333';ctx.font='13px sans-serif';
+    if(el.text)ctx.fillText(el.text,el.x+8,el.y+el.h/2+4);
+  });
+  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ui-mockup.png';a.click()});
+}
+
+function exportJSON(){
+  const b=new Blob([JSON.stringify(els,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ui-mockup.json';a.click();
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Delete')delSel();
+  if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}
+  if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}
+  if(e.ctrlKey&&e.key==='d'){e.preventDefault();dupSel()}
+});
+
+push();render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>
