@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流程图生成器 - Flowchart Generator</title>
+<meta name="description" content="在线流程图生成器，支持拖拽编辑，快速创建流程图">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='8' y='2' width='16' height='8' rx='2' fill='%23e94560'/><rect x='4' y='22' width='10' height='8' rx='2' fill='%230969da'/><rect x='18' y='22' width='10' height='8' rx='2' fill='%231a7f37'/><polygon points='16,12 22,18 10,18' fill='%23f5a623'/><line x1='16' y1='10' x2='16' y2='12' stroke='%23a0a0b0' stroke-width='1.5'/><line x1='16' y1='18' x2='9' y2='22' stroke='%23a0a0b0' stroke-width='1.5'/><line x1='16' y1='18' x2='23' y2='22' stroke='%23a0a0b0' stroke-width='1.5'/></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--text:#e0e0e0;--text2:#a0a0b0;--accent:#e94560;--accent2:#533483;--border:#2a2a4a;--radius:10px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--surface:#fff;--surface2:#f0f3f6;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#8250df;--border:#d0d7de}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+h1{font-size:20px;font-weight:700;color:var(--accent);padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.toolbar{position:fixed;top:56px;left:0;right:0;height:48px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:6px;z-index:100;overflow-x:auto}
+.toolbar button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;transition:var(--transition)}
+.toolbar button:hover{background:var(--accent2);border-color:var(--accent)}
+.toolbar .sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
+#canvas-wrap{position:fixed;top:104px;left:0;right:0;bottom:0;overflow:auto}
+canvas{display:block}
+.toggle-theme{position:fixed;top:16px;right:16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;z-index:200}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:420px}
+.modal label{display:block;font-size:13px;color:var(--text2);margin:8px 0 4px}
+.modal input,.modal select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-size:13px}
+.modal .btn{background:var(--accent);color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>🔀 流程图生成器 Flowchart Generator</h1>
+<button class="toggle-theme" onclick="toggleTheme()">🌙 / ☀️</button>
+<div class="toolbar">
+<button onclick="addNode('rect')">📦 矩形</button>
+<button onclick="addNode('diamond')">🔷 菱形</button>
+<button onclick="addNode('rounded')">⬜ 圆角</button>
+<button onclick="addNode('oval')">⭕ 圆形</button>
+<button onclick="addNode('parallelogram')">▱ 平行四边形</button>
+<div class="sep"></div>
+<button onclick="startConnect()">🔗 连线模式</button>
+<button onclick="deleteSelected()">🗑️ 删除</button>
+<button onclick="editSelected()">✏️ 编辑</button>
+<div class="sep"></div>
+<button onclick="exportPNG()">📷 导出PNG</button>
+<button onclick="exportJSON()">💾 导出JSON</button>
+<button onclick="importJSON()">📥 导入</button>
+</div>
+<div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+<div class="modal-overlay" id="modal"><div class="modal">
+<label>节点文本</label><input id="nodeText" placeholder="输入文本">
+<label>节点类型</label><select id="nodeType"><option value="rect">矩形</option><option value="diamond">菱形</option><option value="rounded">圆角</option><option value="oval">圆形</option><option value="parallelogram">平行四边形</option></select>
+<button class="btn" onclick="confirmEdit()">确定</button>
+</div></div>
+<script>
+function toggleTheme(){document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'}
+let nodeId=0,nodes=[],edges=[];
+function addNode(type){const n={id:nodeId++,text:type==='oval'?'开始/结束':type==='diamond'?'条件判断?':'操作',type,x:200+Math.random()*400,y:100+Math.random()*200,w:140,h:60,color:'#0969da'};nodes.push(n);selected=n;connectMode=false;render()}
+function findNode(id){return nodes.find(n=>n.id===id)}
+let selected=null,connectMode=false,connectFrom=null,dragging=null,dragOff={x:0,y:0};
+const cv=document.getElementById('canvas'),ctx=cv.getContext('2d'),wrap=document.getElementById('canvas-wrap');
+function drawShape(n){
+const{x,y,w,h,type}=n;
+ctx.beginPath();
+if(type==='rect'){ctx.rect(x-w/2,y-h/2,w,h)}
+else if(type==='diamond'){ctx.moveTo(x,y-h/2);ctx.lineTo(x+w/2,y);ctx.lineTo(x,y+h/2);ctx.lineTo(x-w/2,y);ctx.closePath()}
+else if(type==='rounded'){const r=12;ctx.moveTo(x-w/2+r,y-h/2);ctx.lineTo(x+w/2-r,y-h/2);ctx.quadraticCurveTo(x+w/2,y-h/2,x+w/2,y-h/2+r);
+ctx.lineTo(x+w/2,y+h/2-r);ctx.quadraticCurveTo(x+w/2,y+h/2,x+w/2-r,y+h/2);ctx.lineTo(x-w/2+r,y+h/2);
+ctx.quadraticCurveTo(x-w/2,y+h/2,x-w/2,y+h/2-r);ctx.lineTo(x-w/2,y-h/2+r);ctx.quadraticCurveTo(x-w/2,y-h/2,x-w/2+r,y-h/2);ctx.closePath()}
+else if(type==='oval'){ctx.ellipse(x,y,w/2,h/2,0,0,Math.PI*2)}
+else if(type==='parallelogram'){const off=15;ctx.moveTo(x-w/2+off,y-h/2);ctx.lineTo(x+w/2,y-h/2);ctx.lineTo(x+w/2-off,y+h/2);ctx.lineTo(x-w/2,y+h/2);ctx.closePath()}
+ctx.fillStyle=n===selected?n.color+'cc':n.color+'44';ctx.fill();
+ctx.strokeStyle=n===selected?'#fff':n.color;ctx.lineWidth=n===selected?2.5:1.5;ctx.stroke();
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+const lines=n.text.split('\n');
+lines.forEach((l,i)=>ctx.fillText(l,x,y+(i-(lines.length-1)/2)*16));
+}
+function drawEdge(e){
+const from=findNode(e.from),to=findNode(e.to);if(!from||!to)return;
+const dx=to.x-from.x,dy=to.y-from.y;
+const angle=Math.atan2(dy,dx);
+const fromPt={x:from.x+Math.cos(angle)*40,y:from.y+Math.sin(angle)*30};
+const toPt={x:to.x-Math.cos(angle)*40,y:to.y-Math.sin(angle)*30};
+ctx.beginPath();ctx.moveTo(fromPt.x,fromPt.y);ctx.lineTo(toPt.x,toPt.y);
+ctx.strokeStyle='#a0a0b0';ctx.lineWidth=1.5;ctx.stroke();
+const headLen=8;ctx.beginPath();ctx.moveTo(toPt.x,toPt.y);
+ctx.lineTo(toPt.x-headLen*Math.cos(angle-0.4),toPt.y-headLen*Math.sin(angle-0.4));
+ctx.lineTo(toPt.x-headLen*Math.cos(angle+0.4),toPt.y-headLen*Math.sin(angle+0.4));
+ctx.closePath();ctx.fillStyle='#a0a0b0';ctx.fill();
+if(e.label){const mx=(fromPt.x+toPt.x)/2,my=(fromPt.y+toPt.y)/2;
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+ctx.fillRect(mx-20,my-10,40,20);
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(e.label,mx,my)}
+}
+function render(){
+cv.width=Math.max(1200,wrap.clientWidth)*2;cv.height=Math.max(800,wrap.clientHeight)*2;
+cv.style.width=cv.width/2+'px';cv.style.height=cv.height/2+'px';
+ctx.scale(2,2);const W=cv.width/2;
+ctx.clearRect(0,0,W,cv.height/2);
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();ctx.fillRect(0,0,W,cv.height/2);
+edges.forEach(drawEdge);nodes.forEach(drawShape);
+}
+function hitTest(x,y){return nodes.find(n=>x>=n.x-n.w/2&&x<=n.x+n.w/2&&y>=n.y-n.h/2&&y<=n.y+n.h/2)}
+cv.addEventListener('mousedown',e=>{
+const rect=cv.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+if(connectMode){const hit=hitTest(x,y);if(hit){
+if(connectFrom&&connectFrom!==hit){const label=prompt('连线标签（可留空）：')||'';
+edges.push({from:connectFrom.id,to:hit.id,label});connectFrom=null;connectMode=false;render()}
+else connectFrom=hit}return}
+const hit=hitTest(x,y);if(hit){selected=hit;dragging=hit;dragOff={x:x-hit.x,y:y-hit.y};render()}
+else{selected=null;render()}
+});
+cv.addEventListener('mousemove',e=>{if(!dragging)return;
+const rect=cv.getBoundingClientRect();
+dragging.x=(e.clientX-rect.left)-dragOff.x;dragging.y=(e.clientY-rect.top)-dragOff.y;render()});
+cv.addEventListener('mouseup',()=>{dragging=null});
+cv.addEventListener('dblclick',e=>{const rect=cv.getBoundingClientRect();const hit=hitTest(e.clientX-rect.left,e.clientY-rect.top);
+if(hit){selected=hit;editSelected()}});
+function startConnect(){connectMode=true;connectFrom=null}
+function deleteSelected(){if(!selected)return;nodes=nodes.filter(n=>n.id!==selected.id);edges=edges.filter(e=>e.from!==selected.id&&e.to!==selected.id);selected=null;render()}
+function editSelected(){if(!selected)return;document.getElementById('nodeText').value=selected.text;document.getElementById('nodeType').value=selected.type;document.getElementById('modal').classList.add('show')}
+function confirmEdit(){selected.text=document.getElementById('nodeText').value||'未命名';selected.type=document.getElementById('nodeType').value;document.getElementById('modal').classList.remove('show');render()}
+function exportPNG(){const a=document.createElement('a');a.download='flowchart.png';a.href=cv.toDataURL('image/png');a.click()}
+function exportJSON(){const a=document.createElement('a');a.download='flowchart.json';a.href=URL.createObjectURL(new Blob([JSON.stringify({nodes,edges},null,2)],{type:'application/json'}));a.click()}
+function importJSON(){const json=prompt('粘贴 JSON：\n{"nodes":[{"id":0,"text":"开始","type":"oval","x":200,"y":100}],"edges":[{"from":0,"to":1}]}');
+if(!json)return;try{const d=JSON.parse(json);nodes=d.nodes;edges=d.edges;nodeId=Math.max(...nodes.map(n=>n.id))+1;render()}catch(e){alert('JSON 错误')}}
+addNode('oval');nodes[0].x=400;nodes[0].text='开始';
+addNode('rect');nodes[1].x=400;nodes[1].y=220;nodes[1].text='处理数据';
+addNode('diamond');nodes[2].x=400;nodes[2].y=360;nodes[2].text='数据有效？';
+addNode('rounded');nodes[3].x=250;nodes[3].y=500;nodes[3].text='记录错误';
+addNode('rect');nodes[4].x=550;nodes[4].y=500;nodes[4].text='保存结果';
+addNode('oval');nodes[5].x=400;nodes[5].y=620;nodes[5].text='结束';
+edges.push({from:0,to:1},{from:1,to:2},{from:2,to:3,label:'否'},{from:2,to:4,label:'是'},{from:3,to:5},{from:4,to:5});
+render();
+</script>
+</body>
+</html>

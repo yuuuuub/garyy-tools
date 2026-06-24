@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>组织架构图生成器 - Org Chart Generator</title>
+<meta name="description" content="在线组织架构图生成器，支持拖拽编辑，快速创建组织架构图">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='10' y='2' width='12' height='8' rx='2' fill='%23e94560'/><rect x='1' y='16' width='12' height='8' rx='2' fill='%230969da'/><rect x='19' y='16' width='12' height='8' rx='2' fill='%231a7f37'/><line x1='16' y1='10' x2='16' y2='16' stroke='%23a0a0b0' stroke-width='1.5'/><line x1='7' y1='16' x2='25' y2='16' stroke='%23a0a0b0' stroke-width='1.5'/><line x1='7' y1='10' x2='7' y2='16' stroke='%23a0a0b0' stroke-width='1.5'/><line x1='25' y1='10' x2='25' y2='16' stroke='%23a0a0b0' stroke-width='1.5'/></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--text:#e0e0e0;--text2:#a0a0b0;--accent:#e94560;--accent2:#533483;--border:#2a2a4a;--radius:10px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--surface:#fff;--surface2:#f0f3f6;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#8250df;--border:#d0d7de}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+h1{font-size:20px;font-weight:700;color:var(--accent);padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.toolbar{position:fixed;top:56px;left:0;right:0;height:48px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px;z-index:100}
+.toolbar button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:var(--transition)}
+.toolbar button:hover{background:var(--accent2);border-color:var(--accent)}
+.toolbar .sep{width:1px;height:24px;background:var(--border)}
+#canvas-wrap{position:fixed;top:104px;left:0;right:0;bottom:0;overflow:auto}
+canvas{display:block}
+.toggle-theme{position:fixed;top:16px;right:16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;z-index:200}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:380px}
+.modal label{display:block;font-size:13px;color:var(--text2);margin:8px 0 4px}
+.modal input{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-size:13px}
+.modal .btn{background:var(--accent);color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>🏢 组织架构图生成器 Org Chart Generator</h1>
+<button class="toggle-theme" onclick="toggleTheme()">🌙 / ☀️</button>
+<div class="toolbar">
+<button onclick="addChild()">➕ 添加下属</button>
+<button onclick="addSibling()">➕ 添加同级</button>
+<button onclick="deleteNode()">🗑️ 删除</button>
+<button onclick="editNode()">✏️ 编辑</button>
+<div class="sep"></div>
+<button onclick="exportPNG()">📷 导出PNG</button>
+<button onclick="exportJSON()">💾 导出JSON</button>
+<button onclick="importJSON()">📥 导入</button>
+</div>
+<div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+<div class="modal-overlay" id="modal"><div class="modal">
+<label>姓名</label><input id="nodeName" placeholder="姓名">
+<label>职位</label><input id="nodeRole" placeholder="职位">
+<button class="btn" onclick="confirmEdit()">确定</button>
+</div></div>
+<script>
+function toggleTheme(){document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'}
+let nodeId=0;
+function mkNode(name,role){return{id:nodeId++,name:name||'姓名',role:role||'职位',children:[],x:0,y:0,w:120,h:60}}
+let root=mkNode('CEO','首席执行官');
+root.children=[mkNode('CTO','技术总监',),mkNode('CFO','财务总监'),mkNode('COO','运营总监')];
+root.children[0].children=[mkNode('前端经理','前端开发'),mkNode('后端经理','后端开发')];
+root.children[1].children=[mkNode('会计','财务管理')];
+root.children[2].children=[mkNode('市场经理','市场营销'),mkNode('销售经理','销售')];
+let selected=root;
+const cv=document.getElementById('canvas'),ctx=cv.getContext('2d'),wrap=document.getElementById('canvas-wrap');
+function layoutOrg(n,depth){
+const nodeW=130,nodeH=70,hGap=20,vGap=80;
+n.w=nodeW;n.h=nodeH;
+if(!n.children.length)return{x:n.x,y:n.y,w:nodeW};
+n.children.forEach(c=>layoutOrg(c,depth+1));
+const totalChildW=n.children.reduce((s,c)=>s+c.w+hGap,0)-hGap;
+const startX=n.x-totalChildW/2;
+n.children.forEach(c=>{c.x=startX+c.w/2+0;startX;});
+n.children.reduce((acc,c,i)=>{
+c.x=acc.x+acc.w/2+hGap+c.w/2;
+return{...acc,x:acc.x+acc.w/2+hGap};
+},{x:n.x-n.w/2,w:n.w});
+}
+function calcWidths(n){
+if(!n.children.length)return n.w=130;
+n.children.forEach(calcWidths);
+n.w=n.children.reduce((s,c)=>s+c.w,0)+20*(n.children.length-1);
+return n.w;
+}
+function positionNodes(n,left,top){
+n.y=top;
+if(!n.children.length){n.x=left+n.w/2;return n.w}
+let cx=left;
+n.children.forEach(c=>{const w=positionNodes(c,cx,top+80);cx+=w+20});
+n.x=(n.children[0].x+n.children[n.children.length-1].x)/2;
+return cx-left-20;
+}
+function drawNode(n){
+const{x,y,w,h}=n;
+const r=8;ctx.beginPath();
+ctx.moveTo(x-w/2+r,y);ctx.lineTo(x+w/2-r,y);ctx.quadraticCurveTo(x+w/2,y,x+w/2,y+r);
+ctx.lineTo(x+w/2,y+h-r);ctx.quadraticCurveTo(x+w/2,y+h,x+w/2-r,y+h);
+ctx.lineTo(x-w/2+r,y+h);ctx.quadraticCurveTo(x-w/2,y+h,x-w/2,y+h-r);
+ctx.lineTo(x-w/2,y+r);ctx.quadraticCurveTo(x-w/2,y,x-w/2+r,y);ctx.closePath();
+ctx.fillStyle=n===selected?'#e94560cc':'#0969da44';ctx.fill();
+ctx.strokeStyle=n===selected?'#fff':'#0969da';ctx.lineWidth=n===selected?2:1.5;ctx.stroke();
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillText(n.name,x,y+16);
+ctx.font='11px sans-serif';ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+ctx.fillText(n.role,x,y+34);
+}
+function drawLines(n){
+n.children.forEach(c=>{
+ctx.beginPath();ctx.moveTo(n.x,n.y+n.h);
+ctx.lineTo(n.x,n.y+n.h+15);ctx.lineTo(c.x,n.y+n.h+15);ctx.lineTo(c.x,c.y);
+ctx.strokeStyle='#a0a0b060';ctx.lineWidth=1.5;ctx.stroke();
+drawLines(c);
+});
+}
+function render(){
+calcWidths(root);positionNodes(root,40,30);
+const maxX=Math.max(...(function flat(n){return[n,...n.children.flatMap(flat)]})(root).map(n=>n.x+n.w/2));
+const maxY=Math.max(...(function flat(n){return[n,...n.children.flatMap(flat)]})(root).map(n=>n.y+n.h));
+cv.width=Math.max(maxX+100,wrap.clientWidth)*2;cv.height=Math.max(maxY+60,wrap.clientHeight)*2;
+cv.style.width=cv.width/2+'px';cv.style.height=cv.height/2+'px';
+ctx.scale(2,2);
+ctx.clearRect(0,0,cv.width/2,cv.height/2);
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+ctx.fillRect(0,0,cv.width/2,cv.height/2);
+drawLines(root);
+(function drawAll(n){drawNode(n);n.children.forEach(drawAll)})(root);
+}
+function flatAll(n){return[n,...n.children.flatMap(flatAll)]}
+cv.addEventListener('mousedown',e=>{
+const rect=cv.getBoundingClientRect();const x=e.clientX-rect.left,y=e.clientY-rect.top;
+const hit=flatAll(root).find(n=>x>=n.x-n.w/2&&x<=n.x+n.w/2&&y>=n.y&&y<=n.y+n.h);
+if(hit){selected=hit;render()}
+});
+cv.addEventListener('dblclick',e=>{const rect=cv.getBoundingClientRect();
+const hit=flatAll(root).find(n=>(e.clientX-rect.left)>=n.x-n.w/2&&(e.clientX-rect.left)<=n.x+n.w/2&&(e.clientY-rect.top)>=n.y&&(e.clientY-rect.top)<=n.y+n.h);
+if(hit){selected=hit;editNode()}});
+function findParent(n,id){for(const c of n.children){if(c.id===id)return n;const f=findParent(c,id);if(f)return f}return null}
+function addChild(){const n=mkNode();selected.children.push(n);selected=n;render()}
+function addSibling(){if(selected===root)return;const p=findParent(root,selected.id);if(!p)return;
+const n=mkNode();const i=p.children.indexOf(selected);p.children.splice(i+1,0,n);selected=n;render()}
+function deleteNode(){if(selected===root)return;const p=findParent(root,selected.id);if(!p)return;
+p.children=p.children.filter(c=>c.id!==selected.id);selected=root;render()}
+function editNode(){document.getElementById('nodeName').value=selected.name;document.getElementById('nodeRole').value=selected.role;
+document.getElementById('modal').classList.add('show');document.getElementById('nodeName').focus()}
+function confirmEdit(){selected.name=document.getElementById('nodeName').value||'未命名';selected.role=document.getElementById('nodeRole').value||'';
+document.getElementById('modal').classList.remove('show');render()}
+function exportPNG(){const a=document.createElement('a');a.download='org-chart.png';a.href=cv.toDataURL('image/png');a.click()}
+function exportJSON(){function toJSON(n){return{name:n.name,role:n.role,children:n.children.map(toJSON)}}
+const a=document.createElement('a');a.download='org-chart.json';a.href=URL.createObjectURL(new Blob([JSON.stringify(toJSON(root),null,2)],{type:'application/json'}));a.click()}
+function importJSON(){const json=prompt('粘贴 JSON：\n{"name":"CEO","role":"首席执行官","children":[]}');
+if(!json)return;try{const d=JSON.parse(json);nodeId=0;function build(data){const n=mkNode(data.name,data.role);if(data.children)n.children=data.children.map(build);return n}
+root=build(d);selected=root;render()}catch(e){alert('JSON 错误')}}
+render();
+</script>
+</body>
+</html>

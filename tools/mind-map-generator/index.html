@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思维导图生成器 - Mind Map Generator</title>
+<meta name="description" content="在线思维导图生成器，支持拖拽编辑和导出，快速创建思维导图">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='6' fill='%23e94560'/><circle cx='4' cy='8' r='3' fill='%23533483'/><circle cx='28' cy='8' r='3' fill='%230f3460'/><circle cx='4' cy='24' r='3' fill='%230969da'/><circle cx='28' cy='24' r='3' fill='%231a7f37'/><line x1='16' y1='16' x2='4' y2='8' stroke='%23533483' stroke-width='1.5'/><line x1='16' y1='16' x2='28' y2='8' stroke='%230f3460' stroke-width='1.5'/><line x1='16' y1='16' x2='4' y2='24' stroke='%230969da' stroke-width='1.5'/><line x1='16' y1='16' x2='28' y2='24' stroke='%231a7f37' stroke-width='1.5'/></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+:root{--bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--text:#e0e0e0;--text2:#a0a0b0;--accent:#e94560;--accent2:#533483;--border:#2a2a4a;--radius:10px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--surface:#fff;--surface2:#f0f3f6;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#8250df;--border:#d0d7de}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+h1{font-size:20px;font-weight:700;color:var(--accent);padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.toolbar{position:fixed;top:56px;left:0;right:0;height:48px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px;z-index:100}
+.toolbar button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:var(--transition)}
+.toolbar button:hover{background:var(--accent2);border-color:var(--accent)}
+.toolbar .sep{width:1px;height:24px;background:var(--border)}
+#canvas-wrap{position:fixed;top:104px;left:0;right:0;bottom:0;overflow:auto;cursor:grab}
+canvas{display:block}
+.toggle-theme{position:fixed;top:16px;right:16px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;z-index:200}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:400px;max-width:90vw}
+.modal label{display:block;font-size:13px;color:var(--text2);margin:8px 0 4px}
+.modal input,.modal textarea{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-size:13px;font-family:monospace}
+.modal textarea{min-height:120px;resize:vertical}
+.modal .btn{background:var(--accent);color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>🧠 思维导图生成器 Mind Map Generator</h1>
+<button class="toggle-theme" onclick="toggleTheme()">🌙 / ☀️</button>
+<div class="toolbar">
+<button onclick="addChild()">➕ 添加子节点</button>
+<button onclick="addSibling()">➕ 添加兄弟节点</button>
+<button onclick="deleteNode()">🗑️ 删除节点</button>
+<button onclick="editNode()">✏️ 编辑节点</button>
+<div class="sep"></div>
+<button onclick="showImport()">📥 导入JSON</button>
+<button onclick="exportPNG()">📷 导出PNG</button>
+<button onclick="exportJSON()">💾 导出JSON</button>
+</div>
+<div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+<div class="modal-overlay" id="modal">
+<div class="modal">
+<label>节点文本</label>
+<input id="nodeText" placeholder="输入节点文本">
+<button class="btn" onclick="confirmEdit()">确定</button>
+</div>
+</div>
+<script>
+function toggleTheme(){document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'}
+let nodeId=0;
+const nodeColor=['#e94560','#0969da','#1a7f37','#f5a623','#8250df','#cf222e','#bf8700','#533483'];
+function makeNode(text,id){return{text,id:id??nodeId++,children:[],x:0,y:0,w:0,h:0,color:nodeColor[id%nodeColor.length]}}
+let root=makeNode('中心主题',0);nodeId=1;
+root.children=[makeNode('分支1',1),makeNode('分支2',2),makeNode('分支3',3)];
+root.children[0].children=[makeNode('子节点1.1',4),makeNode('子节点1.2',5)];
+root.children[1].children=[makeNode('子节点2.1',6)];
+let selected=root,dragging=null,dragOff={x:0,y:0};
+const cv=document.getElementById('canvas'),ctx=cv.getContext('2d');
+const wrap=document.getElementById('canvas-wrap');
+function measureNode(n){ctx.font=n===root?'bold 16px sans-serif':'14px sans-serif';
+const m=ctx.measureText(n.text);n.w=Math.max(m.width+28,80);n.h=32}
+function layoutTree(n,x,y,depth){
+measureNode(n);n.x=x;n.y=y;
+if(!n.children.length)return n.w;
+let totalW=0;const gaps=[];
+n.children.forEach(c=>{const w=layoutTree(c,0,y+80,depth+1);gaps.push(w);totalW+=w});
+totalW+=Math.max(0,(gaps.length-1)*30);
+let cx=x-totalW/2;
+n.children.forEach((c,i)=>{c.x=cx+gaps[i]/2;cx+=gaps[i]+30});
+return Math.max(n.w,totalW);
+}
+function drawNode(n){
+const r=8;
+ctx.beginPath();
+ctx.moveTo(n.x-n.w/2+r,n.y-n.h/2);
+ctx.lineTo(n.x+n.w/2-r,n.y-n.h/2);ctx.quadraticCurveTo(n.x+n.w/2,n.y-n.h/2,n.x+n.w/2,n.y-n.h/2+r);
+ctx.lineTo(n.x+n.w/2,n.y+n.h/2-r);ctx.quadraticCurveTo(n.x+n.w/2,n.y+n.h/2,n.x+n.w/2-r,n.y+n.h/2);
+ctx.lineTo(n.x-n.w/2+r,n.y+n.h/2);ctx.quadraticCurveTo(n.x-n.w/2,n.y+n.h/2,n.x-n.w/2,n.y+n.h/2-r);
+ctx.lineTo(n.x-n.w/2,n.y-n.h/2+r);ctx.quadraticCurveTo(n.x-n.w/2,n.y-n.h/2,n.x-n.w/2+r,n.y-n.h/2);
+ctx.closePath();
+ctx.fillStyle=n===selected?n.color:n.color+'90';
+ctx.fill();
+ctx.strokeStyle=n===selected?'#fff':n.color;ctx.lineWidth=n===selected?2.5:1.5;ctx.stroke();
+ctx.fillStyle='#fff';ctx.font=n===root?'bold 16px sans-serif':'14px sans-serif';
+ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n.text,n.x,n.y);
+}
+function drawLines(n){
+n.children.forEach(c=>{
+ctx.beginPath();ctx.moveTo(n.x,n.y+n.h/2);
+const midY=(n.y+n.h/2+c.y-c.h/2)/2;
+ctx.bezierCurveTo(n.x,midY,c.x,midY,c.x,c.y-c.h/2);
+ctx.strokeStyle=c.color+'60';ctx.lineWidth=2;ctx.stroke();
+drawLines(c);
+});
+}
+function render(){
+const totalW=layoutTree(root,0,0,0);
+cv.width=Math.max(totalW+200,wrap.clientWidth)*2;
+cv.height=Math.max(600,wrap.clientHeight)*2;
+cv.style.width=cv.width/2+'px';cv.style.height=cv.height/2+'px';
+ctx.scale(2,2);
+const W=cv.width/2;
+ctx.clearRect(0,0,W,cv.height/2);
+ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+ctx.fillRect(0,0,W,cv.height/2);
+drawLines(root);drawNode(root);
+n=>{ctx.beginPath();drawNode(n);n.children.forEach(arguments.callee)}(root);
+function drawAll(n){drawNode(n);n.children.forEach(drawAll)}drawAll(root);
+}
+function findNode(n,id){if(n.id===id)return n;for(const c of n.children){const f=findNode(c,id);if(f)return f}return null}
+function hitTest(n,x,y){if(x>=n.x-n.w/2&&x<=n.x+n.w/2&&y>=n.y-n.h/2&&y<=n.y+n.h/2)return n;
+for(const c of n.children){const h=hitTest(c,x,y);if(h)return h}return null}
+function findParent(n,id){for(const c of n.children){if(c.id===id)return n;const f=findParent(c,id);if(f)return f}return null}
+cv.addEventListener('mousedown',e=>{
+const rect=cv.getBoundingClientRect();
+const x=(e.clientX-rect.left),y=(e.clientY-rect.top);
+const hit=hitTest(root,x,y);
+if(hit){selected=hit;dragging=hit;dragOff={x:x-hit.x,y:y-hit.y};render()}
+});
+cv.addEventListener('mousemove',e=>{if(!dragging)return;
+const rect=cv.getBoundingClientRect();
+dragging.x=(e.clientX-rect.left)-dragOff.x;
+dragging.y=(e.clientY-rect.top)-dragOff.y;
+render();
+});
+cv.addEventListener('mouseup',()=>{dragging=null});
+cv.addEventListener('dblclick',e=>{
+const rect=cv.getBoundingClientRect();
+const hit=hitTest(root,(e.clientX-rect.left),(e.clientY-rect.top));
+if(hit){selected=hit;editNode()}
+});
+function addChild(){const n=makeNode('新节点',nodeId++);selected.children.push(n);selected=n;render()}
+function addSibling(){if(selected===root)return;const p=findParent(root,selected.id);if(!p)return;
+const n=makeNode('新节点',nodeId++);const i=p.children.indexOf(selected);p.children.splice(i+1,0,n);selected=n;render()}
+function deleteNode(){if(selected===root)return;const p=findParent(root,selected.id);if(!p)return;
+p.children=p.children.filter(c=>c.id!==selected.id);selected=root;render()}
+function editNode(){
+document.getElementById('nodeText').value=selected.text;
+document.getElementById('modal').classList.add('show');
+document.getElementById('nodeText').focus();
+}
+function confirmEdit(){selected.text=document.getElementById('nodeText').value||'未命名';
+document.getElementById('modal').classList.remove('show');render()}
+function showImport(){const json=prompt('粘贴 JSON 数据：\n格式：{"text":"中心","children":[{"text":"子1"},...]}');
+if(!json)return;try{const d=JSON.parse(json);root=makeNode(d.text,0);nodeId=1;
+function buildTree(data,parent){if(data.children)data.children.forEach(c=>{const n=makeNode(c.text,nodeId++);parent.children.push(n);buildTree(c,n)})}
+buildTree(d,root);selected=root;render()}catch(e){alert('JSON 格式错误')}}
+function exportJSON(){function toJSON(n){return{text:n.text,children:n.children.map(toJSON)}}
+const a=document.createElement('a');a.download='mindmap.json';a.href=URL.createObjectURL(new Blob([JSON.stringify(toJSON(root),null,2)],{type:'application/json'}));a.click()}
+function exportPNG(){const a=document.createElement('a');a.download='mindmap.png';a.href=cv.toDataURL('image/png');a.click()}
+render();
+</script>
+</body>
+</html>
