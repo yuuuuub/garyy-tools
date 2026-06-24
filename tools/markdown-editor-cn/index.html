@@ -91,48 +91,51 @@ function parseMarkdown(md) {
 
   // 代码块 (``` ... ```)
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    return `<pre><code class="lang-${lang}">${escapeHtml(code.trim())}</code></pre>`;
+    return `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code.trim())}</code></pre>`;
   });
 
   // 行内代码
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/`([^`]+)`/g, (_, code) => '<code>' + escapeHtml(code) + '</code>');
 
   // 标题
-  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  html = html.replace(/^#### (.+)$/gm, (_, t) => '<h4>' + escapeHtml(t) + '</h4>');
+  html = html.replace(/^### (.+)$/gm, (_, t) => '<h3>' + escapeHtml(t) + '</h3>');
+  html = html.replace(/^## (.+)$/gm, (_, t) => '<h2>' + escapeHtml(t) + '</h2>');
+  html = html.replace(/^# (.+)$/gm, (_, t) => '<h1>' + escapeHtml(t) + '</h1>');
 
   // 分割线
   html = html.replace(/^---+$/gm, '<hr>');
 
   // 引用
-  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/^> (.+)$/gm, (_, t) => '<blockquote>' + escapeHtml(t) + '</blockquote>');
 
-  // 粗体和斜体
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // 图片 (before links to avoid conflict)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" loading="lazy">');
 
   // 链接
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, href) => {
+    const safeHref = escapeHtml(href);
+    const isJs = /^\s*javascript\s*:/i.test(href);
+    return '<a href="' + (isJs ? '#' : safeHref) + '" target="_blank">' + escapeHtml(text) + '</a>';
+  });
 
-  // 图片
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  // 粗体和斜体
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, (_, t) => '<strong><em>' + escapeHtml(t) + '</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, (_, t) => '<strong>' + escapeHtml(t) + '</strong>');
+  html = html.replace(/\*(.+?)\*/g, (_, t) => '<em>' + escapeHtml(t) + '</em>');
 
   // 无序列表
-  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^[\-\*] (.+)$/gm, (_, t) => '<li>' + escapeHtml(t) + '</li>');
   html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
 
   // 有序列表
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^\d+\. (.+)$/gm, (_, t) => '<li>' + escapeHtml(t) + '</li>');
 
   // 表格
   html = html.replace(/^\|(.+)\|$/gm, (match, content) => {
     const cells = content.split('|').map(c => c.trim());
     if (cells.every(c => /^[-:]+$/.test(c))) return '---TABLE_SEP---';
-    const isHeader = false;
-    return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+    return '<tr>' + cells.map(c => '<td>' + escapeHtml(c) + '</td>').join('') + '</tr>';
   });
   html = html.replace(/((?:<tr>.*<\/tr>\n?---TABLE_SEP---\n?(?:<tr>.*<\/tr>\n?)+)/g, (match) => {
     const rows = match.split('---TABLE_SEP---');
@@ -316,6 +319,6 @@ console.log("你好！");
   if(e&&!e.value)e.value="# 你好世界\n\n这是一个 **Markdown** 示例。\n\n## 功能特性\n- **粗体文本**\n- *斜体文本*\n- [链接](https://example.com)\n\n```js\nconsole.log("你好！");\n```";
 })();
 </script>
-<script src="../i18n.js"></script>
+<script src="../i18n.js" defer></script>
 </body>
 </html>
