@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业税计算器</title>
+<meta name="description" content="企业税务计算器，计算增值税、企业所得税等">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;min-height:100vhscroll-behavior:smooth;padding:16px;}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+.form-row{display:flex;gap:12px;margin-bottom:12px}
+.form-row .group{flex:1}
+.form-row label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+.result-big{text-align:center;padding:18px}
+.result-big .label{font-size:.85rem;color:var(--text2);margin-bottom:4px}
+.result-big .value{font-size:2rem;font-weight:700}
+.result-big .value.red{color:var(--red)}
+.result-big .value.gold{color:var(--gold)}
+.result-big .value.green{color:var(--green)}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+.stat-card{text-align:center;padding:14px;background:var(--bg);border-radius:var(--radius)}
+.stat-card .label{font-size:.75rem;color:var(--text2);margin-bottom:4px}
+.stat-card .value{font-size:1.1rem;font-weight:700}
+.section-title{font-size:.95rem;font-weight:600;margin-bottom:12px;color:var(--text)}
+.tab-group{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{padding:6px 14px;border:1px solid var(--border);border-radius:20px;font-size:.82rem;background:var(--card);color:var(--text);cursor:pointer;transition:all .2s}
+.tab-btn:hover,.tab-btn.active{border-color:var(--blue);color:var(--blue)}
+.tax-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.tax-table th,.tax-table td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.tax-table th{color:var(--text2);font-weight:500;background:var(--bg);text-align:center}
+.tax-table td{text-align:center}
+.tax-table .active-row{background:rgba(59,130,246,.1);font-weight:600}
+.tax-table tr:last-child td{border-bottom:none}
+.chart-bar-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+.chart-bar-row .label{min-width:70px;font-size:.75rem;color:var(--text2)}
+.chart-bar-row .bar-track{flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden}
+.chart-bar-row .bar-fill{height:100%;border-radius:4px;transition:width .5s}
+.chart-bar-row .val{min-width:60px;text-align:right;font-size:.75rem;font-weight:600}
+@media(max-width:640px){.form-row{flex-direction:column}.grid-3{grid-template-columns:1fr}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏛️</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="企业税计算器">
+<meta property="og:description" content="企业税务计算器，计算增值税、企业所得税等">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/tax-calculator-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>🏛️ 企业税计算器</h1>
+    <p>增值税、企业所得税、附加税计算</p>
+  </header>
+
+  <div class="card">
+    <div class="tab-group" id="tabs"></div>
+  </div>
+
+  <div id="panels"></div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const fmt=n=>n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+const tabs=[
+  {id:'vat',name:'增值税',icon:'📋'},
+  {id:'cit',name:'企业所得税',icon:'🏢'},
+  {id:'sur',name:'附加税',icon:'📑'},
+  {id:'total',name:'综合税负',icon:'📊'}
+];
+
+let activeTab='vat';
+
+function renderTabs(){
+  $('tabs').innerHTML=tabs.map(t=>`<button class="tab-btn ${t.id===activeTab?'active':''}" onclick="switchTab('${t.id}')">${t.icon} ${t.name}</button>`).join('');
+}
+
+window.switchTab=function(id){activeTab=id;renderTabs();renderPanel();};
+
+function renderPanel(){
+  if(activeTab==='vat')renderVAT();
+  else if(activeTab==='cit')renderCIT();
+  else if(activeTab==='sur')renderSurtax();
+  else renderTotal();
+}
+
+function renderVAT(){
+  $('panels').innerHTML=`
+    <div class="card">
+      <div class="section-title">增值税计算</div>
+      <div class="form-row">
+        <div class="group"><label>销项税额 (元)</label><input type="number" id="vatOutput" value="130000" oninput="calcVAT()"></div>
+        <div class="group"><label>进项税额 (元)</label><input type="number" id="vatInput" value="100000" oninput="calcVAT()"></div>
+      </div>
+      <div class="form-row">
+        <div class="group"><label>税率</label>
+          <select id="vatRate" onchange="calcVAT()"><option value="13">13%</option><option value="9">9%</option><option value="6">6%</option><option value="3">3%</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="vatResult"></div>
+  `;
+  calcVAT();
+}
+
+window.calcVAT=function(){
+  const output=+$('vatOutput')?.value||0;
+  const input=+$('vatInput')?.value||0;
+  const rate=+$('vatRate')?.value||13;
+  const vat=Math.max(0,output-input);
+  const ratio=output>0?(vat/output*100):0;
+
+  $('vatResult').innerHTML=`
+    <div class="result-big"><div class="label">应缴增值税</div><div class="value red">¥${fmt(vat)}</div></div>
+    <div class="grid-3">
+      <div class="stat-card"><div class="label">销项税额</div><div class="value" style="color:var(--blue)">¥${fmt(output)}</div></div>
+      <div class="stat-card"><div class="label">进项税额</div><div class="value" style="color:var(--green)">¥${fmt(input)}</div></div>
+      <div class="stat-card"><div class="label">实际税负率</div><div class="value" style="color:var(--gold)">${ratio.toFixed(2)}%</div></div>
+    </div>
+    <div class="chart-bar-row" style="margin-top:12px"><div class="label">销项</div><div class="bar-track"><div class="bar-fill" style="width:${output/Math.max(output,1)*100}%;background:var(--blue)"></div></div><div class="val" style="color:var(--blue)">¥${fmt(output)}</div></div>
+    <div class="chart-bar-row"><div class="label">进项</div><div class="bar-track"><div class="bar-fill" style="width:${input/Math.max(output,1)*100}%;background:var(--green)"></div></div><div class="val" style="color:var(--green)">¥${fmt(input)}</div></div>
+    <div class="chart-bar-row"><div class="label">应缴</div><div class="bar-track"><div class="bar-fill" style="width:${vat/Math.max(output,1)*100}%;background:var(--red)"></div></div><div class="val" style="color:var(--red)">¥${fmt(vat)}</div></div>
+  `;
+};
+
+function renderCIT(){
+  $('panels').innerHTML=`
+    <div class="card">
+      <div class="section-title">企业所得税计算</div>
+      <div class="form-row">
+        <div class="group"><label>应纳税所得额 (元)</label><input type="number" id="citIncome" value="500000" oninput="calcCIT()"></div>
+      </div>
+      <div class="form-row">
+        <div class="group"><label>企业类型</label>
+          <select id="citType" onchange="calcCIT()"><option value="normal">一般企业 (25%)</option><option value="high">高新技术企业 (15%)</option><option value="small">小微企业 (优惠)</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="citResult"></div>
+  `;
+  calcCIT();
+}
+
+window.calcCIT=function(){
+  const income=+$('citIncome')?.value||0;
+  const type=$('citType')?.value||'normal';
+  let tax=0;
+  let effectiveRate=0;
+  let bracket='';
+
+  if(type==='high'){
+    tax=income*0.15;
+    effectiveRate=15;
+    bracket='高新技术企业 15%';
+  }else if(type==='small'){
+    if(income<=100000){tax=income*0.05;effectiveRate=5;bracket='≤10万: 5%';}
+    else if(income<=300000){tax=100000*0.05+(income-100000)*0.1;effectiveRate=(tax/income*100);bracket='10-30万: 5%+10%';}
+    else{tax=income*0.25;effectiveRate=25;bracket='超300万: 25%';}
+  }else{
+    if(income<=300000){tax=income*0.05;effectiveRate=5;bracket='≤300万: 5%';}
+    else if(income<=10000000){tax=300000*0.05+(income-300000)*0.1;effectiveRate=(tax/income*100);bracket='300万-1000万: 5%+10%';}
+    else{tax=income*0.25;effectiveRate=25;bracket='>1000万: 25%';}
+  }
+
+  $('citResult').innerHTML=`
+    <div class="result-big"><div class="label">应缴企业所得税</div><div class="value red">¥${fmt(tax)}</div></div>
+    <div class="grid-3">
+      <div class="stat-card"><div class="label">应纳税所得额</div><div class="value" style="color:var(--blue)">¥${fmt(income)}</div></div>
+      <div class="stat-card"><div class="label">有效税率</div><div class="value" style="color:var(--gold)">${effectiveRate.toFixed(2)}%</div></div>
+      <div class="stat-card"><div class="label">税后利润</div><div class="value" style="color:var(--green)">¥${fmt(income-tax)}</div></div>
+    </div>
+    <div style="text-align:center;font-size:.75rem;color:var(--text2);margin-top:8px">${bracket}</div>
+  `;
+};
+
+function renderSurtax(){
+  $('panels').innerHTML=`
+    <div class="card">
+      <div class="section-title">附加税计算</div>
+      <div class="form-row">
+        <div class="group"><label>增值税额 (元)</label><input type="number" id="surVat" value="30000" oninput="calcSurtax()"></div>
+      </div>
+    </div>
+    <div class="card" id="surResult"></div>
+  `;
+  calcSurtax();
+}
+
+window.calcSurtax=function(){
+  const vat=+$('surVat')?.value||0;
+  const urbanTax=vat*0.07;
+  const eduTax=vat*0.03;
+  const localEduTax=vat*0.02;
+  const total=urbanTax+eduTax+localEduTax;
+
+  $('surResult').innerHTML=`
+    <div class="result-big"><div class="label">附加税合计</div><div class="value red">¥${fmt(total)}</div></div>
+    <div class="grid-3">
+      <div class="stat-card"><div class="label">城建税 (7%)</div><div class="value" style="color:var(--blue)">¥${fmt(urbanTax)}</div></div>
+      <div class="stat-card"><div class="label">教育附加 (3%)</div><div class="value" style="color:var(--gold)">¥${fmt(eduTax)}</div></div>
+      <div class="stat-card"><div class="label">地方教育附加 (2%)</div><div class="value" style="color:var(--green)">¥${fmt(localEduTax)}</div></div>
+    </div>
+  `;
+};
+
+function renderTotal(){
+  $('panels').innerHTML=`
+    <div class="card">
+      <div class="section-title">综合税负计算</div>
+      <div class="form-row">
+        <div class="group"><label>营业收入 (元)</label><input type="number" id="totalRevenue" value="1000000" oninput="calcTotal()"></div>
+        <div class="group"><label>总成本 (元)</label><input type="number" id="totalCost" value="700000" oninput="calcTotal()"></div>
+      </div>
+      <div class="form-row">
+        <div class="group"><label>增值税率 (%)</label><input type="number" id="totalVatRate" value="13" min="0" max="100" oninput="calcTotal()"></div>
+      </div>
+    </div>
+    <div class="card" id="totalResult"></div>
+  `;
+  calcTotal();
+}
+
+window.calcTotal=function(){
+  const revenue=+$('totalRevenue')?.value||0;
+  const cost=+$('totalCost')?.value||0;
+  const vatRate=+$('totalVatRate')?.value||13;
+  const profit=revenue-cost;
+  const vat=revenue*vatRate/100*0.3;
+  const cit=profit>0?profit*0.25:0;
+  const surtax=vat*0.12;
+  const totalTax=vat+cit+surtax;
+  const effectiveRate=revenue>0?(totalTax/revenue*100):0;
+  const netProfit=profit-cit;
+
+  $('totalResult').innerHTML=`
+    <div class="result-big"><div class="label">综合税负</div><div class="value red">¥${fmt(totalTax)}</div></div>
+    <div class="grid-3">
+      <div class="stat-card"><div class="label">综合税负率</div><div class="value" style="color:var(--gold)">${effectiveRate.toFixed(2)}%</div></div>
+      <div class="stat-card"><div class="label">税前利润</div><div class="value" style="color:${profit>=0?'var(--green)':'var(--red)'}">¥${fmt(profit)}</div></div>
+      <div class="stat-card"><div class="label">税后利润</div><div class="value" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">¥${fmt(netProfit)}</div></div>
+    </div>
+  `;
+};
+
+renderTabs();renderPanel();
+})();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

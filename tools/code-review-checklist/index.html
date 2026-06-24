@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代码审查清单</title>
+<meta name="description" content>全面的代码审查检查清单，支持自定义和进度跟踪">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:800px;margin:0 auto}
+h1{font-size:1.6rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:16px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.9rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-danger{background:var(--red)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+input,textarea,select{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:8px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:60px}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.hidden{display:none!important}
+.progress-bar{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin:12px 0}
+.progress-fill{height:100%;background:var(--green);border-radius:5px;transition:width .3s}
+.check-item{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px;cursor:pointer;transition:background .15s}
+.check-item:hover{background:rgba(59,130,246,.05)}
+.check-item:last-child{border-bottom:none}
+.check-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;margin-top:2px}
+.check-box.checked{background:var(--green);border-color:var(--green);color:#fff}
+.check-text{flex:1}
+.check-title{font-size:.9rem;font-weight:600}
+.check-desc{font-size:.8rem;color:var(--text2);margin-top:2px}
+.category{margin-bottom:16px}
+.category-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s}
+.category-header:hover{border-color:var(--accent)}
+.category-header .arrow{transition:transform .2s;font-size:.8rem}
+.category-header .arrow.open{transform:rotate(90deg)}
+.category-count{font-size:.8rem;color:var(--text2)}
+.checklist-items{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:6px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600}
+.badge-critical{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-important{background:rgba(210,153,34,.2);color:var(--yellow)}
+.badge-normal{background:rgba(63,185,80,.2);color:var(--green)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+@media(max-width:600px){body{padding:10px}h1{font-size:1.3rem}}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="代码审查清单">
+<meta property="og:description" content="全面的代码审查检查清单">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='✅ 代码审查清单';
+const APP=document.getElementById('app');
+let checklists=JSON.parse(localStorage.getItem('cr_checklists')||'null');
+if(!checklists)checklists=[{name:'默认清单',categories:getDefaultChecklist()}];
+
+let curList=0;
+let openCats=new Set(checklists[0]?.categories.map((_,i)=>i));
+
+function getDefaultChecklist(){
+  return [
+    {name:'代码质量',items:[
+      {text:'代码是否遵循项目的编码规范？',desc:'命名约定、缩进、空格等',level:'important'},
+      {text:'是否有重复代码可以提取为公共函数？',desc:'DRY原则',level:'important'},
+      {text:'函数长度是否合理（不超过50行）？',desc:'单一职责原则',level:'normal'},
+      {text:'变量命名是否清晰有意义？',desc:'避免使用单字母变量',level:'important'},
+      {text:'是否有魔法数字或硬编码字符串？',desc:'应使用常量或配置',level:'normal'},
+      {text:'注释是否充分且有价值？',desc:'解释为什么而不是做什么',level:'normal'},
+    ]},
+    {name:'功能正确性',items:[
+      {text:'代码是否实现了需求中的所有功能？',desc:'逐条对照需求',level:'critical'},
+      {text:'边界条件是否都已处理？',desc:'空值、极端值、并发',level:'critical'},
+      {text:'错误处理是否完善？',desc:'try-catch、错误码、降级',level:'critical'},
+      {text:'是否有潜在的竞态条件？',desc:'异步操作、并发访问',level:'important'},
+      {text:'数据验证是否在服务端完成？',desc:'不信任客户端输入',level:'critical'},
+    ]},
+    {name:'安全性',items:[
+      {text:'是否有SQL注入风险？',desc:'使用参数化查询',level:'critical'},
+      {text:'是否有XSS漏洞？',desc:'转义用户输入',level:'critical'},
+      {text:'敏感数据是否加密存储？',desc:'密码、token等',level:'critical'},
+      {text:'权限检查是否完整？',desc:'API和页面级别',level:'critical'},
+      {text:'是否有敏感信息泄露（日志、错误信息）？',desc:'不暴露内部细节',level:'important'},
+    ]},
+    {name:'性能',items:[
+      {text:'是否有不必要的数据库查询？',desc:'N+1问题',level:'important'},
+      {text:'大数据量是否有分页或懒加载？',desc:'避免一次性加载',level:'normal'},
+      {text:'是否有内存泄漏风险？',desc:'事件监听器、定时器清理',level:'important'},
+      {text:'是否有缓存可以使用？',desc:'合理的缓存策略',level:'normal'},
+    ]},
+    {name:'测试',items:[
+      {text:'是否有足够的单元测试覆盖？',desc:'核心逻辑覆盖率>80%',level:'important'},
+      {text:'测试用例是否覆盖了边界情况？',desc:'正常、异常、边界',level:'important'},
+      {text:'集成测试是否通过？',desc:'端到端验证',level:'critical'},
+      {text:'是否有回归测试？',desc:'确保不影响已有功能',level:'normal'},
+    ]},
+    {name:'文档',items:[
+      {text:'README是否已更新？',desc:'新功能、配置变更',level:'normal'},
+      {text:'API文档是否已更新？',desc:'接口参数、返回值',level:'normal'},
+      {text:'变更日志是否记录？',desc:'CHANGELOG',level:'normal'},
+    ]},
+  ];
+}
+
+function save(){localStorage.setItem('cr_checklists',JSON.stringify(checklists))}
+
+function render(){
+  let h=`<h1>✅ 代码审查清单</h1><p class="subtitle">确保代码质量的全面检查清单</p>`;
+  let cl=checklists[curList];
+  if(!cl){curList=0;cl=checklists[0]}
+  let total=0,checked=0;
+  cl.categories.forEach(cat=>{total+=cat.items.length;checked+=cat.items.filter(i=>i.checked).length});
+  let pct=total?Math.round(checked/total*100):0;
+
+  h+=`<div class="card"><div class="flex-between"><div class="flex"><select style="width:auto;margin:0" onchange="curList=+this.value;render()">`;
+  checklists.forEach((c,i)=>{h+=`<option value="${i}" ${i===curList?'selected':''}>${esc(c.name)}</option>`});
+  h+=`</select><button class="btn btn-sm btn-outline" onclick="addList()">+ 新清单</button></div><div class="flex"><span style="font-size:.85rem;color:var(--text2)">${checked}/${total} (${pct}%)</span></div></div>`;
+  h+=`<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;
+
+  cl.categories.forEach((cat,ci)=>{
+    let catChecked=cat.items.filter(i=>i.checked).length;
+    let isOpen=openCats.has(ci);
+    h+=`<div class="category"><div class="category-header" onclick="toggleCat(${ci})"><div class="flex"><span class="arrow ${isOpen?'open':''}">▶</span><b>${esc(cat.name)}</b><span class="category-count">${catChecked}/${cat.items.length}</span></div><div class="flex"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();addItem(${ci})">+</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();delCat(${ci})" style="color:var(--red)">×</button></div></div>`;
+    if(isOpen){
+      h+=`<div class="checklist-items">`;
+      cat.items.forEach((item,ii)=>{
+        h+=`<div class="check-item" onclick="toggleItem(${ci},${ii})"><div class="check-box ${item.checked?'checked':''}">${item.checked?'✓':''}</div><div class="check-text"><div class="check-title">${esc(item.text)}</div><div class="check-desc">${esc(item.desc||'')} <span class="badge badge-${item.level}">${{critical:'关键',important:'重要',normal:'一般'}[item.level]}</span></div></div><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();delItem(${ci},${ii})" style="color:var(--red);padding:2px 6px">×</button></div>`;
+      });
+      h+=`</div>`;
+    }
+    h+=`</div>`;
+  });
+
+  if(pct===100&&total>0){
+    h+=`<div class="card" style="text-align:center;border-color:var(--green);background:rgba(63,185,80,.1)"><b style="color:var(--green);font-size:1.1rem">🎉 全部检查通过！</b></div>`;
+  }
+
+  APP.innerHTML=h;
+}
+
+function toggleCat(i){openCats.has(i)?openCats.delete(i):openCats.add(i);render()}
+function toggleItem(ci,ii){checklists[curList].categories[ci].items[ii].checked=!checklists[curList].categories[ci].items[ii].checked;save();render()}
+
+function addList(){
+  let name=prompt('清单名称：');if(!name)return;
+  checklists.push({name,categories:getDefaultChecklist()});
+  curList=checklists.length-1;save();render();
+}
+
+function addItem(ci){
+  let text=prompt('检查项：');if(!text)return;
+  let desc=prompt('说明（可选）：','');
+  let level=prompt('级别（critical/important/normal）：','important');
+  checklists[curList].categories[ci].items.push({text,desc:desc||'',level:level||'important',checked:false});
+  save();render();
+}
+
+function delItem(ci,ii){checklists[curList].categories[ci].items.splice(ii,1);save();render()}
+function delCat(ci){if(!confirm('确定删除此分类？'))return;checklists[curList].categories.splice(ci,1);save();render()}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>
