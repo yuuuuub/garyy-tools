@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>风险评估矩阵</title>
+<meta property="og:title" content="风险评估矩阵">
+<meta property="og:description" content="风险评估矩阵 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="风险评估工具，概率-影响矩阵分析，识别和管理项目风险">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚠️</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:4px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.9rem;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn-danger{background:var(--red)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.matrix{display:grid;grid-template-columns:auto repeat(5,1fr);grid-template-rows:auto repeat(5,1fr);gap:2px;margin:16px 0}
+.matrix-cell{padding:10px;text-align:center;font-size:.8rem;border-radius:4px;display:flex;align-items:center;justify-content:center;min-height:48px;cursor:pointer;transition:all .2s;border:2px solid transparent}
+.matrix-cell:hover{transform:scale(1.05);z-index:1}
+.matrix-cell.highlighted{border-color:var(--text);box-shadow:0 0 10px rgba(255,255,255,.3)}
+.matrix-header{background:var(--card);color:var(--text2);font-weight:600;font-size:.75rem}
+.risk-dot{width:10px;height:10px;border-radius:50%;position:absolute;cursor:pointer}
+.risk-list{max-height:300px;overflow-y:auto}
+.risk-item{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border);transition:background .2s}
+.risk-item:hover{background:rgba(59,130,246,.05)}
+.risk-dot-lg{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.risk-info{flex:1}
+.risk-name{font-weight:600;font-size:.9rem}
+.risk-desc{font-size:.8rem;color:var(--text2)}
+.risk-scores{display:flex;gap:4px;font-size:.75rem}
+.risk-score{padding:2px 6px;border-radius:4px;background:var(--bg)}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent)}
+.empty{text-align:center;color:var(--text2);padding:30px}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:100%;max-width:500px}
+.hidden{display:none!important}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}h1{font-size:1.4rem}.stats-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>⚠️ 风险评估矩阵</h1>
+<p class="subtitle">识别、评估和管理项目风险</p>
+
+<div class="stats-grid" id="statsGrid"></div>
+
+<div class="card">
+  <div class="flex-between">
+    <b>风险清单</b>
+    <button class="btn" onclick="showAddModal()">+ 添加风险</button>
+  </div>
+  <div class="risk-list" id="riskList"></div>
+</div>
+
+<div class="card">
+  <b style="display:block;margin-bottom:8px">概率-影响矩阵</b>
+  <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">点击格子查看该区域风险，颜色深浅代表风险等级</p>
+  <div style="overflow-x:auto">
+    <div class="matrix" id="matrix"></div>
+  </div>
+</div>
+
+<div class="card" id="matrixDetail" style="display:none">
+  <b id="matrixDetailTitle"></b>
+  <div id="matrixDetailContent"></div>
+</div>
+</div>
+
+<div class="modal-overlay hidden" id="addModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3 style="margin-bottom:16px" id="modalTitle">添加风险</h3>
+    <label>风险名称</label>
+    <input type="text" id="riskName" placeholder="例：技术方案不可行">
+    <label>风险描述</label>
+    <textarea id="riskDesc" placeholder="详细描述..."></textarea>
+    <label>概率 (1-5)</label>
+    <input type="number" id="riskProb" min="1" max="5" value="3">
+    <label>影响 (1-5)</label>
+    <input type="number" id="riskImpact" min="1" max="5" value="3">
+    <label>应对策略</label>
+    <input type="text" id="riskStrategy" placeholder="例：提前做技术验证">
+    <div class="flex" style="margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-danger btn-sm" onclick="closeModal()">取消</button>
+      <button class="btn" onclick="saveRisk()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.title='⚠️ 风险评估矩阵';
+let risks=JSON.parse(localStorage.getItem('risk_assessment_cn')||'[]');
+let editingId=null;
+
+function save(){localStorage.setItem('risk_assessment_cn',JSON.stringify(risks))}
+function getLevel(p,i){
+  const score=p*i;
+  if(score>=15)return{label:'极高',color:'var(--red)',cls:'badge-red'};
+  if(score>=8)return{label:'高',color:'var(--yellow)',cls:'badge-yellow'};
+  if(score>=4)return{label:'中',color:'var(--accent)',cls:'badge-blue'};
+  return{label:'低',color:'var(--green)',cls:'badge-green'};
+}
+
+function showAddModal(){editingId=null;document.getElementById('modalTitle').textContent='添加风险';document.getElementById('riskName').value='';document.getElementById('riskDesc').value='';document.getElementById('riskProb').value=3;document.getElementById('riskImpact').value=3;document.getElementById('riskStrategy').value='';document.getElementById('addModal').classList.remove('hidden')}
+function closeModal(){document.getElementById('addModal').classList.add('hidden')}
+function editRisk(id){
+  const r=risks.find(x=>x.id===id);if(!r)return;
+  editingId=id;document.getElementById('modalTitle').textContent='编辑风险';
+  document.getElementById('riskName').value=r.name;document.getElementById('riskDesc').value=r.desc;
+  document.getElementById('riskProb').value=r.prob;document.getElementById('riskImpact').value=r.impact;
+  document.getElementById('riskStrategy').value=r.strategy||'';
+  document.getElementById('addModal').classList.remove('hidden');
+}
+function saveRisk(){
+  const name=document.getElementById('riskName').value.trim();
+  const desc=document.getElementById('riskDesc').value.trim();
+  const prob=Math.min(5,Math.max(1,+document.getElementById('riskProb').value||3));
+  const impact=Math.min(5,Math.max(1,+document.getElementById('riskImpact').value||3));
+  const strategy=document.getElementById('riskStrategy').value.trim();
+  if(!name)return;
+  if(editingId){const r=risks.find(x=>x.id===editingId);if(r){r.name=name;r.desc=desc;r.prob=prob;r.impact=impact;r.strategy=strategy}}
+  else risks.push({id:Date.now(),name,desc,prob,impact,strategy,created:new Date().toISOString()});
+  save();render();closeModal();
+}
+function deleteRisk(id){risks=risks.filter(r=>r.id!==id);save();render()}
+
+function render(){
+  const high=risks.filter(r=>r.prob*r.impact>=15).length;
+  const med=risks.filter(r=>{const s=r.prob*r.impact;return s>=8&&s<15}).length;
+  const low=risks.filter(r=>r.prob*r.impact<8).length;
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="card stat"><div class="stat-num" style="color:var(--text)">${risks.length}</div><div class="stat-label">总风险数</div></div>
+    <div class="card stat"><div class="stat-num" style="color:var(--red)">${high}</div><div class="stat-label">高风险</div></div>
+    <div class="card stat"><div class="stat-num" style="color:var(--yellow)">${med}</div><div class="stat-label">中风险</div></div>
+    <div class="card stat"><div class="stat-num" style="color:var(--green)">${low}</div><div class="stat-label">低风险</div></div>`;
+  
+  let listHtml='';
+  if(risks.length===0)listHtml='<div class="empty">暂无风险记录，点击上方按钮添加</div>';
+  [...risks].sort((a,b)=>(b.prob*b.impact)-(a.prob*a.impact)).forEach(r=>{
+    const level=getLevel(r.prob,r.impact);
+    listHtml+=`<div class="risk-item">
+      <div class="risk-dot-lg" style="background:${level.color}"></div>
+      <div class="risk-info"><div class="risk-name">${r.name}</div><div class="risk-desc">${r.desc||'暂无描述'}</div>
+        <div class="risk-scores"><span class="badge ${level.cls}">${level.label}</span><span class="risk-score">概率:${r.prob}</span><span class="risk-score">影响:${r.impact}</span></div>
+        ${r.strategy?`<div style="font-size:.8rem;margin-top:4px;color:var(--accent)">💡 ${r.strategy}</div>`:''}
+      </div>
+      <div class="flex" style="gap:4px"><button class="btn btn-sm btn-outline" onclick="editRisk(${r.id})" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;font-size:.75rem">编辑</button><button class="btn btn-sm btn-danger" onclick="deleteRisk(${r.id})" style="padding:4px 8px;font-size:.75rem">✕</button></div>
+    </div>`;
+  });
+  document.getElementById('riskList').innerHTML=listHtml;
+  
+  const probLabels=['极低','低','中','高','极高'];
+  const impactLabels=['极低','低','中','高','极高'];
+  let mHtml=`<div class="matrix-cell matrix-header" style="writing-mode:vertical-rl;transform:rotate(180deg)">概率 →</div>`;
+  for(let j=4;j>=0;j--)mHtml+=`<div class="matrix-cell matrix-header">${probLabels[j]}<br>(${j+1})</div>`;
+  for(let i=0;i<5;i++){
+    mHtml+=`<div class="matrix-cell matrix-header">${impactLabels[i]}<br>(${i+1})</div>`;
+    for(let j=4;j>=0;j--){
+      const p=j+1,imp=i+1;
+      const level=getLevel(p,imp);
+      const opacity=level.label==='极高'?'0.4':level.label==='高'?'0.25':level.label==='中'?'0.15':'0.08';
+      const count=risks.filter(r=>r.prob===p&&r.impact===imp).length;
+      mHtml+=`<div class="matrix-cell" style="background:${level.color};opacity:${opacity}" onclick="showMatrixDetail(${p},${imp})">${count||''}</div>`;
+    }
+  }
+  document.getElementById('matrix').innerHTML=mHtml;
+}
+
+function showMatrixDetail(p,imp){
+  const level=getLevel(p,imp);
+  const matched=risks.filter(r=>r.prob===p&&r.impact===imp);
+  document.getElementById('matrixDetailTitle').textContent=`概率=${p} 影响=${imp} (${level.label}风险)`;
+  let h='';
+  if(matched.length===0)h='<div class="empty">该区域暂无风险</div>';
+  else matched.forEach(r=>{h+=`<div class="risk-item"><div class="risk-info"><div class="risk-name">${r.name}</div><div class="risk-desc">${r.desc||''}</div></div></div>`});
+  document.getElementById('matrixDetailContent').innerHTML=h;
+  document.getElementById('matrixDetail').style.display='block';
+}
+
+render();
+</script>
+</body>
+</html>
