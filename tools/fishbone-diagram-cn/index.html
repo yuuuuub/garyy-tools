@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐟 鱼骨图</title>
+<meta name="description" content="鱼骨图工具，因果分析可视化">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#bf8700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:1000px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,textarea{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px;font-family:inherit}
+input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-family:inherit}
+button:hover{opacity:.9}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+button.grn{background:var(--green)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.fish-svg{width:100%;border:1px solid var(--border);border-radius:8px;background:var(--bg);overflow:auto}
+.fish-svg svg{display:block;margin:0 auto}
+.category-panel{margin-bottom:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.category-panel h3{font-size:.95rem;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.category-panel .color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cause-item{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.cause-item input{margin-bottom:0;flex:1;font-size:.85rem;padding:6px 10px}
+.cause-item button{padding:3px 8px;font-size:.75rem}
+.cause-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:var(--card);border:1px solid var(--border);border-radius:16px;font-size:.8rem;margin:2px}
+.cause-tag button{background:none;color:var(--red);padding:0 2px;font-size:.9rem}
+.hidden{display:none!important}
+@media(max-width:600px){body{padding:10px}.ctn{max-width:100%}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.ctn{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐟</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🐟 鱼骨图">
+<meta property="og:description" content="鱼骨图工具，因果分析可视化">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/fishbone-diagram-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn" id="app"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='fishbone_data';
+let diagrams=JSON.parse(localStorage.getItem(STORE)||'[]');
+let curIdx=-1;
+const CATS=[
+  {key:'man',label:'人员 Man',color:'#3b82f6'},
+  {key:'method',label:'方法 Method',color:'#ef4444'},
+  {key:'material',label:'材料 Material',color:'#22c55e'},
+  {key:'machine',label:'机器 Machine',color:'#f59e0b'},
+  {key:'env',label:'环境 Environment',color:'#8b5cf6'},
+  {key:'measure',label:'测量 Measurement',color:'#ec4899'}
+];
+function save(){localStorage.setItem(STORE,JSON.stringify(diagrams))}
+function render(){
+  let h=`<div class="hdr"><h1>🐟 鱼骨图</h1><p>因果分析可视化（石川图）</p></div>`;
+  h+=`<div class="flex" style="justify-content:center;margin-bottom:16px"><button onclick="newDiagram()">+ 新建鱼骨图</button>`;
+  if(diagrams.length>0)h+=`<select onchange="curIdx=parseInt(this.value);render()" style="min-width:150px"><option value="-1">选择图表</option>${diagrams.map((d,i)=>`<option value="${i}"${i===curIdx?' selected':''}>${d.name}</option>`).join('')}</select>`;
+  h+=`</div>`;
+  if(curIdx>=0&&curIdx<diagrams.length){
+    const d=diagrams[curIdx];
+    h+=`<div class="cd"><div class="flex-between"><input type="text" value="${d.name}" onchange="diagrams[${curIdx}].name=this.value;save()" style="width:250px;margin-bottom:0;font-weight:700" placeholder="图表名称"><div class="flex"><button class="sec" style="padding:6px 12px;font-size:.8rem" onclick="exportImg()">导出图片</button><button class="dng" style="padding:6px 12px;font-size:.8rem" onclick="delDiagram()">删除</button></div></div></div>`;
+    h+=`<div class="cd"><h2>问题/结果</h2><input type="text" id="fishProblem" value="${d.problem||''}" placeholder="描述要分析的问题或结果..." onchange="diagrams[${curIdx}].problem=this.value;save();drawFish()"></div>`;
+    h+=`<div class="cd"><h2>鱼骨图</h2><div class="fish-svg" id="fishContainer"></div></div>`;
+    h+=`<div class="cd"><h2>原因分类</h2>`;
+    CATS.forEach(cat=>{
+      const causes=d.causes[cat.key]||[];
+      h+=`<div class="category-panel"><h3><span class="color-dot" style="background:${cat.color}"></span>${cat.label} (${causes.length})</h3>`;
+      h+=`<div class="cause-item"><input type="text" id="cause_${cat.key}" placeholder="添加原因..." onkeydown="if(event.key==='Enter')addCause('${cat.key}')"><button onclick="addCause('${cat.key}')">+</button></div>`;
+      causes.forEach((c,ci)=>{
+        h+=`<span class="cause-tag">${c.text}<button onclick="removeCause('${cat.key}',${ci})">✕</button></span>`;
+        if(c.causes&&c.causes.length>0){
+          c.causes.forEach((sub,si)=>{
+            h+=`<span class="cause-tag" style="margin-left:20px;font-size:.75rem;color:var(--text2)">↳ ${sub}<button onclick="removeSubCause('${cat.key}',${ci},${si})">✕</button></span>`;
+          });
+          h+=`<div class="cause-item" style="margin-left:20px"><input type="text" id="sub_${cat.key}_${ci}" placeholder="添加子原因..." onkeydown="if(event.key==='Enter')addSubCause('${cat.key}',${ci})" style="font-size:.8rem"><button onclick="addSubCause('${cat.key}',${ci})" style="padding:2px 8px;font-size:.75rem">+</button></div>`;
+        }else{
+          h+=`<div class="cause-item" style="margin-left:20px"><input type="text" id="sub_${cat.key}_${ci}" placeholder="添加子原因..." onkeydown="if(event.key==='Enter')addSubCause('${cat.key}',${ci})" style="font-size:.8rem"><button onclick="addSubCause('${cat.key}',${ci})" style="padding:2px 8px;font-size:.75rem">+</button></div>`;
+        }
+      });
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  }
+  $('app').innerHTML=h;
+  if(curIdx>=0)drawFish();
+}
+function drawFish(){
+  const d=diagrams[curIdx];if(!d)return;
+  const container=$('fishContainer');if(!container)return;
+  const W=Math.max(800,container.clientWidth);
+  const H=400;
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif">`;
+  const spineY=H/2,headX=W-100,tailX=60;
+  svg+=`<line x1="${tailX}" y1="${spineY}" x2="${headX}" y2="${spineY}" stroke="var(--accent)" stroke-width="3"/>`;
+  svg+=`<polygon points="${headX},${spineY-30} ${headX+50},${spineY} ${headX},${spineY+30}" fill="var(--accent)" opacity=".3" stroke="var(--accent)" stroke-width="1.5"/>`;
+  const problem=d.problem||'问题/结果';
+  svg+=`<text x="${headX+10}" y="${spineY+5}" font-size="12" font-weight="bold" fill="var(--text)">${problem.length>8?problem.slice(0,8)+'…':problem}</text>`;
+  const upperCats=CATS.slice(0,3),lowerCats=CATS.slice(3);
+  const segW=(headX-tailX-40)/3;
+  upperCats.forEach((cat,ci)=>{
+    const cx=tailX+30+segW*ci+segW/2;
+    const topY=30;
+    svg+=`<line x1="${cx}" y1="${spineY}" x2="${cx-40}" y2="${topY+40}" stroke="${cat.color}" stroke-width="2"/>`;
+    svg+=`<rect x="${cx-60}" y="${topY}" width="120" height="28" rx="6" fill="${cat.color}" opacity=".15" stroke="${cat.color}" stroke-width="1"/>`;
+    svg+=`<text x="${cx}" y="${topY+18}" text-anchor="middle" font-size="11" font-weight="bold" fill="${cat.color}">${cat.label.split(' ')[0]}</text>`;
+    const causes=(d.causes[cat.key]||[]).slice(0,4);
+    causes.forEach((c,ci2)=>{
+      const ratio=(ci2+1)/(causes.length+1);
+      const bx=cx-40*ratio;
+      const by=spineY-(spineY-topY-40)*ratio;
+      svg+=`<line x1="${bx}" y1="${by}" x2="${bx+20}" y2="${by-15}" stroke="${cat.color}" stroke-width="1" opacity=".7"/>`;
+      svg+=`<text x="${bx+22}" y="${by-17}" font-size="9" fill="var(--text)">${c.text.length>10?c.text.slice(0,10)+'…':c.text}</text>`;
+    });
+  });
+  lowerCats.forEach((cat,ci)=>{
+    const cx=tailX+30+segW*ci+segW/2;
+    const botY=H-30;
+    svg+=`<line x1="${cx}" y1="${spineY}" x2="${cx-40}" y2="${botY-40}" stroke="${cat.color}" stroke-width="2"/>`;
+    svg+=`<rect x="${cx-60}" y="${botY-28}" width="120" height="28" rx="6" fill="${cat.color}" opacity=".15" stroke="${cat.color}" stroke-width="1"/>`;
+    svg+=`<text x="${cx}" y="${botY-10}" text-anchor="middle" font-size="11" font-weight="bold" fill="${cat.color}">${cat.label.split(' ')[0]}</text>`;
+    const causes=(d.causes[cat.key]||[]).slice(0,4);
+    causes.forEach((c,ci2)=>{
+      const ratio=(ci2+1)/(causes.length+1);
+      const bx=cx-40*ratio;
+      const by=spineY+(botY-40-spineY)*ratio;
+      svg+=`<line x1="${bx}" y1="${by}" x2="${bx+20}" y2="${by+15}" stroke="${cat.color}" stroke-width="1" opacity=".7"/>`;
+      svg+=`<text x="${bx+22}" y="${by+13}" font-size="9" fill="var(--text)">${c.text.length>10?c.text.slice(0,10)+'…':c.text}</text>`;
+    });
+  });
+  svg+=`</svg>`;
+  container.innerHTML=svg;
+}
+function newDiagram(){const name=prompt('请输入图表名称：','鱼骨图分析');if(!name)return;diagrams.push({name,problem:'',causes:{man:[],method:[],material:[],machine:[],env:[],measure:[]}});curIdx=diagrams.length-1;save();render()}
+function delDiagram(){if(!confirm('确定删除？'))return;diagrams.splice(curIdx,1);curIdx=diagrams.length>0?0:-1;save();render()}
+function addCause(key){const input=$('cause_'+key);const text=input.value.trim();if(!text)return;diagrams[curIdx].causes[key].push({text,causes:[]});save();input.value='';render()}
+function removeCause(key,i){diagrams[curIdx].causes[key].splice(i,1);save();render()}
+function addSubCause(key,ci){const input=$('sub_'+key+'_'+ci);const text=input.value.trim();if(!text)return;diagrams[curIdx].causes[key][ci].causes.push(text);save();input.value='';render()}
+function removeSubCause(key,ci,si){diagrams[curIdx].causes[key][ci].causes.splice(si,1);save();render()}
+function exportImg(){
+  const container=$('fishContainer');if(!container)return;
+  const svg=container.querySelector('svg');if(!svg)return;
+  const data=new XMLSerializer().serializeToString(svg);
+  const blob=new Blob([data],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='fishbone-diagram.svg';a.click();URL.revokeObjectURL(url);
+}
+render();
+</script>
+</body>
+</html>

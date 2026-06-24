@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔄 价值流图</title>
+<meta name="description" content="价值流图工具，精益生产流程分析">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#bf8700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:1100px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,textarea,select{padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-family:inherit}
+button:hover{opacity:.9}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+button.grn{background:var(--green)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.item-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--border);flex-wrap:wrap}
+.item-row label{margin:0;font-size:.75rem;min-width:50px}
+.item-row input,.item-row select{margin-bottom:0;font-size:.85rem;padding:6px 10px}
+.item-row input[type=text]{flex:2;min-width:120px}
+.item-row input[type=number]{width:80px}
+.item-row button{padding:4px 10px;font-size:.8rem}
+.vsm-svg{width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg)}
+.vsm-svg svg{display:block}
+.timeline-row{display:grid;gap:0;margin-top:12px}
+.tl-cell{padding:8px 6px;text-align:center;font-size:.8rem;border:1px solid var(--border)}
+.tl-cell.va{background:rgba(59,130,246,.1);color:var(--accent)}
+.tl-cell.nva{background:rgba(248,81,73,.08);color:var(--red)}
+.tl-cell .val{font-weight:700;font-size:1rem}
+.tl-cell .lbl{font-size:.7rem;color:var(--text2)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.summary-item{text-align:center;padding:14px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.summary-item .num{font-size:1.4rem;font-weight:700;color:var(--accent)}
+.summary-item .lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
+.hidden{display:none!important}
+@media(max-width:768px){.summary-grid{grid-template-columns:repeat(2,1fr)}body{padding:10px}.item-row{flex-direction:column;align-items:stretch}.item-row input[type=text]{min-width:100%}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.ctn{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔄</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🔄 价值流图">
+<meta property="og:description" content="价值流图工具，精益生产流程分析">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/value-stream-map-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn" id="app"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='vsm_data';
+let maps=JSON.parse(localStorage.getItem(STORE)||'[]');
+let curIdx=-1;
+function save(){localStorage.setItem(STORE,JSON.stringify(maps))}
+function render(){
+  let h=`<div class="hdr"><h1>🔄 价值流图</h1><p>精益生产流程分析（VSM）</p></div>`;
+  h+=`<div class="flex" style="justify-content:center;margin-bottom:16px"><button onclick="newMap()">+ 新建价值流图</button>`;
+  if(maps.length>0)h+=`<select onchange="curIdx=parseInt(this.value);render()" style="min-width:150px"><option value="-1">选择图表</option>${maps.map((m,i)=>`<option value="${i}"${i===curIdx?' selected':''}>${m.name}</option>`).join('')}</select>`;
+  h+=`</div>`;
+  if(curIdx>=0&&curIdx<maps.length){
+    const m=maps[curIdx];
+    h+=`<div class="cd"><div class="flex-between"><input type="text" value="${m.name}" onchange="maps[${curIdx}].name=this.value;save()" style="width:250px;margin-bottom:0;font-weight:700" placeholder="图表名称"><div class="flex"><button class="sec" style="padding:6px 12px;font-size:.8rem" onclick="exportImg()">导出图片</button><button class="dng" style="padding:6px 12px;font-size:.8rem" onclick="delMap()">删除</button></div></div></div>`;
+    h+=`<div class="cd"><h2>供应商 / 客户</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label>供应商</label><input type="text" value="${m.supplier||''}" placeholder="供应商名称" onchange="maps[${curIdx}].supplier=this.value;save()"></div><div><label>客户</label><input type="text" value="${m.customer||''}" placeholder="客户名称" onchange="maps[${curIdx}].customer=this.value;save()"></div></div></div>`;
+    h+=`<div class="cd"><h2>流程步骤 <button class="sec" style="float:right;padding:4px 12px;font-size:.8rem" onclick="addStep()">+ 添加</button></h2>`;
+    m.steps.forEach((s,i)=>{
+      h+=`<div class="item-row"><label>名称</label><input type="text" value="${s.name}" placeholder="步骤名称" onchange="maps[${curIdx}].steps[${i}].name=this.value;save();render()">`;
+      h+=`<label>C/T</label><input type="number" value="${s.ct}" min="0" placeholder="秒" onchange="maps[${curIdx}].steps[${i}].ct=parseFloat(this.value)||0;save();render()">`;
+      h+=`<label>C/O</label><input type="number" value="${s.co}" min="0" placeholder="秒" onchange="maps[${curIdx}].steps[${i}].co=parseFloat(this.value)||0;save();render()">`;
+      h+=`<label>UP%</label><input type="number" value="${s.uptime}" min="0" max="100" placeholder="%" onchange="maps[${curIdx}].steps[${i}].uptime=parseFloat(this.value)||100;save();render()">`;
+      h+=`<label>人数</label><input type="number" value="${s.operators}" min="1" style="width:50px" onchange="maps[${curIdx}].steps[${i}].operators=parseInt(this.value)||1;save();render()">`;
+      h+=`<button class="dng" onclick="removeStep(${i})">✕</button></div>`;
+      if(i<m.steps.length-1){
+        h+=`<div style="text-align:center;padding:6px;font-size:.8rem;color:var(--text2)">▸ 库存/WIP: <input type="number" value="${m.steps[i].inventory||0}" min="0" style="width:70px;display:inline-block;padding:4px 8px;margin:0 4px" onchange="maps[${curIdx}].steps[${i}].inventory=parseInt(this.value)||0;save();render()"> 件</div>`;
+      }
+    });
+    h+=`</div>`;
+    const metrics=calcMetrics(m);
+    h+=`<div class="cd"><h2>流程时间线</h2>`;
+    h+=`<div style="display:grid;grid-template-columns:repeat(${m.steps.length*2},1fr);gap:0">`;
+    m.steps.forEach((s,i)=>{
+      h+=`<div class="tl-cell va"><div class="lbl">增值时间</div><div class="val">${fmtSec(s.ct)}</div><div class="lbl">${s.name}</div></div>`;
+      if(i<m.steps.length-1){
+        const lt=(s.inventory||0)*s.ct;
+        h+=`<div class="tl-cell nva"><div class="lbl">前置时间</div><div class="val">${fmtSec(lt)}</div><div class="lbl">WIP: ${s.inventory||0}</div></div>`;
+      }
+    });
+    h+=`</div></div>`;
+    h+=`<div class="cd"><h2>汇总指标</h2><div class="summary-grid">`;
+    h+=`<div class="summary-item"><div class="num">${fmtSec(metrics.totalVA)}</div><div class="lbl">总增值时间</div></div>`;
+    h+=`<div class="summary-item"><div class="num" style="color:var(--red)">${fmtSec(metrics.totalLT)}</div><div class="lbl">总前置时间</div></div>`;
+    h+=`<div class="summary-item"><div class="num">${metrics.efficiency.toFixed(1)}%</div><div class="lbl">流程效率</div></div>`;
+    h+=`<div class="summary-item"><div class="num">${m.steps.length}</div><div class="lbl">流程步骤</div></div>`;
+    h+=`</div></div>`;
+    h+=`<div class="cd"><h2>VSM流程图</h2><div class="vsm-svg" id="vsmContainer"></div></div>`;
+  }
+  $('app').innerHTML=h;
+  if(curIdx>=0)drawVSM();
+}
+function fmtSec(s){if(s<60)return s.toFixed(0)+'s';if(s<3600)return(s/60).toFixed(1)+'m';return(s/3600).toFixed(1)+'h'}
+function calcMetrics(m){
+  let totalVA=0,totalLT=0;
+  m.steps.forEach((s,i)=>{totalVA+=s.ct||0;if(i<m.steps.length-1)totalLT+=(s.inventory||0)*(s.ct||0);});
+  const efficiency=totalVA+totalLT>0?(totalVA/(totalVA+totalLT))*100:0;
+  return{totalVA,totalLT,efficiency};
+}
+function drawVSM(){
+  const m=maps[curIdx];if(!m)return;
+  const container=$('vsmContainer');if(!container)return;
+  const n=m.steps.length;
+  const W=Math.max(600,container.clientWidth);
+  const H=220;
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif">`;
+  const stepW=Math.min(120,(W-200)/(n||1));
+  const startX=100,stepY=60,stepH=50;
+  svg+=`<rect x="10" y="${stepY+5}" width="70" height="40" rx="6" fill="var(--accent)" opacity=".15" stroke="var(--accent)"/>`;
+  svg+=`<text x="45" y="${stepY+30}" text-anchor="middle" font-size="10" font-weight="bold" fill="var(--text)">${(m.supplier||'供应商').slice(0,4)}</text>`;
+  const custX=W-80;
+  svg+=`<rect x="${custX}" y="${stepY+5}" width="70" height="40" rx="6" fill="var(--green)" opacity=".15" stroke="var(--green)"/>`;
+  svg+=`<text x="${custX+35}" y="${stepY+30}" text-anchor="middle" font-size="10" font-weight="bold" fill="var(--text)">${(m.customer||'客户').slice(0,4)}</text>`;
+  svg+=`<line x1="80" y1="${stepY+25}" x2="${custX}" y2="${stepY+25}" stroke="var(--text2)" stroke-width="1" stroke-dasharray="4,4"/>`;
+  m.steps.forEach((s,i)=>{
+    const x=startX+i*(stepW+30);
+    svg+=`<rect x="${x}" y="${stepY}" width="${stepW}" height="${stepH}" rx="4" fill="var(--card)" stroke="var(--accent)" stroke-width="1.5"/>`;
+    svg+=`<text x="${x+stepW/2}" y="${stepY+20}" text-anchor="middle" font-size="9" font-weight="bold" fill="var(--text)">${s.name.length>8?s.name.slice(0,8)+'…':s.name}</text>`;
+    svg+=`<text x="${x+stepW/2}" y="${stepY+35}" text-anchor="middle" font-size="8" fill="var(--text2)">C/T:${s.ct}s UP:${s.uptime}%</text>`;
+    if(i<n-1){
+      const arrowX=x+stepW+2;
+      svg+=`<line x1="${arrowX}" y1="${stepY+stepH/2}" x2="${arrowX+26}" y2="${stepY+stepH/2}" stroke="var(--green)" stroke-width="2" marker-end="url(#arrow)"/>`;
+      const inv=(s.inventory||0);
+      if(inv>0){
+        svg+=`<polygon points="${arrowX+8},${stepY+stepH/2-8} ${arrowX+20},${stepY+stepH/2-8} ${arrowX+20},${stepY+stepH/2+8} ${arrowX+8},${stepY+stepH/2+8}" fill="none" stroke="var(--yellow)" stroke-width="1.5"/>`;
+        svg+=`<text x="${arrowX+14}" y="${stepY+stepH/2+3}" text-anchor="middle" font-size="7" fill="var(--yellow)">${inv}</text>`;
+      }
+    }
+  });
+  svg+=`<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--green)"/></marker></defs>`;
+  svg+=`</svg>`;
+  container.innerHTML=svg;
+}
+function newMap(){const name=prompt('请输入图表名称：','价值流图');if(!name)return;maps.push({name,supplier:'',customer:'',steps:[{name:'步骤1',ct:60,co:0,uptime:100,operators:1,inventory:0},{name:'步骤2',ct:45,co:0,uptime:95,operators:1,inventory:10},{name:'步骤3',ct:30,co:0,uptime:90,operators:1,inventory:5}]});curIdx=maps.length-1;save();render()}
+function delMap(){if(!confirm('确定删除？'))return;maps.splice(curIdx,1);curIdx=maps.length>0?0:-1;save();render()}
+function addStep(){maps[curIdx].steps.push({name:'新步骤',ct:0,co:0,uptime:100,operators:1,inventory:0});save();render()}
+function removeStep(i){maps[curIdx].steps.splice(i,1);save();render()}
+function exportImg(){
+  const container=$('vsmContainer');if(!container)return;
+  const svg=container.querySelector('svg');if(!svg)return;
+  const data=new XMLSerializer().serializeToString(svg);
+  const blob=new Blob([data],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='vsm-diagram.svg';a.click();URL.revokeObjectURL(url);
+}
+render();
+</script>
+</body>
+</html>

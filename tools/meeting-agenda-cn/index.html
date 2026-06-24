@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📋 会议议程</title>
+<meta name="description" content="会议议程规划工具，快速创建和管理会议议程">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#bf8700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:700px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}
+.hdr h1{font-size:1.8rem;font-weight:700}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:60px}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px;margin-top:10px}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-family:inherit}
+button:hover{opacity:.9}
+button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+button.grn{background:var(--green)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start}
+.item .num{background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0}
+.item .content{flex:1}
+.item .title{font-weight:600;margin-bottom:4px}
+.item .meta{font-size:.8rem;color:var(--text2)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.hidden{display:none!important}
+.timer{font-size:1.5rem;font-weight:700;text-align:center;color:var(--accent);font-variant-numeric:tabular-nums}
+.agenda-item{position:relative;padding-left:40px;margin-bottom:12px}
+.agenda-item .dot{position:absolute;left:10px;top:4px;width:20px;height:20px;border-radius:50%;border:2px solid var(--border)}
+.agenda-item.done .dot{background:var(--green);border-color:var(--green)}
+.remove-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:1.1rem;padding:0 4px}
+@media(max-width:600px){body{padding:10px}.ctn{max-width:100%}.cd{padding:14px}h1{font-size:1.4rem}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.ctn{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📋 会议议程">
+<meta property="og:description" content="会议议程规划工具，快速创建和管理会议议程">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/meeting-agenda-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn" id="app"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='mtg_agenda';
+let agendas=JSON.parse(localStorage.getItem(STORE)||'[]');
+let curView='list',curId=null;
+function save(){localStorage.setItem(STORE,JSON.stringify(agendas))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function render(){
+  let h=`<div class="hdr"><h1>📋 会议议程</h1><p>快速创建和管理会议议程</p></div>`;
+  h+=`<div class="flex" style="justify-content:center;margin-bottom:16px"><button onclick="showNew()">新建议程</button><button class="sec" onclick="curView='list';render()">议程列表</button></div>`;
+  h+=`<div id="viewNew" class="${curView==='new'?'':'hidden'}"></div>`;
+  h+=`<div id="viewList" class="${curView==='list'?'':'hidden'}"></div>`;
+  h+=`<div id="viewDetail" class="${curView==='detail'?'':'hidden'}"></div>`;
+  $('app').innerHTML=h;
+  if(curView==='new')renderNew();
+  else if(curView==='list')renderList();
+  else if(curView==='detail')renderDetail();
+}
+function renderNew(){
+  let h=`<div class="cd"><h2>新建会议议程</h2>`;
+  h+=`<label>会议名称</label><input id="aName" placeholder="输入会议名称">`;
+  h+=`<label>会议日期</label><input type="date" id="aDate">`;
+  h+=`<label>会议时间</label><input type="time" id="aTime">`;
+  h+=`<label>参会人员</label><input id="aAttendees" placeholder="用逗号分隔">`;
+  h+=`<label>会议目标</label><textarea id="aGoal" placeholder="本次会议要达成的目标"></textarea>`;
+  h+=`<h2 style="margin-top:16px">议程项目</h2><div id="agendaItems"></div>`;
+  h+=`<button class="sec" onclick="addAgendaItem()" style="margin-top:8px">+ 添加议程项</button>`;
+  h+=`<div class="bg"><button onclick="saveAgenda()">保存议程</button><button class="sec" onclick="curView='list';render()">取消</button></div></div>`;
+  $('viewNew').innerHTML=h;
+  window._items=[];
+  addAgendaItem();
+}
+function addAgendaItem(){
+  const items=window._items;
+  items.push({title:'',duration:10,owner:'',notes:''});
+  renderAgendaItems();
+}
+function removeAgendaItem(i){window._items.splice(i,1);renderAgendaItems()}
+function renderAgendaItems(){
+  let h='';
+  window._items.forEach((item,i)=>{
+    h+=`<div class="item"><span class="num">${i+1}</span><div class="content">`;
+    h+=`<input placeholder="议程项标题" value="${item.title}" onchange="window._items[${i}].title=this.value">`;
+    h+=`<div class="flex"><input type="number" placeholder="分钟" value="${item.duration}" style="width:80px" onchange="window._items[${i}].duration=+this.value">`;
+    h+=`<input placeholder="负责人" value="${item.owner}" style="flex:1" onchange="window._items[${i}].owner=this.value">`;
+    h+=`<button class="remove-btn" onclick="removeAgendaItem(${i})">✕</button></div>`;
+    h+=`</div></div>`;
+  });
+  $('agendaItems').innerHTML=h;
+}
+function saveAgenda(){
+  const name=$('aName').value.trim();
+  if(!name){alert('请输入会议名称');return}
+  agendas.push({id:uid(),name,date:$('aDate').value,time:$('aTime').value,attendees:$('aAttendees').value,goal:$('aGoal').value,items:window._items,createdAt:new Date().toISOString()});
+  save();curView='list';render();
+}
+function renderList(){
+  let h=`<div class="cd">`;
+  if(!agendas.length){h+=`<p style="text-align:center;color:var(--text2);padding:30px">暂无议程，点击"新建议程"开始</p>`}
+  agendas.slice().reverse().forEach(a=>{
+    h+=`<div class="flex-between" style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewAgenda('${a.id}')">`;
+    h+=`<div><b>${a.name}</b><div style="font-size:.8rem;color:var(--text2)">${a.date||'未定日期'} ${a.time||''} · ${a.items?a.items.length:0}个议程项</div></div>`;
+    h+=`<button class="dng" style="padding:4px 10px;font-size:.8rem" onclick="event.stopPropagation();delAgenda('${a.id}')">删除</button></div>`;
+  });
+  h+=`</div>`;$('viewList').innerHTML=h;
+}
+function viewAgenda(id){curId=id;curView='detail';render()}
+function delAgenda(id){if(!confirm('确定删除?'))return;agendas=agendas.filter(a=>a.id!==id);save();render()}
+function renderDetail(){
+  const a=agendas.find(x=>x.id===curId);if(!a){curView='list';render();return}
+  let h=`<div class="cd"><h2>${a.name}</h2>`;
+  h+=`<p style="color:var(--text2);margin-bottom:12px">${a.date||''} ${a.time||''}</p>`;
+  if(a.attendees)h+=`<p style="margin-bottom:8px"><b>参会人员：</b>${a.attendees}</p>`;
+  if(a.goal)h+=`<p style="margin-bottom:16px"><b>会议目标：</b>${a.goal}</p>`;
+  if(a.items&&a.items.length){
+    h+=`<h2 style="margin-top:16px">议程列表</h2>`;
+    a.items.forEach((item,i)=>{
+      h+=`<div class="agenda-item" onclick="toggleDone('${a.id}',${i})"><div class="dot"></div>`;
+      h+=`<div><b>${i+1}. ${item.title||'未命名'}</b>`;
+      h+=`<div style="font-size:.8rem;color:var(--text2)">${item.duration}分钟 ${item.owner?'· '+item.owner:''}</div>`;
+      if(item.notes)h+=`<div style="font-size:.85rem;margin-top:4px">${item.notes}</div>`;
+      h+=`</div></div>`;
+    });
+  }
+  h+=`<div class="bg" style="margin-top:16px"><button class="sec" onclick="curView='list';render()">返回列表</button><button class="dng" onclick="delAgenda('${a.id}')">删除</button></div></div>`;
+  $('viewDetail').innerHTML=h;
+}
+function toggleDone(id,idx){
+  const a=agendas.find(x=>x.id===id);if(!a)return;
+  if(!a._done)a._done=[];
+  const i=a._done.indexOf(idx);if(i>-1)a._done.splice(i,1);else a._done.push(idx);
+  save();renderDetail();
+}
+function showNew(){curView='new';render()}
+render();
+</script>
+</body>
+</html>
