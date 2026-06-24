@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JWT解析器</title><meta name="description" content="JWT解析器 - 在线解析和验证JSON Web Token"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}textarea{width:100%;min-height:120px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;outline:none}textarea:focus{border-color:var(--blue)}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px}.btn:hover{opacity:.85}.section{margin-top:16px}.section h3{font-size:.95rem;margin-bottom:10px;color:var(--accent)}.json-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:.82rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto}.label{font-size:.75rem;color:var(--text2);margin-bottom:4px}.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}.badge-valid{background:rgba(35,134,54,.15);color:var(--green)}.badge-invalid{background:rgba(239,68,68,.15);color:var(--red)}.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem}.info-row:last-child{border-bottom:none}.info-row .k{color:var(--text2)}.info-row .v{font-weight:500;text-align:right;max-width:60%;word-break:break-all}</style></head><body>
+<div class="container"><h1>🔑 JWT解析器</h1><p class="sub">在线解析JSON Web Token</p>
+<div class="card"><div class="label">粘贴JWT Token</div>
+<textarea id="jwtInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"></textarea>
+<button class="btn" onclick="parseJWT()">解析</button></div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+function parseJWT(){
+  var token=document.getElementById('jwtInput').value.trim();
+  var r=document.getElementById('result');
+  if(!token){r.innerHTML='<div class="card" style="color:var(--red)">请输入JWT Token</div>';return;}
+  var parts=token.split('.');
+  if(parts.length!==3){r.innerHTML='<div class="card" style="color:var(--red)">无效的JWT格式（需要3个部分）</div>';return;}
+  try{
+    var header=JSON.parse(atob(parts[0].replace(/-/g,'+').replace(/_/g,'/')));
+    var payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    var valid=true;
+    if(payload.exp){valid=Date.now()/1000<payload.exp;}
+    var html='<div class="card"><div class="section"><h3>📋 Header</h3><div class="json-block">'+syntaxHighlight(JSON.stringify(header,null,2))+'</div></div>';
+    html+='<div class="section"><h3>📦 Payload</h3><div class="json-block">'+syntaxHighlight(JSON.stringify(payload,null,2))+'</div></div>';
+    html+='<div class="section"><h3>ℹ️ 信息</h3>';
+    html+='<div class="info-row"><span class="k">算法</span><span class="v">'+(header.alg||'N/A')+'</span></div>';
+    html+='<div class="info-row"><span class="k">类型</span><span class="v">'+(header.typ||'JWT')+'</span></div>';
+    if(payload.sub) html+='<div class="info-row"><span class="k">Subject</span><span class="v">'+payload.sub+'</span></div>';
+    if(payload.iss) html+='<div class="info-row"><span class="k">签发者</span><span class="v">'+payload.iss+'</span></div>';
+    if(payload.iat) html+='<div class="info-row"><span class="k">签发时间</span><span class="v">'+new Date(payload.iat*1000).toLocaleString('zh-CN')+'</span></div>';
+    if(payload.exp) html+='<div class="info-row"><span class="k">过期时间</span><span class="v">'+new Date(payload.exp*1000).toLocaleString('zh-CN')+'</span></div>';
+    if(payload.nbf) html+='<div class="info-row"><span class="k">生效时间</span><span class="v">'+new Date(payload.nbf*1000).toLocaleString('zh-CN')+'</span></div>';
+    html+='<div class="info-row"><span class="k">状态</span><span class="v"><span class="badge '+(valid?'badge-valid':'badge-invalid')+'">'+(valid?'✅ 有效':'❌ 已过期')+'</span></span></div>';
+    html+='</div></div>';
+    r.innerHTML=html;
+  }catch(e){r.innerHTML='<div class="card" style="color:var(--red)">解析失败: '+e.message+'</div>';}
+}
+function syntaxHighlight(json){
+  return json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"([^"]+)"(?=\s*:)/g,'<span style="color:#79c0ff">"$1"</span>')
+    .replace(/:\s*"([^"]*)"/g,': <span style="color:#a5d6ff">"$1"</span>')
+    .replace(/:\s*(\d+)/g,': <span style="color:#d2a8ff">$1</span>')
+    .replace(/:\s*(true|false)/g,': <span style="color:#ff7b72">$1</span>');
+}
+parseJWT();
+</script></body></html>
