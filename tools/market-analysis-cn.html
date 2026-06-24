@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="综合市场分析仪表板 - 股票价格走势、成交量、技术指标一体化分析工具">
+    <meta name="robots" content="index, follow">
+    <title>综合市场分析仪表板</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        .stat-box { text-align: center; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); }
+        .stat-box .num { font-size: 24px; font-weight: bold; }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .stat-up { color: var(--success-color); }
+        .stat-down { color: var(--danger-color); }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .legend span { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { font-weight: bold; background: var(--card-bg); }
+        tr:hover { background: var(--card-bg); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>综合市场分析仪表板</h1>
+
+        <div class="card">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>输入价格数据（逗号分隔，从旧到新）</label>
+                    <input type="text" id="priceInput" placeholder="例: 10,10.5,10.3,10.8,11.0,10.7,11.2" value="50,52,51,55,53,57,56,59,61,60,64,62,65,68,67,70,72,71,74,76,75,78,80,79,82,84,83,86,88,87,90,92,91,94,96,95,98,100,99,102,104,103,106,108,107,110,112,111,114,116">
+                </div>
+                <div class="form-group">
+                    <label>股票代码 / 名称</label>
+                    <input type="text" id="symbolInput" value="DEMO" placeholder="例: AAPL">
+                </div>
+            </div>
+            <button onclick="analyze()">分析市场</button>
+        </div>
+
+        <div id="statsArea" class="grid-4" style="display:none;"></div>
+
+        <div class="card" id="chartCard" style="display:none;">
+            <h3>价格走势图</h3>
+            <canvas id="priceChart" height="300"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> 价格</span>
+                <span><i style="background:#ffc107;"></i> MA5</span>
+                <span><i style="background:#dc3545;"></i> MA10</span>
+                <span><i style="background:#28a745;"></i> MA20</span>
+            </div>
+        </div>
+
+        <div class="card" id="volCard" style="display:none;">
+            <h3>成交量分析</h3>
+            <canvas id="volChart" height="200"></canvas>
+        </div>
+
+        <div class="card" id="rsiCard" style="display:none;">
+            <h3>RSI 指标</h3>
+            <canvas id="rsiChart" height="150"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> RSI(14)</span>
+                <span><i style="background:#dc3545;"></i> 超买线(70)</span>
+                <span><i style="background:#28a745;"></i> 超卖线(30)</span>
+            </div>
+        </div>
+
+        <div class="card" id="tableCard" style="display:none;">
+            <h3>关键指标汇总</h3>
+            <div class="table-wrap">
+                <table id="indicatorTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parsePrices() {
+            return document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+        }
+
+        function calcMA(data, period) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) sum += data[j];
+                result.push(sum / period);
+            }
+            return result;
+        }
+
+        function calcRSI(data, period) {
+            const result = [];
+            let gains = [], losses = [];
+            for (let i = 1; i < data.length; i++) {
+                const diff = data[i] - data[i - 1];
+                gains.push(diff > 0 ? diff : 0);
+                losses.push(diff < 0 ? -diff : 0);
+            }
+            for (let i = 0; i < data.length; i++) {
+                if (i < period) { result.push(null); continue; }
+                const avgGain = gains.slice(i - period, i).reduce((a, b) => a + b, 0) / period;
+                const avgLoss = losses.slice(i - period, i).reduce((a, b) => a + b, 0) / period;
+                if (avgLoss === 0) { result.push(100); continue; }
+                const rs = avgGain / avgLoss;
+                result.push(100 - 100 / (1 + rs));
+            }
+            return result;
+        }
+
+        function calcBollinger(data, period) {
+            const mid = calcMA(data, period);
+            const upper = [], lower = [];
+            for (let i = 0; i < data.length; i++) {
+                if (mid[i] === null) { upper.push(null); lower.push(null); continue; }
+                let sqSum = 0;
+                for (let j = i - period + 1; j <= i; j++) sqSum += Math.pow(data[j] - mid[i], 2);
+                const std = Math.sqrt(sqSum / period);
+                upper.push(mid[i] + 2 * std);
+                lower.push(mid[i] - 2 * std);
+            }
+            return { mid, upper, lower };
+        }
+
+        function generateVolume(prices) {
+            return prices.map(() => Math.floor(Math.random() * 5000000) + 1000000);
+        }
+
+        function drawLineChart(canvas, datasets, labels, options = {}) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            let allVals = [];
+            datasets.forEach(d => { d.data.forEach(v => { if (v !== null) allVals.push(v); }); });
+            if (allVals.length === 0) return;
+            const minV = options.minY !== undefined ? options.minY : Math.min(...allVals) * 0.95;
+            const maxV = options.maxY !== undefined ? options.maxY : Math.max(...allVals) * 1.05;
+            const padL = 60, padR = 20, padT = 20, padB = 40;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = labels.length;
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + chartH - (i / 5) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                const val = minV + (i / 5) * (maxV - minV);
+                ctx.fillText(val.toFixed(1), 4, y + 5);
+            }
+
+            datasets.forEach(ds => {
+                ctx.strokeStyle = ds.color;
+                ctx.lineWidth = ds.width || 2;
+                ctx.beginPath();
+                let started = false;
+                ds.data.forEach((v, i) => {
+                    if (v === null) return;
+                    const x = padL + (i / (n - 1)) * chartW;
+                    const y = padT + chartH - ((v - minV) / (maxV - minV)) * chartH;
+                    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            });
+        }
+
+        function drawBarChart(canvas, data, colors, labels) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const maxV = Math.max(...data);
+            const padL = 60, padR = 20, padT = 20, padB = 40;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = data.length;
+            const barW = (chartW / n) * 0.7;
+            const gap = (chartW / n) * 0.3;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            for (let i = 0; i <= 4; i++) {
+                const y = padT + chartH - (i / 4) * chartH;
+                ctx.beginPath(); ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((maxV * i / 4 / 1e6).toFixed(1) + 'M', 4, y + 5);
+            }
+
+            data.forEach((v, i) => {
+                const x = padL + i * (barW + gap) + gap / 2;
+                const h = (v / maxV) * chartH;
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(x, padT + chartH - h, barW, h);
+            });
+        }
+
+        function analyze() {
+            const prices = parsePrices();
+            if (prices.length < 5) { alert('请输入至少5个价格数据'); return; }
+
+            const symbol = document.getElementById('symbolInput').value || 'DEMO';
+            const current = prices[prices.length - 1];
+            const prev = prices[prices.length - 2];
+            const change = current - prev;
+            const changePct = (change / prev * 100);
+            const high52 = Math.max(...prices);
+            const low52 = Math.min(...prices);
+            const ma5 = calcMA(prices, 5);
+            const ma10 = calcMA(prices, 10);
+            const ma20 = calcMA(prices, 20);
+            const rsi = calcRSI(prices, 14);
+            const boll = calcBollinger(prices, 20);
+            const volumes = generateVolume(prices);
+
+            const isUp = change >= 0;
+            document.getElementById('statsArea').style.display = 'grid';
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num ${isUp ? 'stat-up' : 'stat-down'}">${current.toFixed(2)}</div><div class="label">${symbol} 当前价格</div></div>
+                <div class="stat-box"><div class="num ${isUp ? 'stat-up' : 'stat-down'}">${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${changePct.toFixed(2)}%)</div><div class="label">涨跌幅</div></div>
+                <div class="stat-box"><div class="num">${high52.toFixed(2)}</div><div class="label">最高价</div></div>
+                <div class="stat-box"><div class="num">${low52.toFixed(2)}</div><div class="label">最低价</div></div>
+            `;
+
+            document.getElementById('chartCard').style.display = 'block';
+            const labels = prices.map((_, i) => i + 1);
+            drawLineChart(document.getElementById('priceChart'), [
+                { data: prices, color: '#007bff', width: 2.5 },
+                { data: ma5, color: '#ffc107', width: 1.5 },
+                { data: ma10, color: '#dc3545', width: 1.5 },
+                { data: ma20, color: '#28a745', width: 1.5 }
+            ], labels);
+
+            document.getElementById('volCard').style.display = 'block';
+            const volColors = prices.map((v, i) => i === 0 ? '#198754' : v >= prices[i - 1] ? '#198754' : '#dc3545');
+            drawBarChart(document.getElementById('volChart'), volumes, volColors, labels);
+
+            document.getElementById('rsiCard').style.display = 'block';
+            drawLineChart(document.getElementById('rsiChart'), [
+                { data: rsi, color: '#007bff', width: 2 }
+            ], labels, { minY: 0, maxY: 100 });
+
+            const rsiCtx = document.getElementById('rsiChart').getContext('2d');
+            const W = document.getElementById('rsiChart').width;
+            const H = document.getElementById('rsiChart').height * 2;
+            rsiCtx.strokeStyle = '#dc3545'; rsiCtx.setLineDash([8, 4]); rsiCtx.lineWidth = 1;
+            rsiCtx.beginPath(); rsiCtx.moveTo(60, 20 + (H - 60) * 0.3); rsiCtx.lineTo(W - 20, 20 + (H - 60) * 0.3); rsiCtx.stroke();
+            rsiCtx.strokeStyle = '#28a745';
+            rsiCtx.beginPath(); rsiCtx.moveTo(60, 20 + (H - 60) * 0.7); rsiCtx.lineTo(W - 20, 20 + (H - 60) * 0.7); rsiCtx.stroke();
+            rsiCtx.setLineDash([]);
+
+            const rsiVal = rsi.filter(v => v !== null);
+            const currentRSI = rsiVal.length > 0 ? rsiVal[rsiVal.length - 1] : null;
+            const lastBollUpper = boll.upper.filter(v => v !== null).pop();
+            const lastBollLower = boll.lower.filter(v => v !== null).pop();
+            const avgVol = (volumes.reduce((a, b) => a + b, 0) / volumes.length / 1e6).toFixed(2);
+
+            document.getElementById('tableCard').style.display = 'block';
+            document.getElementById('indicatorTable').innerHTML = `
+                <thead><tr><th>指标</th><th>数值</th><th>信号</th></tr></thead>
+                <tbody>
+                    <tr><td>MA5</td><td>${ma5[ma5.length-1]?.toFixed(2) || '-'}</td><td>${current > (ma5[ma5.length-1]||0) ? '✅ 多头排列' : '⚠️ 空头排列'}</td></tr>
+                    <tr><td>MA10</td><td>${ma10[ma10.length-1]?.toFixed(2) || '-'}</td><td>${current > (ma10[ma10.length-1]||0) ? '✅ 多头排列' : '⚠️ 空头排列'}</td></tr>
+                    <tr><td>MA20</td><td>${ma20[ma20.length-1]?.toFixed(2) || '-'}</td><td>${current > (ma20[ma20.length-1]||0) ? '✅ 多头排列' : '⚠️ 空头排列'}</td></tr>
+                    <tr><td>RSI(14)</td><td>${currentRSI ? currentRSI.toFixed(2) : '-'}</td><td>${currentRSI > 70 ? '🔴 超买' : currentRSI < 30 ? '🟢 超卖' : '⚪ 中性'}</td></tr>
+                    <tr><td>布林带上轨</td><td>${lastBollUpper?.toFixed(2) || '-'}</td><td>${current > lastBollUpper ? '🔴 突破上轨' : '⚪ 正常'}</td></tr>
+                    <tr><td>布林带下轨</td><td>${lastBollLower?.toFixed(2) || '-'}</td><td>${current < lastBollLower ? '🟢 触及下轨' : '⚪ 正常'}</td></tr>
+                    <tr><td>平均成交量</td><td>${avgVol}M</td><td>-</td></tr>
+                </tbody>
+            `;
+        }
+
+        analyze();
+    </script>
+</body>
+</html>

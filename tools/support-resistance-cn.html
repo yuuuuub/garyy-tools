@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="支撑位阻力位计算器 - 自动识别价格图表中的关键支撑和阻力位">
+    <meta name="robots" content="index, follow">
+    <title>支撑位 / 阻力位计算器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .level-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+        .level-row:last-child { border-bottom: none; }
+        .level-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; min-width: 50px; text-align: center; }
+        .level-badge.resist { background: var(--danger-color); }
+        .level-badge.support { background: var(--success-color); }
+        .level-badge.pivot { background: var(--primary-color); }
+        .level-price { font-weight: bold; font-size: 16px; }
+        .level-desc { font-size: 12px; color: var(--secondary-color); }
+        .level-strength { font-size: 12px; }
+        .strength-bar { height: 6px; border-radius: 3px; background: var(--border-color); width: 100px; display: inline-block; vertical-align: middle; margin-left: 6px; }
+        .strength-fill { height: 100%; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>支撑位 / 阻力位计算器</h1>
+
+        <div class="card">
+            <div class="form-group">
+                <label>价格数据（逗号分隔，从旧到新）</label>
+                <input type="text" id="priceInput" value="50,52,54,51,53,55,52,49,51,54,56,53,50,48,50,53,55,57,54,51,53,56,58,55,52,54,57,60,58,55,57,60,62,59,56,58,61,63,60,57" placeholder="例: 50,52,54,51,53...">
+            </div>
+            <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                    <label>灵敏度</label>
+                    <select id="sensitivity">
+                        <option value="0.02">高灵敏度</option>
+                        <option value="0.05" selected>中等</option>
+                        <option value="0.08">低灵敏度</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>显示层级数</label>
+                    <select id="levelCount">
+                        <option value="3">3层</option>
+                        <option value="5" selected>5层</option>
+                        <option value="8">8层</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="analyze()">计算支撑/阻力位</button>
+        </div>
+
+        <div class="card" id="chartCard" style="display:none;">
+            <h3>价格走势与关键位</h3>
+            <canvas id="mainChart" height="350"></canvas>
+        </div>
+
+        <div class="card" id="levelsCard" style="display:none;">
+            <h3>关键价位</h3>
+            <div id="levelsList"></div>
+        </div>
+
+        <div class="card" id="pivotCard" style="display:none;">
+            <h3>枢轴点 (Pivot Points)</h3>
+            <div id="pivotList"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parsePrices() {
+            return document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+        }
+
+        function findPeaksValleys(data, threshold) {
+            const peaks = [], valleys = [];
+            for (let i = 2; i < data.length - 2; i++) {
+                if (data[i] > data[i-1] && data[i] > data[i-2] && data[i] > data[i+1] && data[i] > data[i+2]) {
+                    peaks.push({ index: i, price: data[i] });
+                }
+                if (data[i] < data[i-1] && data[i] < data[i-2] && data[i] < data[i+1] && data[i] < data[i+2]) {
+                    valleys.push({ index: i, price: data[i] });
+                }
+            }
+            if (peaks.length === 0) {
+                for (let i = 1; i < data.length - 1; i++) {
+                    if (data[i] > data[i-1] && data[i] > data[i+1]) peaks.push({ index: i, price: data[i] });
+                    if (data[i] < data[i-1] && data[i] < data[i+1]) valleys.push({ index: i, price: data[i] });
+                }
+            }
+            return { peaks, valleys };
+        }
+
+        function clusterLevels(levels, threshold) {
+            if (levels.length === 0) return [];
+            levels.sort((a, b) => a.price - b.price);
+            const clustered = [];
+            let group = [levels[0]];
+            for (let i = 1; i < levels.length; i++) {
+                if (levels[i].price - group[group.length - 1].price < threshold) {
+                    group.push(levels[i]);
+                } else {
+                    const avg = group.reduce((s, l) => s + l.price, 0) / group.length;
+                    clustered.push({ price: avg, strength: group.length, type: group[0].type });
+                    group = [levels[i]];
+                }
+            }
+            const avg = group.reduce((s, l) => s + l.price, 0) / group.length;
+            clustered.push({ price: avg, strength: group.length, type: group[0].type });
+            return clustered;
+        }
+
+        function calcPivot(H, L, C) {
+            const P = (H + L + C) / 3;
+            return {
+                R3: H + 2 * (P - L),
+                R2: P + (H - L),
+                R1: 2 * P - L,
+                P: P,
+                S1: 2 * P - H,
+                S2: P - (H - L),
+                S3: L - 2 * (H - P)
+            };
+        }
+
+        function analyze() {
+            const prices = parsePrices();
+            if (prices.length < 5) { alert('请输入至少5个价格数据'); return; }
+
+            const threshold = parseFloat(document.getElementById('sensitivity').value);
+            const maxLevels = parseInt(document.getElementById('levelCount').value);
+            const currentPrice = prices[prices.length - 1];
+            const avgPrice = prices.reduce((a, b) => a + b) / prices.length;
+            const priceThreshold = avgPrice * threshold;
+
+            const { peaks, valleys } = findPeaksValleys(prices, threshold);
+
+            let rawLevels = [];
+            peaks.forEach(p => rawLevels.push({ price: p.price, type: 'resistance' }));
+            valleys.forEach(v => rawLevels.push({ price: v.price, type: 'support' }));
+
+            const levels = clusterLevels(rawLevels, priceThreshold);
+            levels.sort((a, b) => a.price - b.price);
+
+            const resistances = levels.filter(l => l.price > currentPrice).slice(0, maxLevels);
+            const supports = levels.filter(l => l.price < currentPrice).slice(-maxLevels).reverse();
+
+            const H = Math.max(...prices);
+            const L = Math.min(...prices);
+            const C = currentPrice;
+            const pivot = calcPivot(H, L, C);
+
+            drawChart(prices, levels, currentPrice);
+
+            let html = '';
+            supports.forEach(l => {
+                const dist = ((currentPrice - l.price) / currentPrice * 100).toFixed(2);
+                html += `<div class="level-row">
+                    <span class="level-badge support">支撑</span>
+                    <span class="level-price">${l.price.toFixed(2)}</span>
+                    <span class="level-desc">距当前 ${dist}%</span>
+                    <span class="level-strength">强度 <div class="strength-bar"><div class="strength-fill" style="width:${Math.min(100, l.strength * 25)}%;background:var(--success-color);"></div></div></span>
+                </div>`;
+            });
+
+            html += `<div class="level-row" style="background:var(--card-bg);border-radius:6px;">
+                <span class="level-badge pivot">当前</span>
+                <span class="level-price" style="color:var(--primary-color);">${currentPrice.toFixed(2)}</span>
+                <span class="level-desc">当前价格</span>
+            </div>`;
+
+            resistances.forEach(l => {
+                const dist = ((l.price - currentPrice) / currentPrice * 100).toFixed(2);
+                html += `<div class="level-row">
+                    <span class="level-badge resist">阻力</span>
+                    <span class="level-price">${l.price.toFixed(2)}</span>
+                    <span class="level-desc">距当前 ${dist}%</span>
+                    <span class="level-strength">强度 <div class="strength-bar"><div class="strength-fill" style="width:${Math.min(100, l.strength * 25)}%;background:var(--danger-color);"></div></div></span>
+                </div>`;
+            });
+
+            document.getElementById('levelsCard').style.display = 'block';
+            document.getElementById('levelsList').innerHTML = html;
+
+            let pivotHtml = '';
+            ['R3','R2','R1','P','S1','S2','S3'].forEach(key => {
+                const isResist = key.startsWith('R');
+                const isPivot = key === 'P';
+                const cls = isPivot ? 'pivot' : isResist ? 'resist' : 'support';
+                pivotHtml += `<div class="level-row">
+                    <span class="level-badge ${cls}">${key}</span>
+                    <span class="level-price">${pivot[key].toFixed(2)}</span>
+                    <span class="level-desc">${isPivot ? '枢轴点' : isResist ? '阻力位' : '支撑位'}</span>
+                </div>`;
+            });
+            document.getElementById('pivotCard').style.display = 'block';
+            document.getElementById('pivotList').innerHTML = pivotHtml;
+        }
+
+        function drawChart(prices, levels, currentPrice) {
+            const canvas = document.getElementById('mainChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            let allPrices = [...prices];
+            levels.forEach(l => allPrices.push(l.price));
+            const minP = Math.min(...allPrices) * 0.95;
+            const maxP = Math.max(...allPrices) * 1.05;
+            const padL = 70, padR = 20, padT = 20, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = prices.length;
+
+            const xPos = (i) => padL + (i / (n - 1)) * chartW;
+            const yPos = (v) => padT + chartH - ((v - minP) / (maxP - minP)) * chartH;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + chartH - (i / 5) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minP + (i / 5) * (maxP - minP)).toFixed(1), 4, y + 5);
+            }
+
+            ctx.strokeStyle = '#007bff'; ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            prices.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(xPos(i), yPos(p)); else ctx.lineTo(xPos(i), yPos(p));
+            });
+            ctx.stroke();
+
+            levels.forEach(l => {
+                const y = yPos(l.price);
+                const isUp = l.price > currentPrice;
+                ctx.strokeStyle = isUp ? 'rgba(220,53,69,0.7)' : 'rgba(40,167,69,0.7)';
+                ctx.setLineDash([8, 4]); ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = isUp ? 'rgba(220,53,69,0.15)' : 'rgba(40,167,69,0.15)';
+                ctx.fillRect(padL, y - 14, 60, 14);
+                ctx.fillStyle = isUp ? '#dc3545' : '#28a745';
+                ctx.font = '16px sans-serif';
+                ctx.fillText(l.price.toFixed(1), padL + 4, y - 2);
+            });
+
+            document.getElementById('chartCard').style.display = 'block';
+        }
+
+        analyze();
+    </script>
+</body>
+</html>

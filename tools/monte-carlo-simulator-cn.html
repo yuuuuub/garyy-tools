@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="蒙特卡洛模拟器 - 投资组合蒙特卡洛模拟，预测未来收益概率分布">
+    <meta name="robots" content="index, follow">
+    <title>蒙特卡洛模拟器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #6366f1; --secondary-color: #6b7280; --success-color: #10b981; --warning-color: #f59e0b; --danger-color: #ef4444; --border-color: #e5e7eb; --card-bg: #f9fafb; }
+        [data-theme="dark"] { --bg-color: #111827; --text-color: #f9fafb; --primary-color: #818cf8; --secondary-color: #9ca3af; --success-color: #34d399; --warning-color: #fbbf24; --danger-color: #f87171; --border-color: #374151; --card-bg: #1f2937; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 14px; }
+        input:focus { outline: 2px solid var(--primary-color); border-color: transparent; }
+        button { background: var(--primary-color); color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; transition: opacity 0.2s; }
+        button:hover { opacity: 0.85; }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 14px; background: var(--secondary-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; z-index: 100; }
+        .result-chart { width: 100%; height: 350px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+        .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 120px; text-align: center; padding: 14px; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 20px; font-weight: 700; color: var(--primary-color); }
+        .stat-box .lbl { font-size: 11px; color: var(--secondary-color); margin-top: 4px; }
+        .percentile-bar { height: 20px; background: var(--border-color); border-radius: 10px; position: relative; margin: 12px 0; }
+        .percentile-bar .fill { position: absolute; height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--danger-color), var(--warning-color), var(--success-color)); }
+        .percentile-bar .marker { position: absolute; top: -6px; width: 3px; height: 32px; background: var(--text-color); border-radius: 2px; }
+        .percentile-bar .label { position: absolute; top: -22px; font-size: 11px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>🎲 蒙特卡洛模拟器</h1>
+        <p style="color:var(--secondary-color)">通过蒙特卡洛模拟预测投资组合未来表现的概率分布</p>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>投资参数</h3>
+                <label>初始投资金额 (元)</label>
+                <input type="number" id="initAmount" value="100000">
+                <label style="margin-top:10px">月度定投 (元)</label>
+                <input type="number" id="monthlyContrib" value="5000">
+                <label style="margin-top:10px">预期年化收益率 (%)</label>
+                <input type="number" id="expectedReturn" value="10" step="0.5">
+                <label style="margin-top:10px">年化波动率 (%)</label>
+                <input type="number" id="volatility" value="18" step="0.5">
+                <label style="margin-top:10px">模拟年限</label>
+                <input type="number" id="simYears" value="20" min="1" max="50">
+            </div>
+            <div class="card">
+                <h3>模拟设置</h3>
+                <label>模拟次数</label>
+                <select id="simCount">
+                    <option value="500">500次</option>
+                    <option value="1000" selected>1000次</option>
+                    <option value="3000">3000次</option>
+                    <option value="5000">5000次</option>
+                </select>
+                <label style="margin-top:10px">通胀率 (%)</label>
+                <input type="number" id="inflation" value="3" step="0.1">
+                <label style="margin-top:10px">风险模型</label>
+                <select id="riskModel">
+                    <option value="normal">正态分布</option>
+                    <option value="t">t分布 (肥尾)</option>
+                    <option value="lognormal">对数正态</option>
+                </select>
+                <label style="margin-top:10px">目标金额 (万元)</label>
+                <input type="number" id="targetAmount" value="100">
+                <button onclick="runSimulation()" style="margin-top:20px;width:100%">运行模拟</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>模拟路径</h3>
+            <div class="result-chart"><canvas id="pathCanvas"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h3>终值分布</h3>
+            <div class="result-chart"><canvas id="distCanvas"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h3>关键指标</h3>
+            <div class="stat-row" id="simStats"></div>
+        </div>
+
+        <div class="card">
+            <h3>概率区间</h3>
+            <div id="probRanges"></div>
+        </div>
+    </div>
+
+    <script>
+        function boxMuller() {
+            let u1, u2;
+            do { u1 = Math.random(); } while (u1 === 0);
+            u2 = Math.random();
+            return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        }
+
+        function sampleReturn(mu, sigma, model) {
+            if (model === 'normal') {
+                return mu + sigma * boxMuller();
+            } else if (model === 't') {
+                const df = 5;
+                const z = boxMuller();
+                const chi2 = Array.from({ length: df }, () => boxMuller() ** 2).reduce((a, b) => a + b);
+                return mu + sigma * z * Math.sqrt(df / chi2) * 0.8;
+            } else {
+                const normal = boxMuller();
+                return Math.exp((mu - sigma * sigma / 2) + sigma * normal) - 1;
+            }
+        }
+
+        function runSimulation() {
+            const initAmount = +document.getElementById('initAmount').value;
+            const monthly = +document.getElementById('monthlyContrib').value;
+            const annualReturn = +document.getElementById('expectedReturn').value / 100;
+            const annualVol = +document.getElementById('volatility').value / 100;
+            const years = +document.getElementById('simYears').value;
+            const simCount = +document.getElementById('simCount').value;
+            const inflation = +document.getElementById('inflation').value / 100;
+            const model = document.getElementById('riskModel').value;
+            const target = +document.getElementById('targetAmount').value * 10000;
+
+            const monthlyReturn = annualReturn / 12;
+            const monthlyVol = annualVol / Math.sqrt(12);
+            const months = years * 12;
+            const allPaths = [];
+            const finalValues = [];
+
+            for (let s = 0; s < simCount; s++) {
+                const path = [initAmount];
+                let value = initAmount;
+                for (let m = 1; m <= months; m++) {
+                    const ret = sampleReturn(monthlyReturn, monthlyVol, model);
+                    value = value * (1 + ret) + monthly;
+                    path.push(value);
+                }
+                allPaths.push(path);
+                finalValues.push(value);
+            }
+
+            finalValues.sort((a, b) => a - b);
+            const mean = finalValues.reduce((a, b) => a + b, 0) / simCount;
+            const median = finalValues[Math.floor(simCount / 2)];
+            const p5 = finalValues[Math.floor(simCount * 0.05)];
+            const p25 = finalValues[Math.floor(simCount * 0.25)];
+            const p75 = finalValues[Math.floor(simCount * 0.75)];
+            const p95 = finalValues[Math.floor(simCount * 0.95)];
+            const probTarget = finalValues.filter(v => v >= target).length / simCount * 100;
+            const probLoss = finalValues.filter(v => v < initAmount + monthly * months).length / simCount * 100;
+
+            const realMean = mean / Math.pow(1 + inflation, years);
+            const realMedian = median / Math.pow(1 + inflation, years);
+
+            document.getElementById('simStats').innerHTML = `
+                <div class="stat-box"><div class="num">¥${(mean / 10000).toFixed(1)}万</div><div class="lbl">均值终值</div></div>
+                <div class="stat-box"><div class="num">¥${(median / 10000).toFixed(1)}万</div><div class="lbl">中位数终值</div></div>
+                <div class="stat-box"><div class="num">¥${(p5 / 10000).toFixed(1)}万</div><div class="lbl">5%分位 (悲观)</div></div>
+                <div class="stat-box"><div class="num">¥${(p95 / 10000).toFixed(1)}万</div><div class="lbl">95%分位 (乐观)</div></div>
+                <div class="stat-box"><div class="num">${probTarget.toFixed(1)}%</div><div class="lbl">达标概率 (≥¥${target / 10000}万)</div></div>
+                <div class="stat-box"><div class="num">${probLoss.toFixed(1)}%</div><div class="lbl">亏损概率</div></div>
+                <div class="stat-box"><div class="num">¥${(realMedian / 10000).toFixed(1)}万</div><div class="lbl">实际价值 (扣通胀)</div></div>
+            `;
+
+            document.getElementById('probRanges').innerHTML = `
+                <div class="stat-row">
+                    <div class="stat-box" style="border-left:3px solid var(--danger-color)"><div class="num">¥${(p5 / 10000).toFixed(1)}万</div><div class="lbl">5% - 极悲观</div></div>
+                    <div class="stat-box" style="border-left:3px solid var(--warning-color)"><div class="num">¥${(p25 / 10000).toFixed(1)}万</div><div class="lbl">25% - 偏保守</div></div>
+                    <div class="stat-box" style="border-left:3px solid var(--primary-color)"><div class="num">¥${(median / 10000).toFixed(1)}万</div><div class="lbl">50% - 中位数</div></div>
+                    <div class="stat-box" style="border-left:3px solid var(--success-color)"><div class="num">¥${(p75 / 10000).toFixed(1)}万</div><div class="lbl">75% - 偏乐观</div></div>
+                    <div class="stat-box" style="border-left:3px solid #06b6d4"><div class="num">¥${(p95 / 10000).toFixed(1)}万</div><div class="lbl">95% - 极乐观</div></div>
+                </div>
+                <div class="percentile-bar" style="margin-top:20px">
+                    <div class="fill" style="left:0%;width:100%"></div>
+                    <div class="marker" style="left:5%"><div class="label">5%</div></div>
+                    <div class="marker" style="left:25%"><div class="label">25%</div></div>
+                    <div class="marker" style="left:50%"><div class="label">中位</div></div>
+                    <div class="marker" style="left:75%"><div class="label">75%</div></div>
+                    <div class="marker" style="left:95%"><div class="label">95%</div></div>
+                </div>
+            `;
+
+            drawPaths(allPaths, months, initAmount, target);
+            drawDistribution(finalValues, initAmount, target);
+        }
+
+        function drawPaths(paths, months, init, target) {
+            const canvas = document.getElementById('pathCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.parentElement.clientWidth;
+            const H = 350;
+            canvas.width = W * 2; canvas.height = H * 2;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.scale(2, 2);
+            ctx.clearRect(0, 0, W, H);
+
+            const pad = { l: 70, r: 20, t: 20, b: 40 };
+            const allVals = paths.flat();
+            const yMin = Math.min(...allVals) * 0.9;
+            const yMax = Math.max(...allVals) * 1.05;
+            const maxPaths = Math.min(paths.length, 200);
+
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 5; i++) {
+                const y = pad.t + (i / 5) * (H - pad.t - pad.b);
+                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+                ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText('¥' + ((yMax - i / 5 * (yMax - yMin)) / 10000).toFixed(0) + '万', pad.l - 5, y + 4);
+            }
+
+            for (let p = 0; p < maxPaths; p++) {
+                const path = paths[p];
+                const hue = (p / maxPaths) * 120;
+                ctx.strokeStyle = `hsla(${hue}, 60%, 50%, 0.08)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                path.forEach((v, i) => {
+                    const x = pad.l + (i / months) * (W - pad.l - pad.r);
+                    const y = pad.t + ((yMax - v) / (yMax - yMin)) * (H - pad.t - pad.b);
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+
+            const targetY = pad.t + ((yMax - target) / (yMax - yMin)) * (H - pad.t - pad.b);
+            if (targetY > pad.t && targetY < H - pad.b) {
+                ctx.strokeStyle = '#10b981'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(pad.l, targetY); ctx.lineTo(W - pad.r, targetY); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#10b981'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText('目标 ¥' + (target / 10000) + '万', W - pad.r - 5, targetY - 8);
+            }
+
+            ctx.fillStyle = '#999'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('月份', W / 2, H - 8);
+            ctx.save(); ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText('组合价值', 0, 0); ctx.restore();
+        }
+
+        function drawDistribution(values, init, target) {
+            const canvas = document.getElementById('distCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.parentElement.clientWidth;
+            const H = 350;
+            canvas.width = W * 2; canvas.height = H * 2;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.scale(2, 2);
+            ctx.clearRect(0, 0, W, H);
+
+            const pad = { l: 60, r: 20, t: 20, b: 45 };
+            const bins = 50;
+            const min = values[0];
+            const max = values[values.length - 1];
+            const binWidth = (max - min) / bins;
+            const histogram = Array(bins).fill(0);
+            values.forEach(v => {
+                const idx = Math.min(Math.floor((v - min) / binWidth), bins - 1);
+                histogram[idx]++;
+            });
+            const maxCount = Math.max(...histogram);
+
+            const barW = (W - pad.l - pad.r) / bins;
+
+            for (let i = 0; i < bins; i++) {
+                const x = pad.l + i * barW;
+                const h = (histogram[i] / maxCount) * (H - pad.t - pad.b);
+                const val = min + i * binWidth;
+                const isTarget = val >= target;
+                const isLoss = val < init;
+                ctx.fillStyle = isTarget ? 'rgba(16,185,129,0.6)' : isLoss ? 'rgba(239,68,68,0.5)' : 'rgba(99,102,241,0.5)';
+                ctx.fillRect(x, H - pad.b - h, barW - 1, h);
+            }
+
+            ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+            for (let i = 0; i <= 4; i++) {
+                const x = pad.l + (i / 4) * (W - pad.l - pad.r);
+                const val = min + i / 4 * (max - min);
+                ctx.fillText('¥' + (val / 10000).toFixed(0) + '万', x, H - 12);
+            }
+
+            ctx.fillStyle = '#999'; ctx.font = '12px sans-serif';
+            ctx.save(); ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText('频次', 0, 0); ctx.restore();
+
+            const legend = [
+                { color: 'rgba(239,68,68,0.5)', label: '亏损区间' },
+                { color: 'rgba(99,102,241,0.5)', label: '一般区间' },
+                { color: 'rgba(16,185,129,0.6)', label: '达标区间' }
+            ];
+            legend.forEach((l, i) => {
+                const lx = W - pad.r - 200 + i * 70;
+                ctx.fillStyle = l.color; ctx.fillRect(lx, pad.t, 12, 12);
+                ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+                ctx.fillText(l.label, lx + 16, pad.t + 10);
+            });
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        runSimulation();
+    </script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="相关性矩阵可视化工具 - 资产相关性热力图和分散化分析">
+    <meta name="robots" content="index, follow">
+    <title>相关性矩阵</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #8b5cf6; --secondary-color: #6b7280; --success-color: #10b981; --warning-color: #f59e0b; --danger-color: #ef4444; --border-color: #e5e7eb; --card-bg: #f9fafb; }
+        [data-theme="dark"] { --bg-color: #111827; --text-color: #f9fafb; --primary-color: #a78bfa; --secondary-color: #9ca3af; --success-color: #34d399; --warning-color: #fbbf24; --danger-color: #f87171; --border-color: #374151; --card-bg: #1f2937; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 14px; }
+        input:focus { outline: 2px solid var(--primary-color); border-color: transparent; }
+        button { background: var(--primary-color); color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; transition: opacity 0.2s; }
+        button:hover { opacity: 0.85; }
+        .btn-danger { background: var(--danger-color); }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 14px; background: var(--secondary-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; z-index: 100; }
+        .matrix-wrap { overflow-x: auto; }
+        .matrix-table { border-collapse: collapse; margin: 0 auto; }
+        .matrix-table th, .matrix-table td { width: 80px; height: 50px; text-align: center; font-size: 13px; font-weight: 500; border: 2px solid var(--bg-color); }
+        .matrix-table th { background: var(--card-bg); color: var(--text-color); font-weight: 700; }
+        .legend { display: flex; align-items: center; gap: 8px; margin-top: 16px; justify-content: center; }
+        .legend-bar { width: 300px; height: 16px; border-radius: 4px; }
+        .stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+        .stat-box { flex: 1; min-width: 140px; text-align: center; padding: 14px; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 20px; font-weight: 700; color: var(--primary-color); }
+        .stat-box .lbl { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .pair-list { max-height: 300px; overflow-y: auto; }
+        .pair-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        .pair-item:last-child { border-bottom: none; }
+        .pair-bar { width: 60px; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
+        .pair-bar .fill { height: 100%; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>🔗 相关性矩阵</h1>
+        <p style="color:var(--secondary-color)">可视化资产间的相关系数，优化投资组合分散化</p>
+
+        <div class="card">
+            <h3>资产列表</h3>
+            <div id="assetList"></div>
+            <button onclick="addAsset()" style="margin-top:10px">+ 添加资产</button>
+            <button onclick="randomCorrelations()" style="margin-top:10px;margin-left:8px;background:var(--success-color)">随机生成相关性</button>
+            <button onclick="loadPreset()" style="margin-top:10px;margin-left:8px;background:var(--warning-color)">加载预设组合</button>
+        </div>
+
+        <div class="card">
+            <h3>相关性热力图</h3>
+            <div class="matrix-wrap" id="matrixWrap"></div>
+            <div class="legend">
+                <span style="font-size:13px">-1</span>
+                <canvas id="legendBar" width="300" height="16" style="border-radius:4px"></canvas>
+                <span style="font-size:13px">+1</span>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>组合统计</h3>
+                <div class="stat-row" id="stats"></div>
+            </div>
+            <div class="card">
+                <h3>相关性排名</h3>
+                <div class="pair-list" id="pairList"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>分散化建议</h3>
+            <div id="suggestions"></div>
+        </div>
+    </div>
+
+    <script>
+        let assets = ['沪深300', '中证500', '纳斯达克', '债券指数', '黄金', '原油'];
+        let matrix = [];
+
+        function init() {
+            generateCorrelations();
+            renderAll();
+        }
+
+        function renderAll() {
+            renderAssets();
+            renderMatrix();
+            renderStats();
+            renderPairs();
+            renderSuggestions();
+            renderLegend();
+        }
+
+        function renderAssets() {
+            document.getElementById('assetList').innerHTML = assets.map((a, i) => `
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                    <input value="${a}" onchange="assets[${i}]=this.value;renderAll()" style="flex:1">
+                    <button class="btn-danger btn-sm" onclick="removeAsset(${i})">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function addAsset() {
+            const name = prompt('输入资产名称：', `资产${assets.length + 1}`);
+            if (!name) return;
+            assets.push(name);
+            generateCorrelations();
+            renderAll();
+        }
+
+        function removeAsset(i) {
+            if (assets.length <= 2) return alert('至少保留2个资产');
+            assets.splice(i, 1);
+            generateCorrelations();
+            renderAll();
+        }
+
+        function generateCorrelations() {
+            const n = assets.length;
+            matrix = [];
+            for (let i = 0; i < n; i++) {
+                matrix[i] = [];
+                for (let j = 0; j < n; j++) {
+                    if (i === j) matrix[i][j] = 1;
+                    else if (j < i) matrix[i][j] = matrix[j][i];
+                    else matrix[i][j] = +(Math.random() * 2 - 0.5).toFixed(2);
+                }
+            }
+        }
+
+        function randomCorrelations() {
+            generateCorrelations();
+            renderAll();
+        }
+
+        function loadPreset() {
+            assets = ['沪深300', '中证500', '创业板', '纳斯达克', '标普500', '中证全债', '黄金', '原油'];
+            const preset = [
+                [1, 0.85, 0.72, 0.35, 0.38, 0.12, 0.08, -0.05],
+                [0.85, 1, 0.82, 0.32, 0.35, 0.08, 0.05, -0.08],
+                [0.72, 0.82, 1, 0.38, 0.36, 0.05, 0.02, -0.12],
+                [0.35, 0.32, 0.38, 1, 0.92, 0.15, 0.12, 0.08],
+                [0.38, 0.35, 0.36, 0.92, 1, 0.18, 0.1, 0.05],
+                [0.12, 0.08, 0.05, 0.15, 0.18, 1, 0.25, -0.1],
+                [0.08, 0.05, 0.02, 0.12, 0.1, 0.25, 1, 0.15],
+                [-0.05, -0.08, -0.12, 0.08, 0.05, -0.1, 0.15, 1]
+            ];
+            matrix = preset.map(row => [...row]);
+            renderAll();
+        }
+
+        function corrColor(v) {
+            if (v >= 0) {
+                const t = v;
+                const r = Math.round(255 - t * 100);
+                const g = Math.round(255 - t * 200);
+                const b = Math.round(255 - t * 50);
+                return `rgb(${r},${g},${b})`;
+            } else {
+                const t = -v;
+                const r = Math.round(255 - t * 150);
+                const g = Math.round(255 - t * 50);
+                const b = Math.round(255 + t * 50);
+                return `rgb(${r},${g},${b})`;
+            }
+        }
+
+        function corrColorHSV(v) {
+            if (v >= 0) {
+                const h = 0 + (1 - v) * 120;
+                return `hsl(${h}, 70%, 55%)`;
+            } else {
+                const h = 220 + Math.abs(v) * 40;
+                return `hsl(${h}, 70%, 55%)`;
+            }
+        }
+
+        function renderMatrix() {
+            const n = assets.length;
+            let html = '<table class="matrix-table"><tr><th></th>';
+            assets.forEach(a => html += `<th>${a}</th>`);
+            html += '</tr>';
+            for (let i = 0; i < n; i++) {
+                html += `<tr><th>${assets[i]}</th>`;
+                for (let j = 0; j < n; j++) {
+                    const v = matrix[i][j];
+                    const bg = i === j ? 'var(--primary-color)' : corrColorHSV(v);
+                    const tc = i === j ? '#fff' : (Math.abs(v) > 0.5 ? '#fff' : '#333');
+                    html += `<td style="background:${bg};color:${tc};border-radius:4px;cursor:default" title="${assets[i]} vs ${assets[j]}: ${v.toFixed(2)}">${v.toFixed(2)}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            document.getElementById('matrixWrap').innerHTML = html;
+        }
+
+        function renderLegend() {
+            const canvas = document.getElementById('legendBar');
+            const ctx = canvas.getContext('2d');
+            for (let i = 0; i < 300; i++) {
+                const v = (i / 299) * 2 - 1;
+                ctx.fillStyle = corrColorHSV(v);
+                ctx.fillRect(i, 0, 1, 16);
+            }
+        }
+
+        function renderStats() {
+            const n = assets.length;
+            let offDiag = [];
+            for (let i = 0; i < n; i++)
+                for (let j = i + 1; j < n; j++) offDiag.push(matrix[i][j]);
+            const avg = offDiag.reduce((a, b) => a + b, 0) / offDiag.length;
+            const max = Math.max(...offDiag);
+            const min = Math.min(...offDiag);
+            const diversification = (1 - avg) * 100;
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-box"><div class="num">${avg.toFixed(3)}</div><div class="lbl">平均相关性</div></div>
+                <div class="stat-box"><div class="num">${max.toFixed(2)}</div><div class="lbl">最高正相关</div></div>
+                <div class="stat-box"><div class="num">${min.toFixed(2)}</div><div class="lbl">最低相关性</div></div>
+                <div class="stat-box"><div class="num">${diversification.toFixed(0)}%</div><div class="lbl">分散化评分</div></div>
+            `;
+        }
+
+        function renderPairs() {
+            const n = assets.length;
+            let pairs = [];
+            for (let i = 0; i < n; i++)
+                for (let j = i + 1; j < n; j++) pairs.push({ a: assets[i], b: assets[j], v: matrix[i][j] });
+            pairs.sort((a, b) => b.v - a.v);
+
+            document.getElementById('pairList').innerHTML = pairs.map(p => {
+                const color = p.v > 0.5 ? 'var(--danger-color)' : p.v > 0 ? 'var(--warning-color)' : 'var(--success-color)';
+                return `<div class="pair-item">
+                    <span>${p.a} × ${p.b}</span>
+                    <div class="pair-bar"><div class="fill" style="width:${Math.abs(p.v) * 100}%;background:${color}"></div></div>
+                    <span style="font-weight:600;color:${color}">${p.v.toFixed(2)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function renderSuggestions() {
+            const n = assets.length;
+            let pairs = [];
+            for (let i = 0; i < n; i++)
+                for (let j = i + 1; j < n; j++) pairs.push({ a: assets[i], b: assets[j], v: matrix[i][j] });
+            pairs.sort((a, b) => a.v - b.v);
+
+            const bestPairs = pairs.slice(0, 3);
+            const worstPairs = pairs.slice(-3).reverse();
+
+            let html = '<div class="grid-2">';
+            html += '<div><h4 style="color:var(--success-color)">最佳分散化配对</h4>';
+            bestPairs.forEach(p => {
+                html += `<p style="padding:8px 12px;background:var(--bg-color);border-radius:6px;margin:6px 0;border-left:3px solid var(--success-color)">
+                    <strong>${p.a} + ${p.b}</strong>: 相关性 ${p.v.toFixed(2)} — 非常适合组合配对</p>`;
+            });
+            html += '</div>';
+
+            html += '<div><h4 style="color:var(--danger-color)">高相关性警告</h4>';
+            worstPairs.forEach(p => {
+                html += `<p style="padding:8px 12px;background:var(--bg-color);border-radius:6px;margin:6px 0;border-left:3px solid var(--danger-color)">
+                    <strong>${p.a} + ${p.b}</strong>: 相关性 ${p.v.toFixed(2)} — 分散化效果有限</p>`;
+            });
+            html += '</div></div>';
+
+            const avgCorr = pairs.reduce((s, p) => s + p.v, 0) / pairs.length;
+            if (avgCorr > 0.7) {
+                html += '<p style="margin-top:16px;padding:12px;background:var(--danger-color);color:#fff;border-radius:8px;font-weight:600">⚠️ 组合整体相关性偏高，建议加入低相关或负相关资产（如债券、黄金）以提升分散化效果。</p>';
+            } else if (avgCorr < 0.3) {
+                html += '<p style="margin-top:16px;padding:12px;background:var(--success-color);color:#fff;border-radius:8px;font-weight:600">✅ 组合分散化良好，整体相关性较低。</p>';
+            }
+
+            document.getElementById('suggestions').innerHTML = html;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+            renderAll();
+        }
+
+        init();
+    </script>
+</body>
+</html>

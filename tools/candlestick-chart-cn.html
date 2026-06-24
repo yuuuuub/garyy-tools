@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="K线图/蜡烛图 - 绘制专业级K线图，支持MA均线和成交量">
+    <meta name="robots" content="index, follow">
+    <title>K线图 / 蜡烛图</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .legend span { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+        .info-row { display: flex; gap: 16px; font-size: 13px; color: var(--secondary-color); margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>K线图 / 蜡烛图</h1>
+
+        <div class="card">
+            <p style="font-size:13px;color:var(--secondary-color);margin-top:0;">输入格式：每行一根K线，格式为 日期,开盘,最高,最低,收盘,成交量</p>
+            <div class="form-group">
+                <label>K线数据</label>
+                <input type="text" id="dataInput" placeholder="格式: 日期,开,高,低,收,量" style="display:none;">
+                <textarea id="klineData" rows="8" style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:4px;background:var(--card-bg);color:var(--text-color);font-family:monospace;font-size:12px;box-sizing:border-box;">2025-01-02,100,105,98,103,1500000
+2025-01-03,103,108,101,106,1800000
+2025-01-06,106,110,104,108,2200000
+2025-01-07,108,112,107,110,1900000
+2025-01-08,110,115,108,113,2500000
+2025-01-09,113,118,111,116,2100000
+2025-01-10,116,120,113,114,2800000
+2025-01-13,114,117,110,111,2400000
+2025-01-14,111,115,109,114,2000000
+2025-01-15,114,119,112,118,2600000
+2025-01-16,118,122,116,120,3000000
+2025-01-17,120,125,118,123,2700000
+2025-01-20,123,128,121,126,3200000
+2025-01-21,126,130,124,128,2900000
+2025-01-22,128,133,126,131,3500000
+2025-01-23,131,135,129,133,3100000
+2025-01-24,133,138,131,136,3800000
+2025-01-27,136,140,134,138,3400000
+2025-01-28,138,142,136,137,3600000
+2025-01-29,137,141,135,140,3300000
+2025-01-30,140,145,138,143,4000000
+2025-01-31,143,148,141,146,3700000
+2025-02-03,146,150,144,148,4200000
+2025-02-04,148,152,146,147,3900000
+2025-02-05,147,151,145,150,4100000
+2025-02-06,150,155,148,153,4500000
+2025-02-07,153,157,151,155,4300000
+2025-02-10,155,159,153,154,4600000
+2025-02-11,154,158,152,157,4400000
+2025-02-12,157,162,155,160,5000000</textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>MA 周期1</label>
+                    <select id="ma1"><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
+                </div>
+                <div class="form-group">
+                    <label>MA 周期2</label>
+                    <select id="ma2"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select>
+                </div>
+            </div>
+            <button onclick="drawKline()">绘制K线图</button>
+        </div>
+
+        <div class="card" id="chartCard" style="display:none;">
+            <div class="info-row" id="infoRow"></div>
+            <canvas id="klineCanvas" height="400"></canvas>
+            <div class="legend">
+                <span><i style="background:#dc3545;"></i> 阳线（涨）</span>
+                <span><i style="background:#28a745;"></i> 阴线（跌）</span>
+                <span><i style="background:#ffc107;"></i> MA1</span>
+                <span><i style="background:#007bff;"></i> MA2</span>
+            </div>
+        </div>
+
+        <div class="card" id="volCard" style="display:none;">
+            <h3>成交量</h3>
+            <canvas id="volCanvas" height="150"></canvas>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parseKlineData() {
+            const text = document.getElementById('klineData').value.trim();
+            return text.split('\n').filter(l => l.trim()).map(line => {
+                const parts = line.split(',');
+                return { date: parts[0], open: +parts[1], high: +parts[2], low: +parts[3], close: +parts[4], volume: +parts[5] };
+            }).filter(d => !isNaN(d.open));
+        }
+
+        function calcMA(data, period) {
+            return data.map((_, i) => {
+                if (i < period - 1) return null;
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) sum += data[j].close;
+                return sum / period;
+            });
+        }
+
+        function drawKline() {
+            const klines = parseKlineData();
+            if (klines.length < 2) { alert('请输入有效的K线数据'); return; }
+
+            const ma1p = parseInt(document.getElementById('ma1').value);
+            const ma2p = parseInt(document.getElementById('ma2').value);
+            const ma1 = calcMA(klines, ma1p);
+            const ma2 = calcMA(klines, ma2p);
+
+            const canvas = document.getElementById('klineCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            let allHigh = klines.map(k => k.high);
+            let allLow = klines.map(k => k.low);
+            ma1.forEach(v => { if (v !== null) { allHigh.push(v); allLow.push(v); } });
+            ma2.forEach(v => { if (v !== null) { allHigh.push(v); allLow.push(v); } });
+
+            const minP = Math.min(...allLow) * 0.98;
+            const maxP = Math.max(...allHigh) * 1.02;
+            const padL = 70, padR = 20, padT = 20, padB = 20;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = klines.length;
+            const candleW = Math.max(2, (chartW / n) * 0.6);
+            const gap = chartW / n;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + chartH - (i / 5) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                const val = minP + (i / 5) * (maxP - minP);
+                ctx.fillText(val.toFixed(1), 4, y + 5);
+            }
+
+            const xPos = (i) => padL + i * gap + gap / 2;
+            const yPos = (v) => padT + chartH - ((v - minP) / (maxP - minP)) * chartH;
+
+            klines.forEach((k, i) => {
+                const x = xPos(i);
+                const isUp = k.close >= k.open;
+                const color = isUp ? '#dc3545' : '#28a745';
+                const bodyTop = yPos(Math.max(k.open, k.close));
+                const bodyBot = yPos(Math.min(k.open, k.close));
+                const bodyH = Math.max(2, bodyBot - bodyTop);
+
+                ctx.strokeStyle = color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(x, yPos(k.high)); ctx.lineTo(x, yPos(k.low)); ctx.stroke();
+                ctx.fillStyle = color;
+                ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+            });
+
+            function drawMAData(maData, color) {
+                ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+                let started = false;
+                maData.forEach((v, i) => {
+                    if (v === null) return;
+                    if (!started) { ctx.moveTo(xPos(i), yPos(v)); started = true; } else ctx.lineTo(xPos(i), yPos(v));
+                });
+                ctx.stroke();
+            }
+            drawMAData(ma1, '#ffc107');
+            drawMAData(ma2, '#007bff');
+
+            const last = klines[klines.length - 1];
+            const first = klines[0];
+            const totalChange = ((last.close - first.open) / first.open * 100).toFixed(2);
+            document.getElementById('infoRow').innerHTML = `
+                <span>最新: ${last.close.toFixed(2)}</span>
+                <span>最高: ${Math.max(...klines.map(k=>k.high)).toFixed(2)}</span>
+                <span>最低: ${Math.min(...klines.map(k=>k.low)).toFixed(2)}</span>
+                <span>区间涨幅: ${totalChange > 0 ? '+' : ''}${totalChange}%</span>
+                <span>共 ${n} 根K线</span>
+            `;
+            document.getElementById('chartCard').style.display = 'block';
+
+            const volCanvas = document.getElementById('volCanvas');
+            const vCtx = volCanvas.getContext('2d');
+            const vW = volCanvas.width = volCanvas.offsetWidth * 2;
+            const vH = volCanvas.height * 2;
+            vCtx.clearRect(0, 0, vW, vH);
+            const maxVol = Math.max(...klines.map(k => k.volume));
+            const vPadL = 70, vPadR = 20, vPadT = 10, vPadB = 20;
+            const vChartH = vH - vPadT - vPadB;
+
+            for (let i = 0; i <= 3; i++) {
+                const y = vPadT + vChartH - (i / 3) * vChartH;
+                vCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+                vCtx.beginPath(); vCtx.moveTo(vPadL, y); vCtx.lineTo(vW - vPadR, y); vCtx.stroke();
+                vCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+                vCtx.font = '18px sans-serif';
+                vCtx.fillText((maxVol * i / 3 / 1e6).toFixed(1) + 'M', 4, y + 5);
+            }
+
+            klines.forEach((k, i) => {
+                const x = vPadL + i * gap + gap / 2;
+                const h = (k.volume / maxVol) * vChartH;
+                vCtx.fillStyle = k.close >= k.open ? 'rgba(220,53,69,0.6)' : 'rgba(40,167,69,0.6)';
+                vCtx.fillRect(x - candleW / 2, vPadT + vChartH - h, candleW, h);
+            });
+            document.getElementById('volCard').style.display = 'block';
+        }
+
+        drawKline();
+    </script>
+</body>
+</html>

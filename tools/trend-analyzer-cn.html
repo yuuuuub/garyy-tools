@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="趋势分析器 - 线性回归、移动平均、趋势线识别和预测工具">
+    <meta name="robots" content="index, follow">
+    <title>趋势分析器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        .stat-box { text-align: center; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; }
+        .stat-box .num { font-size: 22px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .legend span { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; }
+        .tag-up { background: var(--success-color); }
+        .tag-down { background: var(--danger-color); }
+        .tag-flat { background: var(--secondary-color); }
+        .output { font-family: 'Courier New', monospace; font-size: 13px; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); white-space: pre-wrap; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>趋势分析器</h1>
+
+        <div class="card">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>价格数据（逗号分隔，从旧到新）</label>
+                    <input type="text" id="priceInput" placeholder="例: 10,11,10.5,12,13,12.5" value="20,21,23,22,25,24,27,26,29,30,28,31,33,32,35,34,37,36,39,40,38,41,43,42,45,44,47,46,49,50">
+                </div>
+                <div class="form-group">
+                    <label>预测周期</label>
+                    <select id="forecastPeriod">
+                        <option value="5">5个周期</option>
+                        <option value="10" selected>10个周期</option>
+                        <option value="15">15个周期</option>
+                        <option value="20">20个周期</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>分析方法</label>
+                    <select id="method">
+                        <option value="linear">线性回归</option>
+                        <option value="ma">移动平均</option>
+                        <option value="ema">指数移动平均</option>
+                        <option value="all">全部叠加</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>MA 周期</label>
+                    <select id="maPeriod">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="analyze()">分析趋势</button>
+        </div>
+
+        <div id="statsArea" class="grid-3" style="display:none;"></div>
+
+        <div class="card" id="chartCard" style="display:none;">
+            <h3>趋势图</h3>
+            <canvas id="trendChart" height="300"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> 原始价格</span>
+                <span><i style="background:#dc3545;"></i> 趋势线</span>
+                <span><i style="background:#ffc107;"></i> 移动平均</span>
+                <span><i style="background:#28a745; opacity:0.5;"></i> 预测区间</span>
+            </div>
+        </div>
+
+        <div class="card" id="resultCard" style="display:none;">
+            <h3>趋势分析结果</h3>
+            <div id="resultContent" class="output"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parsePrices() {
+            return document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+        }
+
+        function linearRegression(data) {
+            const n = data.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += i; sumY += data[i]; sumXY += i * data[i]; sumX2 += i * i;
+            }
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            let ssRes = 0, ssTot = 0;
+            const mean = sumY / n;
+            for (let i = 0; i < n; i++) {
+                const pred = slope * i + intercept;
+                ssRes += (data[i] - pred) ** 2;
+                ssTot += (data[i] - mean) ** 2;
+            }
+            const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+            return { slope, intercept, r2, predict: (x) => slope * x + intercept };
+        }
+
+        function calcMA(data, period) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) sum += data[j];
+                result.push(sum / period);
+            }
+            return result;
+        }
+
+        function calcEMA(data, period) {
+            const k = 2 / (period + 1);
+            const result = [data[0]];
+            for (let i = 1; i < data.length; i++) {
+                result.push(data[i] * k + result[i - 1] * (1 - k));
+            }
+            return result;
+        }
+
+        function detectTrend(regression) {
+            const slope = regression.slope;
+            if (slope > 0.5) return { dir: '强上升', tag: 'tag-up' };
+            if (slope > 0.1) return { dir: '上升', tag: 'tag-up' };
+            if (slope < -0.5) return { dir: '强下降', tag: 'tag-down' };
+            if (slope < -0.1) return { dir: '下降', tag: 'tag-down' };
+            return { dir: '横盘', tag: 'tag-flat' };
+        }
+
+        function drawChart() {
+            const prices = parsePrices();
+            const method = document.getElementById('method').value;
+            const maPeriod = parseInt(document.getElementById('maPeriod').value);
+            const forecastN = parseInt(document.getElementById('forecastPeriod').value);
+            const reg = linearRegression(prices);
+            const trend = detectTrend(reg);
+            const ma = calcMA(prices, maPeriod);
+            const ema = calcEMA(prices, maPeriod);
+
+            const totalN = prices.length + forecastN;
+            const trendLine = Array.from({ length: totalN }, (_, i) => reg.predict(i));
+            const allPrices = [...prices, ...Array(forecastN).fill(null)];
+
+            const datasets = [
+                { data: allPrices, color: '#007bff', width: 2.5 }
+            ];
+            if (method === 'linear' || method === 'all') {
+                datasets.push({ data: trendLine, color: '#dc3545', width: 2 });
+            }
+            if (method === 'ma' || method === 'all') {
+                datasets.push({ data: [...ma, ...Array(forecastN).fill(null)], color: '#ffc107', width: 2 });
+            }
+            if (method === 'ema' || method === 'all') {
+                const emaExtended = [...ema, ...Array(forecastN).fill(null)];
+                datasets.push({ data: emaExtended, color: '#9b59b6', width: 2 });
+            }
+
+            const labels = Array.from({ length: totalN }, (_, i) => i + 1);
+            drawLineChart(document.getElementById('trendChart'), datasets, labels, prices, forecastN, reg);
+        }
+
+        function drawLineChart(canvas, datasets, labels, prices, forecastN, reg) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            let allVals = [];
+            datasets.forEach(d => d.data.forEach(v => { if (v !== null) allVals.push(v); }));
+            const minV = Math.min(...allVals) * 0.95;
+            const maxV = Math.max(...allVals) * 1.05;
+            const padL = 60, padR = 20, padT = 20, padB = 40;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = labels.length;
+            const dataLen = prices.length;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + chartH - (i / 5) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minV + (i / 5) * (maxV - minV)).toFixed(1), 4, y + 5);
+            }
+
+            const x = (i) => padL + (i / (n - 1)) * chartW;
+            const y = (v) => padT + chartH - ((v - minV) / (maxV - minV)) * chartH;
+
+            ctx.setLineDash([8, 4]);
+            ctx.strokeStyle = 'rgba(128,128,128,0.5)';
+            ctx.beginPath(); ctx.moveTo(x(dataLen - 1), padT); ctx.lineTo(x(dataLen - 1), padT + chartH); ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = 'rgba(40,167,69,0.08)';
+            ctx.beginPath();
+            ctx.moveTo(x(0), y(reg.predict(0)));
+            ctx.lineTo(x(n - 1), y(reg.predict(n - 1)));
+            ctx.lineTo(x(n - 1), y(reg.predict(n - 1) - 10));
+            ctx.lineTo(x(0), y(reg.predict(0) - 10));
+            ctx.closePath(); ctx.fill();
+
+            datasets.forEach(ds => {
+                ctx.strokeStyle = ds.color;
+                ctx.lineWidth = ds.width || 2;
+                ctx.beginPath();
+                let started = false;
+                ds.data.forEach((v, i) => {
+                    if (v === null) return;
+                    if (!started) { ctx.moveTo(x(i), y(v)); started = true; } else ctx.lineTo(x(i), y(v));
+                });
+                ctx.stroke();
+            });
+        }
+
+        function analyze() {
+            const prices = parsePrices();
+            if (prices.length < 5) { alert('请输入至少5个价格数据'); return; }
+
+            const maPeriod = parseInt(document.getElementById('maPeriod').value);
+            const forecastN = parseInt(document.getElementById('forecastPeriod').value);
+            const reg = linearRegression(prices);
+            const trend = detectTrend(reg);
+            const ma = calcMA(prices, maPeriod);
+            const ema = calcEMA(prices, maPeriod);
+            const currentMA = ma[ma.length - 1];
+            const currentEMA = ema[ema.length - 1];
+            const forecast = reg.predict(prices.length + forecastN - 1);
+            const current = prices[prices.length - 1];
+            const forecastPct = ((forecast - current) / current * 100).toFixed(2);
+
+            document.getElementById('statsArea').style.display = 'grid';
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${trend.dir}</div><div class="label">趋势方向</div></div>
+                <div class="stat-box"><div class="num">${(reg.r2 * 100).toFixed(1)}%</div><div class="label">R² 拟合度</div></div>
+                <div class="stat-box"><div class="num" style="color:${forecastPct >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}">${forecastPct > 0 ? '+' : ''}${forecastPct}%</div><div class="label">预测涨跌幅</div></div>
+            `;
+
+            document.getElementById('chartCard').style.display = 'block';
+            drawChart();
+
+            document.getElementById('resultCard').style.display = 'block';
+            document.getElementById('resultContent').textContent = `
+趋势分析报告
+${'='.repeat(40)}
+斜率: ${reg.slope.toFixed(4)} (每周期变动)
+截距: ${reg.intercept.toFixed(4)}
+R² 值: ${reg.r2.toFixed(4)} (拟合度${reg.r2 > 0.7 ? '高' : reg.r2 > 0.4 ? '中' : '低'})
+
+当前价格: ${current.toFixed(2)}
+当前 MA${maPeriod}: ${currentMA ? currentMA.toFixed(2) : '-'}
+当前 EMA${maPeriod}: ${currentEMA.toFixed(2)}
+
+${forecastN}周期后预测: ${forecast.toFixed(2)} (${forecastPct > 0 ? '+' : ''}${forecastPct}%)
+
+趋势判断: ${trend.dir}
+${reg.slope > 0 ? '价格呈现上升趋势，可关注回调买入机会。' : reg.slope < 0 ? '价格呈现下降趋势，建议观望或止损。' : '价格横盘震荡，等待方向选择。'}
+`.trim();
+
+            document.getElementById('statsArea').style.display = 'grid';
+        }
+
+        analyze();
+    </script>
+</body>
+</html>
