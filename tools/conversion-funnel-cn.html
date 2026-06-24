@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="转化漏斗分析器 - 追踪和优化用户转化路径">
+    <meta name="robots" content="index, follow">
+    <title>转化漏斗分析器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-success { background-color: var(--success-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .output { white-space: pre-wrap; font-family: 'Courier New', monospace; line-height: 1.6; background: var(--bg-color); padding: 12px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 13px; }
+        .funnel-visual { position: relative; margin: 20px 0; }
+        .funnel-stage { position: relative; margin: 0 auto 4px; text-align: center; padding: 16px 0; color: white; font-weight: bold; border-radius: 4px; transition: all 0.3s; }
+        .funnel-stage:hover { transform: scale(1.02); }
+        .funnel-stage .stage-name { font-size: 15px; }
+        .funnel-stage .stage-num { font-size: 24px; margin: 4px 0; }
+        .funnel-stage .stage-pct { font-size: 13px; opacity: 0.9; }
+        .funnel-stage .drop-rate { font-size: 12px; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 2px 8px; display: inline-block; margin-top: 4px; }
+        .stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 100px; text-align: center; padding: 12px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); }
+        .stage-input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg); }
+        .stage-input-row input { flex: 1; }
+        .remove-btn { background: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; flex-shrink: 0; }
+        .insight-item { padding: 10px; border-left: 4px solid var(--warning-color); margin-bottom: 8px; border-radius: 0 4px 4px 0; background: var(--card-bg); }
+        .insight-item.critical { border-color: var(--danger-color); }
+        .insight-item.good { border-color: var(--success-color); }
+        .bar-chart { display: flex; gap: 2px; align-items: flex-end; height: 120px; padding: 10px 0; }
+        .bar-chart .bar { flex: 1; background: var(--primary-color); border-radius: 3px 3px 0 0; position: relative; min-width: 30px; transition: height 0.3s; }
+        .bar-chart .bar .bar-label { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; white-space: nowrap; color: var(--secondary-color); }
+        .bar-chart .bar .bar-value { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>转化漏斗分析器</h1>
+        <div id="statsArea" class="stat-row" style="margin-bottom:16px;"></div>
+
+        <div class="card">
+            <h3>漏斗设置</h3>
+            <div class="form-group"><label>漏斗名称</label><input type="text" id="funnelName" placeholder="例如：电商购买漏斗"></div>
+            <div class="form-group"><label>数据周期</label><select id="dataPeriod"><option value="day">按天</option><option value="week">按周</option><option value="month" selected>按月</option></select></div>
+
+            <h4 style="margin-top:16px;">漏斗阶段</h4>
+            <div id="stagesContainer">
+                <div class="stage-input-row"><input type="text" class="stage-name-input" placeholder="阶段名称" value="浏览页面"><input type="number" class="stage-users-input" placeholder="用户数" value="10000"><button class="remove-btn" onclick="this.parentElement.remove()">×</button></div>
+                <div class="stage-input-row"><input type="text" class="stage-name-input" placeholder="阶段名称" value="点击加购"><input type="number" class="stage-users-input" placeholder="用户数" value="3500"><button class="remove-btn" onclick="this.parentElement.remove()">×</button></div>
+                <div class="stage-input-row"><input type="text" class="stage-name-input" placeholder="阶段名称" value="加入购物车"><input type="number" class="stage-users-input" placeholder="用户数" value="2000"><button class="remove-btn" onclick="this.parentElement.remove()">×</button></div>
+                <div class="stage-input-row"><input type="text" class="stage-name-input" placeholder="阶段名称" value="开始结算"><input type="number" class="stage-users-input" placeholder="用户数" value="1200"><button class="remove-btn" onclick="this.parentElement.remove()">×</button></div>
+                <div class="stage-input-row"><input type="text" class="stage-name-input" placeholder="阶段名称" value="完成支付"><input type="number" class="stage-users-input" placeholder="用户数" value="800"><button class="remove-btn" onclick="this.parentElement.remove()">×</button></div>
+            </div>
+            <button class="btn-sm" onclick="addStage()">+ 添加阶段</button>
+            <button onclick="analyzeFunnel()" style="margin-left:16px;">分析漏斗</button>
+        </div>
+
+        <div class="card" id="resultCard" style="display:none;">
+            <h3>漏斗可视化</h3>
+            <div class="funnel-visual" id="funnelVisual"></div>
+        </div>
+
+        <div class="card" id="barCard" style="display:none;">
+            <h3>各阶段对比</h3>
+            <div class="bar-chart" id="barChart"></div>
+            <div style="height:24px;"></div>
+        </div>
+
+        <div class="card" id="insightCard" style="display:none;">
+            <h3>优化建议</h3>
+            <div id="insights"></div>
+        </div>
+
+        <div class="card" id="exportCard" style="display:none;">
+            <h3>导出报告</h3>
+            <pre class="output" id="reportContent"></pre>
+            <button class="btn-success" onclick="copyReport()" style="margin-top:10px;">复制报告</button>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        let funnels = JSON.parse(localStorage.getItem('conversionFunnels') || '[]');
+
+        function addStage() {
+            const container = document.getElementById('stagesContainer');
+            const div = document.createElement('div');
+            div.className = 'stage-input-row';
+            div.innerHTML = `<input type="text" class="stage-name-input" placeholder="阶段名称"><input type="number" class="stage-users-input" placeholder="用户数"><button class="remove-btn" onclick="this.parentElement.remove()">×</button>`;
+            container.appendChild(div);
+        }
+
+        function analyzeFunnel() {
+            const name = document.getElementById('funnelName').value.trim() || '转化漏斗';
+            const rows = document.querySelectorAll('.stage-input-row');
+            const stages = [];
+            rows.forEach(r => {
+                const n = r.querySelector('.stage-name-input').value.trim();
+                const u = parseInt(r.querySelector('.stage-users-input').value);
+                if (n && u > 0) stages.push({ name: n, users: u });
+            });
+            if (stages.length < 2) { alert('至少需要2个阶段'); return; }
+
+            const colors = ['#007bff', '#17a2b8', '#28a745', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'];
+            const maxUsers = stages[0].users;
+            const insights = [];
+
+            let funnelHtml = '';
+            stages.forEach((s, i) => {
+                const pct = ((s.users / maxUsers) * 100).toFixed(1);
+                const width = Math.max(30, 40 + (s.users / maxUsers) * 60);
+                const dropRate = i > 0 ? (((stages[i - 1].users - s.users) / stages[i - 1].users) * 100).toFixed(1) : 0;
+                funnelHtml += `<div class="funnel-stage" style="width:${width}%;background:${colors[i % colors.length]};">
+                    <div class="stage-name">${s.name}</div>
+                    <div class="stage-num">${s.users.toLocaleString()}</div>
+                    <div class="stage-pct">${pct}%</div>
+                    ${i > 0 ? `<div class="drop-rate">↓ 流失 ${dropRate}%</div>` : ''}
+                </div>`;
+                if (i > 0 && parseFloat(dropRate) > 50) {
+                    insights.push({ type: 'critical', text: `"${stages[i - 1].name}" → "${s.name}" 流失率高达 ${dropRate}%，建议重点优化此环节` });
+                } else if (i > 0 && parseFloat(dropRate) > 30) {
+                    insights.push({ type: 'warning', text: `"${stages[i - 1].name}" → "${s.name}" 流失 ${dropRate}%，可优化空间较大` });
+                }
+            });
+            document.getElementById('funnelVisual').innerHTML = funnelHtml;
+
+            const barHtml = stages.map((s, i) => {
+                const h = (s.users / maxUsers) * 100;
+                return `<div class="bar" style="height:${h}%;background:${colors[i % colors.length]};"><div class="bar-value">${s.users.toLocaleString()}</div><div class="bar-label">${s.name}</div></div>`;
+            }).join('');
+            document.getElementById('barChart').innerHTML = barHtml;
+
+            const overallRate = ((stages[stages.length - 1].users / maxUsers) * 100).toFixed(2);
+            insights.push({ type: overallRate > 5 ? 'good' : 'warning', text: `整体转化率: ${overallRate}%（从${stages[0].name}到${stages[stages.length - 1].name}）` });
+            if (parseFloat(overallRate) < 1) insights.push({ type: 'critical', text: '整体转化率低于1%，建议全面审查用户流程' });
+
+            document.getElementById('insights').innerHTML = insights.map(ins => `<div class="insight-item ${ins.type}">${ins.text}</div>`).join('');
+
+            let report = `📊 ${name} 分析报告\n${'='.repeat(40)}\n\n`;
+            stages.forEach((s, i) => {
+                const pct = ((s.users / maxUsers) * 100).toFixed(1);
+                const drop = i > 0 ? ` (流失${(((stages[i-1].users - s.users) / stages[i-1].users) * 100).toFixed(1)}%)` : '';
+                report += `  ${i + 1}. ${s.name}: ${s.users.toLocaleString()} (${pct}%)${drop}\n`;
+            });
+            report += `\n整体转化率: ${overallRate}%\n\n优化建议:\n`;
+            insights.forEach(ins => report += `  • ${ins.text}\n`);
+            document.getElementById('reportContent').textContent = report;
+
+            document.getElementById('resultCard').style.display = 'block';
+            document.getElementById('barCard').style.display = 'block';
+            document.getElementById('insightCard').style.display = 'block';
+            document.getElementById('exportCard').style.display = 'block';
+
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num">${maxUsers.toLocaleString()}</div><div class="label">初始用户</div></div>
+                <div class="stat-box"><div class="num">${stages[stages.length - 1].users.toLocaleString()}</div><div class="label">最终用户</div></div>
+                <div class="stat-box"><div class="num">${overallRate}%</div><div class="label">转化率</div></div>
+                <div class="stat-box"><div class="num">${stages.length}</div><div class="label">漏斗阶段</div></div>
+            `;
+        }
+
+        function copyReport() { navigator.clipboard.writeText(document.getElementById('reportContent').textContent).then(() => alert('报告已复制')); }
+    </script>
+</body>
+</html>

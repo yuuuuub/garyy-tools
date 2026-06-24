@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="客户旅程地图 - 可视化客户体验全流程">
+    <meta name="robots" content="index, follow">
+    <title>客户旅程地图</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #ffffff; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        button { background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 8px; }
+        button:hover { opacity: 0.9; }
+        .btn-success { background-color: var(--success-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-sm { padding: 4px 10px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .output { white-space: pre-wrap; font-family: 'Courier New', monospace; line-height: 1.6; background: var(--bg-color); padding: 12px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 13px; }
+        .journey-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .journey-table th { padding: 10px; background: var(--primary-color); color: white; text-align: left; min-width: 120px; position: sticky; top: 0; }
+        .journey-table td { padding: 10px; border: 1px solid var(--border-color); vertical-align: top; background: var(--card-bg); }
+        .journey-table tr:hover td { background: var(--bg-color); }
+        .row-label { font-weight: bold; color: var(--primary-color); min-width: 100px; white-space: nowrap; }
+        .emoticon-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+        .emoticon-btn { font-size: 20px; cursor: pointer; padding: 4px; border: 2px solid transparent; border-radius: 4px; background: none; }
+        .emoticon-btn:hover, .emoticon-btn.selected { border-color: var(--primary-color); }
+        .stage-card { border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 12px; background: var(--card-bg); }
+        .stage-card h4 { margin: 0 0 10px 0; color: var(--primary-color); }
+        .touchpoint-tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; background: var(--primary-color); color: white; margin: 2px; }
+        .painpoint-item { padding: 8px; border-left: 3px solid var(--danger-color); margin-bottom: 6px; border-radius: 0 4px 4px 0; background: rgba(220,53,69,0.05); }
+        .opportunity-item { padding: 8px; border-left: 3px solid var(--success-color); margin-bottom: 6px; border-radius: 0 4px 4px 0; background: rgba(40,167,69,0.05); }
+        .emotion-line { display: flex; align-items: flex-end; gap: 4px; height: 80px; margin: 16px 0; padding: 0 10px; }
+        .emotion-bar { flex: 1; border-radius: 4px 4px 0 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font-size: 12px; color: white; font-weight: bold; transition: height 0.3s; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>客户旅程地图</h1>
+
+        <div class="card">
+            <h3>旅程设置</h3>
+            <div class="grid-2">
+                <div class="form-group"><label>旅程名称</label><input type="text" id="journeyName" placeholder="例如：电商购物旅程"></div>
+                <div class="form-group"><label>目标客户画像</label><input type="text" id="persona" placeholder="例如：25-35岁都市白领"></div>
+            </div>
+            <div class="form-group"><label>目标描述</label><textarea id="journeyGoal" rows="2" placeholder="客户旅程要达到的目标..."></textarea></div>
+        </div>
+
+        <div class="card">
+            <h3>旅程阶段</h3>
+            <div id="stagesContainer">
+                <div class="stage-card" data-index="0">
+                    <h4>阶段 1: <input type="text" class="stage-name" value="认知" style="border:none;background:none;font-weight:bold;color:var(--primary-color);width:auto;"></h4>
+                    <div class="grid-2">
+                        <div class="form-group"><label>客户行为</label><textarea class="stage-actions" rows="2" placeholder="客户在做什么...">搜索产品信息、浏览广告</textarea></div>
+                        <div class="form-group"><label>触点</label><textarea class="stage-touchpoints" rows="2" placeholder="接触点...">社交媒体、搜索引擎、朋友推荐</textarea></div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group"><label>客户想法</label><textarea class="stage-thoughts" rows="2" placeholder="客户在想什么...">这个产品能解决我的问题吗？</textarea></div>
+                        <div class="form-group"><label>客户情绪</label>
+                            <div class="emoticon-picker" data-stage="0">
+                                <button class="emoticon-btn" data-val="1" onclick="selectEmotion(this,0)">😠</button>
+                                <button class="emoticon-btn" data-val="2" onclick="selectEmotion(this,0)">😟</button>
+                                <button class="emoticon-btn selected" data-val="3" onclick="selectEmotion(this,0)">😐</button>
+                                <button class="emoticon-btn" data-val="4" onclick="selectEmotion(this,0)">🙂</button>
+                                <button class="emoticon-btn" data-val="5" onclick="selectEmotion(this,0)">😍</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>痛点</label><textarea class="stage-painpoints" rows="2" placeholder="遇到的问题...">信息太多，难以筛选</textarea></div>
+                    <div class="form-group"><label>优化机会</label><textarea class="stage-opportunities" rows="2" placeholder="改进方向...">提供对比评测内容</textarea></div>
+                    <input type="hidden" class="stage-emotion" value="3">
+                </div>
+            </div>
+            <button class="btn-sm" onclick="addStage()">+ 添加阶段</button>
+            <button onclick="renderJourney()" style="margin-left:16px;">生成旅程地图</button>
+        </div>
+
+        <div class="card" id="mapCard" style="display:none;">
+            <h3>旅程地图可视化</h3>
+            <div style="overflow-x:auto;">
+                <table class="journey-table" id="journeyTable"></table>
+            </div>
+        </div>
+
+        <div class="card" id="emotionCard" style="display:none;">
+            <h3>情绪曲线</h3>
+            <div class="emotion-line" id="emotionLine"></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--secondary-color);padding:0 10px;">
+                <span>😠 非常不满</span><span>😟 不满</span><span>😐 中性</span><span>🙂 满意</span><span>😍 非常满意</span>
+            </div>
+        </div>
+
+        <div class="card" id="summaryCard" style="display:none;">
+            <h3>旅程摘要</h3>
+            <pre class="output" id="summaryOutput"></pre>
+            <button class="btn-success" onclick="copySummary()" style="margin-top:10px;">复制摘要</button>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        let stageCount = 1;
+        const emotions = { 1: '😠', 2: '😟', 3: '😐', 4: '🙂', 5: '😍' };
+
+        function selectEmotion(btn, stageIndex) {
+            const picker = btn.parentElement;
+            picker.querySelectorAll('.emoticon-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            document.querySelectorAll('.stage-card')[stageIndex].querySelector('.stage-emotion').value = btn.dataset.val;
+        }
+
+        function addStage() {
+            stageCount++;
+            const div = document.createElement('div');
+            div.className = 'stage-card';
+            div.dataset.index = stageCount - 1;
+            div.innerHTML = `<h4>阶段 ${stageCount}: <input type="text" class="stage-name" value="阶段${stageCount}" style="border:none;background:none;font-weight:bold;color:var(--primary-color);width:auto;"></h4>
+                <div class="grid-2">
+                    <div class="form-group"><label>客户行为</label><textarea class="stage-actions" rows="2" placeholder="客户在做什么..."></textarea></div>
+                    <div class="form-group"><label>触点</label><textarea class="stage-touchpoints" rows="2" placeholder="接触点..."></textarea></div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group"><label>客户想法</label><textarea class="stage-thoughts" rows="2" placeholder="客户在想什么..."></textarea></div>
+                    <div class="form-group"><label>客户情绪</label>
+                        <div class="emoticon-picker" data-stage="${stageCount-1}">
+                            <button class="emoticon-btn" data-val="1" onclick="selectEmotion(this,${stageCount-1})">😠</button>
+                            <button class="emoticon-btn" data-val="2" onclick="selectEmotion(this,${stageCount-1})">😟</button>
+                            <button class="emoticon-btn selected" data-val="3" onclick="selectEmotion(this,${stageCount-1})">😐</button>
+                            <button class="emoticon-btn" data-val="4" onclick="selectEmotion(this,${stageCount-1})">🙂</button>
+                            <button class="emoticon-btn" data-val="5" onclick="selectEmotion(this,${stageCount-1})">😍</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group"><label>痛点</label><textarea class="stage-painpoints" rows="2" placeholder="遇到的问题..."></textarea></div>
+                <div class="form-group"><label>优化机会</label><textarea class="stage-opportunities" rows="2" placeholder="改进方向..."></textarea></div>
+                <input type="hidden" class="stage-emotion" value="3">
+                <button class="btn-danger btn-sm" onclick="this.parentElement.remove()" style="margin-top:8px;">删除阶段</button>`;
+            document.getElementById('stagesContainer').appendChild(div);
+        }
+
+        function renderJourney() {
+            const cards = document.querySelectorAll('.stage-card');
+            const stages = [];
+            cards.forEach(card => {
+                stages.push({
+                    name: card.querySelector('.stage-name').value.trim(),
+                    actions: card.querySelector('.stage-actions').value.trim(),
+                    touchpoints: card.querySelector('.stage-touchpoints').value.trim(),
+                    thoughts: card.querySelector('.stage-thoughts').value.trim(),
+                    emotion: parseInt(card.querySelector('.stage-emotion').value),
+                    painpoints: card.querySelector('.stage-painpoints').value.trim(),
+                    opportunities: card.querySelector('.stage-opportunities').value.trim()
+                });
+            });
+            if (stages.length < 2) { alert('至少需要2个阶段'); return; }
+
+            const rows = [
+                { label: '🎯 客户行为', key: 'actions' },
+                { label: '📍 触点', key: 'touchpoints', isTag: true },
+                { label: '💭 客户想法', key: 'thoughts' },
+                { label: '😊 情绪', key: 'emotion', isEmotion: true },
+                { label: '⚠️ 痛点', key: 'painpoints', isPain: true },
+                { label: '💡 机会', key: 'opportunities', isOpp: true }
+            ];
+
+            let tableHtml = '<tr><th>旅程维度</th>';
+            stages.forEach((s, i) => tableHtml += `<th style="text-align:center;">${s.name}</th>`);
+            tableHtml += '</tr>';
+            rows.forEach(row => {
+                tableHtml += `<tr><td class="row-label">${row.label}</td>`;
+                stages.forEach(s => {
+                    let val = s[row.key];
+                    if (row.isEmotion) val = emotions[val] || '😐';
+                    else if (row.isTag && val) val = val.split(/[,，、]/).map(t => `<span class="touchpoint-tag">${t.trim()}</span>`).join(' ');
+                    else if (row.isPain && val) val = val.split('\n').filter(Boolean).map(p => `<div class="painpoint-item">${p}</div>`).join('');
+                    else if (row.isOpp && val) val = val.split('\n').filter(Boolean).map(p => `<div class="opportunity-item">${p}</div>`).join('');
+                    tableHtml += `<td>${val || '<span style="color:var(--secondary-color);">—</span>'}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            document.getElementById('journeyTable').innerHTML = tableHtml;
+
+            const maxEmotion = 5;
+            let emotionHtml = '';
+            stages.forEach(s => {
+                const h = (s.emotion / maxEmotion) * 100;
+                const color = s.emotion <= 2 ? 'var(--danger-color)' : s.emotion === 3 ? 'var(--warning-color)' : 'var(--success-color)';
+                emotionHtml += `<div class="emotion-bar" style="height:${h}%;background:${color};">${emotions[s.emotion]}</div>`;
+            });
+            document.getElementById('emotionLine').innerHTML = emotionHtml;
+
+            const name = document.getElementById('journeyName').value.trim() || '客户旅程';
+            const persona = document.getElementById('persona').value.trim() || '—';
+            let summary = `🗺️ ${name} 旅程地图\n${'='.repeat(40)}\n👤 客户画像: ${persona}\n\n`;
+            stages.forEach((s, i) => {
+                summary += `📍 阶段${i + 1}: ${s.name}\n${'─'.repeat(20)}\n`;
+                summary += `  行为: ${s.actions || '—'}\n  触点: ${s.touchpoints || '—'}\n  想法: ${s.thoughts || '—'}\n  情绪: ${emotions[s.emotion]}\n  痛点: ${s.painpoints || '无'}\n  机会: ${s.opportunities || '无'}\n\n`;
+            });
+            const painCount = stages.reduce((acc, s) => acc + (s.painpoints ? s.painpoints.split('\n').filter(Boolean).length : 0), 0);
+            const oppCount = stages.reduce((acc, s) => acc + (s.opportunities ? s.opportunities.split('\n').filter(Boolean).length : 0), 0);
+            summary += `📊 统计: ${stages.length}个阶段 | ${painCount}个痛点 | ${oppCount}个优化机会\n`;
+            document.getElementById('summaryOutput').textContent = summary;
+
+            document.getElementById('mapCard').style.display = 'block';
+            document.getElementById('emotionCard').style.display = 'block';
+            document.getElementById('summaryCard').style.display = 'block';
+        }
+
+        function copySummary() { navigator.clipboard.writeText(document.getElementById('summaryOutput').textContent).then(() => alert('摘要已复制')); }
+    </script>
+</body>
+</html>
