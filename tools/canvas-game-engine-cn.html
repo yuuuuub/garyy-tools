@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 Canvas游戏引擎</title>
+<meta property="og:title" content="🎮 Canvas游戏引擎">
+<meta property="og:description" content="🎮 Canvas游戏引擎 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="Canvas游戏引擎 - 可视化2D游戏开发引擎">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls input[type=number],.controls select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:.8rem;width:80px}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.85}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0}
+.info-bar span{color:var(--accent);font-weight:600}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🎮 Canvas游戏引擎</h1><p>可视化2D游戏开发引擎 - 创建、测试和调试游戏</p></div>
+
+<div class="tabs" id="sceneTabs">
+<button class="active" data-scene="platformer">平台跳跃</button>
+<button data-scene="breakout">打砖块</button>
+<button data-scene="snake">贪吃蛇</button>
+<button data-scene="space">太空射击</button>
+</div>
+
+<div class="canvas-wrap">
+<canvas id="gameCanvas" width="800" height="500"></canvas>
+</div>
+
+<div class="info-bar" id="infoBar">
+<span>分数: <b id="score">0</b></span>
+<span>生命: <b id="lives">3</b></span>
+<span>FPS: <b id="fps">0</b></span>
+<span>状态: <b id="gameState">就绪</b></span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-primary" id="btnStart">▶ 开始</button>
+<button class="btn btn-danger" id="btnPause">⏸ 暂停</button>
+<button class="btn btn-outline" id="btnReset">↺ 重置</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>速度</label><input type="range" id="speedRange" min="1" max="10" value="5"><span class="val" id="speedVal">5</span></div>
+<div class="row"><label>难度</label><select id="diffSelect"><option value="easy">简单</option><option value="normal" selected>普通</option><option value="hard">困难</option></select></div>
+<div class="row"><label>物体数</label><input type="range" id="countRange" min="1" max="50" value="10"><span class="val" id="countVal">10</span></div>
+</div>
+
+<script>
+const canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height,score=0,lives=3,running=false,paused=false,scene='platformer',animId=null;
+let speed=5,difficulty='normal',objCount=10,frameCount=0,lastFpsTime=performance.now(),currentFps=0;
+
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.key]=true;e.preventDefault()});
+document.addEventListener('keyup',e=>{keys[e.key]=false});
+
+class Player{
+constructor(){this.x=80;this.y=H-80;this.w=30;this.h=30;this.vx=0;this.vy=0;this.grounded=false;this.color='#3b82f6'}
+update(){
+this.vy+=0.5;this.x+=this.vx;this.y+=this.vy;
+if(this.y+this.h>H){this.y=H-this.h;this.vy=0;this.grounded=true}
+if(this.x<0)this.x=0;if(this.x+this.w>W)this.x=W-this.w;
+if(keys['ArrowLeft']||keys['a'])this.vx=-speed;else if(keys['ArrowRight']||keys['d'])this.vx=speed;else this.vx*=0.8;
+if((keys['ArrowUp']||keys['w']||' ')&&this.grounded){this.vy=-12;this.grounded=false}
+}
+draw(){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+}
+
+class Platform{
+constructor(x,y,w,h){this.x=x;this.y=y;this.w=w;this.h=h;this.color='#30363d'}
+draw(){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+}
+
+class Brick{
+constructor(x,y,w,h,c){this.x=x;this.y=y;this.w=w;this.h=h;this.alive=true;this.color=c}
+draw(){if(!this.alive)return;ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+}
+
+class Ball{
+constructor(){this.x=W/2;this.y=H-120;this.r=6;this.vx=4;this.vy=-4;this.color='#f59e0b'}
+update(){this.x+=this.vx;this.y+=this.vy;if(this.x-this.r<0||this.x+this.r>W)this.vx*=-1;if(this.y-this.r<0)this.vy*=-1}
+draw(){ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fillStyle=this.color;ctx.fill()}
+}
+
+class Bullet{
+constructor(x,y){this.x=x;this.y=y;this.w=4;this.h=10;this.vy=-8;this.alive=true;this.color='#22c55e'}
+update(){this.y+=this.vy;if(this.y<-10)this.alive=false}
+draw(){if(!this.alive)return;ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+}
+
+class Enemy{
+constructor(x,y){this.x=x;this.y=y;this.w=25;this.h=25;this.vx=1.5;this.alive=true;this.color='#ef4444'}
+update(){this.x+=this.vx;if(this.x<=0||this.x+this.w>=W)this.vx*=-1}
+draw(){if(!this.alive)return;ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+}
+
+let player,platforms,bricks,ball,bullets,enemies,snakeBody,snakeDir,food;
+
+function initPlatformer(){
+player=new Player();
+platforms=[new Platform(0,H-20,W,20),new Platform(150,H-120,120,15),new Platform(350,H-200,120,15),new Platform(550,H-160,120,15),new Platform(200,H-280,100,15),new Platform(500,H-320,100,15)];
+score=0;lives=3;
+}
+
+function initBreakout(){
+bricks=[];ball=new Ball();player={x:W/2-40,y:H-40,w:80,h:12,color:'#3b82f6',draw(){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}};
+const colors=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7'];
+for(let r=0;r<5;r++)for(let c=0;c<8;c++)bricks.push(new Brick(60+c*85,40+r*28,75,22,colors[r]));
+score=0;lives=3;
+}
+
+function initSnake(){
+snakeBody=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];snakeDir={x:1,y:0};spawnFood();score=0;lives=1;
+}
+
+function spawnFood(){
+food={x:Math.floor(Math.random()*(W/20)),y:Math.floor(Math.random()*(H/20))};
+}
+
+function initSpace(){
+player={x:W/2-15,y:H-50,w:30,h:30,color:'#3b82f6',draw(){ctx.fillStyle=this.color;ctx.beginPath();ctx.moveTo(this.x+this.w/2,this.y);ctx.lineTo(this.x+this.w,this.y+this.h);ctx.lineTo(this.x,this.y+this.h);ctx.fill()}};
+bullets=[];enemies=[];
+for(let i=0;i<objCount;i++)enemies.push(new Enemy(60+i*70,30+Math.random()*100));
+score=0;lives=3;
+}
+
+function initScene(){
+cancelAnimationFrame(animId);running=false;paused=false;
+document.getElementById('gameState').textContent='就绪';
+switch(scene){
+case'platformer':initPlatformer();break;
+case'breakout':initBreakout();break;
+case'snake':initSnake();break;
+case'space':initSpace();break;
+}
+drawScene();
+}
+
+function drawScene(){
+ctx.clearRect(0,0,W,H);
+ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+switch(scene){
+case'platformer':
+platforms.forEach(p=>p.draw());player.draw();break;
+case'breakout':
+bricks.forEach(b=>b.draw());ball.draw();player.draw();break;
+case'snake':
+ctx.fillStyle='#22c55e';snakeBody.forEach(s=>ctx.fillRect(s.x*20,s.y*20,18,18));
+ctx.fillStyle='#ef4444';ctx.fillRect(food.x*20,food.y*20,18,18);break;
+case'space':
+player.draw();bullets.forEach(b=>b.draw());enemies.forEach(e=>e.draw());break;
+}
+}
+
+function updatePlatformer(){
+player.update();
+platforms.forEach(p=>{
+if(player.vy>0&&player.x+player.w>p.x&&player.x<p.x+p.w&&player.y+player.h>=p.y&&player.y+player.h<=p.y+p.h+10){
+player.y=p.y-player.h;player.vy=0;player.grounded=true;
+}
+});
+if(player.y>H+50){lives--;if(lives<=0)running=false;else initPlatformer();}
+score=Math.max(score,Math.floor(player.x/10));
+}
+
+function updateBreakout(){
+player.draw=function(){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)};
+if(keys['ArrowLeft'])player.x-=speed;if(keys['ArrowRight'])player.x+=speed;
+player.x=Math.max(0,Math.min(W-player.w,player.x));
+ball.update();
+if(ball.y+ball.r>H){lives--;ball.y=H-60;ball.vy=-Math.abs(ball.vy);if(lives<=0)running=false;}
+if(ball.x-ball.r<player.x+player.w&&ball.x+ball.r>player.x&&ball.y+ball.r>player.y&&ball.vy>0)ball.vy=-Math.abs(ball.vy);
+bricks.forEach(b=>{
+if(b.alive&&ball.x+ball.r>b.x&&ball.x-ball.r<b.x+b.w&&ball.y+ball.r>b.y&&ball.y-ball.r<b.y+b.h){
+b.alive=false;ball.vy*=-1;score+=10;
+}
+});
+if(bricks.every(b=>!b.alive)){running=false;document.getElementById('gameState').textContent='胜利!';}
+}
+
+function updateSnake(){
+let head={x:snakeBody[0].x+snakeDir.x,y:snakeBody[0].y+snakeDir.y};
+if(head.x<0||head.x>=W/20||head.y<0||head.y>=H/20){lives--;if(lives<=0){running=false;return;}initScene();return;}
+if(snakeBody.some(s=>s.x===head.x&&s.y===head.y)){lives--;if(lives<=0){running=false;return;}initScene();return;}
+snakeBody.unshift(head);
+if(head.x===food.x&&head.y===food.y){score+=10;spawnFood();}else snakeBody.pop();
+}
+
+let shootCooldown=0;
+function updateSpace(){
+if(keys['ArrowLeft'])player.x-=speed;if(keys['ArrowRight'])player.x+=speed;
+if(keys[' ']){if(shootCooldown<=0){bullets.push(new Bullet(player.x+player.w/2-2,player.y));shootCooldown=10;}}
+shootCooldown--;
+bullets.forEach(b=>b.update());
+enemies.forEach(e=>{e.update();
+bullets.forEach(b=>{if(b.alive&&e.alive&&b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){b.alive=false;e.alive=false;score+=20;}});
+if(e.alive&&e.y+e.h>player.y&&e.x<player.x+player.w&&e.x+e.w>player.x){lives--;e.alive=false;}
+});
+enemies=enemies.filter(e=>e.alive);bullets=bullets.filter(b=>b.alive);
+if(enemies.length===0){running=false;document.getElementById('gameState').textContent='胜利!';}
+}
+
+let snakeTimer=0;
+function gameLoop(){
+if(!running||paused)return;
+frameCount++;
+const now=performance.now();
+if(now-lastFpsTime>1000){currentFps=frameCount;frameCount=0;lastFpsTime=now;document.getElementById('fps').textContent=currentFps;}
+switch(scene){
+case'platformer':updatePlatformer();break;
+case'breakout':updateBreakout();break;
+case'snake':snakeTimer++;if(snakeTimer>=Math.max(3,15-speed)){snakeTimer=0;updateSnake();}break;
+case'space':updateSpace();break;
+}
+drawScene();
+document.getElementById('score').textContent=score;
+document.getElementById('lives').textContent=lives;
+animId=requestAnimationFrame(gameLoop);
+}
+
+document.getElementById('btnStart').onclick=()=>{if(!running){running=true;paused=false;document.getElementById('gameState').textContent='运行中';gameLoop();}};
+document.getElementById('btnPause').onclick=()=>{paused=!paused;if(!paused&&running)gameLoop();document.getElementById('gameState').textContent=paused?'暂停':'运行中';};
+document.getElementById('btnReset').onclick=initScene;
+
+document.getElementById('speedRange').oninput=function(){speed=+this.value;document.getElementById('speedVal').textContent=this.value;};
+document.getElementById('diffSelect').onchange=function(){difficulty=this.value;};
+document.getElementById('countRange').oninput=function(){objCount=+this.value;document.getElementById('countVal').textContent=this.value;};
+
+document.getElementById('sceneTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#sceneTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');scene=btn.dataset.scene;initScene();
+};
+
+initScene();
+</script>
+</body>
+</html>

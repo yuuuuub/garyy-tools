@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>战争策略游戏</title>
+<meta name="description" content="战争策略游戏 - 在六角格地图上进行回合制策略对战">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#3b82f6;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700;--blue:#0969da}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:800px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.hud{display:flex;gap:16px;margin:8px 0;font-size:.9rem;color:var(--text2)}
+.hud b{color:var(--text)}
+canvas{display:block;margin:0 auto;border:2px solid var(--border);border-radius:8px;touch-action:none}
+.status-bar{text-align:center;padding:12px;font-size:1.1rem;font-weight:600}
+.turn-blue{color:var(--blue)}
+.turn-red{color:var(--red)}
+.unit-panel{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;display:none;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.unit-panel.show{display:flex;gap:8px;align-items:center}
+.unit-info{font-size:.85rem;color:var(--text2)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<div class="unit-panel" id="unitPanel">
+  <span class="unit-info" id="unitInfo"></span>
+  <button class="btn btn-sm btn-success" onclick="attackUnit()">攻击</button>
+  <button class="btn btn-sm" onclick="moveUnit()">移动</button>
+</div>
+<script>
+document.title='⚔️ 战争策略游戏';
+const APP=document.getElementById('app');
+const canvas=document.createElement('canvas');
+const CELL=40,ROWS=8,COLS=10;
+let grid=[],units=[],currentTurn='blue',turnCount=1,selectedUnit=null,gameOver=false;
+
+const TERRAIN=['plains','forest','mountain'];
+const TERRAIN_COLORS={plains:'#3a7d44',forest:'#2d5a27',mountain:'#6b6b6b'};
+const TERRAIN_COST={plains:1,forest:2,mountain:3};
+
+function init(){
+  grid=[];
+  for(let r=0;r<ROWS;r++){
+    grid[r]=[];
+    for(let c=0;c<COLS;c++){
+      const t=TERRAIN[Math.floor(Math.random()*3)];
+      grid[r][c]={terrain:t,unit:null};
+    }
+  }
+  units=[
+    {id:1,team:'blue',type:'infantry',hp:10,atk:3,moves:2,maxMoves:2,x:0,y:3},
+    {id:2,team:'blue',type:'cavalry',hp:8,atk:4,moves:3,maxMoves:3,x:1,y:2},
+    {id:3,team:'blue',type:'archer',hp:6,atk:5,moves:2,maxMoves:2,x:0,y:4,ranged:true},
+    {id:4,team:'red',type:'infantry',hp:10,atk:3,moves:2,maxMoves:2,x:COLS-1,y:3},
+    {id:5,team:'red',type:'cavalry',hp:8,atk:4,moves:3,maxMoves:3,x:COLS-2,y:2},
+    {id:6,team:'red',type:'archer',hp:6,atk:5,moves:2,maxMoves:2,x:COLS-1,y:4,ranged:true},
+  ];
+  units.forEach(u=>{grid[u.y][u.x].unit=u});
+  render();
+}
+
+function render(){
+  canvas.width=COLS*CELL;
+  canvas.height=ROWS*CELL;
+  APP.innerHTML=`
+    <h1>⚔️ 战争策略游戏</h1>
+    <p class="subtitle">回合制策略对战 - 蓝方VS红方</p>
+    <div class="card">
+      <div class="flex-between">
+        <div class="hud"><span>回合: <b>${turnCount}</b></span></div>
+        <div class="status-bar ${currentTurn==='blue'?'turn-blue':'turn-red'}">
+          ${currentTurn==='blue'?'蓝方':'红方'}的回合
+        </div>
+        <div class="flex">
+          <button class="btn btn-sm" onclick="endTurn()">结束回合</button>
+          <button class="btn btn-sm btn-danger" onclick="init()">重新开始</button>
+        </div>
+      </div>
+      <div class="hud">
+        <span>蓝方: <b>${units.filter(u=>u.team==='blue').length} 部队</b></span>
+        <span>红方: <b>${units.filter(u=>u.team==='red').length} 部队</b></span>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;display:flex;justify-content:center">
+    </div>
+  `;
+  APP.querySelector('.card:last-child').appendChild(canvas);
+  canvas.onclick=handleClick;
+  drawGrid();
+}
+
+function drawGrid(){
+  const ctx=canvas.getContext('2d');
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const x=c*CELL,y=r*CELL;
+      ctx.fillStyle=TERRAIN_COLORS[grid[r][c].terrain];
+      ctx.fillRect(x,y,CELL,CELL);
+      ctx.strokeStyle='rgba(255,255,255,.15)';
+      ctx.strokeRect(x,y,CELL,CELL);
+    }
+  }
+  units.forEach(u=>{
+    const x=u.x*CELL,y=u.y*CELL;
+    ctx.fillStyle=u.team==='blue'?'#3b82f6':'#f85149';
+    if(selectedUnit&&selectedUnit.id===u.id){ctx.strokeStyle='#f0b429';ctx.lineWidth=3;ctx.strokeRect(x+2,y+2,CELL-4,CELL-4)}
+    ctx.fillRect(x+4,y+4,CELL-8,CELL-8);
+    ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const icons={infantry:'⚔',cavalry:'🐴',archer:'🏹'};
+    ctx.fillText(icons[u.type]||'?',x+CELL/2,y+CELL/2-4);
+    ctx.font='9px sans-serif';
+    ctx.fillText(u.hp+'',x+CELL/2,y+CELL/2+10);
+  });
+}
+
+function handleClick(e){
+  if(gameOver)return;
+  const rect=canvas.getBoundingClientRect();
+  const c=Math.floor((e.clientX-rect.left)/CELL);
+  const r=Math.floor((e.clientY-rect.top)/CELL);
+  if(r<0||r>=ROWS||c<0||c>=COLS)return;
+  const cell=grid[r][c];
+  if(selectedUnit){
+    if(cell.unit&&cell.unit.team!==currentTurn){
+      if(selectedUnit.ranged||Math.abs(selectedUnit.x-c)+Math.abs(selectedUnit.y-r)<=1){
+        attackTarget(cell.unit);
+      }
+      return;
+    }
+    if(!cell.unit&&selectedUnit.moves>0){
+      const cost=TERRAIN_COST[cell.terrain];
+      if(selectedUnit.moves>=cost){
+        grid[selectedUnit.y][selectedUnit.x].unit=null;
+        selectedUnit.x=c;selectedUnit.y=r;
+        selectedUnit.moves-=cost;
+        grid[r][c].unit=selectedUnit;
+      }
+    }
+    drawGrid();return;
+  }
+  if(cell.unit&&cell.unit.team===currentTurn){
+    selectedUnit=cell.unit;
+    showPanel(cell.unit);drawGrid();
+  }
+}
+
+function showPanel(u){
+  const panel=document.getElementById('unitPanel');
+  const icons={infantry:'⚔',cavalry:'🐴',archer:'🏹'};
+  const names={infantry:'步兵',cavalry:'骑兵',archer:'弓兵'};
+  document.getElementById('unitInfo').innerHTML=`${icons[u.type]} ${names[u.type]} | HP:${u.hp} ATK:${u.atk} 移动:${u.moves}`;
+  panel.classList.add('show');
+}
+
+function attackTarget(target){
+  target.hp-=selectedUnit.atk;
+  if(target.hp<=0){
+    grid[target.y][target.x].unit=null;
+    units=units.filter(u=>u.id!==target.id);
+    selectedUnit.moves=0;
+  }else{
+    selectedUnit.hp-=Math.floor(target.atk/2);
+    if(selectedUnit.hp<=0){
+      grid[selectedUnit.y][selectedUnit.x].unit=null;
+      units=units.filter(u=>u.id!==selectedUnit.id);
+      selectedUnit=null;
+      document.getElementById('unitPanel').classList.remove('show');
+    }
+    selectedUnit.moves=0;
+  }
+  checkWin();drawGrid();
+}
+
+function moveUnit(){
+  document.getElementById('unitPanel').classList.remove('show');
+  drawGrid();
+}
+
+function attackUnit(){
+  document.getElementById('unitPanel').classList.remove('show');
+  drawGrid();
+}
+
+function endTurn(){
+  selectedUnit=null;
+  document.getElementById('unitPanel').classList.remove('show');
+  currentTurn=currentTurn==='blue'?'red':'blue';
+  if(currentTurn==='blue')turnCount++;
+  units.filter(u=>u.team===currentTurn).forEach(u=>u.moves=u.maxMoves);
+  render();
+}
+
+function checkWin(){
+  const blue=units.filter(u=>u.team==='blue').length;
+  const red=units.filter(u=>u.team==='red').length;
+  if(blue===0||red===0){
+    gameOver=true;
+    setTimeout(()=>alert(`${blue===0?'红方':'蓝方'}获胜！`),100);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

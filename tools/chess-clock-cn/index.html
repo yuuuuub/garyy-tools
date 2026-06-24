@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>国际象棋钟</title>
+<meta name="description" content="国际象棋钟 - 专业双人计时器，支持多种时间控制模式">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟️</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6;overflow:hidden}
+.container{max-width:600px;margin:0 auto}
+h1{font-size:1.5rem;margin-bottom:16px;text-align:center}
+.clock-row{display:flex;gap:16px;margin-bottom:16px}
+.clock-panel{flex:1;border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:all .3s;border:3px solid var(--border);min-height:160px;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.clock-panel.active{border-color:var(--accent);box-shadow:0 0 20px rgba(59,130,246,.3)}
+.clock-panel.white-side{background:#e6edf3;color:#1f2328}
+.clock-panel.white-side.active{border-color:#3b82f6;background:#fff}
+.clock-panel.black-side{background:#1f2328;color:#e6edf3}
+.clock-panel.black-side.active{border-color:#f85149;background:#0d1117}
+.clock-name{font-size:1rem;margin-bottom:8px;font-weight:600}
+.clock-time{font-size:3rem;font-weight:700;font-family:'Courier New',monospace}
+.clock-time.warning{color:var(--red);animation:pulse 1s infinite}
+.clock-move{font-size:.8rem;color:var(--text2);margin-top:8px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.controls{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.btn{padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-yellow{background:var(--yellow);color:#000}
+.mode-select{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+.mode-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.history{max-height:120px;overflow-y:auto;font-size:.8rem;color:var(--text2);padding:8px;background:var(--card);border-radius:8px;border:1px solid var(--border)}
+.history-item{padding:4px 0;border-bottom:1px solid var(--border)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.clock-time{font-size:2.2rem}.clock-panel{padding:16px;min-height:120px}h1{font-size:1.2rem}}
+</style>
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='♟️ 国际象棋钟';
+const APP=document.getElementById('app');
+const MODES={'5+0':{base:300,inc:0},'10+0':{base:600,inc:0},'15+10':{base:900,inc:10},'3+2':{base:180,inc:2},'1+0':{base:60,inc:0},'自定义':null};
+
+let activeMode='10+0';
+let whiteTime=600,blackTime=600;
+let increment=0;
+let activeClock=null;
+let moveCount={white:0,black:0};
+let history=[];
+let running=false;
+let interval=null;
+
+function render(){
+  const wMin=Math.floor(Math.max(0,whiteTime)/60);
+  const wSec=Math.max(0,whiteTime)%60;
+  const bMin=Math.floor(Math.max(0,blackTime)/60);
+  const bSec=Math.max(0,blackTime)%60;
+  const wWarn=whiteTime<=30;
+  const bWarn=blackTime<=30;
+  APP.innerHTML=`
+    <h1>♟️ 国际象棋钟</h1>
+    <div class="mode-select">
+      ${Object.keys(MODES).map(m=>`<div class="mode-btn ${activeMode===m?'active':''}" onclick="setMode('${m}')">${m}</div>`).join('')}
+    </div>
+    <div class="clock-row">
+      <div class="clock-panel white-side ${activeClock==='white'?'active':''}" onclick="switchClock('white')">
+        <div class="clock-name">白方 ⬜</div>
+        <div class="clock-time ${wWarn?'warning':''}">${wMin}:${String(wSec).padStart(2,'0')}</div>
+        <div class="clock-move">第 ${moveCount.white} 步</div>
+      </div>
+      <div class="clock-panel black-side ${activeClock==='black'?'active':''}" onclick="switchClock('black')">
+        <div class="clock-name">黑方 ⬛</div>
+        <div class="clock-time ${bWarn?'warning':''}">${bMin}:${String(bSec).padStart(2,'0')}</div>
+        <div class="clock-move">第 ${moveCount.black} 步</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-success" onclick="toggleClock()">${running?'⏸ 暂停':'▶ 开始'}</button>
+      <button class="btn btn-danger" onclick="resetClock()">↺ 重置</button>
+      <button class="btn btn-yellow" onclick="addTime(60)">+1分钟</button>
+    </div>
+    ${history.length>0?`<div class="history">
+      <div style="font-weight:600;margin-bottom:4px">走棋记录</div>
+      ${history.slice(-8).reverse().map(h=>`<div class="history-item">${h.move}. ${h.side} ${h.time}</div>`).join('')}
+    </div>`:''}
+  `;
+}
+
+function setMode(mode){
+  activeMode=mode;
+  const m=MODES[mode];
+  if(m){whiteTime=m.base;blackTime=m.base;increment=m.inc}
+  else{
+    const t=prompt('自定义时间(分钟):','10');
+    if(!t)return;
+    const i=prompt('每步加秒:','0');
+    whiteTime=blackTime=parseInt(t)*60;
+    increment=parseInt(i)||0;
+  }
+  resetClock();
+}
+
+function toggleClock(){
+  if(running){clearInterval(interval);running=false}
+  else{
+    if(!activeClock)activeClock='white';
+    running=true;
+    interval=setInterval(()=>{
+      if(activeClock==='white'){
+        whiteTime=Math.max(0,whiteTime-0.1);
+        if(whiteTime<=0){clearInterval(interval);running=false;alert('白方超时! 黑方获胜!')}
+      }else{
+        blackTime=Math.max(0,blackTime-0.1);
+        if(blackTime<=0){clearInterval(interval);running=false;alert('黑方超时! 白方获胜!')}
+      }
+      updateTimeDisplay();
+    },100);
+  }
+  render();
+}
+
+function updateTimeDisplay(){
+  const panels=document.querySelectorAll('.clock-time');
+  if(panels.length<2)return;
+  const wMin=Math.floor(Math.max(0,whiteTime)/60);
+  const wSec=Math.max(0,whiteTime)%60;
+  const bMin=Math.floor(Math.max(0,blackTime)/60);
+  const bSec=Math.max(0,blackTime)%60;
+  panels[0].textContent=`${wMin}:${String(Math.floor(wSec)).padStart(2,'0')}`;
+  panels[1].textContent=`${bMin}:${String(Math.floor(bSec)).padStart(2,'0')}`;
+  panels[0].classList.toggle('warning',whiteTime<=30);
+  panels[1].classList.toggle('warning',blackTime<=30);
+}
+
+function switchClock(side){
+  if(!running)return;
+  if(activeClock===side)return;
+  const prev=activeClock;
+  activeClock=side;
+  const moveNum=moveCount[side]+1;
+  moveCount[side]=moveNum;
+  if(side==='white'&&prev==='black'){whiteTime+=increment}
+  if(side==='black'&&prev==='white'){blackTime+=increment}
+  history.push({move:moveNum,side:side==='white'?'白方':'黑方',time:`${Math.floor(side==='white'?whiteTime:blackTime)/60|0}:${String(Math.floor(side==='white'?whiteTime:blackTime)%60).padStart(2,'0')}`});
+  render();
+}
+
+function resetClock(){
+  clearInterval(interval);running=false;activeClock=null;
+  moveCount={white:0,black:0};history=[];
+  const m=MODES[activeMode];
+  if(m){whiteTime=m.base;blackTime=m.base;increment=m.inc}
+  render();
+}
+
+function addTime(secs){
+  whiteTime+=secs;blackTime+=secs;render();
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔦 光线追踪器</title>
+<meta property="og:title" content="🔦 光线追踪器">
+<meta property="og:description" content="🔦 光线追踪器 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="光线追踪器 - 2D光线反射与折射模拟">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔦</text></svg>">
+<script src="i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--success:#1a7f37;--warn:#9a6700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:12px}
+.hdr{text-align:center;margin-bottom:16px}.hdr h1{font-size:1.6rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+canvas{display:block;width:100%}
+.controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.controls .row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.controls label{font-size:.8rem;color:var(--text2);min-width:70px}
+.controls input[type=range]{flex:1;accent-color:var(--accent)}
+.controls .val{font-size:.8rem;color:var(--accent);min-width:50px;text-align:right}
+.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.85}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.tabs{display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;font-size:.8rem;transition:all .2s}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-bar{display:flex;gap:16px;justify-content:center;color:var(--text2);font-size:.8rem;padding:8px 0}
+.info-bar span{color:var(--accent);font-weight:600}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🔦 光线追踪器</h1><p>2D光线反射与折射模拟 - 点击画布放置光源</p></div>
+
+<div class="tabs" id="toolTabs">
+<button class="active" data-tool="mirror">镜子</button>
+<button data-tool="prism">棱镜</button>
+<button data-tool="lens">透镜</button>
+<button data-tool="wall">墙壁</button>
+</div>
+
+<div class="canvas-wrap"><canvas id="c" width="800" height="500"></canvas></div>
+
+<div class="info-bar">
+<span>光线: <b id="rayCount">0</b></span>
+<span>物体: <b id="objCount">0</b></span>
+<span>反射次数: <b id="bounceCount">0</b></span>
+</div>
+
+<div class="btn-row">
+<button class="btn btn-outline" id="btnToggleRay">💡 切换光源</button>
+<button class="btn btn-danger" id="btnClear">🗑 清除</button>
+<button class="btn btn-primary" id="btnAddWall">+ 预设场景</button>
+</div>
+
+<div class="controls">
+<div class="row"><label>光线数</label><input type="range" id="rayNum" min="1" max="360" value="36"><span class="val" id="rayNumVal">36</span></div>
+<div class="row"><label>反射率</label><input type="range" id="reflectivity" min="0" max="100" value="90"><span class="val" id="refVal">90%</span></div>
+<div class="row"><label>透明度</label><input type="range" id="transparency" min="0" max="100" value="50"><span class="val" id="transVal">50%</span></div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+let W=canvas.width,H=canvas.height;
+let tool='mirror',rays=[],objects=[],mouseX=W/2,mouseY=H/2;
+let rayCount=36,refRate=.9,transRate=.5,bounceTotal=0;
+let rayMode='point';
+
+class Mirror{
+constructor(x1,y1,x2,y2){this.x1=x1;this.y1=y1;this.x2=x2;this.y2=y2;this.type='mirror';this.color='#3b82f6'}
+draw(){ctx.beginPath();ctx.moveTo(this.x1,this.y1);ctx.lineTo(this.x2,this.y2);ctx.strokeStyle=this.color;ctx.lineWidth=3;ctx.stroke()}
+normal(){const dx=this.x2-this.x1,dy=this.y2-this.y1;const len=Math.sqrt(dx*dx+dy*dy);return{x:-dy/len,y:dx/len}}
+}
+
+class Prism{
+constructor(x,y,s){this.x=x;this.y=y;this.s=s;this.type='prism';this.color='#a855f7'}
+draw(){ctx.beginPath();ctx.moveTo(this.x,this.y-this.s);ctx.lineTo(this.x-this.s*.87,this.y+this.s*.5);ctx.lineTo(this.x+this.s*.87,this.y+this.s*.5);ctx.closePath();ctx.strokeStyle=this.color;ctx.lineWidth=2;ctx.stroke();ctx.fillStyle=this.color+'20';ctx.fill()}
+edges(){return[{x1:this.x,y1:this.y-this.s,x2:this.x-this.s*.87,y2:this.y+this.s*.5},{x1:this.x-this.s*.87,y1:this.y+this.s*.5,x2:this.x+this.s*.87,y2:this.y+this.s*.5},{x1:this.x+this.s*.87,y1:this.y+this.s*.5,x2:this.x,y2:this.y-this.s}]}
+}
+
+class Lens{
+constructor(x,y,r){this.x=x;this.y=y;this.r=r;this.type='lens';this.color='#06b6d4'}
+draw(){ctx.beginPath();ctx.ellipse(this.x,this.y,this.r*.3,this.r,0,0,Math.PI*2);ctx.strokeStyle=this.color;ctx.lineWidth=2;ctx.stroke();ctx.fillStyle=this.color+'15';ctx.fill()}
+}
+
+class Wall{
+constructor(x1,y1,x2,y2){this.x1=x1;this.y1=y1;this.x2=x2;this.y2=y2;this.type='wall';this.color='#ef4444'}
+draw(){ctx.beginPath();ctx.moveTo(this.x1,this.y1);ctx.lineTo(this.x2,this.y2);ctx.strokeStyle=this.color;ctx.lineWidth=6;ctx.lineCap='round';ctx.stroke()}
+}
+
+function lineIntersect(x1,y1,x2,y2,x3,y3,x4,y4){
+const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+if(Math.abs(d)<1e-10)return null;
+const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
+const u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/d;
+if(t>=0&&t<=1&&u>=0){return{x:x1+t*(x2-x1),y:y1+t*(y2-y1),t:u};}
+return null;
+}
+
+function castRay(ox,oy,dx,dy,depth=0){
+if(depth>10)return;
+let closest=null,minT=Infinity,closestObj=null;
+const allEdges=[];
+objects.forEach(o=>{
+if(o.type==='mirror'||o.type==='wall')allEdges.push({obj:o,x1:o.x1,y1:o.y1,x2:o.x2,y2:o.y2});
+else if(o.type==='prism')o.edges().forEach(e=>allEdges.push({obj:o,...e}));
+});
+allEdges.forEach(e=>{
+const hit=lineIntersect(ox,oy,ox+dx*2000,oy+dy*2000,e.x1,e.y1,e.x2,e.y2);
+if(hit&&hit.t<minT){minT=hit.t;closest=hit;closestObj=e.obj;}
+});
+if(closest){
+rays.push({x1:ox,y1:oy,x2:closest.x,y2:closest.y});
+const nx=closestObj.normal?closestObj.normal():{x:0,y:-1};
+const dot=dx*nx.x+dy*nx.y;
+const rx=dx-2*dot*nx.x,ry=dy-2*dot*nx.y;
+if(refRate>.1)castRay(closest.x,closest.y,rx,ry,depth+1);
+}else{
+rays.push({x1:ox,y1:oy,x2:ox+dx*2000,y2:oy+dy*2000});
+}
+}
+
+function traceRays(){
+rays=[];bounceTotal=0;
+if(rayMode==='point'){
+for(let i=0;i<rayCount;i++){
+const a=i/rayCount*Math.PI*2;
+castRay(mouseX,mouseY,Math.cos(a),Math.sin(a),0);
+}
+}else{
+const a=Math.atan2(mouseY-H/2,mouseX-W/2);
+for(let i=-rayCount/2;i<=rayCount/2;i++){
+const spread=i*.005;
+castRay(mouseX,mouseY,Math.cos(a+spread),Math.sin(a+spread),0);
+}
+}
+bounceTotal=Math.max(0,rays.length-rayCount);
+document.getElementById('rayCount').textContent=rays.length;
+document.getElementById('bounceCount').textContent=bounceTotal;
+}
+
+function draw(){
+ctx.clearRect(0,0,W,H);ctx.fillStyle='#0d1117';ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#161b22';ctx.lineWidth=1;
+for(let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+for(let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+rays.forEach((r,i)=>{
+const alpha=1-i/rays.length*.7;
+ctx.beginPath();ctx.moveTo(r.x1,r.y1);ctx.lineTo(r.x2,r.y2);
+ctx.strokeStyle=`rgba(245,158,11,${alpha})`;ctx.lineWidth=1.5;ctx.stroke();
+});
+objects.forEach(o=>o.draw());
+ctx.beginPath();ctx.arc(mouseX,mouseY,5,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+document.getElementById('objCount').textContent=objects.length;
+}
+
+let dragging=null,dragStart=null;
+canvas.addEventListener('mousedown',e=>{
+const rect=canvas.getBoundingClientRect();
+const sx=W/rect.width,sy=H/rect.height;
+const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;
+if(tool==='mirror'){
+objects.push(new Mirror(x,y,x,y));
+dragging=objects[objects.length-1];dragStart={x,y};
+}else if(tool==='wall'){
+objects.push(new Wall(x,y,x,y));
+dragging=objects[objects.length-1];dragStart={x,y};
+}else if(tool==='prism'){
+objects.push(new Prism(x,y,30+Math.random()*30));
+}else if(tool==='lens'){
+objects.push(new Lens(x,y,20+Math.random()*30));
+}
+traceRays();draw();
+});
+canvas.addEventListener('mousemove',e=>{
+const rect=canvas.getBoundingClientRect();
+mouseX=(e.clientX-rect.left)*W/rect.width;
+mouseY=(e.clientY-rect.top)*H/rect.height;
+if(dragging){dragging.x2=mouseX;dragging.y2=mouseY;}
+traceRays();draw();
+});
+canvas.addEventListener('mouseup',()=>{dragging=null;dragStart=null;});
+
+document.getElementById('toolTabs').onclick=e=>{
+const btn=e.target.closest('button');if(!btn)return;
+document.querySelectorAll('#toolTabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');tool=btn.dataset.tool;
+};
+
+document.getElementById('btnToggleRay').onclick=()=>{rayMode=rayMode==='point'?'beam':'point';};
+document.getElementById('btnClear').onclick=()=>{objects=[];rays=[];draw();};
+document.getElementById('btnAddWall').onclick=()=>{
+objects=[];
+objects.push(new Wall(100,100,700,100));
+objects.push(new Wall(100,400,700,400));
+objects.push(new Wall(100,100,100,400));
+objects.push(new Wall(700,100,700,400));
+objects.push(new Mirror(300,200,500,350));
+objects.push(new Mirror(200,300,400,150));
+traceRays();draw();
+};
+
+document.getElementById('rayNum').oninput=function(){rayCount=+this.value;document.getElementById('rayNumVal').textContent=this.value;traceRays();draw();};
+document.getElementById('reflectivity').oninput=function(){refRate=this.value/100;document.getElementById('refVal').textContent=this.value+'%';traceRays();draw();};
+document.getElementById('transparency').oninput=function(){transRate=this.value/100;document.getElementById('transVal').textContent=this.value+'%';};
+
+draw();
+</script>
+</body>
+</html>
