@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="债务雪球法计算器 - 帮助规划债务还清顺序，计算最优还款策略">
+    <meta name="robots" content="index, follow">
+    <title>债务雪球法</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #ef4444; --secondary-color: #6b7280; --success-color: #10b981; --warning-color: #f59e0b; --danger-color: #ef4444; --border-color: #e5e7eb; --card-bg: #f9fafb; }
+        [data-theme="dark"] { --bg-color: #111827; --text-color: #f9fafb; --primary-color: #f87171; --secondary-color: #9ca3af; --success-color: #34d399; --warning-color: #fbbf24; --danger-color: #f87171; --border-color: #374151; --card-bg: #1f2937; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 14px; }
+        input:focus { outline: 2px solid var(--primary-color); border-color: transparent; }
+        button { background: var(--primary-color); color: #fff; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; transition: opacity 0.2s; }
+        button:hover { opacity: 0.85; }
+        .btn-success { background: var(--success-color); }
+        .btn-danger { background: var(--danger-color); }
+        .btn-sm { padding: 5px 12px; font-size: 13px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 14px; background: var(--secondary-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; z-index: 100; }
+        .debt-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; }
+        .debt-row input { padding: 8px; font-size: 13px; }
+        .debt-row .remove { background: var(--danger-color); color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 16px; }
+        .result-chart { width: 100%; height: 300px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+        .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 120px; text-align: center; padding: 14px; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color); }
+        .stat-box .num { font-size: 20px; font-weight: 700; color: var(--primary-color); }
+        .stat-box .lbl { font-size: 11px; color: var(--secondary-color); margin-top: 4px; }
+        .payoff-timeline { margin-top: 16px; }
+        .timeline-item { display: flex; align-items: center; gap: 12px; padding: 12px; margin: 8px 0; background: var(--bg-color); border-radius: 8px; border-left: 4px solid; }
+        .timeline-month { font-weight: 700; font-size: 14px; min-width: 80px; }
+        .timeline-desc { flex: 1; font-size: 14px; }
+        .timeline-amount { font-weight: 700; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th { font-weight: 600; color: var(--secondary-color); }
+        .method-tab { display: inline-block; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 8px; border: 2px solid var(--border-color); }
+        .method-tab.active { border-color: var(--primary-color); background: rgba(239,68,68,0.1); color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>❄️ 债务雪球法</h1>
+        <p style="color:var(--secondary-color)">制定最优还款顺序，加速债务还清</p>
+
+        <div class="card">
+            <h3>还款策略</h3>
+            <div style="margin-bottom:12px">
+                <span class="method-tab active" onclick="setMethod('snowball')" id="tabSnowball">雪球法 (先还小额)</span>
+                <span class="method-tab" onclick="setMethod('avalanche')" id="tabAvalanche">雪崩法 (先还高息)</span>
+            </div>
+            <p id="methodDesc" style="color:var(--secondary-color);font-size:14px">雪球法：优先偿还余额最小的债务，获得心理激励后逐步加速。</p>
+            <label>每月可用于还款的总金额 (元)</label>
+            <input type="number" id="monthlyBudget" value="5000" style="max-width:300px">
+        </div>
+
+        <div class="card">
+            <h3>债务清单</h3>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;padding:0 12px;margin-bottom:8px">
+                <span style="font-weight:600;font-size:13px;color:var(--secondary-color)">债务名称</span>
+                <span style="font-weight:600;font-size:13px;color:var(--secondary-color)">余额 (元)</span>
+                <span style="font-weight:600;font-size:13px;color:var(--secondary-color)">利率 (%)</span>
+                <span style="font-weight:600;font-size:13px;color:var(--secondary-color)">最低还款 (元)</span>
+                <span></span>
+            </div>
+            <div id="debtList"></div>
+            <button onclick="addDebt()" style="margin-top:10px">+ 添加债务</button>
+        </div>
+
+        <button onclick="calculate()" style="width:100%;font-size:17px;padding:14px">计算最优还款方案</button>
+
+        <div class="card" id="resultCard" style="display:none">
+            <h3>还款方案对比</h3>
+            <div class="stat-row" id="resultStats"></div>
+        </div>
+
+        <div class="card" id="chartCard" style="display:none">
+            <h3>余额变化曲线</h3>
+            <div class="result-chart"><canvas id="balanceCanvas"></canvas></div>
+        </div>
+
+        <div class="card" id="timelineCard" style="display:none">
+            <h3>还款时间线</h3>
+            <div id="timeline"></div>
+        </div>
+
+        <div class="card" id="detailCard" style="display:none">
+            <h3>逐月还款明细</h3>
+            <div id="details" style="max-height:400px;overflow-y:auto"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentMethod = 'snowball';
+        let debts = [
+            { name: '信用卡A', balance: 35000, rate: 18.25, minPay: 700 },
+            { name: '花呗', balance: 8500, rate: 14.6, minPay: 200 },
+            { name: '借呗', balance: 25000, rate: 12, minPay: 500 },
+            { name: '房贷', balance: 850000, rate: 4.2, minPay: 3500 }
+        ];
+
+        function init() { renderDebts(); }
+
+        function setMethod(m) {
+            currentMethod = m;
+            document.getElementById('tabSnowball').className = 'method-tab' + (m === 'snowball' ? ' active' : '');
+            document.getElementById('tabAvalanche').className = 'method-tab' + (m === 'avalanche' ? ' active' : '');
+            document.getElementById('methodDesc').textContent = m === 'snowball'
+                ? '雪球法：优先偿还余额最小的债务，获得心理激励后逐步加速。'
+                : '雪崩法：优先偿还利率最高的债务，总利息最少。';
+        }
+
+        function renderDebts() {
+            document.getElementById('debtList').innerHTML = debts.map((d, i) => `
+                <div class="debt-row">
+                    <input value="${d.name}" onchange="debts[${i}].name=this.value" placeholder="名称">
+                    <input type="number" value="${d.balance}" onchange="debts[${i}].balance=+this.value" placeholder="余额">
+                    <input type="number" value="${d.rate}" step="0.01" onchange="debts[${i}].rate=+this.value" placeholder="利率%">
+                    <input type="number" value="${d.minPay}" onchange="debts[${i}].minPay=+this.value" placeholder="最低还款">
+                    <button class="remove" onclick="removeDebt(${i})">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addDebt() {
+            debts.push({ name: '新债务', balance: 10000, rate: 10, minPay: 200 });
+            renderDebts();
+        }
+
+        function removeDebt(i) {
+            if (debts.length <= 1) return;
+            debts.splice(i, 1);
+            renderDebts();
+        }
+
+        function calculate() {
+            const budget = +document.getElementById('monthlyBudget').value;
+            const totalMin = debts.reduce((s, d) => s + d.minPay, 0);
+            if (budget < totalMin) {
+                alert(`每月预算 ${budget} 元不足以覆盖最低还款 ${totalMin} 元，请增加预算。`);
+                return;
+            }
+
+            const sorted = debts.map((d, i) => ({ ...d, idx: i }));
+            if (currentMethod === 'snowball') sorted.sort((a, b) => a.balance - b.balance);
+            else sorted.sort((a, b) => b.rate - a.rate);
+
+            const state = sorted.map(d => ({ ...d, remaining: d.balance, paidOff: false, paidOffMonth: 0 }));
+            const monthly = state.map(() => 0);
+            let extra = budget - state.reduce((s, d) => s + d.minPay, 0);
+            state.forEach((d, i) => monthly[i] = d.minPay);
+
+            const balanceHistory = [state.map(d => d.remaining)];
+            const events = [];
+            let totalInterest = 0;
+            let month = 0;
+
+            while (state.some(d => d.remaining > 0) && month < 600) {
+                month++;
+                let freedUp = 0;
+
+                state.forEach((d, i) => {
+                    if (d.remaining <= 0) return;
+                    const interest = d.remaining * d.rate / 100 / 12;
+                    totalInterest += interest;
+                    const pay = Math.min(monthly[i] + (i === 0 ? extra : 0), d.remaining + interest);
+                    const principal = pay - interest;
+                    d.remaining = Math.max(0, d.remaining - principal);
+                    if (d.remaining <= 0) {
+                        freedUp += monthly[i];
+                        d.paidOff = true;
+                        d.paidOffMonth = month;
+                        events.push({ month, name: d.name, freed: monthly[i] });
+                    }
+                });
+
+                if (freedUp > 0) {
+                    extra += freedUp;
+                    const active = state.filter(d => !d.paidOff);
+                    if (active.length > 0 && currentMethod === 'snowball') active.sort((a, b) => a.remaining - b.remaining);
+                    else if (active.length > 0) active.sort((a, b) => b.rate - a.rate);
+                    active.forEach((d, i) => {
+                        if (i === 0) monthly[debts.indexOf(debts.find(x => x.name === d.name))] += extra;
+                    });
+                }
+
+                balanceHistory.push(state.map(d => Math.max(0, d.remaining)));
+            }
+
+            const totalPaid = budget * month;
+            const totalSaved = debts.reduce((s, d) => s + d.balance, 0) + totalInterest;
+
+            document.getElementById('resultCard').style.display = 'block';
+            document.getElementById('chartCard').style.display = 'block';
+            document.getElementById('timelineCard').style.display = 'block';
+            document.getElementById('detailCard').style.display = 'block';
+
+            const maxBal = Math.max(...debts.map(d => d.balance));
+            document.getElementById('resultStats').innerHTML = `
+                <div class="stat-box"><div class="num">${month}</div><div class="lbl">还清月数</div></div>
+                <div class="stat-box"><div class="num">¥${totalPaid.toFixed(0)}</div><div class="lbl">总还款额</div></div>
+                <div class="stat-box"><div class="num">¥${totalInterest.toFixed(0)}</div><div class="lbl">总利息</div></div>
+                <div class="stat-box"><div class="num">¥${(totalPaid - debts.reduce((s, d) => s + d.balance, 0)).toFixed(0)}</div><div class="lbl">额外利息成本</div></div>
+            `;
+
+            const colors = ['#ef4444', '#f59e0b', '#6366f1', '#10b981', '#06b6d4', '#8b5cf6'];
+            drawBalance(balanceHistory, colors, month);
+
+            let timelineHtml = '';
+            events.forEach(e => {
+                const color = colors[debts.findIndex(d => d.name === e.name) % colors.length];
+                timelineHtml += `<div class="timeline-item" style="border-left-color:${color}">
+                    <div class="timeline-month" style="color:${color}">第${e.month}月</div>
+                    <div class="timeline-desc">🎉 <strong>${e.name}</strong> 已还清！释放 ¥${e.freed}/月</div>
+                </div>`;
+            });
+            timelineHtml += `<div class="timeline-item" style="border-left-color:var(--success-color)">
+                <div class="timeline-month" style="color:var(--success-color)">第${month}月</div>
+                <div class="timeline-desc">🏆 所有债务已还清！</div>
+            </div>`;
+            document.getElementById('timeline').innerHTML = timelineHtml;
+
+            let detailHtml = '<table><tr><th>月份</th>';
+            debts.forEach(d => detailHtml += `<th>${d.name}</th>`);
+            detailHtml += '<th>剩余总额</th></tr>';
+            for (let m = 0; m <= Math.min(month, 60); m++) {
+                detailHtml += `<tr><td>${m}</td>`;
+                debts.forEach(d => {
+                    const val = balanceHistory[m] ? balanceHistory[m][debts.indexOf(d)] : 0;
+                    detailHtml += `<td style="color:${val > 0 ? 'var(--text-color)' : 'var(--success-color)'}">${val > 0 ? '¥' + val.toFixed(0) : '✓'}</td>`;
+                });
+                const total = balanceHistory[m] ? balanceHistory[m].reduce((a, b) => a + b, 0) : 0;
+                detailHtml += `<td style="font-weight:700">¥${total.toFixed(0)}</td></tr>`;
+            }
+            if (month > 60) detailHtml += `<tr><td colspan="${debts.length + 2}" style="text-align:center;color:var(--secondary-color)">...共${month}个月</td></tr>`;
+            detailHtml += '</table>';
+            document.getElementById('details').innerHTML = detailHtml;
+        }
+
+        function drawBalance(history, colors, totalMonths) {
+            const canvas = document.getElementById('balanceCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.parentElement.clientWidth;
+            const H = 300;
+            canvas.width = W * 2; canvas.height = H * 2;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.scale(2, 2);
+            ctx.clearRect(0, 0, W, H);
+
+            const pad = { l: 60, r: 20, t: 20, b: 35 };
+            const maxVal = history[0].reduce((a, b) => a + b, 0);
+            const displayMonths = Math.min(history.length, 120);
+
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.t + (i / 4) * (H - pad.t - pad.b);
+                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+                ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText('¥' + ((maxVal - i / 4 * maxVal) / 10000).toFixed(0) + '万', pad.l - 5, y + 4);
+            }
+
+            debts.forEach((d, di) => {
+                ctx.beginPath();
+                for (let m = 0; m < displayMonths; m++) {
+                    const x = pad.l + (m / (displayMonths - 1)) * (W - pad.l - pad.r);
+                    const val = history[m] ? history[m][di] : 0;
+                    const y = pad.t + ((maxVal - val) / maxVal) * (H - pad.t - pad.b);
+                    m === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = colors[di % colors.length]; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = colors[di % colors.length]; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+                const lastVal = history[Math.min(displayMonths - 1, history.length - 1)][di];
+                ctx.fillText(d.name, W - pad.r - 60, pad.t + 15 + di * 18);
+            });
+
+            ctx.fillStyle = '#999'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('月份', W / 2, H - 8);
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MACD计算器 - 指数平滑异同移动平均线计算器，判断趋势和买卖信号">
+    <meta name="robots" content="index, follow">
+    <title>MACD 计算器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .stat-box { text-align: center; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; }
+        .stat-box .num { font-size: 22px; font-weight: bold; }
+        .stat-box .label { font-size: 12px; color: var(--secondary-color); margin-top: 4px; }
+        .legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .legend span { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+        .signal { padding: 12px; border-radius: 8px; margin-top: 12px; font-weight: bold; font-size: 15px; }
+        .signal-buy { background: rgba(40,167,69,0.15); color: var(--success-color); border: 1px solid var(--success-color); }
+        .signal-sell { background: rgba(220,53,69,0.15); color: var(--danger-color); border: 1px solid var(--danger-color); }
+        .signal-neutral { background: rgba(108,117,125,0.15); color: var(--secondary-color); border: 1px solid var(--secondary-color); }
+        .output { font-family: 'Courier New', monospace; font-size: 13px; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); white-space: pre-wrap; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>MACD 计算器</h1>
+
+        <div class="card">
+            <div class="form-group">
+                <label>价格数据（逗号分隔，从旧到新）</label>
+                <input type="text" id="priceInput" value="50,50.5,51,50.8,51.5,52,51.8,52.5,53,52.8,53.5,54,53.8,54.5,55,54.8,55.5,56,55.5,55,54.5,55,55.5,56,56.5,57,56.8,57.5,58,57.5,57,56.5,57,57.5,58,58.5,59,58.5,58,57.5" placeholder="例: 50,50.5,51...">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>快线周期 (Short EMA)</label>
+                    <select id="fastPeriod"><option value="8">8</option><option value="12" selected>12</option><option value="16">16</option></select>
+                </div>
+                <div class="form-group">
+                    <label>慢线周期 (Long EMA)</label>
+                    <select id="slowPeriod"><option value="21">21</option><option value="26" selected>26</option><option value="30">30</option></select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>信号线周期 (Signal)</label>
+                    <select id="signalPeriod"><option value="7">7</option><option value="9" selected>9</option><option value="12">12</option></select>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button onclick="calculate()" style="width:100%;">计算 MACD</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="statsArea" class="grid-4" style="display:none;"></div>
+
+        <div class="card" id="signalCard" style="display:none;">
+            <div id="signalContent"></div>
+        </div>
+
+        <div class="card" id="macdChartCard" style="display:none;">
+            <h3>MACD 图</h3>
+            <canvas id="macdChart" height="300"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> MACD线</span>
+                <span><i style="background:#dc3545;"></i> 信号线</span>
+                <span><i style="background:rgba(40,167,69,0.6);"></i> 正柱状图</span>
+                <span><i style="background:rgba(220,53,69,0.6);"></i> 负柱状图</span>
+            </div>
+        </div>
+
+        <div class="card" id="priceChartCard" style="display:none;">
+            <h3>价格与EMA</h3>
+            <canvas id="priceChart" height="200"></canvas>
+            <div class="legend">
+                <span><i style="background:#007bff;"></i> 价格</span>
+                <span><i style="background:#ffc107;"></i> EMA快线</span>
+                <span><i style="background:#dc3545;"></i> EMA慢线</span>
+            </div>
+        </div>
+
+        <div class="card" id="detailCard" style="display:none;">
+            <h3>MACD 分析报告</h3>
+            <div id="detailContent" class="output"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parsePrices() {
+            return document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+        }
+
+        function calcEMA(data, period) {
+            const k = 2 / (period + 1);
+            const ema = [data[0]];
+            for (let i = 1; i < data.length; i++) {
+                ema.push(data[i] * k + ema[i - 1] * (1 - k));
+            }
+            return ema;
+        }
+
+        function calculate() {
+            const prices = parsePrices();
+            const fastP = parseInt(document.getElementById('fastPeriod').value);
+            const slowP = parseInt(document.getElementById('slowPeriod').value);
+            const signalP = parseInt(document.getElementById('signalPeriod').value);
+
+            if (prices.length < slowP + signalP) {
+                alert(`请输入至少${slowP + signalP}个价格数据`);
+                return;
+            }
+
+            const fastEMA = calcEMA(prices, fastP);
+            const slowEMA = calcEMA(prices, slowP);
+
+            const macdLine = fastEMA.map((v, i) => v - slowEMA[i]);
+            const signalLine = calcEMA(macdLine, signalP);
+            const histogram = macdLine.map((v, i) => v - signalLine[i]);
+
+            const n = prices.length;
+            const lastMACD = macdLine[n - 1];
+            const lastSignal = signalLine[n - 1];
+            const lastHist = histogram[n - 1];
+            const prevHist = histogram[n - 2];
+            const currentPrice = prices[n - 1];
+
+            let signalText, signalClass;
+            if (lastMACD > lastSignal && prevHist <= 0 && lastHist > 0) {
+                signalText = '🟢 金叉信号 — MACD线向上穿越信号线，买入信号';
+                signalClass = 'signal-buy';
+            } else if (lastMACD < lastSignal && prevHist >= 0 && lastHist < 0) {
+                signalText = '🔴 死叉信号 — MACD线向下穿越信号线，卖出信号';
+                signalClass = 'signal-sell';
+            } else if (lastHist > 0 && lastHist > prevHist) {
+                signalText = '🟢 多头增强 — 柱状图放大，趋势向上';
+                signalClass = 'signal-buy';
+            } else if (lastHist > 0 && lastHist < prevHist) {
+                signalText = '🟡 多头减弱 — 柱状图缩小，关注回调';
+                signalClass = 'signal-neutral';
+            } else if (lastHist < 0 && lastHist < prevHist) {
+                signalText = '🔴 空头增强 — 柱状图向下放大，趋势向下';
+                signalClass = 'signal-sell';
+            } else if (lastHist < 0 && lastHist > prevHist) {
+                signalText = '🟡 空头减弱 — 柱状图缩小，关注反弹';
+                signalClass = 'signal-neutral';
+            } else {
+                signalText = '⚪ 无明显信号';
+                signalClass = 'signal-neutral';
+            }
+
+            document.getElementById('statsArea').style.display = 'grid';
+            document.getElementById('statsArea').innerHTML = `
+                <div class="stat-box"><div class="num" style="color:var(--primary-color);">${lastMACD.toFixed(3)}</div><div class="label">MACD线</div></div>
+                <div class="stat-box"><div class="num" style="color:var(--danger-color);">${lastSignal.toFixed(3)}</div><div class="label">信号线</div></div>
+                <div class="stat-box"><div class="num" style="color:${lastHist >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${lastHist.toFixed(3)}</div><div class="label">柱状图</div></div>
+                <div class="stat-box"><div class="num" style="color:var(--primary-color);">${currentPrice.toFixed(2)}</div><div class="label">当前价格</div></div>
+            `;
+
+            document.getElementById('signalCard').style.display = 'block';
+            document.getElementById('signalContent').innerHTML = `<div class="signal ${signalClass}">${signalText}</div>`;
+
+            drawMACDChart(macdLine, signalLine, histogram);
+            drawPriceChart(prices, fastEMA, slowEMA);
+            showDetail(prices, macdLine, signalLine, histogram, fastP, slowP, signalP, lastMACD, lastSignal, lastHist);
+        }
+
+        function drawMACDChart(macdLine, signalLine, histogram) {
+            const canvas = document.getElementById('macdChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const allVals = [...macdLine, ...signalLine, ...histogram];
+            const maxV = Math.max(...allVals.map(Math.abs)) * 1.2;
+            const padL = 70, padR = 20, padT = 20, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = macdLine.length;
+            const zeroY = padT + chartH / 2;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            [-maxV, -maxV/2, 0, maxV/2, maxV].forEach((v, idx) => {
+                const y = zeroY - (v / maxV) * (chartH / 2);
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText(v.toFixed(2), 4, y + 5);
+            });
+
+            const gap = chartW / n;
+            const barW = Math.max(2, gap * 0.6);
+            const xPos = (i) => padL + i * gap + gap / 2;
+
+            histogram.forEach((v, i) => {
+                const x = xPos(i);
+                const barH = Math.abs(v / maxV) * (chartH / 2);
+                ctx.fillStyle = v >= 0 ? 'rgba(40,167,69,0.6)' : 'rgba(220,53,69,0.6)';
+                if (v >= 0) ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
+                else ctx.fillRect(x - barW / 2, zeroY, barW, barH);
+            });
+
+            function drawLine(data, color, width) {
+                ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+                let started = false;
+                data.forEach((v, i) => {
+                    const x = xPos(i);
+                    const y = zeroY - (v / maxV) * (chartH / 2);
+                    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+
+            drawLine(signalLine, '#dc3545', 2);
+            drawLine(macdLine, '#007bff', 2.5);
+
+            document.getElementById('macdChartCard').style.display = 'block';
+        }
+
+        function drawPriceChart(prices, fastEMA, slowEMA) {
+            const canvas = document.getElementById('priceChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const allVals = [...prices, ...fastEMA, ...slowEMA];
+            const minV = Math.min(...allVals) * 0.98;
+            const maxV = Math.max(...allVals) * 1.02;
+            const padL = 70, padR = 20, padT = 10, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = prices.length;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '18px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 3; i++) {
+                const y = padT + chartH - (i / 3) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minV + (i / 3) * (maxV - minV)).toFixed(1), 4, y + 5);
+            }
+
+            const xPos = (i) => padL + (i / (n - 1)) * chartW;
+            const yPos = (v) => padT + chartH - ((v - minV) / (maxV - minV)) * chartH;
+
+            function drawLine(data, color, width) {
+                ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+                data.forEach((v, i) => { if (i === 0) ctx.moveTo(xPos(i), yPos(v)); else ctx.lineTo(xPos(i), yPos(v)); });
+                ctx.stroke();
+            }
+
+            drawLine(prices, '#007bff', 2.5);
+            drawLine(fastEMA, '#ffc107', 1.5);
+            drawLine(slowEMA, '#dc3545', 1.5);
+
+            document.getElementById('priceChartCard').style.display = 'block';
+        }
+
+        function showDetail(prices, macdLine, signalLine, histogram, fastP, slowP, signalP, lastMACD, lastSignal, lastHist) {
+            const current = prices[prices.length - 1];
+            const prev = prices[prices.length - 2];
+
+            let text = `MACD 分析报告\n${'='.repeat(40)}\n`;
+            text += `参数: EMA(${fastP}/${slowP}), Signal(${signalP})\n`;
+            text += `当前价格: ${current.toFixed(2)} (${current > prev ? '+' : ''}${((current - prev) / prev * 100).toFixed(2)}%)\n\n`;
+            text += `MACD线: ${lastMACD.toFixed(4)}\n`;
+            text += `信号线: ${lastSignal.toFixed(4)}\n`;
+            text += `柱状图: ${lastHist.toFixed(4)}\n`;
+            text += `差值: ${(lastMACD - lastSignal).toFixed(4)}\n\n`;
+
+            text += `柱状图趋势:\n`;
+            const last5 = histogram.slice(-5);
+            last5.forEach((v, i) => {
+                const bar = v >= 0 ? '█'.repeat(Math.min(20, Math.round(Math.abs(v) / Math.max(...histogram.map(Math.abs)) * 20))) :
+                                      '░'.repeat(Math.min(20, Math.round(Math.abs(v) / Math.max(...histogram.map(Math.abs)) * 20)));
+                text += `  ${i === last5.length - 1 ? '→' : ' '} ${bar} ${v.toFixed(3)}\n`;
+            });
+
+            text += `\n金叉/死叉检测:\n`;
+            for (let i = 1; i < macdLine.length; i++) {
+                if (macdLine[i] > signalLine[i] && macdLine[i-1] <= signalLine[i-1]) text += `  金叉: 第${i+1}根\n`;
+                if (macdLine[i] < signalLine[i] && macdLine[i-1] >= signalLine[i-1]) text += `  死叉: 第${i+1}根\n`;
+            }
+
+            document.getElementById('detailCard').style.display = 'block';
+            document.getElementById('detailContent').textContent = text;
+        }
+
+        calculate();
+    </script>
+</body>
+</html>
