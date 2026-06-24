@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="斐波那契回撤 - 自动计算斐波那契回撤位和扩展位，辅助判断买卖点">
+    <meta name="robots" content="index, follow">
+    <title>斐波那契回撤计算器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #007bff; --secondary-color: #6c757d; --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #dee2e6; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a1a; --text-color: #e0e0e0; --primary-color: #0d6efd; --secondary-color: #6c757d; --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545; --border-color: #444444; --card-bg: #2d2d2d; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); margin-bottom: 20px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color); box-sizing: border-box; }
+        button { background-color: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.85; }
+        canvas { width: 100%; border-radius: 6px; border: 1px solid var(--border-color); }
+        .fib-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+        .fib-row:last-child { border-bottom: none; }
+        .fib-pct { font-weight: bold; min-width: 60px; font-size: 14px; }
+        .fib-price { font-weight: bold; font-size: 16px; }
+        .fib-bar { flex: 1; height: 24px; border-radius: 4px; position: relative; }
+        .fib-bar-fill { height: 100%; border-radius: 4px; opacity: 0.3; }
+        .fib-current { position: absolute; top: -2px; width: 3px; height: 28px; background: var(--primary-color); border-radius: 2px; }
+        .fib-label { font-size: 12px; color: var(--secondary-color); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>斐波那契回撤计算器</h1>
+
+        <div class="card">
+            <div class="form-group">
+                <label>价格数据（逗号分隔，从旧到新）</label>
+                <input type="text" id="priceInput" value="100,102,105,108,112,115,118,120,122,125,128,130,128,125,122,120,118,116,115,117,119,121,123,125,124,126,128,130,129,131" placeholder="例: 100,105,110...">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>方向</label>
+                    <select id="direction">
+                        <option value="auto">自动检测</option>
+                        <option value="up">上升趋势（从低到高）</option>
+                        <option value="down">下降趋势（从高到低）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>回撤级别</label>
+                    <select id="levelSet">
+                        <option value="standard" selected>标准 (23.6%, 38.2%, 50%, 61.8%, 78.6%)</option>
+                        <option value="full">完整 (0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%)</option>
+                        <option value="extended">含扩展 (含127.2%, 161.8%)</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="calculate()">计算斐波那契回撤</button>
+        </div>
+
+        <div class="card" id="chartCard" style="display:none;">
+            <h3>斐波那契回撤图</h3>
+            <canvas id="fibChart" height="400"></canvas>
+        </div>
+
+        <div class="card" id="levelsCard" style="display:none;">
+            <h3>回撤价位</h3>
+            <div id="fibLevels"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        function parsePrices() {
+            return document.getElementById('priceInput').value.split(',').map(Number).filter(n => !isNaN(n));
+        }
+
+        const FIB_RATIOS = {
+            standard: [0.236, 0.382, 0.5, 0.618, 0.786],
+            full: [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0],
+            extended: [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618]
+        };
+
+        const FIB_COLORS = ['#28a745', '#20c997', '#17a2b8', '#ffc107', '#fd7e14', '#dc3545', '#e83e8c', '#6f42c1', '#343a40'];
+
+        function calculate() {
+            const prices = parsePrices();
+            if (prices.length < 3) { alert('请输入至少3个价格数据'); return; }
+
+            const direction = document.getElementById('direction').value;
+            const levelSet = document.getElementById('levelSet').value;
+            const ratios = FIB_RATIOS[levelSet];
+
+            let swingLow, swingHigh, lowIdx, highIdx;
+            if (direction === 'auto') {
+                const minP = Math.min(...prices);
+                const maxP = Math.max(...prices);
+                lowIdx = prices.indexOf(minP);
+                highIdx = prices.indexOf(maxP);
+                swingLow = minP;
+                swingHigh = maxP;
+                if (lowIdx > highIdx) {
+                    [swingLow, swingHigh] = [swingHigh, swingLow];
+                    [lowIdx, highIdx] = [highIdx, lowIdx];
+                }
+            } else if (direction === 'up') {
+                swingLow = Math.min(...prices);
+                swingHigh = Math.max(...prices);
+                lowIdx = prices.indexOf(swingLow);
+                highIdx = prices.indexOf(swingHigh);
+            } else {
+                swingHigh = Math.max(...prices);
+                swingLow = Math.min(...prices);
+                highIdx = prices.indexOf(swingHigh);
+                lowIdx = prices.indexOf(swingLow);
+            }
+
+            const range = swingHigh - swingLow;
+            const currentPrice = prices[prices.length - 1];
+            const fibLevels = ratios.map((ratio, i) => {
+                const price = swingHigh - range * ratio;
+                return { ratio, price, color: FIB_COLORS[i], label: `${(ratio * 100).toFixed(1)}%` };
+            });
+
+            drawFibChart(prices, fibLevels, swingLow, swingHigh, currentPrice);
+
+            let html = '';
+            fibLevels.forEach(level => {
+                const dist = ((currentPrice - level.price) / currentPrice * 100).toFixed(2);
+                const near = Math.abs(dist) < 2;
+                html += `<div class="fib-row" style="${near ? 'background:var(--card-bg);border-radius:6px;padding:10px 12px;' : ''}">
+                    <span class="fib-pct" style="color:${level.color};">${level.label}</span>
+                    <span class="fib-price">${level.price.toFixed(2)}</span>
+                    <div class="fib-bar">
+                        <div class="fib-bar-fill" style="width:100%;background:${level.color};"></div>
+                        <div class="fib-current" style="left:${Math.max(0, Math.min(100, (currentPrice - level.price + range * 0.2) / (range * 1.4) * 100))}%;"></div>
+                    </div>
+                    <span class="fib-label">${near ? '⚠️ 价格接近' : `距当前 ${dist}%`}</span>
+                </div>`;
+            });
+            document.getElementById('fibLevels').innerHTML = html;
+            document.getElementById('levelsCard').style.display = 'block';
+        }
+
+        function drawFibChart(prices, fibLevels, swingLow, swingHigh, currentPrice) {
+            const canvas = document.getElementById('fibChart');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth * 2;
+            const H = canvas.height * 2;
+            ctx.clearRect(0, 0, W, H);
+
+            const allPrices = [...prices, swingLow, swingHigh, ...fibLevels.map(l => l.price)];
+            const minP = Math.min(...allPrices) * 0.97;
+            const maxP = Math.max(...allPrices) * 1.03;
+            const padL = 70, padR = 20, padT = 20, padB = 30;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+            const n = prices.length;
+
+            const xPos = (i) => padL + (i / (n - 1)) * chartW;
+            const yPos = (v) => padT + chartH - ((v - minP) / (maxP - minP)) * chartH;
+
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            ctx.font = '20px sans-serif';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padT + chartH - (i / 5) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillText((minP + (i / 5) * (maxP - minP)).toFixed(1), 4, y + 5);
+            }
+
+            fibLevels.forEach(level => {
+                const y = yPos(level.price);
+                ctx.strokeStyle = level.color;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([6, 3]);
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = level.color;
+                ctx.font = '16px sans-serif';
+                ctx.fillText(`${level.label} ${level.price.toFixed(1)}`, W - padR - 180, y - 4);
+            });
+
+            ctx.strokeStyle = 'rgba(0,123,255,0.3)';
+            ctx.fillStyle = 'rgba(0,123,255,0.06)';
+            ctx.fillRect(xPos(0), yPos(swingHigh), xPos(n - 1) - xPos(0), yPos(swingLow) - yPos(swingHigh));
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(xPos(0), yPos(swingLow)); ctx.lineTo(xPos(0), yPos(swingHigh)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(xPos(n - 1), yPos(swingLow)); ctx.lineTo(xPos(n - 1), yPos(swingHigh)); ctx.stroke();
+
+            ctx.strokeStyle = '#007bff'; ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            prices.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(xPos(i), yPos(p)); else ctx.lineTo(xPos(i), yPos(p));
+            });
+            ctx.stroke();
+
+            ctx.fillStyle = '#007bff';
+            ctx.beginPath(); ctx.arc(xPos(n - 1), yPos(currentPrice), 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(xPos(n - 1), yPos(currentPrice), 3, 0, Math.PI * 2); ctx.fill();
+
+            document.getElementById('chartCard').style.display = 'block';
+        }
+
+        calculate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ 能源监控</title>
+<meta name="description" content="家庭能源消耗实时监控，智能分析用电习惯，节能建议">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#bf8700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.6}
+.ctn{max-width:900px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}.hdr h1{font-size:1.8rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.stat{background:var(--bg);border-radius:8px;padding:16px;text-align:center}
+.stat .value{font-size:1.8rem;font-weight:700;color:var(--accent)}
+.stat .label{font-size:.8rem;color:var(--text2);margin-top:4px}
+.stat .trend{font-size:.75rem;margin-top:6px}
+.stat .trend.up{color:var(--danger)}.stat .trend.down{color:var(--success)}
+.chart-container{height:200px;position:relative;margin-top:12px}
+.chart-bar{position:absolute;bottom:0;background:var(--accent);border-radius:4px 4px 0 0;transition:height .5s}
+.chart-label{position:absolute;bottom:-20px;font-size:.7rem;color:var(--text2);transform:translateX(-50%)}
+.chart-value{position:absolute;top:-18px;font-size:.7rem;color:var(--text);transform:translateX(-50%)}
+.device-list{max-height:300px;overflow-y:auto}
+.device-item{display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border)}
+.device-item:last-child{border-bottom:none}
+.device-icon{font-size:1.5rem;margin-right:12px}
+.device-info{flex:1}
+.device-name{font-weight:600;font-size:.9rem}
+.device-usage{font-size:.8rem;color:var(--text2)}
+.device-watts{font-weight:600;color:var(--accent)}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+.tip-card{background:var(--bg);border-radius:8px;padding:12px;margin-bottom:8px;border-left:3px solid var(--success)}
+.tip-card .title{font-weight:600;font-size:.9rem;margin-bottom:4px}
+.tip-card .desc{font-size:.8rem;color:var(--text2)}
+.time-tabs{display:flex;gap:8px;margin-bottom:12px}
+.time-tab{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:.8rem}
+.time-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+canvas{width:100%!important;height:200px!important}
+.hidden{display:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="⚡ 能源监控">
+<meta property="og:description" content="家庭能源消耗实时监控，智能分析用电习惯">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>⚡ 能源监控</h1><p>实时监控家庭能源消耗，优化用电习惯</p></div>
+
+<div class="cd">
+<h2>实时概览</h2>
+<div class="stat-grid">
+<div class="stat"><div class="value" id="realtimePower">2.4</div><div class="label">实时功率 (kW)</div><div class="trend down">↓ 12% 较昨日</div></div>
+<div class="stat"><div class="value" id="todayUsage">18.6</div><div class="label">今日用电 (kWh)</div><div class="trend up">↑ 5% 较昨日</div></div>
+<div class="stat"><div class="value" id="monthUsage">425.3</div><div class="label">本月用电 (kWh)</div><div class="trend down">↓ 8% 较上月</div></div>
+<div class="stat"><div class="value" id="estimatedCost">¥212</div><div class="label">预估电费</div><div class="trend down">↓ ¥18 较上月</div></div>
+</div>
+</div>
+
+<div class="cd">
+<h2>用电趋势</h2>
+<div class="time-tabs">
+<div class="time-tab active" onclick="setTimeRange('day')">今日</div>
+<div class="time-tab" onclick="setTimeRange('week')">本周</div>
+<div class="time-tab" onclick="setTimeRange('month')">本月</div>
+</div>
+<div class="chart-container" id="chartContainer"></div>
+</div>
+
+<div class="cd">
+<h2>设备用电排行</h2>
+<div class="device-list" id="deviceList"></div>
+</div>
+
+<div class="cd">
+<h2>节能建议</h2>
+<div id="tipsList"></div>
+</div>
+
+<div class="cd">
+<h2>用电分析</h2>
+<div class="stat-grid">
+<div class="stat"><div class="value" style="color:var(--success)">A</div><div class="label">能效等级</div></div>
+<div class="stat"><div class="value">85%</div><div class="label">节能目标达成</div></div>
+<div class="stat"><div class="value">32%</div><div class="label">峰时用电占比</div></div>
+<div class="stat"><div class="value">68%</div><div class="label">谷时用电占比</div></div>
+</div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const devices=[
+  {name:'空调',icon:'❄️',watts:1200,usage:8.5,trend:12},
+  {name:'热水器',icon:'🚿',watts:2000,usage:5.2,trend:-8},
+  {name:'冰箱',icon:'🧊',watts:150,usage:3.6,trend:0},
+  {name:'洗衣机',icon:'👕',watts:500,usage:2.1,trend:25},
+  {name:'电视',icon:'📺',watts:200,usage:1.8,trend:-5},
+  {name:'照明',icon:'💡',watts:100,usage:1.5,trend:-15},
+  {name:'电脑',icon:'💻',watts:300,usage:2.2,trend:8}
+];
+const tips=[
+  {title:'峰谷电价优化',desc:'将洗衣机、洗碗机等大功率设备调整到谷时（22:00-6:00）运行，预计每月节省¥35'},
+  {title:'空调温度建议',desc:'夏季空调温度设置在26°C，每升高1°C可节电6-8%'},
+  {title:'待机功耗提醒',desc:'检测到3台设备长期待机，拔掉插头每月可节省约5度电'},
+  {title:'照明优化',desc:'建议将客厅主灯更换为LED灯泡，能耗可降低75%'}
+];
+let timeRange='day';
+
+function renderChart(){
+  const container=$('chartContainer');
+  const data=timeRange==='day'?generateHourlyData():timeRange==='week'?generateWeeklyData():generateMonthlyData();
+  const maxVal=Math.max(...data.map(d=>d.value));
+  container.innerHTML=data.map((d,i)=>{
+    const height=(d.value/maxVal)*180;
+    const left=(i/(data.length-1))*90+5;
+    return`<div class="chart-bar" style="height:${height}px;left:${left}%;width:${Math.min(8,90/data.length)}%"></div>
+    <div class="chart-label" style="left:${left}%">${d.label}</div>
+    <div class="chart-value" style="left:${left}%">${d.value}</div>`;
+  }).join('');
+}
+
+function generateHourlyData(){
+  const data=[];
+  for(let i=0;i<24;i++){
+    const base=i>=9&&i<=11?2.5:i>=18&&i<=22?3.2:0.8;
+    data.push({label:i+':00',value:base+(Math.random()-0.5)*0.5});
+  }
+  return data;
+}
+
+function generateWeeklyData(){
+  const days=['一','二','三','四','五','六','日'];
+  return days.map((d,i)=>({label:'周'+d,value:15+Math.random()*10+(i>=5?5:0)}));
+}
+
+function generateMonthlyData(){
+  return Array.from({length:30},(_,i)=>({label:i+1+'日',value:12+Math.random()*8}));
+}
+
+function setTimeRange(range){
+  timeRange=range;
+  document.querySelectorAll('.time-tab').forEach((t,i)=>t.classList.toggle('active',['day','week','month'][i]===range));
+  renderChart();
+}
+
+function renderDevices(){
+  const sorted=[...devices].sort((a,b)=>b.usage-a.usage);
+  const maxUsage=sorted[0].usage;
+  $('deviceList').innerHTML=sorted.map(d=>{
+    const percent=(d.usage/maxUsage)*100;
+    const trendClass=d.trend>0?'up':'down';
+    return`<div class="device-item">
+      <div class="device-icon">${d.icon}</div>
+      <div class="device-info">
+        <div class="device-name">${d.name}</div>
+        <div class="device-usage">今日 ${d.usage} kWh · ${d.watts}W</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${percent}%;background:${d.trend>0?'var(--danger)':'var(--success)'}"></div></div>
+      </div>
+      <div class="device-watts">${d.trend>0?'+':''}${d.trend}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTips(){
+  $('tipsList').innerHTML=tips.map(t=>`<div class="tip-card"><div class="title">💡 ${t.title}</div><div class="desc">${t.desc}</div></div>`).join('');
+}
+
+function simulateRealtime(){
+  const base=2.4;
+  const variation=(Math.random()-0.5)*0.8;
+  const power=Math.max(0.5,base+variation);
+  $('realtimePower').textContent=power.toFixed(1);
+  const usage=parseFloat($('todayUsage').textContent)+power*0.001;
+  $('todayUsage').textContent=usage.toFixed(1);
+  $('estimatedCost').textContent='¥'+(usage*0.5).toFixed(0);
+}
+
+renderChart();
+renderDevices();
+renderTips();
+setInterval(simulateRealtime,3000);
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
