@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据可视化仪表盘</title>
+<meta name="description" content="数据可视化仪表盘，支持折线图、柱状图、饼图等多种图表类型">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6scroll-behavior:smooth;}
+.container{max-width:1100px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:var(--text);font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-warning{background:var(--yellow);color:#000}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:6px;font-weight:600;font-size:.9rem;color:var(--text2)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.empty{text-align:center;color:var(--text2);padding:40px;font-size:.9rem}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.table th{color:var(--text2);font-size:.85rem;font-weight:600}
+.table tr:hover{background:rgba(59,130,246,.05)}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s}
+.tab.active{background:var(--accent);color:var(--text)}
+.tab:hover:not(.active){background:var(--border)}
+.chart-box{position:relative;margin:16px 0}
+svg text{font-family:inherit}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="数据可视化仪表盘">
+<meta property="og:description" content="数据可视化仪表盘，支持折线图、柱状图、饼图等多种图表类型">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/data-viz-dashboard-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='📊 数据可视化仪表盘';
+const APP=document.getElementById('app');
+let dashboards=JSON.parse(localStorage.getItem('dvd_dashboards')||'[]');
+let curDash=null;
+let curTab='charts';
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+
+function save(){localStorage.setItem('dvd_dashboards',JSON.stringify(dashboards))}
+
+function render(){
+  let h=`<h1>📊 数据可视化仪表盘</h1><p class="subtitle">多图表数据可视化看板</p>`;
+  if(curDash!==null){
+    let d=dashboards[curDash];
+    h+=`<div class="card"><div class="flex-between"><button class="btn btn-sm" onclick="curDash=null;render()">← 返回</button><b>${d.title}</b><div class="flex"><button class="btn btn-sm" onclick="addChart()">+ 添加图表</button></div></div></div>`;
+    if(!d.charts.length){h+=`<div class="empty">暂无图表，点击上方添加</div>`;}
+    d.charts.forEach((c,ci)=>{
+      h+=`<div class="card"><div class="flex-between"><b style="font-size:.95rem">${c.title}</b><div class="flex"><select onchange="dashboards[${curDash}].charts[${ci}].type=this.value;save();render()" style="width:auto;margin:0"><option value="bar" ${c.type==='bar'?'selected':''}>柱状图</option><option value="line" ${c.type==='line'?'selected':''}>折线图</option><option value="pie" ${c.type==='pie'?'selected':''}>饼图</option><option value="area" ${c.type==='area'?'selected':''}>面积图</option><option value="radar" ${c.type==='radar'?'selected':''}>雷达图</option></select><button class="btn btn-sm" onclick="addChartData(${ci})">+ 数据</button><button class="btn btn-sm btn-danger" onclick="delChart(${ci})">×</button></div></div>`;
+      h+=renderChart(c,ci);
+      h+=`</div>`;
+    });
+  } else {
+    h+=`<div class="card"><div class="flex-between"><span style="font-weight:700">仪表盘列表</span><button class="btn btn-sm" onclick="newDash()">+ 新建</button></div></div>`;
+    dashboards.forEach((d,i)=>{
+      h+=`<div class="card"><div class="flex-between"><b>${d.title}</b><div class="flex"><span class="badge badge-blue">${d.charts.length} 个图表</span><button class="btn btn-sm" onclick="openDash(${i})">打开</button><button class="btn btn-sm btn-danger" onclick="delDash(${i})">删除</button></div></div></div>`;
+    });
+    if(!dashboards.length) h+=`<div class="empty">暂无仪表盘，点击上方新建</div>`;
+  }
+  APP.innerHTML=h;
+}
+
+function renderChart(c,ci){
+  if(!c.data.length) return `<div class="empty" style="padding:20px">暂无数据</div>`;
+  let w=Math.min(560,window.innerWidth-80), h=280;
+  if(c.type==='pie') return renderPie(c,w,h);
+  if(c.type==='radar') return renderRadar(c,w,h);
+  return renderXY(c,w,h);
+}
+
+function renderXY(c,w,h){
+  let max=Math.max(...c.data.map(d=>d.value),1);
+  let svg=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:0 auto">`;
+  svg+=`<line x1="40" y1="10" x2="40" y2="${h-30}" stroke="var(--border)" stroke-width="1"/>`;
+  svg+=`<line x1="40" y1="${h-30}" x2="${w-10}" y2="${h-30}" stroke="var(--border)" stroke-width="1"/>`;
+  for(let i=0;i<=4;i++){
+    let y=10+(h-40)*(1-i/4);
+    svg+=`<text x="35" y="${y+4}" fill="var(--text2)" font-size="10" text-anchor="end">${Math.round(max*i/4)}</text>`;
+    svg+=`<line x1="40" y1="${y}" x2="${w-10}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="4"/>`;
+  }
+  let n=c.data.length,bw=Math.min(40,(w-60)/n-8),gap=(w-60)/n;
+  if(c.type==='line'||c.type==='area'){
+    let pts=c.data.map((d,i)=>`${50+i*gap},${h-30-d.value/max*(h-50)}`).join(' ');
+    if(c.type==='area'){
+      svg+=`<polygon points="${50},${h-30} ${pts} ${50+(n-1)*gap},${h-30}" fill="${COLORS[ci%COLORS.length]}" opacity="0.2"/>`;
+    }
+    svg+=`<polyline points="${pts}" fill="none" stroke="${COLORS[ci%COLORS.length]}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    c.data.forEach((d,i)=>{
+      svg+=`<circle cx="${50+i*gap}" cy="${h-30-d.value/max*(h-50)}" r="4" fill="${COLORS[ci%COLORS.length]}"/>`;
+    });
+  } else {
+    c.data.forEach((d,i)=>{
+      let bh=d.value/max*(h-50);
+      let x=50+i*gap-bw/2;
+      svg+=`<rect x="${x}" y="${h-30-bh}" width="${bw}" height="${bh}" fill="${COLORS[i%COLORS.length]}" rx="4" opacity="0.85"/>`;
+    });
+  }
+  c.data.forEach((d,i)=>{
+    svg+=`<text x="${50+i*gap}" y="${h-12}" fill="var(--text2)" font-size="10" text-anchor="middle">${d.label}</text>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function renderPie(c,w,h){
+  let total=c.data.reduce((s,d)=>s+d.value,0);
+  if(total===0) return `<div class="empty">数据总和为0</div>`;
+  let cx=w/2,cy=h/2,r=Math.min(w,h)/2-30,angle=-Math.PI/2;
+  let svg=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:0 auto">`;
+  c.data.forEach((d,i)=>{
+    let sweep=d.value/total*Math.PI*2;
+    let x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+    angle+=sweep;
+    let x2=cx+r*Math.cos(angle),y2=cy+r*Math.sin(angle);
+    let large=sweep>Math.PI?1:0;
+    svg+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z" fill="${COLORS[i%COLORS.length]}" opacity="0.85"/>`;
+    let mid=angle-sweep/2;
+    let tx=cx+(r*0.65)*Math.cos(mid),ty=cy+(r*0.65)*Math.sin(mid);
+    if(sweep>0.3) svg+=`<text x="${tx}" y="${ty}" fill="#fff" font-size="11" text-anchor="middle" dominant-baseline="middle">${d.label}</text>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function renderRadar(c,w,h){
+  let cx=w/2,cy=h/2,r=Math.min(w,h)/2-40,n=c.data.length;
+  if(n<3) return `<div class="empty">雷达图至少需要3个数据点</div>`;
+  let svg=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:0 auto">`;
+  for(let ring=1;ring<=4;ring++){
+    let rr=r*ring/4;
+    let pts=[];
+    for(let i=0;i<n;i++){
+      let a=-Math.PI/2+i*Math.PI*2/n;
+      pts.push(`${cx+rr*Math.cos(a)},${cy+rr*Math.sin(a)}`);
+    }
+    svg+=`<polygon points="${pts.join(' ')}" fill="none" stroke="var(--border)" stroke-width="0.5"/>`;
+  }
+  let max=Math.max(...c.data.map(d=>d.value),1);
+  let dataPts=[];
+  c.data.forEach((d,i)=>{
+    let a=-Math.PI/2+i*Math.PI*2/n;
+    let dr=d.value/max*r;
+    let px=cx+dr*Math.cos(a),py=cy+dr*Math.sin(a);
+    svg+=`<line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="var(--border)" stroke-width="0.5"/>`;
+    svg+=`<circle cx="${px}" cy="${py}" r="3" fill="${COLORS[0]}"/>`;
+    dataPts.push(`${px},${py}`);
+    let lx=cx+(r+18)*Math.cos(a),ly=cy+(r+18)*Math.sin(a);
+    svg+=`<text x="${lx}" y="${ly}" fill="var(--text2)" font-size="10" text-anchor="middle" dominant-baseline="middle">${d.label}</text>`;
+  });
+  svg+=`<polygon points="${dataPts.join(' ')}" fill="${COLORS[0]}" opacity="0.25" stroke="${COLORS[0]}" stroke-width="2"/>`;
+  svg+=`</svg>`;
+  return svg;
+}
+
+function newDash(){let t=prompt('仪表盘标题：');if(t){dashboards.push({title:t,charts:[]});save();render()}}
+function delDash(i){if(confirm('删除此仪表盘？')){dashboards.splice(i,1);curDash=null;save();render()}}
+function openDash(i){curDash=i;render()}
+function addChart(){let t=prompt('图表标题：');if(t){dashboards[curDash].charts.push({title:t,type:'bar',data:[]});save();render()}}
+function delChart(i){if(confirm('删除此图表？')){dashboards[curDash].charts.splice(i,1);save();render()}}
+function addChartData(ci){let l=prompt('标签：');if(!l)return;let v=parseFloat(prompt('数值：'));if(isNaN(v))return;dashboards[curDash].charts[ci].data.push({label:l,value:v});save();render()}
+
+render();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
