@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 节拍制作器</title>
+    <meta name="description" content="创建和编辑音乐节拍的可视化制作工具">
+    <meta name="robots" content="index, follow">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-2: #334155;
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent: #8b5cf6;
+            --border: #475569;
+            --shadow: 0 4px 24px rgba(0,0,0,0.3);
+            --radius: 12px;
+            --transition: 0.25s ease;
+        }
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --surface-2: #f1f5f9;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --accent: #8b5cf6;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 { font-size: 1.5rem; }
+        .theme-toggle {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+        .section { margin-bottom: 16px; }
+        .section-title {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .controls-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: var(--transition);
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-danger { background: #ef4444; }
+        .btn-success { background: #22c55e; }
+        .btn-warning { background: #f59e0b; }
+        .btn-group {
+            display: flex;
+            gap: 6px;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .slider-group label { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; }
+        .slider-group .value { font-size: 0.85rem; font-weight: 600; min-width: 30px; }
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: var(--surface-2);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+        .sequencer {
+            display: grid;
+            grid-template-columns: 100px repeat(16, 1fr);
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+        .row-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            padding: 8px 4px;
+        }
+        .row-label .emoji { font-size: 1.1rem; }
+        .cell {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            background: var(--surface-2);
+            cursor: pointer;
+            transition: var(--transition);
+            min-height: 32px;
+        }
+        .cell:hover { border-color: var(--accent); }
+        .cell.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .cell.active.kick { background: #ef4444; border-color: #ef4444; }
+        .cell.active.snare { background: #f59e0b; border-color: #f59e0b; }
+        .cell.active.hihat { background: #22c55e; border-color: #22c55e; }
+        .cell.active.clap { background: #3b82f6; border-color: #3b82f6; }
+        .cell.playing {
+            box-shadow: 0 0 12px var(--accent);
+            transform: scale(1.1);
+        }
+        .cell.beat-marker {
+            border-bottom: 3px solid var(--text-secondary);
+        }
+        .step-numbers {
+            display: grid;
+            grid-template-columns: 100px repeat(16, 1fr);
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+        .step-num {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+        .pattern-slots {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .pattern-btn {
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        .pattern-btn.active {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: white;
+        }
+        .action-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .visualizer {
+            height: 60px;
+            background: var(--surface-2);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>🎵 节拍制作器</h1>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+    </header>
+
+    <div class="controls-row">
+        <div class="slider-group">
+            <label>BPM</label>
+            <input type="range" id="bpmSlider" min="60" max="200" value="120" style="width:120px;">
+            <span class="value" id="bpmValue">120</span>
+        </div>
+        <div class="slider-group">
+            <label>音量</label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="70" style="width:80px;">
+        </div>
+        <div class="slider-group">
+            <label>摇摆</label>
+            <input type="range" id="swingSlider" min="0" max="100" value="0" style="width:80px;">
+            <span class="value" id="swingValue">0%</span>
+        </div>
+    </div>
+
+    <div class="controls-row">
+        <div class="btn-group">
+            <button class="btn btn-success" id="playBtn" onclick="togglePlay()">▶️ 播放</button>
+            <button class="btn btn-outline" id="stopBtn" onclick="stop()">⏹️ 停止</button>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-outline" onclick="clearPattern()">🗑️ 清空</button>
+            <button class="btn btn-outline" onclick="exportJSON()">💾 导出</button>
+            <button class="btn btn-outline" onclick="importJSON()">📂 导入</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">节奏模式</div>
+        <div class="pattern-slots" id="patternSlots"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">音序器</div>
+        <div class="step-numbers" id="stepNumbers"></div>
+        <div class="sequencer" id="sequencer"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">可视化</div>
+        <canvas id="visualizer" class="visualizer"></canvas>
+    </div>
+</div>
+
+<script>
+const instruments = [
+    { id: 'kick', name: '底鼓', emoji: '🥁', color: '#ef4444' },
+    { id: 'snare', name: '军鼓', emoji: '🥁', color: '#f59e0b' },
+    { id: 'hihat', name: '踩镲', emoji: '🎵', color: '#22c55e' },
+    { id: 'clap', name: '拍手', emoji: '🔔', color: '#3b82f6' }
+];
+
+const STEPS = 16;
+let patterns = { A: {}, B: {}, C: {}, D: {} };
+let currentPattern = 'A';
+let isPlaying = false;
+let currentStep = 0;
+let audioCtx = null;
+let nextNoteTime = 0;
+let timerID = null;
+let analyser = null;
+
+function initPatterns() {
+    instruments.forEach(inst => {
+        patterns[currentPattern][inst.id] = new Array(STEPS).fill(false);
+    });
+}
+
+function init() {
+    initPatterns();
+    renderPatternSlots();
+    renderStepNumbers();
+    renderSequencer();
+    renderVisualizer();
+    setupAudio();
+    startVisualLoop();
+}
+
+function setupAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.connect(audioCtx.destination);
+}
+
+function renderPatternSlots() {
+    const el = document.getElementById('patternSlots');
+    el.innerHTML = ['A', 'B', 'C', 'D'].map(p =>
+        `<button class="pattern-btn ${currentPattern === p ? 'active' : ''}" onclick="switchPattern('${p}')">${p}</button>`
+    ).join('');
+}
+
+function renderStepNumbers() {
+    const el = document.getElementById('stepNumbers');
+    el.innerHTML = '<div></div>' + Array.from({length: STEPS}, (_, i) =>
+        `<div class="step-num">${i + 1}</div>`
+    ).join('');
+}
+
+function renderSequencer() {
+    const el = document.getElementById('sequencer');
+    el.innerHTML = instruments.map(inst => {
+        const cells = Array.from({length: STEPS}, (_, i) => {
+            const active = patterns[currentPattern][inst.id]?.[i];
+            const beat = i % 4 === 0;
+            return `<div class="cell ${inst.id} ${active ? 'active' : ''} ${beat ? 'beat-marker' : ''}" 
+                     data-inst="${inst.id}" data-step="${i}" 
+                     onclick="toggleCell('${inst.id}', ${i})"></div>`;
+        }).join('');
+        return `<div class="row-label"><span class="emoji">${inst.emoji}</span>${inst.name}</div>${cells}`;
+    }).join('');
+}
+
+function toggleCell(inst, step) {
+    if (!patterns[currentPattern][inst]) patterns[currentPattern][inst] = new Array(STEPS).fill(false);
+    patterns[currentPattern][inst][step] = !patterns[currentPattern][inst][step];
+    const cell = document.querySelector(`.cell[data-inst="${inst}"][data-step="${step}"]`);
+    if (cell) cell.classList.toggle('active');
+}
+
+function switchPattern(p) {
+    currentPattern = p;
+    if (!patterns[currentPattern]) {
+        patterns[currentPattern] = {};
+        instruments.forEach(inst => {
+            patterns[currentPattern][inst.id] = new Array(STEPS).fill(false);
+        });
+    }
+    renderPatternSlots();
+    renderSequencer();
+}
+
+function clearPattern() {
+    instruments.forEach(inst => {
+        patterns[currentPattern][inst.id] = new Array(STEPS).fill(false);
+    });
+    renderSequencer();
+}
+
+function playKick(time) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+    gain.gain.setValueAtTime(1, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+    osc.connect(gain);
+    gain.connect(analyser);
+    osc.start(time);
+    osc.stop(time + 0.3);
+}
+
+function playSnare(time) {
+    const bufferSize = audioCtx.sampleRate * 0.15;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 1000;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(1, time);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(analyser);
+    noise.start(time);
+    noise.stop(time + 0.15);
+
+    const osc = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = 200;
+    oscGain.gain.setValueAtTime(0.7, time);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+    osc.connect(oscGain);
+    oscGain.connect(analyser);
+    osc.start(time);
+    osc.stop(time + 0.1);
+}
+
+function playHihat(time) {
+    const bufferSize = audioCtx.sampleRate * 0.05;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 8000;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(analyser);
+    noise.start(time);
+    noise.stop(time + 0.05);
+}
+
+function playClap(time) {
+    const bufferSize = audioCtx.sampleRate * 0.12;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 2000;
+    filter.Q.value = 0.5;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(0.8, time + 0.01);
+    gain.gain.setValueAtTime(0.8, time + 0.02);
+    gain.gain.linearRampToValueAtTime(0, time + 0.04);
+    gain.gain.setValueAtTime(0.6, time + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(analyser);
+    noise.start(time);
+    noise.stop(time + 0.12);
+}
+
+const playFns = { kick: playKick, snare: playSnare, hihat: playHihat, clap: playClap };
+
+function scheduler() {
+    const bpm = parseInt(document.getElementById('bpmSlider').value);
+    const swing = parseInt(document.getElementById('swingSlider').value) / 100;
+    const secondsPerBeat = 60.0 / bpm / 4;
+    const volume = parseInt(document.getElementById('volumeSlider').value) / 100;
+
+    while (nextNoteTime < audioCtx.currentTime + 0.1) {
+        const stepIndex = currentStep % STEPS;
+        instruments.forEach(inst => {
+            if (patterns[currentPattern][inst.id]?.[stepIndex]) {
+                const playTime = nextNoteTime + (stepIndex % 2 === 1 ? secondsPerBeat * swing * 0.5 : 0);
+                playFns[inst.id](playTime);
+            }
+        });
+        highlightStep(stepIndex);
+        const advance = secondsPerBeat + (currentStep % 2 === 1 ? secondsPerBeat * swing * 0.5 : 0);
+        nextNoteTime += advance;
+        currentStep = (currentStep + 1) % STEPS;
+    }
+    timerID = setTimeout(scheduler, 25);
+}
+
+function togglePlay() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (isPlaying) {
+        stop();
+    } else {
+        isPlaying = true;
+        currentStep = 0;
+        nextNoteTime = audioCtx.currentTime;
+        scheduler();
+        document.getElementById('playBtn').textContent = '⏸️ 暂停';
+    }
+}
+
+function stop() {
+    isPlaying = false;
+    clearTimeout(timerID);
+    currentStep = 0;
+    document.getElementById('playBtn').textContent = '▶️ 播放';
+    clearHighlights();
+}
+
+function highlightStep(step) {
+    clearHighlights();
+    document.querySelectorAll(`.cell[data-step="${step}"]`).forEach(c => c.classList.add('playing'));
+}
+
+function clearHighlights() {
+    document.querySelectorAll('.cell.playing').forEach(c => c.classList.remove('playing'));
+}
+
+function exportJSON() {
+    const data = JSON.stringify({ patterns, currentPattern }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.download = '节拍.json';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+}
+
+function importJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = e => {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                patterns = data.patterns || patterns;
+                currentPattern = data.currentPattern || 'A';
+                renderPatternSlots();
+                renderSequencer();
+            } catch (err) { alert('文件格式错误'); }
+        };
+        reader.readAsText(e.target.files[0]);
+    };
+    input.click();
+}
+
+function renderVisualizer() {
+    const canvas = document.getElementById('visualizer');
+    canvas.width = canvas.clientWidth * 2;
+    canvas.height = canvas.clientHeight * 2;
+}
+
+function startVisualLoop() {
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const bufferLength = analyser ? analyser.frequencyBinCount : 128;
+    const dataArray = new Uint8Array(bufferLength);
+
+    function draw() {
+        requestAnimationFrame(draw);
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const barWidth = canvas.width / bufferLength;
+        for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * canvas.height;
+            const hue = (i / bufferLength) * 360;
+            ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
+            ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
+        }
+    }
+    draw();
+}
+
+document.getElementById('bpmSlider').addEventListener('input', e => {
+    document.getElementById('bpmValue').textContent = e.target.value;
+});
+
+document.getElementById('swingSlider').addEventListener('input', e => {
+    document.getElementById('swingValue').textContent = e.target.value + '%';
+});
+
+function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.dataset.theme === 'dark';
+    html.dataset.theme = isDark ? 'light' : 'dark';
+    document.querySelector('.theme-toggle').textContent = isDark ? '🌙' : '☀️';
+}
+
+window.addEventListener('resize', renderVisualizer);
+init();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SEO审计工具 - 分析网页SEO元素">
+    <meta name="robots" content="index, follow">
+    <title>SEO审计工具</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #dee2e6;
+            --card-bg: #f8f9fa;
+        }
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --border-color: #444444;
+            --card-bg: #2d2d2d;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-family: monospace;
+            resize: vertical;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+        }
+        .issue {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .issue.error {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid var(--danger-color);
+        }
+        .issue.warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid var(--warning-color);
+        }
+        .issue.success {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-left: 4px solid var(--success-color);
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .score {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .score.good {
+            color: var(--success-color);
+        }
+        .score.average {
+            color: var(--warning-color);
+        }
+        .score.poor {
+            color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>SEO审计工具</h1>
+        <p>输入HTML代码分析SEO元素</p>
+        
+        <div class="form-group">
+            <label for="htmlInput">HTML代码:</label>
+            <textarea id="htmlInput" rows="10" placeholder="粘贴HTML代码..."></textarea>
+        </div>
+        
+        <button onclick="runAudit()">开始审计</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h2>SEO审计结果</h2>
+            <div id="score" class="score"></div>
+            <div id="issues"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js" defer></script>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            html.setAttribute('data-theme', currentTheme === 'light' ? 'dark' : 'light');
+        }
+
+        function runAudit() {
+            const htmlInput = document.getElementById('htmlInput').value;
+            
+            if (!htmlInput) {
+                alert('请输入HTML代码');
+                return;
+            }
+            
+            const issues = [];
+            let score = 100;
+            
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlInput, 'text/html');
+            
+            // 检查标题
+            const title = doc.querySelector('title');
+            if (!title || !title.textContent.trim()) {
+                score -= 15;
+                issues.push({
+                    type: 'error',
+                    message: '页面缺少标题'
+                });
+            } else if (title.textContent.length > 60) {
+                score -= 5;
+                issues.push({
+                    type: 'warning',
+                    message: `标题过长 (${title.textContent.length}字符，建议60字符以内)`
+                });
+            }
+            
+            // 检查meta描述
+            const metaDesc = doc.querySelector('meta[name="description"]');
+            if (!metaDesc || !metaDesc.getAttribute('content')) {
+                score -= 15;
+                issues.push({
+                    type: 'error',
+                    message: '页面缺少meta描述'
+                });
+            } else if (metaDesc.getAttribute('content').length > 160) {
+                score -= 5;
+                issues.push({
+                    type: 'warning',
+                    message: `Meta描述过长 (${metaDesc.getAttribute('content').length}字符，建议160字符以内)`
+                });
+            }
+            
+            // 检查关键词
+            const metaKeywords = doc.querySelector('meta[name="keywords"]');
+            if (!metaKeywords || !metaKeywords.getAttribute('content')) {
+                score -= 5;
+                issues.push({
+                    type: 'warning',
+                    message: '页面缺少meta关键词'
+                });
+            }
+            
+            // 检查canonical链接
+            const canonical = doc.querySelector('link[rel="canonical"]');
+            if (!canonical) {
+                score -= 5;
+                issues.push({
+                    type: 'warning',
+                    message: '页面缺少canonical链接'
+                });
+            }
+            
+            // 检查Open Graph标签
+            const ogTitle = doc.querySelector('meta[property="og:title"]');
+            const ogDesc = doc.querySelector('meta[property="og:description"]');
+            const ogImage = doc.querySelector('meta[property="og:image"]');
+            if (!ogTitle || !ogDesc || !ogImage) {
+                score -= 10;
+                issues.push({
+                    type: 'warning',
+                    message: '缺少Open Graph标签'
+                });
+            }
+            
+            // 检查图片alt属性
+            const images = doc.querySelectorAll('img');
+            let imagesWithoutAlt = 0;
+            images.forEach(img => {
+                if (!img.getAttribute('alt')) {
+                    imagesWithoutAlt++;
+                }
+            });
+            if (imagesWithoutAlt > 0) {
+                score -= imagesWithoutAlt * 3;
+                issues.push({
+                    type: 'error',
+                    message: `${imagesWithoutAlt}张图片缺少alt属性`
+                });
+            }
+            
+            // 检查标题层级
+            const h1 = doc.querySelector('h1');
+            if (!h1) {
+                score -= 10;
+                issues.push({
+                    type: 'error',
+                    message: '页面缺少h1标题'
+                });
+            }
+            
+            // 检查结构化数据
+            const structuredData = doc.querySelector('script[type="application/ld+json"]');
+            if (!structuredData) {
+                score -= 5;
+                issues.push({
+                    type: 'warning',
+                    message: '缺少结构化数据'
+                });
+            }
+            
+            // 检查移动端适配
+            const viewport = doc.querySelector('meta[name="viewport"]');
+            if (!viewport) {
+                score -= 10;
+                issues.push({
+                    type: 'error',
+                    message: '缺少viewport设置'
+                });
+            }
+            
+            // 计算最终分数
+            score = Math.max(0, Math.min(100, score));
+            
+            // 显示结果
+            const scoreDiv = document.getElementById('score');
+            const issuesDiv = document.getElementById('issues');
+            
+            scoreDiv.textContent = `${score}分`;
+            scoreDiv.className = `score ${score >= 80 ? 'good' : score >= 60 ? 'average' : 'poor'}`;
+            
+            if (issues.length === 0) {
+                issuesDiv.innerHTML = '<div class="issue success">SEO检查通过</div>';
+            } else {
+                issuesDiv.innerHTML = issues.map(issue => 
+                    `<div class="issue ${issue.type}">${issue.message}</div>`
+                ).join('');
+            }
+            
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
