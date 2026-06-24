@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>行李清单生成器</title>
+<meta property="og:title" content="行李清单生成器">
+<meta property="og:description" content="行李清单生成器 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="智能生成旅行行李打包清单，根据目的地和天数自动推荐物品">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧳</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--radius:10px;--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;padding:16px}
+.header{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.header h1{font-size:20px;white-space:nowrap}
+.header h1 span{font-size:24px}
+.config-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--text2);font-weight:600}
+.field select,.field input{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600}
+.btn:hover{opacity:.85}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--border)}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.stats{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;min-width:120px;text-align:center}
+.stat-card .num{font-size:24px;font-weight:700;color:var(--accent)}
+.stat-card .label{font-size:12px;color:var(--text2);margin-top:4px}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;background:var(--green);border-radius:3px;transition:width .3s}
+.categories{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.category{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.cat-header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-bottom:1px solid var(--border);user-select:none}
+.cat-header:hover{background:var(--bg)}
+.cat-header .left{display:flex;align-items:center;gap:8px}
+.cat-header .badge{background:var(--accent);color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600}
+.cat-header .check-badge{background:var(--green)}
+.cat-header .arrow{transition:transform .2s;color:var(--text2)}
+.cat-header.open .arrow{transform:rotate(90deg)}
+.cat-body{padding:8px;display:none}
+.cat-header.open+.cat-body{display:block}
+.item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;transition:background .15s}
+.item:hover{background:var(--bg)}
+.item input[type="checkbox"]{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+.item .name{flex:1;font-size:14px}
+.item .name.packed{text-decoration:line-through;color:var(--text2)}
+.item .del{background:none;border:none;color:var(--text2);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px}
+.item .del:hover{color:var(--red);background:rgba(248,81,73,.1)}
+.add-item{display:flex;gap:6px;padding:8px}
+.add-item input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.empty{text-align:center;padding:40px;color:var(--text2);font-size:14px}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🧳</span> 行李清单生成器</h1>
+<div style="margin-left:auto;display:flex;gap:8px">
+<button class="btn btn-outline btn-sm" onclick="exportList()">📋 导出</button>
+<button class="btn btn-outline btn-sm" onclick="clearAll()">🗑 清空</button>
+</div>
+</div>
+<div class="config-bar">
+<div class="field">
+<label>旅行类型</label>
+<select id="tripType">
+<option value="leisure">🏖 休闲度假</option>
+<option value="business">💼 商务出行</option>
+<option value="adventure">🏔 探险户外</option>
+<option value="beach">🌊 海滩旅行</option>
+<option value="mountain">⛰ 登山徒步</option>
+<option value="winter">❄️ 冬季旅行</option>
+</select>
+</div>
+<div class="field">
+<label>旅行天数</label>
+<input type="number" id="tripDays" value="5" min="1" max="90" style="width:80px">
+</div>
+<div class="field">
+<label>目的地气候</label>
+<select id="climate">
+<option value="warm">热带/夏季</option>
+<option value="temperate">温带/春秋</option>
+<option value="cold">寒带/冬季</option>
+</select>
+</div>
+<div class="field">
+<label>出行人数</label>
+<input type="number" id="tripPeople" value="1" min="1" max="20" style="width:80px">
+</div>
+<button class="btn" onclick="generateList()">✨ 生成清单</button>
+<button class="btn btn-outline" onclick="saveList()">💾 保存</button>
+<button class="btn btn-outline" onclick="loadSaved()">📂 加载</button>
+</div>
+<div class="stats">
+<div class="stat-card"><div class="num" id="totalItems">0</div><div class="label">总物品</div></div>
+<div class="stat-card"><div class="num" id="packedItems" style="color:var(--green)">0</div><div class="label">已打包</div></div>
+<div class="stat-card"><div class="num" id="remainItems" style="color:var(--red)">0</div><div class="label">待打包</div></div>
+<div class="stat-card" style="min-width:200px"><div class="label">打包进度</div><div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div><div class="num" id="progressPct" style="font-size:16px;margin-top:4px">0%</div></div>
+</div>
+<div class="categories" id="categories"></div>
+<script>
+const templates={
+leisure:{证件:["护照","身份证","机票确认单","酒店预览单","旅行保险单","签证复印件"],衣物:["T恤×5","短裤×3","内衣×7","袜子×7","泳衣","拖鞋","凉鞋","太阳镜","遮阳帽","轻薄外套"],洗漱:["牙刷牙膏","洗面奶","防晒霜SPF50","沐浴露","洗发水","梳子","剃须刀","湿巾","纸巾"],电子:["手机+充电器","充电宝","转换插头","耳机","相机","自拍杆","Kindle"],药品:["感冒药","止泻药","创可贴","防蚊液","晕车药","个人常用药"],其他:["行李牌","零钱袋","折叠水杯","颈枕","眼罩"]},
+business:{证件:["护照","身份证","名片","公司资料","笔记本电脑","证件照2张"],衣物:["西装×2","衬衫×4","西裤×3","领带×2","皮鞋","皮带","正装袜","薄毛衣"],洗漱:["牙刷牙膏","剃须刀","梳子","止汗露","男士护肤品","香水"],电子:["笔记本+充电器","鼠标","转接头","充电宝","耳机","U盘"],药品:["感冒药","胃药","创可贴","眼药水"],其他:["文件袋","计算器","笔记本","笔","雨伞"]},
+adventure:{证件:["身份证","护照","保险单","紧急联系卡"],衣物:["速干T恤×4","速干裤×2","冲锋衣","抓绒衣","内衣×5","袜子×5","登山鞋","头巾","手套","遮阳帽"],洗漱:["牙刷牙膏","防晒霜","驱蚊液","湿巾","速干毛巾","洗衣液小瓶"],电子:["手机+充电器","充电宝20000mAh","头灯","对讲机","GPS设备","相机"],药品:["创可贴","止血贴","绷带","消炎药","止泻药","防高反药","蛇药"],其他:["登山杖","水袋","绳索","指南针","求生哨","防水袋"]},
+beach:{证件:["身份证","护照","酒店确认单","保险单"],衣物:["泳衣×2","沙滩裤×3","T恤×4","人字拖","沙滩鞋","太阳镜","遮阳帽","轻薄长袖防晒"],洗漱:["防晒霜SPF50+","晒后修复","防水化妆包","洗发水","沐浴露"],电子:["手机防水袋","充电宝","相机防水壳","蓝牙音箱"],药品:["晒伤药膏","止泻药","创可贴","防蚊液"],其他:["沙滩巾","浮潜面罩","沙滩包","折叠椅","保温杯"]},
+mountain:{证件:["身份证","登山许可","保险单","紧急联系卡"],衣物:["排汗内衣×3","抓绒衣×2","冲锋衣裤","羽绒服","登山靴","厚袜×4","手套","帽子","魔术头巾","雪套"],洗漱:["牙刷牙膏","防晒霜","唇膏","速干毛巾","湿巾"],电子:["手机+充电器","充电宝","头灯","对讲机","GPS","太阳能充电板"],药品:["高反药","止痛药","创可贴","绷带","碘伏","感冒药","能量胶"],其他:["登山杖","登山包70L","睡袋-15℃","帐篷","炉头","水壶","求生毯","冰爪"]},
+winter:{证件:["身份证","护照","保险单","机票酒店确认单"],衣物:["保暖内衣×3","毛衣×3","羽绒服","围巾","手套","帽子","厚袜×5","保暖鞋","暖宝宝×10"],洗漱:["润唇膏","面霜","护手霜","洗发水","沐浴露","牙刷牙膏"],电子:["手机+充电器","充电宝","暖手宝充电","相机防寒套"],药品:["感冒药","冻伤膏","润喉糖","鼻炎药"],其他:["保温杯","暖贴","折叠伞","防滑鞋链","行李锁"]}
+};
+let categories={};
+function generateList(){
+const type=document.getElementById('tripType').value;
+const days=parseInt(document.getElementById('tripDays').value)||5;
+const people=parseInt(document.getElementById('tripPeople').value)||1;
+const climate=document.getElementById('climate').value;
+categories={};
+const tpl=templates[type];
+Object.keys(tpl).forEach(cat=>{
+categories[cat]=tpl[cat].map(name=>({name,packed:false,custom:false}));
+if(cat==='衣物'&&days>5){
+const extra=Math.min(days-5,10);
+for(let i=0;i<extra;i++) categories[cat].push({name:`换洗衣物+${i+1}`,packed:false,custom:false});
+}
+if(people>1){
+Object.keys(categories).forEach(c=>{
+categories[c]=categories[c].map(item=>({...item,name:item.name.replace(/×\d+/g,m=>'×'+(parseInt(m.slice(1))*people))}));
+});
+}
+});
+if(climate==='warm'){
+categories.防晒=categories.防晒||[];
+categories.防晒.push({name:"高倍防晒霜",packed:false,custom:false},{name:"晒后修复",packed:false,custom:false});
+}else if(climate==='cold'){
+categories.保暖=categories.保暖||[];
+categories.保暖.push({name:"暖宝宝×10",packed:false,custom:false},{name:"保温杯",packed:false,custom:false});
+}
+renderCategories();
+}
+function renderCategories(){
+const container=document.getElementById('categories');
+container.innerHTML='';
+let total=0,packed=0;
+Object.keys(categories).forEach(cat=>{
+const items=categories[cat];
+total+=items.length;
+packed+=items.filter(i=>i.packed).length;
+const div=document.createElement('div');
+div.className='category';
+const packedCount=items.filter(i=>i.packed).length;
+div.innerHTML=`<div class="cat-header open" onclick="this.classList.toggle('open')">
+<div class="left"><span style="font-size:16px">${getCatEmoji(cat)}</span><strong>${cat}</strong></div>
+<div><span class="badge check-badge">${packedCount}/${items.length}</span><span class="arrow">▶</span></div></div>
+<div class="cat-body">${items.map((item,i)=>`<div class="item"><input type="checkbox" ${item.packed?'checked':''} onchange="toggleItem('${cat}',${i},this.checked)">
+<span class="name ${item.packed?'packed':''}">${item.name}</span>
+<button class="del" onclick="removeItem('${cat}',${i})" title="删除">✕</button></div>`).join('')}
+<div class="add-item"><input type="text" placeholder="添加物品..." onkeydown="if(event.key==='Enter')addItem('${cat}',this)">
+<button class="btn btn-sm" onclick="addItem('${cat}',this.previousElementSibling)">+</button></div></div>`;
+container.appendChild(div);
+});
+document.getElementById('totalItems').textContent=total;
+document.getElementById('packedItems').textContent=packed;
+document.getElementById('remainItems').textContent=total-packed;
+const pct=total?Math.round(packed/total*100):0;
+document.getElementById('progressBar').style.width=pct+'%';
+document.getElementById('progressPct').textContent=pct+'%';
+}
+function getCatEmoji(cat){return{证件:'📄',衣物:'👕',洗漱:'🧴',电子:'📱',药品:'💊',其他:'📦',防晒:'☀️',保暖:'🔥'}[cat]||'📁'}
+function toggleItem(cat,i,checked){categories[cat][i].packed=checked;renderCategories()}
+function removeItem(cat,i){categories[cat].splice(i,1);renderCategories()}
+function addItem(cat,input){
+const name=input.value.trim();
+if(!name)return;
+categories[cat].push({name,packed:false,custom:true});
+input.value='';
+renderCategories();
+}
+function exportList(){
+let text='🧳 行李清单\n'+'━'.repeat(30)+'\n\n';
+Object.keys(categories).forEach(cat=>{
+text+=`【${getCatEmoji(cat)} ${cat}】\n`;
+categories[cat].forEach(item=>{
+text+=item.packed?'  ☑ ':'  ☐ ';
+text+=item.name+'\n';
+});
+text+='\n';
+});
+text+=`总计: ${document.getElementById('totalItems').textContent}件 | 已打包: ${document.getElementById('packedItems').textContent}件`;
+const blob=new Blob([text],{type:'text/plain'});
+const a=document.createElement('a');
+a.href=URL.createObjectURL(blob);
+a.download='行李清单.txt';
+a.click();
+}
+function saveList(){
+localStorage.setItem('packingList',JSON.stringify(categories));
+alert('清单已保存！');
+}
+function loadSaved(){
+const saved=localStorage.getItem('packingList');
+if(saved){categories=JSON.parse(saved);renderCategories();alert('清单已加载！');}
+else alert('没有已保存的清单');
+}
+function clearAll(){
+if(confirm('确定清空所有清单？')){categories={};renderCategories();}
+}
+const saved=localStorage.getItem('packingList');
+if(saved)try{categories=JSON.parse(saved);renderCategories();}catch(e){}
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:20px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
