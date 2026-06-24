@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>选秀工具</title>
+<meta name="description" content="选秀工具 - 模拟选秀流程，随机或手动选人">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a371f7;--gold:#f0b429;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700;--purple:#8250df;--gold:#d4a017}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:800px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-purple{background:var(--purple)}
+.btn-gold{background:var(--gold);color:#000}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;width:100%}
+label{display:block;color:var(--text2);font-size:.85rem;margin-bottom:4px}
+.form-group{margin-bottom:12px}
+textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;min-height:60px;resize:vertical}
+.draft-pick{display:flex;align-items:center;padding:12px;border-bottom:1px solid var(--border);gap:12px}
+.draft-num{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.draft-num.used{background:var(--green)}
+.draft-player{font-weight:600;flex:1}
+.draft-team{font-size:.85rem;color:var(--text2)}
+.pool-tag{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:rgba(59,130,246,.15);font-size:.85rem;margin:4px;cursor:pointer;transition:all .2s}
+.pool-tag:hover{background:rgba(59,130,246,.3)}
+.pool-tag.selected{background:var(--accent);color:#fff}
+.pool-tag button{background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem;padding:0}
+.empty{text-align:center;color:var(--text2);padding:40px}
+.big-number{font-size:3rem;font-weight:700;color:var(--accent);text-align:center}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🎯 选秀工具';
+const APP=document.getElementById('app');
+let pool=JSON.parse(localStorage.getItem('dp_pool')||'[]');
+let teams=JSON.parse(localStorage.getItem('dp_teams')||'[]');
+let picks=JSON.parse(localStorage.getItem('dp_picks')||'[]');
+let currentPick=0;
+let selectedForPick=null;
+
+function save(){localStorage.setItem('dp_pool',JSON.stringify(pool));localStorage.setItem('dp_teams',JSON.stringify(teams));localStorage.setItem('dp_picks',JSON.stringify(picks))}
+
+function render(){
+  const available=pool.filter(p=>!picks.find(pk=>pk.player===p.name));
+  const currentTeam=teams.length>0?teams[currentPick%teams.length]:null;
+  APP.innerHTML=`
+    <h1>🎯 选秀工具</h1>
+    <p class="subtitle">模拟选秀流程，随机或手动选人</p>
+    <div class="card">
+      <div class="form-group">
+        <label>添加球员到池（每行一个）</label>
+        <textarea id="playerInput" placeholder="球员1&#10;球员2&#10;球员3"></textarea>
+      </div>
+      <div class="flex">
+        <button class="btn" onclick="addPlayers()">添加球员</button>
+        <button class="btn btn-sm btn-danger" onclick="clearPool()">清空球员池</button>
+        <span style="color:var(--text2);font-size:.85rem">${pool.length} 名球员, ${available.length} 可选</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-group">
+        <label>添加队伍</label>
+        <div class="flex">
+          <input id="teamInput" placeholder="队伍名称" style="flex:1">
+          <button class="btn btn-success" onclick="addTeam()">添加</button>
+        </div>
+      </div>
+      <div class="flex" style="flex-wrap:wrap">
+        ${teams.map((t,i)=>`<span class="pool-tag">${t.name} <button onclick="removeTeam(${i})">✕</button></span>`).join('')}
+      </div>
+    </div>
+    ${teams.length>=2?`<div class="card" style="text-align:center">
+      <div style="font-size:.9rem;color:var(--text2);margin-bottom:8px">当前选秀轮次 #${picks.length+1}</div>
+      <div class="big-number">${currentTeam?currentTeam.name:'-'}</div>
+      <div style="margin:16px 0">
+        ${selectedForPick?`<div style="font-size:1.2rem;margin-bottom:12px">选中: <b>${selectedForPick}</b></div>`:''}
+        <button class="btn btn-gold" onclick="autoPick()" ${available.length===0?'disabled':''}>🎲 自动选人</button>
+        <button class="btn btn-success" onclick="confirmPick()" ${!selectedForPick?'disabled':''}>✓ 确认选秀</button>
+      </div>
+      <div style="text-align:left;margin-top:16px">
+        <div style="font-size:.9rem;color:var(--text2);margin-bottom:8px">球员池:</div>
+        ${available.map(p=>`<span class="pool-tag ${selectedForPick===p.name?'selected':''}" onclick="selectPlayer('${p.name}')">${p.name}</span>`).join('')}
+        ${available.length===0?'<div class="empty">所有球员已选完</div>':''}
+      </div>
+    </div>`:''}
+    ${picks.length>0?`<div class="card">
+      <h2 style="font-size:1.2rem;margin-bottom:12px">选秀结果</h2>
+      ${picks.map((pk,i)=>`
+        <div class="draft-pick">
+          <div class="draft-num used">${i+1}</div>
+          <div class="draft-player">${pk.player}</div>
+          <div class="draft-team">→ ${pk.team}</div>
+        </div>
+      `).join('')}
+    </div>`:''}
+    ${picks.length>0?`<div class="card">
+      <h2 style="font-size:1.2rem;margin-bottom:12px">各队阵容</h2>
+      ${teams.map(t=>{
+        const teamPicks=picks.filter(pk=>pk.team===t.name).map(pk=>pk.player);
+        return `<div style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">${t.name} (${teamPicks.length}人)</div><div style="font-size:.9rem;color:var(--text2)">${teamPicks.join(', ')||'暂无'}</div></div>`;
+      }).join('')}
+      <button class="btn btn-sm btn-danger" onclick="resetDraft()" style="margin-top:12px">重新选秀</button>
+    </div>`:''}
+  `;
+}
+
+function addPlayers(){
+  const text=document.getElementById('playerInput').value.trim();
+  if(!text)return;
+  const names=text.split('\n').map(s=>s.trim()).filter(Boolean);
+  for(const name of names){
+    if(!pool.find(p=>p.name===name))pool.push({name});
+  }
+  document.getElementById('playerInput').value='';save();render();
+}
+
+function clearPool(){if(!confirm('确定清空?'))return;pool=[];save();render()}
+
+function addTeam(){
+  const name=document.getElementById('teamInput').value.trim();
+  if(!name)return;
+  if(teams.includes(name)){alert('队伍已存在');return}
+  teams.push(name);document.getElementById('teamInput').value='';save();render();
+}
+
+function removeTeam(idx){teams.splice(idx,1);save();render()}
+
+function selectPlayer(name){selectedForPick=name;render()}
+
+function autoPick(){
+  const available=pool.filter(p=>!picks.find(pk=>pk.player===p.name));
+  if(available.length===0)return;
+  const pick=available[Math.floor(Math.random()*available.length)];
+  selectedForPick=pick.name;render();
+}
+
+function confirmPick(){
+  if(!selectedForPick||teams.length===0)return;
+  const team=teams[currentPick%teams.length];
+  picks.push({player:selectedForPick,team});
+  currentPick++;
+  selectedForPick=null;save();render();
+}
+
+function resetDraft(){picks=[];currentPick=0;selectedForPick=null;save();render()}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.activeElement.id==='teamInput')addTeam();
+});
+render();
+</script>
+</body>
+</html>
