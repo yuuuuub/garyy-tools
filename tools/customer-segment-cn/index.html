@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎯 用户分群器</title>
+<meta name="description" content="用户分群分析工具，基于RFM、行为特征进行智能用户分群">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--orange:#bc4c00;--purple:#8250df;--shadow:0 1px 3px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;--purple:#bc8cff;--shadow:0 1px 3px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);padding:20px}
+.container{max-width:1100px;margin:0 auto}
+h1{color:var(--blue);border-bottom:2px solid var(--blue);padding-bottom:10px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+label{display:block;font-weight:600;margin-bottom:4px;font-size:13px;color:var(--text2)}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:14px}
+textarea{resize:vertical;min-height:80px;font-family:monospace;font-size:12px}
+button{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600}
+button:hover{opacity:.85}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-orange{background:var(--orange)}
+.theme-toggle{position:fixed;top:20px;right:20px;background:var(--text2);color:var(--bg);border:none;padding:6px 12px;border-radius:6px;cursor:pointer;z-index:100}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-box{text-align:center;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px}
+.stat-box .num{font-size:22px;font-weight:700;color:var(--blue)}
+.stat-box .label{font-size:11px;color:var(--text2);margin-top:4px}
+.segment-card{padding:16px;border-radius:8px;margin-bottom:12px;border:1px solid var(--border)}
+.segment-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.segment-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;color:#fff}
+.segment-users{max-height:200px;overflow-y:auto}
+.user-row{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px}
+.user-row:last-child{border-bottom:none}
+.scatter-canvas{width:100%;height:300px;border:1px solid var(--border);border-radius:6px}
+.cluster-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:12px}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{font-weight:600;color:var(--text2);font-size:12px}
+.strategy-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;margin:2px;background:var(--bg);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+<div class="container">
+<h1>🎯 用户分群器</h1>
+
+<div class="card">
+<h3 style="margin-bottom:12px">导入用户数据</h3>
+<div class="grid-2">
+<div>
+<label>用户数据 (JSON)</label>
+<textarea id="userData" rows="8" placeholder='[
+  {"id":1,"name":"用户A","recency":2,"frequency":15,"monetary":4500,"sessions":45,"avgDuration":12,"category":"电子产品"},
+  {"id":2,"name":"用户B","recency":30,"frequency":3,"monetary":300,"sessions":8,"avgDuration":3,"category":"服装"}
+]'></textarea>
+</div>
+<div>
+<label>分群方法</label>
+<select id="method" style="margin-bottom:8px">
+<option value="rfm">RFM分群</option>
+<option value="behavior">行为分群</option>
+<option value="value">价值分群</option>
+<option value="kmeans">K-Means聚类</option>
+</select>
+<label>分群数量</label>
+<select id="clusterCount" style="margin-bottom:8px">
+<option value="3">3群</option>
+<option value="4" selected>4群</option>
+<option value="5">5群</option>
+<option value="6">6群</option>
+</select>
+<div style="margin-top:12px;display:flex;gap:8px">
+<button onclick="runSegmentation()">🎯 运行分群</button>
+<button class="btn-green" onclick="loadSample()">📋 加载示例</button>
+<button class="btn-orange" onclick="exportSegments()">📥 导出结果</button>
+</div>
+</div>
+</div>
+</div>
+
+<div id="statsArea"></div>
+
+<div id="scatterCard" class="card" style="display:none">
+<h3 style="margin-bottom:12px">分群散点图</h3>
+<canvas id="scatterCanvas" class="scatter-canvas"></canvas>
+<div id="legendArea" class="cluster-legend"></div>
+</div>
+
+<div id="segmentsCard" class="card" style="display:none">
+<h3 style="margin-bottom:12px">分群详情</h3>
+<div id="segmentsList"></div>
+</div>
+
+<div id="strategyCard" class="card" style="display:none">
+<h3 style="margin-bottom:12px">运营策略建议</h3>
+<div id="strategyList"></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var segmentColors=['#0969da','#1a7f37','#8250df','#bc4c00','#cf222e','#d29922'];
+var segmentNames={
+  rfm:['高价值活跃用户','高价值沉睡用户','一般活跃用户','一般沉睡用户','低价值用户','流失风险用户'],
+  behavior:['重度用户','中度用户','轻度用户','沉默用户','新用户','流失用户'],
+  value:['VIP客户','高价值客户','中价值客户','低价值客户','潜在客户','流失客户']
+};
+
+function loadSample(){
+  var users=[];var names=['张三','李四','王五','赵六','孙七','周八','吴九','郑十','冯十一','陈十二','褚十三','卫十四','蒋十五','沈十六','韩十七','杨十八','朱十九','秦二十','许二一','何二二'];
+  for(var i=0;i<20;i++){
+    users.push({
+      id:i+1,name:names[i],
+      recency:Math.ceil(Math.random()*60),
+      frequency:Math.ceil(Math.random()*20),
+      monetary:Math.round(Math.random()*5000+100),
+      sessions:Math.ceil(Math.random()*50),
+      avgDuration:Math.round(Math.random()*15+1),
+      category:['电子产品','服装','食品','家居','运动'][Math.floor(Math.random()*5)]
+    });
+  }
+  document.getElementById('userData').value=JSON.stringify(users,null,2);
+}
+
+function runSegmentation(){
+  var users;
+  try{users=JSON.parse(document.getElementById('userData').value);if(!Array.isArray(users)||!users.length){alert('请输入有效的用户数据');return;}}catch(e){alert('JSON格式错误');return;}
+  var method=document.getElementById('method').value;
+  var k=parseInt(document.getElementById('clusterCount').value);
+  var names=segmentNames[method]||segmentNames.rfm;
+
+  var segments=[];
+  for(var i=0;i<k;i++)segments.push({name:names[i]||'群组'+(i+1),color:segmentColors[i%segmentColors.length],users:[]});
+
+  if(method==='rfm'){
+    var rMax=Math.max(...users.map(function(u){return u.recency||0;}));
+    var fMax=Math.max(...users.map(function(u){return u.frequency||0;}));
+    var mMax=Math.max(...users.map(function(u){return u.monetary||0;}));
+    users.forEach(function(u){
+      var rScore=rMax>0?(u.recency||0)/rMax:0;
+      var fScore=fMax>0?(u.frequency||0)/fMax:0;
+      var mScore=mMax>0?(u.monetary||0)/mMax:0;
+      var total=(1-rScore)*0.3+fScore*0.35+mScore*0.35;
+      var idx=Math.min(k-1,Math.floor(total*k));
+      segments[idx].users.push(Object.assign(u,{rScore:rScore,fScore:fScore,mScore:mScore,totalScore:total}));
+    });
+  }else if(method==='behavior'){
+    users.forEach(function(u){
+      var score=((u.sessions||0)/50*0.4+(u.avgDuration||0)/15*0.3+Math.min(1,(u.frequency||0)/20)*0.3);
+      var idx=Math.min(k-1,Math.floor(score*k));
+      segments[idx].users.push(Object.assign(u,{totalScore:score}));
+    });
+  }else if(method==='value'){
+    var mMax=Math.max(...users.map(function(u){return u.monetary||0;}));
+    users.forEach(function(u){
+      var score=mMax>0?(u.monetary||0)/mMax:0;
+      var idx=Math.min(k-1,Math.floor(score*k));
+      segments[idx].users.push(Object.assign(u,{totalScore:score}));
+    });
+  }else{
+    var centroidIdxs=[];
+    for(var i=0;i<k;i++)centroidIdxs.push(Math.floor(Math.random()*users.length));
+    var centroids=centroidIdxs.map(function(idx){return{freq:users[idx].frequency||0,mon:users[idx].monetary||0};});
+    for(var iter=0;iter<10;iter++){
+      segments.forEach(function(s){s.users=[];});
+      users.forEach(function(u){
+        var minDist=Infinity;var bestIdx=0;
+        centroids.forEach(function(c,ci){
+          var d=Math.pow((u.frequency||0)-c.freq,2)+Math.pow((u.monetary||0)-c.mon,2);
+          if(d<minDist){minDist=d;bestIdx=ci;}
+        });
+        segments[bestIdx].users.push(Object.assign(u,{totalScore:1-minDist/1000000}));
+      });
+      centroids=segments.map(function(s){
+        if(!s.users.length)return{freq:0,mon:0};
+        return{freq:s.users.reduce(function(a,u){return a+(u.frequency||0);},0)/s.users.length,mon:s.users.reduce(function(a,u){return a+(u.monetary||0);},0)/s.users.length};
+      });
+    }
+  }
+
+  drawScatter(segments);renderSegments(segments);renderStrategies(segments);
+
+  var totalUsers=users.length;
+  var avgMon=Math.round(users.reduce(function(s,u){return s+(u.monetary||0);},0)/totalUsers);
+  document.getElementById('statsArea').innerHTML='<div class="stat-row"><div class="stat-box"><div class="num">'+totalUsers+'</div><div class="label">总用户数</div></div><div class="stat-box"><div class="num" style="color:var(--blue)">'+k+'</div><div class="label">分群数</div></div><div class="stat-box"><div class="num" style="color:var(--green)">¥'+avgMon.toLocaleString()+'</div><div class="label">平均消费</div></div><div class="stat-box"><div class="num" style="color:var(--purple)">'+{rfm:'RFM',behavior:'行为',value:'价值',kmeans:'K-Means'}[method]+'</div><div class="label">分群方法</div></div></div>';
+
+  document.getElementById('scatterCard').style.display='block';
+  document.getElementById('segmentsCard').style.display='block';
+  document.getElementById('strategyCard').style.display='block';
+}
+
+function drawScatter(segments){
+  var canvas=document.getElementById('scatterCanvas');
+  var ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth;canvas.height=300;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  var w=canvas.width,h=canvas.height,pad=50;
+
+  ctx.strokeStyle='#d0d7de';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,h-pad);ctx.lineTo(w-pad,h-pad);ctx.stroke();
+
+  ctx.fillStyle='#656d76';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('频率 →',w/2,h-10);
+  ctx.save();ctx.translate(15,h/2);ctx.rotate(-Math.PI/2);ctx.fillText('消费金额 →',0,0);ctx.restore();
+
+  var allUsers=segments.reduce(function(a,s){return a.concat(s.users);},[]);
+  var fMax=Math.max(...allUsers.map(function(u){return u.frequency||0;}),1);
+  var mMax=Math.max(...allUsers.map(function(u){return u.monetary||0;}),1);
+
+  segments.forEach(function(s,si){
+    ctx.fillStyle=s.color;
+    s.users.forEach(function(u){
+      var x=pad+((u.frequency||0)/fMax)*(w-2*pad);
+      var y=h-pad-((u.monetary||0)/mMax)*(h-2*pad);
+      ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+    });
+  });
+
+  var legendHTML='';
+  segments.forEach(function(s){
+    legendHTML+='<div class="legend-item"><div class="legend-dot" style="background:'+s.color+'"></div>'+s.name+' ('+s.users.length+'人)</div>';
+  });
+  document.getElementById('legendArea').innerHTML=legendHTML;
+}
+
+function renderSegments(segments){
+  document.getElementById('segmentsList').innerHTML=segments.map(function(s,si){
+    var avgMon=s.users.length?Math.round(s.users.reduce(function(a,u){return a+(u.monetary||0);},0)/s.users.length):0;
+    var avgFreq=s.users.length?Math.round(s.users.reduce(function(a,u){return a+(u.frequency||0);},0)/s.users.length):0;
+    return '<div class="segment-card" style="border-left:4px solid '+s.color+'"><div class="segment-header"><div><span class="segment-badge" style="background:'+s.color+'">'+s.name+'</span> <span style="font-size:13px;color:var(--text2)">'+s.users.length+'人 · 平均消费¥'+avgMon.toLocaleString()+' · 平均频次'+avgFreq+'</span></div></div><div class="segment-users">'+s.users.slice(0,5).map(function(u){return '<div class="user-row"><span>'+u.name+'</span><span style="color:var(--text2)">¥'+(u.monetary||0).toLocaleString()+' · '+(u.frequency||0)+'次 · '+(u.recency||0)+'天前</span></div>';}).join('')+(s.users.length>5?'<div style="text-align:center;padding:4px;color:var(--text2);font-size:12px">...还有'+(s.users.length-5)+'人</div>':'')+'</div></div>';
+  }).join('');
+}
+
+function renderStrategies(segments){
+  var strategies=[
+    {segment:'高价值活跃',icon:'VIP',color:'var(--purple)',actions:['专属VIP服务','新品优先体验','生日专属礼遇','高端社群邀请']},
+    {segment:'高价值沉睡',icon:'唤醒',color:'var(--orange)',actions:['高额优惠券','限时专属折扣','老客回馈活动','专属客服外呼']},
+    {segment:'一般活跃',icon:'提升',color:'var(--blue)',actions:['满减促销','积分翻倍','交叉推荐','会员升级引导']},
+    {segment:'低价值',icon:'培养',color:'var(--green)',actions:['新人礼包','首单优惠','品类引导','社交裂变奖励']},
+    {segment:'流失风险',icon:'挽回',color:'var(--red)',actions:['回归专属优惠','满意度调查','产品改进通知','流失原因分析']}
+  ];
+  document.getElementById('strategyList').innerHTML=strategies.map(function(st){
+    return '<div style="padding:12px;border-left:3px solid '+st.color+';background:var(--bg);border-radius:0 6px 6px 0;margin-bottom:10px"><strong>'+st.icon+' '+st.segment+'</strong><div style="margin-top:6px">'+st.actions.map(function(a){return '<span class="strategy-tag">'+a+'</span>';}).join('')+'</div></div>';
+  }).join('');
+}
+
+function exportSegments(){
+  var canvas=document.getElementById('scatterCanvas');
+  if(!canvas||!canvas.width){alert('请先运行分群');return;}
+  canvas.toBlob(function(blob){
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='segmentation-scatter.png';a.click();
+  });
+}
+
+function toggleTheme(){var t=document.documentElement.getAttribute('data-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'light':'dark');}
+</script>
+</body>
+</html>

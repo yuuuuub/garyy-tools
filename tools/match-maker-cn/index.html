@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>比赛配对器</title>
+<meta name="description" content="比赛配对器 - 随机或手动将选手配对进行比赛">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a371f7;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700;--purple:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:700px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-purple{background:var(--purple)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem}
+label{display:block;color:var(--text2);font-size:.85rem;margin-bottom:4px}
+.form-group{margin-bottom:12px}
+.match-pair{display:flex;align-items:center;gap:12px;padding:16px;margin-bottom:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.vs-badge{background:var(--red);color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0}
+.match-player{flex:1;text-align:center}
+.match-player-name{font-weight:700;font-size:1.1rem}
+.match-player-stat{font-size:.8rem;color:var(--text2)}
+.winner-btn{padding:4px 10px;border:2px solid var(--border);border-radius:6px;background:transparent;color:var(--text);cursor:pointer;transition:all .2s;font-size:.8rem}
+.winner-btn:hover{border-color:var(--green);color:var(--green)}
+.winner-btn.selected{background:var(--green);color:#fff;border-color:var(--green)}
+.player-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:rgba(59,130,246,.15);font-size:.85rem;margin:4px}
+.player-tag button{background:none;border:none;color:var(--red);cursor:pointer;font-size:.9rem;padding:0}
+.empty{text-align:center;color:var(--text2);padding:40px}
+.match-number{font-size:.8rem;color:var(--text2);text-align:center;margin-bottom:8px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.match-pair{flex-direction:column}}
+</style>
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='⚔️ 比赛配对器';
+const APP=document.getElementById('app');
+let players=JSON.parse(localStorage.getItem('mm_players')||'[]');
+let matches=JSON.parse(localStorage.getItem('mm_matches')||'[]');
+let results=JSON.parse(localStorage.getItem('mm_results')||'[]');
+
+function save(){
+  localStorage.setItem('mm_players',JSON.stringify(players));
+  localStorage.setItem('mm_matches',JSON.stringify(matches));
+  localStorage.setItem('mm_results',JSON.stringify(results));
+}
+
+function render(){
+  APP.innerHTML=`
+    <h1>⚔️ 比赛配对器</h1>
+    <p class="subtitle">随机或手动将选手配对进行比赛</p>
+    <div class="card">
+      <div class="form-group">
+        <label>添加选手</label>
+        <div class="flex">
+          <input id="pname" placeholder="选手名称" style="flex:1">
+          <button class="btn" onclick="addPlayer()">添加</button>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        ${players.map(p=>`<span class="player-tag">${p.name}<button onclick="removePlayer('${p.id}')">✕</button></span>`).join('')}
+      </div>
+      <div style="margin-top:12px" class="flex">
+        <button class="btn btn-purple" onclick="randomMatch()">🎲 随机配对</button>
+        <button class="btn btn-success" onclick="autoMatch()">⚡ 自动全部配对</button>
+        <button class="btn btn-sm btn-danger" onclick="clearMatches()">清空配对</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:12px">
+        <h2 style="font-size:1.2rem">比赛配对 (${matches.length}场)</h2>
+      </div>
+      ${matches.length===0?'<div class="empty">添加选手后点击配对</div>':''}
+      ${matches.map((m,i)=>`
+        <div class="match-number">第 ${i+1} 场</div>
+        <div class="match-pair">
+          <div class="match-player">
+            <div class="match-player-name">${m.p1}</div>
+            <button class="winner-btn ${m.winner===m.p1?'selected':''}" onclick="setWinner(${i},'${m.p1}')">胜</button>
+          </div>
+          <div class="vs-badge">VS</div>
+          <div class="match-player">
+            <div class="match-player-name">${m.p2}</div>
+            <button class="winner-btn ${m.winner===m.p2?'selected':''}" onclick="setWinner(${i},'${m.p2}')">胜</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    ${results.length>0?`<div class="card">
+      <h2 style="font-size:1.2rem;margin-bottom:12px">胜者榜</h2>
+      ${results.sort((a,b)=>b.wins-a.wins).map(r=>`
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>${r.name}</span><span style="color:var(--green);font-weight:700">${r.wins}胜</span>
+        </div>
+      `).join('')}
+    </div>`:''}
+  `;
+}
+
+function addPlayer(){
+  const name=document.getElementById('pname').value.trim();
+  if(!name)return;
+  if(players.find(p=>p.name===name)){alert('选手已存在');return}
+  players.push({id:Date.now().toString(),name});
+  document.getElementById('pname').value='';save();render();
+}
+
+function removePlayer(id){
+  players=players.filter(p=>p.id!==id);save();render();
+}
+
+function randomMatch(){
+  if(players.length<2){alert('至少需要2名选手');return}
+  const shuffled=[...players].sort(()=>Math.random()-0.5);
+  matches.push({p1:shuffled[0].name,p2:shuffled[1].name,winner:null});
+  save();render();
+}
+
+function autoMatch(){
+  if(players.length<2){alert('至少需要2名选手');return}
+  const shuffled=[...players].sort(()=>Math.random()-0.5);
+  matches=[];
+  for(let i=0;i<shuffled.length-1;i+=2){
+    matches.push({p1:shuffled[i].name,p2:shuffled[i+1].name,winner:null});
+  }
+  save();render();
+}
+
+function setWinner(idx,winner){
+  const old=matches[idx].winner;
+  matches[idx].winner=winner;
+  if(old&&old!==winner){
+    results=results.filter(r=>r.name!==old);
+  }
+  const r=results.find(x=>x.name===winner);
+  if(r){r.wins++}else{results.push({name:winner,wins:1})}
+  save();render();
+}
+
+function clearMatches(){
+  matches=[];results=[];save();render();
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.id==='pname')addPlayer()});
+render();
+</script>
+</body>
+</html>

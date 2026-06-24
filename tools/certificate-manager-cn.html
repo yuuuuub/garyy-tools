@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证书管理工具</title>
+    <meta name="description" content="用于管理和监控SSL/TLS证书的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #00bcd4;
+            --accent-hover: #26c6da;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--accent-hover); }
+        .cert-card { 
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border: 1px solid var(--border);
+        }
+        .cert-domain { font-weight: bold; color: var(--accent); margin-bottom: 0.5rem; }
+        .cert-expiry { font-size: 0.9rem; }
+        .status-valid { color: var(--success); }
+        .status-expiring { color: var(--warning); }
+        .status-expired { color: var(--danger); }
+        .progress-bar { 
+            height: 6px; 
+            background: var(--bg-primary); 
+            border-radius: 3px; 
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-fill { 
+            height: 100%; 
+            border-radius: 3px; 
+            transition: width 0.3s;
+        }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>证书管理</h1>
+        
+        <div class="card">
+            <h2>添加证书</h2>
+            <form id="certForm">
+                <div class="form-group">
+                    <label>域名</label>
+                    <input type="text" id="certDomain" placeholder="example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>颁发者</label>
+                    <input type="text" id="certIssuer" placeholder="Let's Encrypt" required>
+                </div>
+                <div class="form-group">
+                    <label>过期日期</label>
+                    <input type="date" id="certExpiry" required>
+                </div>
+                <div class="form-group">
+                    <label>证书类型</label>
+                    <select id="certType">
+                        <option value="DV">域名验证 (DV)</option>
+                        <option value="OV">组织验证 (OV)</option>
+                        <option value="EV">扩展验证 (EV)</option>
+                    </select>
+                </div>
+                <button type="submit">添加证书</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>证书列表</h2>
+            <div id="certList">
+                <!-- 证书将在这里显示 -->
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>证书统计</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div>
+                    <div style="color: var(--text-secondary);">有效证书</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--success);" id="validCount">0</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-secondary);">即将过期</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--warning);" id="expiringCount">0</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-secondary);">已过期</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--danger);" id="expiredCount">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let certificates = JSON.parse(localStorage.getItem('sslCertificates')) || [];
+        
+        // 渲染证书列表
+        function renderCertificates() {
+            const container = document.getElementById('certList');
+            container.innerHTML = '';
+            
+            if (certificates.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">没有证书</p>';
+                return;
+            }
+            
+            let validCount = 0;
+            let expiringCount = 0;
+            let expiredCount = 0;
+            
+            certificates.forEach((cert, index) => {
+                const expiryDate = new Date(cert.expiry);
+                const today = new Date();
+                const daysLeft = Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
+                
+                let statusClass, statusText, progressColor;
+                if (daysLeft < 0) {
+                    statusClass = 'status-expired';
+                    statusText = '已过期';
+                    progressColor = 'var(--danger)';
+                    expiredCount++;
+                } else if (daysLeft < 30) {
+                    statusClass = 'status-expiring';
+                    statusText = `即将过期 (${daysLeft}天)`;
+                    progressColor = 'var(--warning)';
+                    expiringCount++;
+                } else {
+                    statusClass = 'status-valid';
+                    statusText = `有效 (${daysLeft}天)`;
+                    progressColor = 'var(--success)';
+                    validCount++;
+                }
+                
+                const progressWidth = Math.max(0, Math.min(100, (daysLeft / 365) * 100));
+                
+                const div = document.createElement('div');
+                div.className = 'cert-card';
+                div.innerHTML = `
+                    <div class="cert-domain">${cert.domain}</div>
+                    <div style="color: var(--text-secondary); margin-bottom: 0.5rem;">
+                        颁发者：${cert.issuer} | 类型：${cert.type}
+                    </div>
+                    <div class="cert-expiry ${statusClass}">
+                        过期时间：${cert.expiry} | ${statusText}
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progressWidth}%; background: ${progressColor};"></div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <button onclick="checkCertificate(${index})" style="margin-right: 0.5rem; padding: 0.5rem;">检查</button>
+                        <button onclick="deleteCertificate(${index})" style="background: var(--danger); padding: 0.5rem;">删除</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            // 更新统计
+            document.getElementById('validCount').textContent = validCount;
+            document.getElementById('expiringCount').textContent = expiringCount;
+            document.getElementById('expiredCount').textContent = expiredCount;
+        }
+        
+        // 添加证书
+        document.getElementById('certForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newCert = {
+                domain: document.getElementById('certDomain').value,
+                issuer: document.getElementById('certIssuer').value,
+                expiry: document.getElementById('certExpiry').value,
+                type: document.getElementById('certType').value,
+                addedAt: new Date().toLocaleString()
+            };
+            certificates.push(newCert);
+            localStorage.setItem('sslCertificates', JSON.stringify(certificates));
+            renderCertificates();
+            this.reset();
+        });
+        
+        // 检查证书（模拟）
+        function checkCertificate(index) {
+            const cert = certificates[index];
+            alert(`正在检查证书：${cert.domain}\n颁发者：${cert.issuer}\n过期时间：${cert.expiry}`);
+        }
+        
+        // 删除证书
+        function deleteCertificate(index) {
+            if (confirm('确定要删除此证书吗？')) {
+                certificates.splice(index, 1);
+                localStorage.setItem('sslCertificates', JSON.stringify(certificates));
+                renderCertificates();
+            }
+        }
+        
+        // 初始渲染
+        renderCertificates();
+        
+        // 添加一些示例证书
+        if (certificates.length === 0) {
+            const today = new Date();
+            const futureDate = new Date(today);
+            futureDate.setDate(today.getDate() + 90);
+            const pastDate = new Date(today);
+            pastDate.setDate(today.getDate() - 30);
+            
+            certificates = [
+                {
+                    domain: 'example.com',
+                    issuer: "Let's Encrypt",
+                    expiry: futureDate.toISOString().split('T')[0],
+                    type: 'DV',
+                    addedAt: today.toLocaleString()
+                },
+                {
+                    domain: 'api.example.com',
+                    issuer: 'DigiCert',
+                    expiry: new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    type: 'OV',
+                    addedAt: today.toLocaleString()
+                },
+                {
+                    domain: 'old.example.com',
+                    issuer: "Let's Encrypt",
+                    expiry: pastDate.toISOString().split('T')[0],
+                    type: 'DV',
+                    addedAt: today.toLocaleString()
+                }
+            ];
+            localStorage.setItem('sslCertificates', JSON.stringify(certificates));
+            renderCertificates();
+        }
+    </script>
+</body>
+</html>

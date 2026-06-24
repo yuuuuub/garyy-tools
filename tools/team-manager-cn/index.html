@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>队伍管理器</title>
+<meta name="description" content="队伍管理器 - 创建和管理多支队伍，分配成员">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👥</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a371f7;--orange:#db6d28;--radius:12px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700;--purple:#8250df;--orange:#bc4c00}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.container{max-width:800px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.95rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:.85rem}
+.btn-danger{background:var(--red)}
+.btn-success{background:var(--green)}
+.btn-purple{background:var(--purple)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+input,select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem}
+label{display:block;color:var(--text2);font-size:.85rem;margin-bottom:4px}
+.form-group{margin-bottom:12px}
+.team-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.team-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.team-name{font-weight:700;font-size:1.2rem}
+.team-color{width:16px;height:16px;border-radius:50%;display:inline-block;margin-right:8px}
+.member-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.member-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:rgba(59,130,246,.15);font-size:.85rem}
+.member-tag button{background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem;padding:0}
+.empty{text-align:center;color:var(--text2);padding:40px}
+.member-count{font-size:.85rem;color:var(--text2)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}}
+</style>
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='👥 队伍管理器';
+const APP=document.getElementById('app');
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a371f7','#db6d28','#58a6ff','#f0b429'];
+let teams=JSON.parse(localStorage.getItem('tm_teams')||'[]');
+
+function save(){localStorage.setItem('tm_teams',JSON.stringify(teams))}
+
+function render(){
+  APP.innerHTML=`
+    <h1>👥 队伍管理器</h1>
+    <p class="subtitle">创建和管理多支队伍，分配成员</p>
+    <div class="card">
+      <div class="form-group">
+        <label>创建新队伍</label>
+        <div class="flex">
+          <input id="tname" placeholder="队伍名称" style="flex:1">
+          <select id="tcolor">${COLORS.map((c,i)=>`<option value="${c}">${['蓝','绿','红','黄','紫','橙','天蓝','金'][i]}</option>`).join('')}</select>
+          <button class="btn" onclick="addTeam()">创建</button>
+        </div>
+      </div>
+    </div>
+    ${teams.length===0?'<div class="card"><div class="empty">创建第一支队伍</div></div>':''}
+    ${teams.map(t=>`
+      <div class="team-card" style="border-left:4px solid ${t.color}">
+        <div class="team-header">
+          <div class="team-name"><span class="team-color" style="background:${t.color}"></span>${t.name}</div>
+          <div class="flex">
+            <button class="btn btn-sm btn-danger" onclick="removeTeam('${t.id}')">删除</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="flex">
+            <input id="m_${t.id}" placeholder="添加成员名称" style="flex:1" onkeydown="if(event.key==='Enter')addMember('${t.id}')">
+            <button class="btn btn-sm btn-success" onclick="addMember('${t.id}')">添加</button>
+          </div>
+        </div>
+        <div class="member-list">
+          ${t.members.length===0?'<span style="color:var(--text2);font-size:.85rem">暂无成员</span>':''}
+          ${t.members.map(m=>`<span class="member-tag">${m}<button onclick="removeMember('${t.id}','${m}')">✕</button></span>`).join('')}
+        </div>
+        <div class="member-count">${t.members.length} 名成员</div>
+      </div>
+    `).join('')}
+    ${teams.length>=2?`<div class="card">
+      <h2 style="font-size:1.2rem;margin-bottom:12px">快速分配</h2>
+      <p style="font-size:.85rem;color:var(--text2);margin-bottom:12px">将未分配成员随机分配到各队伍</p>
+      <div class="form-group">
+        <label>输入成员名称（逗号分隔）</label>
+        <input id="bulkMembers" placeholder="成员A, 成员B, 成员C">
+      </div>
+      <button class="btn btn-purple" onclick="bulkAssign()">⚡ 随机分配</button>
+    </div>`:''}
+  `;
+}
+
+function addTeam(){
+  const name=document.getElementById('tname').value.trim();
+  const color=document.getElementById('tcolor').value;
+  if(!name)return;
+  if(teams.find(t=>t.name===name)){alert('队伍已存在');return}
+  teams.push({id:Date.now().toString(),name,color,members:[]});
+  document.getElementById('tname').value='';save();render();
+}
+
+function removeTeam(id){
+  if(!confirm('确定删除该队伍?'))return;
+  teams=teams.filter(t=>t.id!==id);save();render();
+}
+
+function addMember(teamId){
+  const input=document.getElementById('m_'+teamId);
+  const name=input.value.trim();
+  if(!name)return;
+  const team=teams.find(t=>t.id===teamId);
+  if(team.members.includes(name)){alert('成员已在此队伍');return}
+  // Check if member is already in another team
+  for(const t of teams){
+    if(t.id!==teamId&&t.members.includes(name)){
+      if(confirm(`${name} 已在队伍 "${t.name}" 中，是否移入 "${team.name}"?`)){
+        t.members=t.members.filter(m=>m!==name);
+      }else{return}
+    }
+  }
+  team.members.push(name);input.value='';save();render();
+}
+
+function removeMember(teamId,name){
+  const team=teams.find(t=>t.id===teamId);
+  team.members=team.members.filter(m=>m!==name);save();render();
+}
+
+function bulkAssign(){
+  const text=document.getElementById('bulkMembers').value.trim();
+  if(!text)return;
+  const names=text.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+  const shuffled=names.sort(()=>Math.random()-0.5);
+  let idx=0;
+  for(const name of shuffled){
+    const team=teams[idx%teams.length];
+    if(!team.members.includes(name)){
+      // Remove from other teams first
+      for(const t of teams){
+        t.members=t.members.filter(m=>m!==name);
+      }
+      team.members.push(name);
+    }
+    idx++;
+  }
+  document.getElementById('bulkMembers').value='';save();render();
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.id==='tname')addTeam()});
+render();
+</script>
+</body>
+</html>

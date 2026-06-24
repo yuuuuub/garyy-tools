@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📉 流失预测器</title>
+<meta name="description" content="用户流失预测工具，识别高风险流失用户，制定挽回策略">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--orange:#bc4c00;--purple:#8250df;--shadow:0 1px 3px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;--purple:#bc8cff;--shadow:0 1px 3px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);padding:20px}
+.container{max-width:1000px;margin:0 auto}
+h1{color:var(--blue);border-bottom:2px solid var(--blue);padding-bottom:10px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+label{display:block;font-weight:600;margin-bottom:4px;font-size:13px;color:var(--text2)}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:14px}
+textarea{resize:vertical;min-height:80px;font-family:monospace;font-size:12px}
+button{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600}
+button:hover{opacity:.85}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-orange{background:var(--orange)}
+.btn-purple{background:var(--purple)}
+.theme-toggle{position:fixed;top:20px;right:20px;background:var(--text2);color:var(--bg);border:none;padding:6px 12px;border-radius:6px;cursor:pointer;z-index:100}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-box{text-align:center;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px}
+.stat-box .num{font-size:22px;font-weight:700;color:var(--blue)}
+.stat-box .label{font-size:11px;color:var(--text2);margin-top:4px}
+.risk-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;color:#fff}
+.risk-high{background:var(--red)}
+.risk-medium{background:var(--orange)}
+.risk-low{background:var(--green)}
+.user-card{padding:14px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--card)}
+.user-card .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.risk-meter{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:6px 0}
+.risk-meter .fill{height:100%;border-radius:4px;transition:width .3s}
+.factor-bar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.factor-bar .name{width:120px;color:var(--text2);flex-shrink:0}
+.factor-bar .bar-bg{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.factor-bar .bar-fill{height:100%;border-radius:3px}
+.factor-bar .val{width:40px;text-align:right;font-weight:600;flex-shrink:0}
+.strategy-item{padding:10px;border-left:3px solid var(--blue);background:var(--bg);border-radius:0 6px 6px 0;margin-bottom:8px;font-size:13px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{font-weight:600;color:var(--text2);font-size:12px}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+<div class="container">
+<h1>📉 流失预测器</h1>
+
+<div class="card">
+<h3 style="margin-bottom:12px">导入用户数据</h3>
+<div class="grid-2">
+<div>
+<label>用户数据 (JSON格式)</label>
+<textarea id="userData" rows="8" placeholder='[
+  {"id":1,"name":"用户A","daysSinceLogin":5,"totalOrders":12,"totalSpent":2400,"avgSessionMin":8,"supportTickets":2,"loginDays30":18,"emailOpened":0.3},
+  {"id":2,"name":"用户B","daysSinceLogin":45,"totalOrders":3,"totalSpent":350,"avgSessionMin":2,"supportTickets":5,"loginDays30":3,"emailOpened":0.05}
+]'></textarea>
+</div>
+<div>
+<label>流失定义</label>
+<select id="churnDefinition" style="margin-bottom:8px">
+<option value="30">30天未登录</option>
+<option value="14">14天未登录</option>
+<option value="60">60天未登录</option>
+<option value="90">90天未登录</option>
+</select>
+<label>预测权重配置</label>
+<div class="grid-2" style="gap:6px">
+<div><label style="font-size:11px">登录频率权重</label><input type="number" id="wLogin" value="30" min="0" max="100"></div>
+<div><label style="font-size:11px">消费行为权重</label><input type="number" id="wSpend" value="25" min="0" max="100"></div>
+<div><label style="font-size:11px">互动活跃度权重</label><input type="number" id="wEngage" value="20" min="0" max="100"></div>
+<div><label style="font-size:11px">客服反馈权重</label><input type="number" id="wSupport" value="15" min="0" max="100"></div>
+<div><label style="font-size:11px">邮件互动权重</label><input type="number" id="wEmail" value="10" min="0" max="100"></div>
+</div>
+<div style="margin-top:12px;display:flex;gap:8px">
+<button onclick="runPrediction()">🔍 运行预测</button>
+<button class="btn-green" onclick="loadSample()">📋 加载示例</button>
+<button class="btn-orange" onclick="exportReport()">📥 导出报告</button>
+</div>
+</div>
+</div>
+</div>
+
+<div id="statsArea"></div>
+
+<div class="card" id="resultCard" style="display:none">
+<h3 style="margin-bottom:12px">预测结果</h3>
+<div class="metric-tabs" style="display:flex;gap:4px;margin-bottom:12px">
+<button class="active" onclick="filterUsers('all',this)">全部</button>
+<button onclick="filterUsers('high',this)">🔴 高风险</button>
+<button onclick="filterUsers('medium',this)">🟡 中风险</button>
+<button onclick="filterUsers('low',this)">🟢 低风险</button>
+</div>
+<div id="userList"></div>
+</div>
+
+<div class="card" id="stratCard" style="display:none">
+<h3 style="margin-bottom:12px">挽回策略建议</h3>
+<div id="strategies"></div>
+</div>
+
+<div class="card" id="chartCard" style="display:none">
+<h3 style="margin-bottom:12px">风险分布</h3>
+<canvas id="riskChart" style="width:100%;height:200px"></canvas>
+</div>
+
+<div class="card">
+<h3 style="margin-bottom:12px">分析历史</h3>
+<div id="historyList"></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var predictions=[];var allUsers=[];var history=JSON.parse(localStorage.getItem('churn_history')||'[]');
+
+function loadSample(){
+  document.getElementById('userData').value=JSON.stringify([
+    {id:1,name:'张三',daysSinceLogin:5,totalOrders:12,totalSpent:2400,avgSessionMin:8,supportTickets:2,loginDays30:18,emailOpened:0.3},
+    {id:2,name:'李四',daysSinceLogin:45,totalOrders:3,totalSpent:350,avgSessionMin:2,supportTickets:5,loginDays30:3,emailOpened:0.05},
+    {id:3,name:'王五',daysSinceLogin:15,totalOrders:8,totalSpent:1600,avgSessionMin:5,supportTickets:1,loginDays30:10,emailOpened:0.2},
+    {id:4,name:'赵六',daysSinceLogin:60,totalOrders:1,totalSpent:99,avgSessionMin:1,supportTickets:3,loginDays30:1,emailOpened:0.02},
+    {id:5,name:'孙七',daysSinceLogin:8,totalOrders:15,totalSpent:4500,avgSessionMin:12,supportTickets:0,loginDays30:22,emailOpened:0.5},
+    {id:6,name:'周八',daysSinceLogin:30,totalOrders:5,totalSpent:800,avgSessionMin:3,supportTickets:2,loginDays30:6,emailOpened:0.1},
+    {id:7,name:'吴九',daysSinceLogin:90,totalOrders:2,totalSpent:200,avgSessionMin:1,supportTickets:4,loginDays30:0,emailOpened:0},
+    {id:8,name:'郑十',daysSinceLogin:12,totalOrders:10,totalSpent:3200,avgSessionMin:7,supportTickets:1,loginDays30:15,emailOpened:0.35}
+  ]);
+}
+
+function runPrediction(){
+  try{
+    allUsers=JSON.parse(document.getElementById('userData').value);
+    if(!Array.isArray(allUsers)||!allUsers.length){alert('请输入有效的用户数据');return;}
+  }catch(e){alert('JSON格式错误');return;}
+
+  var churnDays=parseInt(document.getElementById('churnDefinition').value);
+  var wLogin=parseInt(document.getElementById('wLogin').value)||30;
+  var wSpend=parseInt(document.getElementById('wSpend').value)||25;
+  var wEngage=parseInt(document.getElementById('wEngage').value)||20;
+  var wSupport=parseInt(document.getElementById('wSupport').value)||15;
+  var wEmail=parseInt(document.getElementById('wEmail').value)||10;
+  var totalW=wLogin+wSpend+wEngage+wSupport+wEmail;
+
+  predictions=allUsers.map(function(u){
+    var loginScore=Math.max(0,1-(u.daysSinceLogin||0)/churnDays);
+    var spendScore=Math.min(1,(u.totalSpent||0)/3000);
+    var engageScore=Math.min(1,(u.loginDays30||0)/30);
+    var supportScore=Math.max(0,1-(u.supportTickets||0)/8);
+    var emailScore=u.emailOpened||0;
+
+    var riskScore=1-((loginScore*wLogin+spendScore*wSpend+engageScore*wEngage+supportScore*wSupport+emailScore*wEmail)/totalW);
+    riskScore=Math.max(0,Math.min(1,riskScore));
+
+    return Object.assign(u,{
+      riskScore:riskScore,
+      riskLevel:riskScore>=0.6?'high':riskScore>=0.3?'medium':'low',
+      factors:{login:loginScore,spend:spendScore,engage:engageScore,support:supportScore,email:emailScore},
+      predictedChurnDate:u.daysSinceLogin+Math.round((1-riskScore)*churnDays)
+    });
+  });
+
+  predictions.sort(function(a,b){return b.riskScore-a.riskScore;});
+
+  var high=predictions.filter(function(u){return u.riskLevel==='high';}).length;
+  var medium=predictions.filter(function(u){return u.riskLevel==='medium';}).length;
+  var low=predictions.filter(function(u){return u.riskLevel==='low';}).length;
+  var avgRisk=predictions.reduce(function(s,u){return s+u.riskScore;},0)/predictions.length;
+
+  document.getElementById('statsArea').innerHTML='<div class="stat-row"><div class="stat-box"><div class="num">'+predictions.length+'</div><div class="label">总用户数</div></div><div class="stat-box"><div class="num" style="color:var(--red)">'+high+'</div><div class="label">高风险</div></div><div class="stat-box"><div class="num" style="color:var(--orange)">'+medium+'</div><div class="label">中风险</div></div><div class="stat-box"><div class="num" style="color:var(--green)">'+low+'</div><div class="label">低风险</div></div></div>';
+
+  document.getElementById('resultCard').style.display='block';
+  document.getElementById('stratCard').style.display='block';
+  document.getElementById('chartCard').style.display='block';
+  filterUsers('all');
+  renderStrategies(high,medium,low);
+  drawChart(high,medium,low);
+
+  history.unshift({date:new Date().toLocaleDateString('zh-CN'),total:predictions.length,high:high,medium:medium,low:low,avgRisk:(avgRisk*100).toFixed(1)+'%'});
+  if(history.length>10)history.pop();
+  localStorage.setItem('churn_history',JSON.stringify(history));
+  renderHistory();
+}
+
+function filterUsers(level,btn){
+  if(btn){
+    btn.parentElement.querySelectorAll('button').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+  }
+  var filtered=level==='all'?predictions:predictions.filter(function(u){return u.riskLevel===level;});
+
+  document.getElementById('userList').innerHTML=filtered.map(function(u){
+    var riskColor=u.riskLevel==='high'?'var(--red)':u.riskLevel==='medium'?'var(--orange)':'var(--green)';
+    var riskText=u.riskLevel==='high'?'高风险':u.riskLevel==='medium'?'中风险':'低风险';
+    return '<div class="user-card"><div class="header"><div><strong>'+u.name+'</strong> <span class="risk-badge risk-'+u.riskLevel+'">'+riskText+'</span></div><div style="font-size:13px;color:var(--text2)">流失概率: <strong style="color:'+riskColor+'">'+(u.riskScore*100).toFixed(0)+'%</strong></div></div><div class="risk-meter"><div class="fill" style="width:'+(u.riskScore*100)+'%;background:'+riskColor+'"></div></div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px">'+renderFactor('登录',u.factors.login)+renderFactor('消费',u.factors.spend)+renderFactor('活跃',u.factors.engage)+renderFactor('客服',u.factors.support)+renderFactor('邮件',u.factors.email)+'</div><div style="font-size:11px;color:var(--text2);margin-top:6px">距上次登录: '+u.daysSinceLogin+'天 · 总订单: '+u.totalOrders+' · 总消费: ¥'+(u.totalSpent||0).toLocaleString()+' · 预计流失日: 第'+u.predictedChurnDate+'天</div></div>';
+  }).join('');
+}
+
+function renderFactor(name,score){
+  var color=score>=0.6?'var(--green)':score>=0.3?'var(--orange)':'var(--red)';
+  return '<div class="factor-bar"><span class="name">'+name+'</span><div class="bar-bg"><div class="bar-fill" style="width:'+(score*100)+'%;background:'+color+'"></div></div><span class="val" style="color:'+color+'">'+(score*100).toFixed(0)+'%</span></div>';
+}
+
+function renderStrategies(high,medium,low){
+  var html='';
+  if(high>0){
+    html+='<div class="strategy-item" style="border-color:var(--red)"><strong>🔴 高风险用户 ('+high+'人)：</strong>立即启动挽回流程<br>• 发送个性化优惠券（满100减30）<br>• 客服主动外呼了解问题<br>• 推送限时专属福利<br>• 检查是否有未解决的投诉</div>';
+  }
+  if(medium>0){
+    html+='<div class="strategy-item" style="border-color:var(--orange)"><strong>🟡 中风险用户 ('+medium+'人)：</strong>加强触达频率<br>• 增加邮件/推送频次<br>• 推送热门商品推荐<br>• 邀请参与会员活动<br>• 提供积分加速奖励</div>';
+  }
+  if(low>0){
+    html+='<div class="strategy-item" style="border-color:var(--green)"><strong>🟢 低风险用户 ('+low+'人)：</strong>保持互动提升粘性<br>• 维持现有触达节奏<br>• 推荐相关增值服务<br>• 邀请参与口碑传播<br>• 提供VIP专属权益</div>';
+  }
+  document.getElementById('strategies').innerHTML=html;
+}
+
+function drawChart(high,medium,low){
+  var canvas=document.getElementById('riskChart');
+  var ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth;canvas.height=200;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  var total=high+medium+low;if(!total)return;
+  var w=canvas.width,h=canvas.height;
+  var segments=[{count:high,color:'#cf222e',label:'高风险: '+high},{count:medium,color:'#bc4c00',label:'中风险: '+medium},{count:low,color:'#1a7f37',label:'低风险: '+low}];
+  var cx=w/2,cy=h/2,r=Math.min(w,h)/2-20;
+  var startAngle=-Math.PI/2;
+  segments.forEach(function(seg){
+    if(seg.count===0)return;
+    var sliceAngle=seg.count/total*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,startAngle,startAngle+sliceAngle);ctx.closePath();
+    ctx.fillStyle=seg.color;ctx.fill();
+    var midAngle=startAngle+sliceAngle/2;
+    var labelR=r*0.65;
+    ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(seg.count,cx+Math.cos(midAngle)*labelR,cy+Math.sin(midAngle)*labelR);
+    startAngle+=sliceAngle;
+  });
+  ctx.fillStyle='var(--bg)';ctx.beginPath();ctx.arc(cx,cy,r*0.4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='var(--text)';ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.fillText(total,cx,cy-6);
+  ctx.fillStyle='var(--text2)';ctx.font='11px sans-serif';ctx.fillText('总用户',cx,cy+12);
+}
+
+function exportReport(){
+  if(!predictions.length){alert('请先运行预测');return;}
+  var csv='用户名,流失概率,风险等级,登录分数,消费分数,活跃分数,客服分数,邮件分数,预计流失日\n';
+  predictions.forEach(function(u){
+    csv+=u.name+','+(u.riskScore*100).toFixed(1)+'%,'+(u.riskLevel==='high'?'高':u.riskLevel==='medium'?'中':'低')+','+(u.factors.login*100).toFixed(0)+'%,'+(u.factors.spend*100).toFixed(0)+'%,'+(u.factors.engage*100).toFixed(0)+'%,'+(u.factors.support*100).toFixed(0)+'%,'+(u.factors.email*100).toFixed(0)+'%,'+u.predictedChurnDate+'天\n';
+  });
+  var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='churn-prediction.csv';a.click();
+}
+
+function renderHistory(){
+  document.getElementById('historyList').innerHTML=history.length?history.map(function(h){
+    return '<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;display:flex;justify-content:space-between"><div><strong>'+h.date+'</strong> · '+h.total+'用户</div><div style="font-size:12px">🔴'+h.high+' 🟡'+h.medium+' 🟢'+h.low+' 平均风险:'+h.avgRisk+'</div></div>';
+  }).join(''):'<p style="color:var(--text2);font-size:13px">暂无历史记录</p>';
+}
+
+function toggleTheme(){var t=document.documentElement.getAttribute('data-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'light':'dark');}
+renderHistory();
+</script>
+</body>
+</html>

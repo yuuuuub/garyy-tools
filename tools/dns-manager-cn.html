@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS管理工具</title>
+    <meta name="description" content="用于管理DNS记录的工具">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #3f51b5;
+            --accent-hover: #5c6bc0;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 2rem; text-align: center; }
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--accent-hover); }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-tertiary); color: var(--text-secondary); }
+        .record-type { 
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .type-a { background: var(--success); color: white; }
+        .type-aaaa { background: #2196f3; color: white; }
+        .type-cname { background: var(--warning); color: white; }
+        .type-mx { background: #9c27b0; color: white; }
+        .type-txt { background: #795548; color: white; }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>DNS管理</h1>
+        
+        <div class="card">
+            <h2>添加DNS记录</h2>
+            <form id="dnsForm">
+                <div class="form-group">
+                    <label>域名</label>
+                    <input type="text" id="dnsDomain" placeholder="example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>记录类型</label>
+                    <select id="dnsType">
+                        <option value="A">A</option>
+                        <option value="AAAA">AAAA</option>
+                        <option value="CNAME">CNAME</option>
+                        <option value="MX">MX</option>
+                        <option value="TXT">TXT</option>
+                        <option value="NS">NS</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>记录值</label>
+                    <input type="text" id="dnsValue" placeholder="192.168.1.1" required>
+                </div>
+                <div class="form-group">
+                    <label>TTL（秒）</label>
+                    <input type="number" id="dnsTTL" value="3600" min="60" max="86400" required>
+                </div>
+                <div class="form-group">
+                    <label>优先级（MX记录）</label>
+                    <input type="number" id="dnsPriority" value="10" min="0" max="65535">
+                </div>
+                <button type="submit">添加记录</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>DNS记录列表</h2>
+            <table id="dnsTable">
+                <thead>
+                    <tr>
+                        <th>域名</th>
+                        <th>类型</th>
+                        <th>记录值</th>
+                        <th>TTL</th>
+                        <th>优先级</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="dnsBody">
+                    <!-- DNS记录将在这里动态插入 -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>DNS查询测试</h2>
+            <div class="form-group">
+                <label>查询域名</label>
+                <input type="text" id="queryDomain" placeholder="example.com">
+            </div>
+            <button onclick="queryDNS()">查询</button>
+            <div id="queryResult" style="margin-top: 1rem;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let dnsRecords = JSON.parse(localStorage.getItem('dnsRecords')) || [];
+        
+        // 渲染DNS表格
+        function renderDNSRecords() {
+            const tbody = document.getElementById('dnsBody');
+            tbody.innerHTML = '';
+            
+            dnsRecords.forEach((record, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${record.domain}</td>
+                    <td><span class="record-type type-${record.type.toLowerCase()}">${record.type}</span></td>
+                    <td>${record.value}</td>
+                    <td>${record.ttl}</td>
+                    <td>${record.priority || '-'}</td>
+                    <td>
+                        <button onclick="editDNSRecord(${index})" style="margin-right: 0.5rem; padding: 0.5rem;">编辑</button>
+                        <button onclick="deleteDNSRecord(${index})" style="background: var(--danger);">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // 添加DNS记录
+        document.getElementById('dnsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newRecord = {
+                domain: document.getElementById('dnsDomain').value,
+                type: document.getElementById('dnsType').value,
+                value: document.getElementById('dnsValue').value,
+                ttl: parseInt(document.getElementById('dnsTTL').value),
+                priority: document.getElementById('dnsPriority').value || null,
+                createdAt: new Date().toLocaleString()
+            };
+            dnsRecords.push(newRecord);
+            localStorage.setItem('dnsRecords', JSON.stringify(dnsRecords));
+            renderDNSRecords();
+            this.reset();
+        });
+        
+        // 编辑DNS记录
+        function editDNSRecord(index) {
+            const record = dnsRecords[index];
+            document.getElementById('dnsDomain').value = record.domain;
+            document.getElementById('dnsType').value = record.type;
+            document.getElementById('dnsValue').value = record.value;
+            document.getElementById('dnsTTL').value = record.ttl;
+            document.getElementById('dnsPriority').value = record.priority || '';
+            dnsRecords.splice(index, 1);
+            renderDNSRecords();
+        }
+        
+        // 删除DNS记录
+        function deleteDNSRecord(index) {
+            if (confirm('确定要删除此DNS记录吗？')) {
+                dnsRecords.splice(index, 1);
+                localStorage.setItem('dnsRecords', JSON.stringify(dnsRecords));
+                renderDNSRecords();
+            }
+        }
+        
+        // DNS查询（模拟）
+        function queryDNS() {
+            const domain = document.getElementById('queryDomain').value;
+            if (!domain) {
+                alert('请输入域名');
+                return;
+            }
+            
+            // 模拟查询结果
+            const matchingRecords = dnsRecords.filter(record => 
+                record.domain === domain || domain.endsWith('.' + record.domain)
+            );
+            
+            const resultDiv = document.getElementById('queryResult');
+            if (matchingRecords.length === 0) {
+                resultDiv.innerHTML = `<p style="color: var(--text-secondary);">没有找到 ${domain} 的DNS记录</p>`;
+            } else {
+                let html = `<h3>${domain} 的DNS记录：</h3><ul style="margin-top: 1rem;">`;
+                matchingRecords.forEach(record => {
+                    html += `<li style="margin: 0.5rem 0;">
+                        <span class="record-type type-${record.type.toLowerCase()}">${record.type}</span>
+                        ${record.value} (TTL: ${record.ttl})
+                    </li>`;
+                });
+                html += '</ul>';
+                resultDiv.innerHTML = html;
+            }
+        }
+        
+        // 初始渲染
+        renderDNSRecords();
+        
+        // 添加一些示例记录
+        if (dnsRecords.length === 0) {
+            dnsRecords = [
+                {
+                    domain: 'example.com',
+                    type: 'A',
+                    value: '93.184.216.34',
+                    ttl: 3600,
+                    priority: null,
+                    createdAt: new Date().toLocaleString()
+                },
+                {
+                    domain: 'www.example.com',
+                    type: 'CNAME',
+                    value: 'example.com',
+                    ttl: 3600,
+                    priority: null,
+                    createdAt: new Date().toLocaleString()
+                },
+                {
+                    domain: 'example.com',
+                    type: 'MX',
+                    value: 'mail.example.com',
+                    ttl: 3600,
+                    priority: 10,
+                    createdAt: new Date().toLocaleString()
+                },
+                {
+                    domain: 'example.com',
+                    type: 'TXT',
+                    value: 'v=spf1 include:_spf.google.com ~all',
+                    ttl: 3600,
+                    priority: null,
+                    createdAt: new Date().toLocaleString()
+                }
+            ];
+            localStorage.setItem('dnsRecords', JSON.stringify(dnsRecords));
+            renderDNSRecords();
+        }
+    </script>
+</body>
+</html>
