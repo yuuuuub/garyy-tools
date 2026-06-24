@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>行程规划助手</title>
+<meta name="description" content="智能规划旅行行程，合理安排每日景点和活动">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--radius:10px;--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--green:#3fb950;--yellow:#d29922;--red:#f85149}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;padding:16px}
+.header{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.header h1{font-size:20px;white-space:nowrap}
+.header h1 span{font-size:24px}
+.config-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--text2);font-weight:600}
+.field select,.field input{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600}
+.btn:hover{opacity:.85}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-green{background:var(--green)}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.days-container{display:flex;flex-direction:column;gap:16px}
+.day-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.day-header{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:var(--bg)}
+.day-header .day-num{background:var(--accent);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.day-header .day-title{flex:1;font-weight:600}
+.day-header .day-date{font-size:12px;color:var(--text2)}
+.day-header .day-toggle{cursor:pointer;color:var(--text2);transition:transform .2s}
+.day-header .day-toggle.open{transform:rotate(90deg)}
+.day-body{padding:12px;display:none}
+.day-body.show{display:block}
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);transition:all .15s}
+.timeline-item:hover{border-color:var(--accent)}
+.timeline-item::before{content:'';position:absolute;left:-18px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
+.timeline-item .time{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:4px}
+.timeline-item .activity{font-size:14px;margin-bottom:2px}
+.timeline-item .notes{font-size:11px;color:var(--text2)}
+.timeline-item .cost{font-size:11px;color:var(--green);margin-top:4px}
+.timeline-item .del-btn{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;opacity:0;transition:opacity .15s}
+.timeline-item:hover .del-btn{opacity:1}
+.timeline-item .del-btn:hover{color:var(--red)}
+.add-form{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.add-form input,.add-form select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px}
+.add-form input[type="time"]{width:90px}
+.add-form input[type="text"]{flex:1;min-width:120px}
+.add-form input[type="number"]{width:80px}
+.empty-day{text-align:center;padding:20px;color:var(--text2);font-size:13px}
+.day-summary{display:flex;gap:12px;margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text2)}
+.day-summary span{display:flex;align-items:center;gap:4px}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto}
+.modal h2{margin-bottom:16px}
+.modal textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;min-height:200px;resize:vertical;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="header">
+<h1><span>🗺️</span> 行程规划助手</h1>
+<div style="margin-left:auto;display:flex;gap:8px">
+<button class="btn btn-outline btn-sm" onclick="exportPlan()">📤 导出</button>
+<button class="btn btn-outline btn-sm" onclick="importPlan()">📥 导入</button>
+<button class="btn btn-outline btn-sm" onclick="clearPlan()">🗑 清空</button>
+</div>
+</div>
+<div class="config-bar">
+<div class="field">
+<label>旅行目的地</label>
+<input type="text" id="dest" placeholder="如：东京、巴黎">
+</div>
+<div class="field">
+<label>旅行天数</label>
+<input type="number" id="tripDays" value="3" min="1" max="30" style="width:80px" onchange="adjustDays()">
+</div>
+<div class="field">
+<label>出发日期</label>
+<input type="date" id="startDate">
+</div>
+<div class="field">
+<label>旅行风格</label>
+<select id="style">
+<option value="relaxed">🏖 休闲慢游</option>
+<option value="balanced">⚖️ 劳逸结合</option>
+<option value="intensive">🏃 密集打卡</option>
+<option value="cultural">🎭 深度文化</option>
+<option value="nature">🌿 自然风光</option>
+</select>
+</div>
+<button class="btn" onclick="generateSuggestion()">✨ 智能推荐</button>
+</div>
+<div class="toolbar">
+<button class="btn btn-sm" onclick="addDay()">➕ 添加天数</button>
+<button class="btn btn-outline btn-sm" onclick="savePlan()">💾 保存</button>
+<button class="btn btn-outline btn-sm" onclick="loadPlan()">📂 加载</button>
+</div>
+<div class="days-container" id="daysContainer"></div>
+<div class="modal-overlay" id="exportModal" onclick="if(event.target===this)this.classList.remove('show')">
+<div class="modal">
+<h2>📤 导出行程</h2>
+<textarea id="exportText" readonly></textarea>
+<div style="margin-top:12px;display:flex;gap:8px">
+<button class="btn btn-sm" onclick="copyExport()">📋 复制</button>
+<button class="btn btn-outline btn-sm" onclick="downloadExport()">💾 下载</button>
+<button class="btn btn-outline btn-sm" onclick="document.getElementById('exportModal').classList.remove('show')">关闭</button>
+</div>
+</div>
+</div>
+<script>
+const suggestions={
+上海:{5:[{t:'09:00',a:'外滩',n:'欣赏黄浦江两岸风光',c:0},{t:'11:00',a:'南京路步行街',n:'逛街购物',c:0},{t:'12:30',a:'午餐 - 小杨生煎',n:'品尝上海小吃',c:80},{t:'14:00',a:'豫园',n:'游览古典园林',c:40},{t:'16:00',a:'城隍庙',n:'感受老上海风情',c:0},{t:'18:00',a:'田子坊',n:'文艺街区漫步',c:0},{t:'19:30',a:'晚餐 - 本帮菜',n:'红烧肉、腌笃鲜',c:120}],6:[{t:'08:00',a:'迪士尼乐园',n:'全天畅玩',c:399},{t:'20:00',a:'烟花表演',n:'迪士尼烟花秀',c:0}],7:[{t:'09:00',a:'东方明珠',n:'登塔观光',c:199},{t:'11:00',a:'上海博物馆',n:'了解历史文化',c:0},{t:'13:00',a:'午餐',n:'生煎包',c:60},{t:'14:30',a:'武康路',n:'网红打卡',c:0},{t:'16:00',a:'新天地',n:'石库门建筑群',c:0},{t:'18:00',a:'晚餐 - 海鲜',n:'本帮海鲜',c:150}]},
+北京:{5:[{t:'06:00',a:'天安门广场',n:'看升旗仪式',c:0},{t:'08:00',a:'故宫博物院',n:'游览紫禁城',c:60},{t:'12:00',a:'午餐 - 全聚德',n:'北京烤鸭',c:150},{t:'14:00',a:'景山公园',n:'俯瞰故宫全景',c:2},{t:'16:00',a:'什刹海',n:'胡同骑行',c:30},{t:'18:30',a:'南锣鼓巷',n:'小吃美食街',c:60}],6:[{t:'07:00',a:'长城(八达岭)',n:'不到长城非好汉',c:40},{t:'16:00',a:'回城休息',n:'',c:0},{t:'18:00',a:'簋街',n:'麻辣小龙虾',c:100}],7:[{t:'09:00',a:'颐和园',n:'皇家园林',c:30},{t:'12:00',a:'午餐',n:'',c:60},{t:'14:00',a:'圆明园',n:'历史遗址',c:10},{t:'16:00',a:'清华/北大',n:'名校参观',c:0},{t:'18:00',a:'五道口',n:'美食街',c:80}]},
+东京:{5:[{t:'08:00',a:'浅草寺',n:'东京最古老寺庙',c:0},{t:'10:00',a:'仲见世商店街',n:'传统小吃',c:500},{t:'12:00',a:'午餐 - 拉面',n:'一兰拉面',c:1000},{t:'14:00',a:'东京晴空塔',n:'俯瞰东京',c:2100},{t:'16:00',a:'秋叶原',n:'动漫圣地',c:0},{t:'18:00',a:'晚餐 - 居酒屋',n:'串烧清酒',c:3000}],6:[{t:'08:00',a:'筑地市场',n:'新鲜海鲜早餐',c:2000},{t:'10:00',a:'银座',n:'高端购物',c:0},{t:'13:00',a:'明治神宫',n:'都市中的宁静',c:0},{t:'15:00',a:'涩谷',n:'十字路口打卡',c:0},{t:'17:00',a:'原宿',n:'潮牌购物',c:0},{t:'19:00',a:'新宿',n:'夜景与美食',c:3000}],7:[{t:'07:00',a:'新干线去京都',n:'2小时车程',c:13000},{t:'10:00',a:'伏见稻荷',n:'千本鸟居',c:0},{t:'12:30',a:'午餐 - 抹茶',n:'中村藤吉',c:1500},{t:'14:00',a:'清水寺',n:'世界遗产',c:400},{t:'16:00',a:'二年坂三年坂',n:'古街漫步',c:0},{t:'18:00',a:'锦市场',n:'京都厨房',c:1000}]}
+};
+let plan={};let dayStates={};
+function initPlan(){
+const days=parseInt(document.getElementById('tripDays').value)||3;
+plan={};dayStates={};
+for(let i=1;i<=days;i++){plan[i]=[];dayStates[i]=true;}
+renderDays();
+}
+function adjustDays(){
+const days=parseInt(document.getElementById('tripDays').value)||3;
+const current=Object.keys(plan).length;
+if(days>current){for(let i=current+1;i<=days;i++){plan[i]=[];dayStates[i]=true;}}
+else if(days<current){for(let i=days+1;i<=current;i++)delete plan[i];}
+renderDays();
+}
+function addDay(){
+const days=parseInt(document.getElementById('tripDays').value);
+const next=Object.keys(plan).length+1;
+plan[next]=[];dayStates[next]=true;
+document.getElementById('tripDays').value=next;
+renderDays();
+}
+function generateSuggestion(){
+const dest=document.getElementById('dest').value.trim();
+const days=parseInt(document.getElementById('tripDays').value)||3;
+const style=document.getElementById('style').value;
+if(!dest)return alert('请先输入目的地');
+if(!suggestions[dest]){alert(`暂无${dest}的推荐行程，请手动添加`);return;}
+const sugg=suggestions[dest];
+const keys=Object.keys(sugg).map(Number).sort((a,b)=>a-b);
+const matchKey=keys.find(k=>k===days)||keys.reduce((prev,curr)=>Math.abs(curr-days)<Math.abs(prev-days)?curr:prev);
+const template=sugg[matchKey];
+for(let i=1;i<=days;i++){
+plan[i]=template.map(t=>({...t}));
+}
+renderDays();
+}
+function renderDays(){
+const container=document.getElementById('daysContainer');
+const startDate=document.getElementById('startDate').value;
+container.innerHTML='';
+Object.keys(plan).sort((a,b)=>a-b).forEach(day=>{
+const items=plan[day];
+const totalCost=items.reduce((s,i)=>s+(i.c||0),0);
+const date=startDate?new Date(new Date(startDate).getTime()+(day-1)*86400000).toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'}):'';
+const div=document.createElement('div');
+div.className='day-card';
+div.innerHTML=`<div class="day-header">
+<div class="day-num">${day}</div>
+<div class="day-title">第${day}天</div>
+<div class="day-date">${date}</div>
+<div class="day-toggle ${dayStates[day]?'open':''}" onclick="toggleDay(${day})">▶</div></div>
+<div class="day-body ${dayStates[day]?'show':''}">
+<div class="timeline">${items.length?items.map((item,i)=>`<div class="timeline-item">
+<div class="time">🕐 ${item.t}</div>
+<div class="activity">${item.a}</div>
+${item.n?'<div class="notes">'+item.n+'</div>':''}
+${item.c?'<div class="cost">💰 ¥'+item.c+'</div>':''}
+<button class="del-btn" onclick="removeItem(${day},${i})">✕</button></div>`).join(''):'<div class="empty-day">暂无安排，点击下方添加</div>'}</div>
+<div class="day-summary"><span>📊 ${items.length}个活动</span><span>💰 ¥${totalCost.toLocaleString()}</span><span>⏱ ${items.length?items[items.length-1].t:'--'}</span></div>
+<div class="add-form"><input type="time" id="addTime${day}" value="09:00">
+<input type="text" id="addAct${day}" placeholder="活动名称">
+<input type="text" id="addNote${day}" placeholder="备注(可选)">
+<input type="number" id="addCost${day}" placeholder="费用" min="0">
+<button class="btn btn-sm" onclick="addItem(${day})">+</button></div></div>`;
+container.appendChild(div);
+});
+}
+function toggleDay(day){dayStates[day]=!dayStates[day];renderDays();}
+function addItem(day){
+const time=document.getElementById('addTime'+day).value||'09:00';
+const act=document.getElementById('addAct'+day).value.trim();
+if(!act)return;
+const note=document.getElementById('addNote'+day).value.trim();
+const cost=parseInt(document.getElementById('addCost'+day).value)||0;
+plan[day].push({t:time,a:act,n:note,c:cost});
+plan[day].sort((a,b)=>a.t.localeCompare(b.t));
+document.getElementById('addAct'+day).value='';
+document.getElementById('addNote'+day).value='';
+document.getElementById('addCost'+day).value='';
+renderDays();
+}
+function removeItem(day,i){plan[day].splice(i,1);renderDays();}
+function exportPlan(){
+let text=`🗺️ 旅行行程 - ${document.getElementById('dest').value||'未知目的地'}\n${'━'.repeat(30)}\n\n`;
+const startDate=document.getElementById('startDate').value;
+Object.keys(plan).sort((a,b)=>a-b).forEach(day=>{
+const date=startDate?new Date(new Date(startDate).getTime()+(day-1)*86400000).toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'}):'';
+text+=`📅 第${day}天${date?' ('+date+')':''}\n`;
+plan[day].forEach(item=>{text+=`  ${item.t} ${item.a}${item.n?' - '+item.n:''}${item.c?' (¥'+item.c+')':''}\n`;});
+const cost=plan[day].reduce((s,i)=>s+(i.c||0),0);
+text+=`  合计: ¥${cost}\n\n`;
+});
+const totalCost=Object.values(plan).flat().reduce((s,i)=>s+(i.c||0),0);
+text+=`💰 总计: ¥${totalCost.toLocaleString()}`;
+document.getElementById('exportText').value=text;
+document.getElementById('exportModal').classList.add('show');
+}
+function copyExport(){navigator.clipboard.writeText(document.getElementById('exportText').value);alert('已复制！');}
+function downloadExport(){const blob=new Blob([document.getElementById('exportText').value],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='旅行行程.txt';a.click();}
+function importPlan(){const t=prompt('粘贴行程JSON:');if(t){try{plan=JSON.parse(t);renderDays();}catch(e){alert('格式错误');}}}
+function savePlan(){localStorage.setItem('itineraryPlan',JSON.stringify(plan));alert('已保存！');}
+function loadPlan(){const s=localStorage.getItem('itineraryPlan');if(s){plan=JSON.parse(s);document.getElementById('tripDays').value=Object.keys(plan).length;renderDays();alert('已加载！');}}
+function clearPlan(){if(confirm('确定清空？')){initPlan();}}
+const today=new Date().toISOString().slice(0,10);
+document.getElementById('startDate').value=today;
+initPlan();
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();}if(e.key==='Escape')document.getElementById('exportModal').classList.remove('show');});
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:20px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

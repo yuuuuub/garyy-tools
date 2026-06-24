@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌳 矩形树图生成器 - Treemap Generator</title>
+<meta name="description" content="矩形树图生成器，将层次数据可视化为比例面积矩形">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌳</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🌳 矩形树图生成器">
+<meta property="og:description" content="矩形树图生成器，将层次数据可视化为比例面积矩形">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/tree-map-generator/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;padding:16px}
+.hdr{text-align:center;margin-bottom:20px}
+.hdr h1{font-size:1.6rem;font-weight:700;color:var(--accent)}
+.hdr p{color:var(--text2);margin-top:4px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;margin-bottom:10px;color:var(--accent)}
+textarea{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:monospace;font-size:.85rem;resize:vertical;min-height:120px;outline:none}
+textarea:focus{border-color:var(--accent)}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600}
+button:hover{opacity:.9}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+select{padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85rem}
+#canvas{width:100%;border-radius:8px;cursor:pointer;display:block}
+#tooltip{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.8rem;pointer-events:none;display:none;z-index:200;box-shadow:var(--shadow)}
+.stats{display:flex;gap:16px;margin-top:8px;font-size:.8rem;color:var(--text2)}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+
+<div class="hdr"><h1>🌳 矩形树图生成器</h1><p>将层次数据可视化为比例面积矩形</p></div>
+
+<div class="card">
+<h2>数据输入 (JSON格式)</h2>
+<textarea id="dataInput">{
+  "name": "项目总览",
+  "children": [
+    {"name": "前端", "value": 350, "children": [
+      {"name": "React", "value": 180},
+      {"name": "Vue", "value": 120},
+      {"name": "CSS", "value": 50}
+    ]},
+    {"name": "后端", "value": 280, "children": [
+      {"name": "Node.js", "value": 150},
+      {"name": "Python", "value": 80},
+      {"name": "Go", "value": 50}
+    ]},
+    {"name": "移动端", "value": 180, "children": [
+      {"name": "iOS", "value": 100},
+      {"name": "Android", "value": 80}
+    ]},
+    {"name": "DevOps", "value": 120},
+    {"name": "测试", "value": 70}
+  ]
+}</textarea>
+<div class="btn-row">
+<button onclick="generate()">生成树图</button>
+<button class="sec" onclick="loadSample()">加载示例</button>
+<button class="sec" onclick="exportPNG()">💾 导出PNG</button>
+<select id="colorScheme" onchange="generate()">
+<option value="category">分类色彩</option>
+<option value="sequential">渐变色</option>
+<option value="warm">暖色调</option>
+<option value="cool">冷色调</option>
+</select>
+</div>
+</div>
+
+<div class="card">
+<h2>树图预览</h2>
+<canvas id="canvas" height="500"></canvas>
+<div id="tooltip"></div>
+<div class="stats" id="statsInfo"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+
+const COLORS = {
+  category: ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316','#14b8a6','#a855f7'],
+  sequential: ['#1e3a5f','#1e5a8f','#2980b9','#3498db','#5dade2','#85c1e9','#aed6f1','#d4e6f1'],
+  warm: ['#c0392b','#e74c3c','#f39c12','#f1c40f','#e67e22','#d35400','#cb4335','#dc7633'],
+  cool: ['#1a5276','#1f618d','#2471a3','#2e86c1','#3498db','#5dade2','#85c1e9','#aed6f1']
+};
+
+let rects = [];
+
+function resize() {
+  canvas.width = canvas.parentElement.clientWidth - 32;
+  canvas.height = 500;
+}
+resize();
+window.addEventListener('resize', () => { resize(); generate(); });
+
+function flatten(node, list) {
+  if(node.children && node.children.length) {
+    node.children.forEach(c => flatten(c, list));
+  } else {
+    list.push({name: node.name, value: node.value||0});
+  }
+}
+
+function treemap(items, x, y, w, h) {
+  if(!items.length) return [];
+  const total = items.reduce((s,i) => s+i.value, 0);
+  if(total===0) return [];
+  const result = [];
+  let remaining = [...items];
+  let cx=x, cy=y, cw=w, ch=h;
+
+  while(remaining.length) {
+    const sum = remaining.reduce((s,i) => s+i.value, 0);
+    const horizontal = cw >= ch;
+    let row = [];
+    let rowSum = 0;
+
+    for(let i=0; i<remaining.length; i++) {
+      const ratio = remaining[i].value / sum;
+      const projectedArea = ratio * cw * ch;
+      const projectedLen = horizontal ? projectedArea / ch : projectedArea / cw;
+
+      if(row.length && (horizontal ? projectedLen > cw*0.6 : projectedLen > ch*0.6)) break;
+      row.push(remaining[i]);
+      rowSum += remaining[i].value;
+    }
+
+    const rowRatio = rowSum / sum;
+    if(horizontal) {
+      const rowW = cw * rowRatio;
+      let ry = cy;
+      row.forEach(item => {
+        const ih = ch * (item.value / rowSum);
+        result.push({x: cx, y: ry, w: rowW, h: ih, name: item.name, value: item.value});
+        ry += ih;
+      });
+      cx += rowW;
+      cw -= rowW;
+    } else {
+      const rowH = ch * rowRatio;
+      let rx = cx;
+      row.forEach(item => {
+        const iw = cw * (item.value / rowSum);
+        result.push({x: rx, y: cy, w: iw, h: rowH, name: item.name, value: item.value});
+        rx += iw;
+      });
+      cy += rowH;
+      ch -= rowH;
+    }
+    remaining = remaining.slice(row.length);
+  }
+  return result;
+}
+
+function getColor(index, total) {
+  const scheme = document.getElementById('colorScheme').value;
+  const colors = COLORS[scheme] || COLORS.category;
+  return colors[index % colors.length];
+}
+
+function generate() {
+  try {
+    const data = JSON.parse(document.getElementById('dataInput').value);
+    const items = [];
+    flatten(data, items);
+    items.sort((a,b) => b.value - a.value);
+
+    const padding = 4;
+    rects = treemap(items, padding, padding, canvas.width-padding*2, canvas.height-padding*2);
+
+    const total = items.reduce((s,i) => s+i.value, 0);
+    document.getElementById('statsInfo').innerHTML = `总面积: ${total} | 矩形数: ${items.length}`;
+
+    draw();
+  } catch(e) {
+    alert('JSON格式错误: ' + e.message);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  rects.forEach((r,i) => {
+    ctx.fillStyle = getColor(i, rects.length);
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = '#0d1117';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+
+    if(r.w > 40 && r.h > 25) {
+      ctx.fillStyle = '#fff';
+      ctx.font = r.w > 80 ? 'bold 13px sans-serif' : '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const name = r.name.length > 10 ? r.name.substring(0,10)+'...' : r.name;
+      ctx.fillText(name, r.x+r.w/2, r.y+r.h/2 - (r.h>40?8:0));
+      if(r.h > 40) {
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText(r.value, r.x+r.w/2, r.y+r.h/2+10);
+      }
+    }
+  });
+}
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const found = rects.find(r => x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h);
+  if(found) {
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX+12)+'px';
+    tooltip.style.top = (e.clientY+12)+'px';
+    tooltip.innerHTML = `<strong>${found.name}</strong><br>值: ${found.value}`;
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+canvas.addEventListener('mouseleave', () => tooltip.style.display='none');
+
+function loadSample() {
+  document.getElementById('dataInput').value = JSON.stringify({
+    name:"网站流量",children:[
+      {name:"搜索引擎",value:420,children:[{name:"Google",value:280},{name:"Bing",value:90},{name:"百度",value:50}]},
+      {name:"直接访问",value:230},
+      {name:"社交媒体",value:180,children:[{name:"微博",value:80},{name:"微信",value:60},{name:"Twitter",value:40}]},
+      {name:"外部链接",value:120},
+      {name:"广告",value:90}
+    ]
+  },null,2);
+  generate();
+}
+
+function exportPNG() {
+  const link = document.createElement('a');
+  link.download = 'treemap.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+generate();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
