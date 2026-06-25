@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>中国象棋</title><meta name="description" content="中国象棋 - 双人对弈中国象棋游戏"><style>:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--yellow:#d29922;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px;scroll-behavior:smooth}.container{max-width:800px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin:4px}.btn:hover{opacity:.85}.btn-group{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}.board-wrap{text-align:center;overflow-x:auto;padding:10px}.board{display:inline-grid;gap:0;background:#dcb35c;padding:16px;border-radius:8px;position:relative;border:3px solid #8b6914}.cell{width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}.cell::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:#8b6914;z-index:0}.cell::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:#8b6914;z-index:0}.piece{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;z-index:2;cursor:pointer;transition:all .15s;border:2px solid;box-shadow:1px 1px 3px rgba(0,0,0,.3)}.piece.red{background:radial-gradient(circle at 40% 40%,#ffcccc,#cc3333);border-color:#aa2222;color:#fff}.piece.black{background:radial-gradient(circle at 40% 40%,#ccc,#333);border-color:#222;color:#fff}.piece:hover{transform:scale(1.1)}.piece.selected{box-shadow:0 0 0 3px var(--blue),0 0 12px rgba(59,130,246,.5);transform:scale(1.1)}.cell.valid-move::before{content:'';position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(35,134,54,.5);z-index:1}.turn-panel{display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;margin:12px 0}.turn-indicator{font-size:1.1rem;padding:8px 20px;border-radius:20px;font-weight:700}.turn-indicator.red-turn{background:rgba(204,51,51,.2);color:#cc3333}.turn-indicator.black-turn{background:rgba(51,51,51,.2);color:#999}.captured{display:flex;gap:4px;flex-wrap:wrap;min-height:32px;align-items:center}.captured .mini-piece{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;border:1px solid;font-weight:700}.mini-piece.red{background:#cc3333;color:#fff;border-color:#aa2222}.mini-piece.black{background:#555;color:#fff;border-color:#333}</style><meta property="og:title" content="中国象棋"><meta property="og:description" content="中国象棋 - Gary's Tools"><meta property="og:image" content="https://garyy.top/og-image.png"><meta name="robots" content="index, follow"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♜</text></svg>"></head><body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container"><h1>♜ 中国象棋</h1><p class="sub">双人对弈中国象棋</p>
+<div class="card">
+<div class="btn-group">
+<button class="btn" onclick="newGame()">新游戏</button>
+<button class="btn" onclick="undoMove()">悔棋</button>
+<button class="btn" onclick="flipBoard()">翻转棋盘</button>
+</div>
+<div class="turn-panel">
+<div class="captured" id="redCaptured"></div>
+<div class="turn-indicator red-turn" id="turnIndicator">红方走棋</div>
+<div class="captured" id="blackCaptured"></div>
+</div>
+</div>
+<div class="card">
+<div class="board-wrap">
+<div class="board" id="board" style="grid-template-columns:repeat(9,36px);grid-template-rows:repeat(10,36px)"></div>
+</div>
+</div>
+<div class="card">
+<h3 style="margin-bottom:8px">走棋记录</h3>
+<div style="max-height:150px;overflow-y:auto;font-size:.8rem;color:var(--text2);padding:8px;background:var(--bg);border-radius:8px" id="moveLog">新游戏开始，红方先行</div>
+</div>
+<div id="result"></div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var pieces=[],currentPlayer='red',selectedPiece=null,validMoves=[],moveHistory=[],capturedRed=[],capturedBlack=[],flipped=false;
+var initialSetup=[
+{type:'che',name:'車',color:'black',row:0,col:0},{type:'ma',name:'馬',color:'black',row:0,col:1},{type:'xiang',name:'相',color:'black',row:0,col:2},{type:'shi',name:'士',color:'black',row:0,col:3},{type:'jiang',name:'將',color:'black',row:0,col:4},{type:'shi',name:'士',color:'black',row:0,col:5},{type:'xiang',name:'相',color:'black',row:0,col:6},{type:'ma',name:'馬',color:'black',row:0,col:7},{type:'che',name:'車',color:'black',row:0,col:8},
+{type:'pao',name:'砲',color:'black',row:2,col:1},{type:'pao',name:'砲',color:'black',row:2,col:7},
+{type:'bing',name:'卒',color:'black',row:3,col:0},{type:'bing',name:'卒',color:'black',row:3,col:2},{type:'bing',name:'卒',color:'black',row:3,col:4},{type:'bing',name:'卒',color:'black',row:3,col:6},{type:'bing',name:'卒',color:'black',row:3,col:8},
+{type:'che',name:'車',color:'red',row:9,col:0},{type:'ma',name:'馬',color:'red',row:9,col:1},{type:'xiang',name:'相',color:'red',row:9,col:2},{type:'shi',name:'仕',color:'red',row:9,col:3},{type:'jiang',name:'帥',color:'red',row:9,col:4},{type:'shi',name:'仕',color:'red',row:9,col:5},{type:'xiang',name:'相',color:'red',row:9,col:6},{type:'ma',name:'馬',color:'red',row:9,col:7},{type:'che',name:'車',color:'red',row:9,col:8},
+{type:'pao',name:'炮',color:'red',row:7,col:1},{type:'pao',name:'炮',color:'red',row:7,col:7},
+{type:'bing',name:'兵',color:'red',row:6,col:0},{type:'bing',name:'兵',color:'red',row:6,col:2},{type:'bing',name:'兵',color:'red',row:6,col:4},{type:'bing',name:'兵',color:'red',row:6,col:6},{type:'bing',name:'兵',color:'red',row:6,col:8}
+];
+function newGame(){
+pieces=initialSetup.map(function(p){return{type:p.type,name:p.name,color:p.color,row:p.row,col:p.col,alive:true};});
+currentPlayer='red';selectedPiece=null;validMoves=[];moveHistory=[];capturedRed=[];capturedBlack=[];flipped=false;
+renderBoard();updateTurn();updateCaptured();document.getElementById('moveLog').textContent='新游戏开始，红方先行';
+}
+function renderBoard(){
+var b=document.getElementById('board');var html='';
+for(var r=0;r<10;r++){for(var c=0;c<9;c++){
+var dr=flipped?9-r:r;var dc=flipped?8-c:c;
+var piece=getPieceAt(dr,dc);
+var selected=selectedPiece&&selectedPiece.row===dr&&selectedPiece.col===dc?' selected':'';
+var valid=isValidMove(dr,dc)?' valid-move':'';
+html+='<div class="cell'+valid+'" onclick="clickCell('+dr+','+dc+')">';
+if(piece)html+='<div class="piece '+piece.color+selected+'">'+piece.name+'</div>';
+html+='</div>';
+}}
+b.innerHTML=html;
+}
+function getPieceAt(r,c){
+for(var i=0;i<pieces.length;i++){if(pieces[i].alive&&pieces[i].row===r&&pieces[i].col===c)return pieces[i];}
+return null;
+}
+function isValidMove(r,c){
+return validMoves.some(function(m){return m[0]===r&&m[1]===c;});
+}
+function clickCell(r,c){
+var piece=getPieceAt(r,c);
+if(selectedPiece){
+if(piece&&piece.color===currentPlayer){selectedPiece=piece;validMoves=getValidMoves(piece);renderBoard();return;}
+if(isValidMove(r,c)){
+moveHistory.push({piece:selectedPiece,fromRow:selectedPiece.row,fromCol:selectedPiece.col,toRow:r,toCol:c,captured:piece});
+if(piece){piece.alive=false;if(piece.color==='red')capturedRed.push(piece);else capturedBlack.push(piece);}
+selectedPiece.row=r;selectedPiece.col=c;
+if(piece&&piece.type==='jiang'){alert(piece.color==='red'?'黑方获胜！':'红方获胜！');}
+currentPlayer=currentPlayer==='red'?'black':'red';
+selectedPiece=null;validMoves=[];
+renderBoard();updateTurn();updateCaptured();updateLog();
+return;
+}
+selectedPiece=null;validMoves=[];renderBoard();
+}else if(piece&&piece.color===currentPlayer){
+selectedPiece=piece;validMoves=getValidMoves(piece);renderBoard();
+}
+}
+function getValidMoves(piece){
+var moves=[];var r=piece.row,c=piece.col,color=piece.color;
+switch(piece.type){
+case'che':
+[[0,1],[0,-1],[1,0],[-1,0]].forEach(function(d){
+for(var i=1;i<10;i++){
+var nr=r+d[0]*i,nc=c+d[1]*i;
+if(nr<0||nr>=10||nc<0||nc>=9)break;
+var tp=getPieceAt(nr,nc);
+if(!tp){moves.push([nr,nc]);}
+else{if(tp.color!==color)moves.push([nr,nc]);break;}
+}
+});break;
+case'ma':
+[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(function(d){
+var lr=r+d[0]/2,lc=c+d[1]/2;
+if(Math.abs(d[0])===2){if(getPieceAt(lr,c))return;}
+else{if(getPieceAt(r,lc))return;}
+var nr=r+d[0],nc=c+d[1];
+if(nr<0||nr>=10||nc<0||nc>=9)return;
+var tp=getPieceAt(nr,nc);
+if(!tp||tp.color!==color)moves.push([nr,nc]);
+});break;
+case'pao':
+[[0,1],[0,-1],[1,0],[-1,0]].forEach(function(d){
+var jumped=false;
+for(var i=1;i<10;i++){
+var nr=r+d[0]*i,nc=c+d[1]*i;
+if(nr<0||nr>=10||nc<0||nc>=9)break;
+var tp=getPieceAt(nr,nc);
+if(!jumped){if(!tp)moves.push([nr,nc]);else jumped=true;}
+else{if(tp){if(tp.color!==color)moves.push([nr,nc]);break;}}
+}
+});break;
+case'xiang':
+var dir=color==='red'?-1:1;
+[[2,2],[2,-2],[-2,2],[-2,-2]].forEach(function(d){
+var nr=r+d[0],nc=c+d[1];
+if(nr<0||nr>=10||nc<0||nc>=9)return;
+if(color==='red'&&(nr<5))return;
+if(color==='black'&&(nr>4))return;
+var br=r+d[0]/2,bc=c+d[1]/2;
+if(getPieceAt(br,bc))return;
+var tp=getPieceAt(nr,nc);
+if(!tp||tp.color!==color)moves.push([nr,nc]);
+});break;
+case'shi':
+var sd=color==='red'?[[1,1],[1,-1],[-1,1],[-1,-1]]:[[-1,1],[-1,-1],[1,1],[1,-1]];
+var box=color==='red'?{minR:7,maxR:9,minC:3,maxC:5}:{minR:0,maxR:2,minC:3,maxC:5};
+sd.forEach(function(d){
+var nr=r+d[0],nc=c+d[1];
+if(nr<box.minR||nr>box.maxR||nc<box.minC||nc>box.maxC)return;
+var tp=getPieceAt(nr,nc);
+if(!tp||tp.color!==color)moves.push([nr,nc]);
+});break;
+case'jiang':
+var jb=color==='red'?{minR:7,maxR:9}:{minR:0,maxR:2};
+[[0,1],[0,-1],[1,0],[-1,0]].forEach(function(d){
+var nr=r+d[0],nc=c+d[1];
+if(nr<jb.minR||nr>jb.maxR||nc<3||nc>5)return;
+var tp=getPieceAt(nr,nc);
+if(!tp||tp.color!==color)moves.push([nr,nc]);
+});
+var op=getKing();
+if(op&&op.col===c){
+var minR=Math.min(r,op.row),maxR=Math.max(r,op.row);
+var blocked=false;
+for(var i=minR+1;i<maxR;i++){if(getPieceAt(i,c)){blocked=true;break;}}
+if(!blocked)moves.push([op.row,op.col]);
+}break;
+case'bing':
+var fwd=color==='red'?-1:1;
+var crossed=color==='red'?r<=4:r>=5;
+moves.push([r+fwd,c]);
+if(crossed){moves.push([r,c+1]);moves.push([r,c-1]);}
+var fwdMoves=[[r+fwd,c]];
+if(crossed)fwdMoves.push([r,c+1],[r,c-1]);
+fwdMoves.forEach(function(m){
+if(m[0]<0||m[0]>=10||m[1]<0||m[1]>=9)return;
+var tp=getPieceAt(m[0],m[1]);
+if(!tp||tp.color!==color)moves.push(m);
+});break;
+}
+return moves.filter(function(m){return m[0]>=0&&m[0]<10&&m[1]>=0&&m[1]<9;});
+}
+function getKing(){
+for(var i=0;i<pieces.length;i++){if(pieces[i].alive&&pieces[i].type==='jiang'&&pieces[i].color===currentPlayer)return pieces[i];}
+return null;
+}
+function undoMove(){
+if(moveHistory.length===0)return;
+var last=moveHistory.pop();
+last.piece.row=last.fromRow;last.piece.col=last.fromCol;
+if(last.captured){last.captured.alive=true;var ci=capturedRed.indexOf(last.captured);if(ci>=0)capturedRed.splice(ci,1);ci=capturedBlack.indexOf(last.captured);if(ci>=0)capturedBlack.splice(ci,1);}
+currentPlayer=currentPlayer==='red'?'black':'red';
+selectedPiece=null;validMoves=[];
+renderBoard();updateTurn();updateCaptured();updateLog();
+}
+function flipBoard(){flipped=!flipped;renderBoard();}
+function updateTurn(){
+var ti=document.getElementById('turnIndicator');
+if(currentPlayer==='red'){ti.className='turn-indicator red-turn';ti.textContent='红方走棋';}
+else{ti.className='turn-indicator black-turn';ti.textContent='黑方走棋';}
+}
+function updateCaptured(){
+document.getElementById('redCaptured').innerHTML=capturedRed.map(function(p){return '<span class="mini-piece red">'+p.name+'</span>';}).join('');
+document.getElementById('blackCaptured').innerHTML=capturedBlack.map(function(p){return '<span class="mini-piece black">'+p.name+'</span>';}).join('');
+}
+function updateLog(){
+var log='';moveHistory.forEach(function(m,i){
+log+=(i+1)+'. '+m.piece.color+' '+m.piece.name+' '+m.fromCol+','+m.fromRow+' → '+m.toCol+','+m.toRow+'\n';
+});
+document.getElementById('moveLog').textContent=log||'暂无走棋记录';
+document.getElementById('moveLog').scrollTop=99999;
+}
+newGame();
+</script></body></html>
