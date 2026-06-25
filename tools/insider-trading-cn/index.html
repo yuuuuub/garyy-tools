@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内部交易追踪</title>
+<meta name="description" content="上市公司高管增减持追踪，分析内部人买卖信号">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--gold:#f59e0b;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;scroll-behavior:smooth}
+.container{max-width:900px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.stat-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center}
+.stat-val{font-size:1.2rem;font-weight:700}
+.stat-label{font-size:.75rem;color:var(--text2);margin-top:4px}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filter-btn{padding:5px 12px;border:1px solid var(--border);border-radius:20px;font-size:.78rem;cursor:pointer;background:var(--card);color:var(--text2);transition:all .2s}
+.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.search-input{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;margin-bottom:10px}
+.search-input:focus{outline:none;border-color:var(--blue)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border)}
+th{color:var(--text2);font-weight:500;background:var(--bg)}
+td:first-child,th:first-child{text-align:left}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.72rem;font-weight:600}
+.badge-buy{background:rgba(35,134,54,.15);color:var(--green)}
+.badge-sell{background:rgba(239,68,68,.15);color:var(--red)}
+.up{color:var(--green)}.down{color:var(--red)}
+.chart-area{height:200px;position:relative;margin-top:10px}
+.chart-area canvas{width:100%;height:100%}
+.empty{color:var(--text2);text-align:center;padding:30px;font-size:.85rem}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔍</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="内部交易追踪">
+<meta property="og:description" content="上市公司高管增减持追踪分析">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>🔍 内部交易追踪</h1>
+    <p>追踪上市公司高管增减持动态</p>
+  </header>
+  <div class="stats-grid" id="statsArea"></div>
+  <div class="card">
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索股票代码或名称...">
+    <div class="filter-row" id="filterRow">
+      <span class="filter-btn active" data-f="all">全部</span>
+      <span class="filter-btn" data-f="buy">增持</span>
+      <span class="filter-btn" data-f="sell">减持</span>
+      <span class="filter-btn" data-f="week">本周</span>
+      <span class="filter-btn" data-f="month">本月</span>
+    </div>
+  </div>
+  <div class="card">
+    <div id="tableArea"></div>
+  </div>
+  <div class="card">
+    <b>增减持趋势</b>
+    <div class="chart-area"><canvas id="trendChart"></canvas></div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const today=new Date();const todayStr=today.toISOString().slice(0,10);
+const records=[
+  {code:'600519',name:'贵州茅台',person:'丁雄军',role:'董事长',type:'sell',shares:1000,price:1580,date:'2024-07-20',reason:'个人资金需求'},
+  {code:'600519',name:'贵州茅台',person:'李静仁',role:'财务总监',type:'buy',shares:500,price:1565,date:'2024-07-18',reason:'看好公司前景'},
+  {code:'000858',name:'五粮液',person:'曾从钦',role:'董事长',type:'buy',shares:2000,price:138,date:'2024-07-22',reason:'增持计划'},
+  {code:'300750',name:'宁德时代',person:'曾毓群',role:'董事长',type:'sell',shares:50000,price:198,date:'2024-07-15',reason:'减持计划'},
+  {code:'300750',name:'宁德时代',person:'黄世霖',role:'副董事长',type:'buy',shares:30000,price:195,date:'2024-07-16',reason:'看好发展'},
+  {code:'000333',name:'美的集团',person:'方洪波',role:'董事长',type:'buy',shares:10000,price:62.5,date:'2024-07-19',reason:'增持'},
+  {code:'601318',name:'中国平安',person:'马明哲',role:'董事长',type:'buy',shares:50000,price:48,date:'2024-07-21',reason:'看好保险行业'},
+  {code:'002714',name:'牧原股份',person:'秦英林',role:'董事长',type:'sell',shares:200000,price:42,date:'2024-07-10',reason:'减持计划'},
+  {code:'600036',name:'招商银行',person:'田惠宇',role:'行长',type:'buy',shares:30000,price:35.5,date:'2024-07-17',reason:'增持'},
+  {code:'601012',name:'隆基绿能',person:'钟宝申',role:'董事长',type:'sell',shares:100000,price:23,date:'2024-07-14',reason:'个人原因'},
+  {code:'AAPL',name:'Apple',person:'Tim Cook',role:'CEO',type:'sell',shares:50000,price:198,date:'2024-07-20',reason:'RSU解禁'},
+  {code:'MSFT',name:'Microsoft',person:'Satya Nadella',role:'CEO',type:'sell',shares:30000,price:458,date:'2024-07-18',reason:'计划减持'},
+  {code:'NVDA',name:'NVIDIA',person:'Jensen Huang',role:'CEO',type:'sell',shares:100000,price:950,date:'2024-07-22',reason:'10b5-1计划'},
+  {code:'TSLA',name:'Tesla',person:'Elon Musk',role:'CEO',type:'buy',shares:200000,price:263,date:'2024-07-21',reason:'增持'}
+];
+let filter='all';
+document.querySelectorAll('.filter-btn').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');filter=b.dataset.f;render();};
+});
+function render(){
+  const q=$('searchInput').value.trim().toLowerCase();
+  const weekEnd=new Date(today);weekEnd.setDate(weekEnd.getDate()+7);
+  const monthEnd=new Date(today);monthEnd.setMonth(monthEnd.getMonth()+1);
+  let filtered=records.filter(r=>{
+    if(q&&!r.code.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q)&&!r.person.toLowerCase().includes(q))return false;
+    switch(filter){
+      case'buy':return r.type==='buy';
+      case'sell':return r.type==='sell';
+      case'week':return new Date(r.date)>=today&&new Date(r.date)<=weekEnd;
+      case'month':return new Date(r.date)>=today&&new Date(r.date)<=monthEnd;
+      default:return true;
+    }
+  });
+  // Stats
+  const totalBuy=records.filter(r=>r.type==='buy').reduce((s,r)=>s+r.shares*r.price,0);
+  const totalSell=records.filter(r=>r.type==='sell').reduce((s,r)=>s+r.shares*r.price,0);
+  const buyCount=records.filter(r=>r.type==='buy').length;
+  const sellCount=records.filter(r=>r.type==='sell').length;
+  let sh='';
+  [['净买入','¥'+((totalBuy-totalSell)/10000).toFixed(1)+'万',totalBuy>totalSell?'var(--green)':'var(--red)'],
+   ['增持笔数',buyCount+'笔','var(--green)'],['减持笔数',sellCount+'笔','var(--red)'],
+   ['涉及股票',new Set(records.map(r=>r.code)).size+'只','var(--blue)']
+  ].forEach(([l,v,c])=>{sh+=`<div class="stat-card"><div class="stat-val" style="color:${c}">${v}</div><div class="stat-label">${l}</div></div>`;});
+  $('statsArea').innerHTML=sh;
+  // Table
+  if(!filtered.length){$('tableArea').innerHTML='<div class="empty">没有匹配的记录</div>';return;}
+  let h='<table><thead><tr><th>股票</th><th>人员</th><th>职位</th><th>方向</th><th>数量(股)</th><th>价格</th><th>金额</th><th>日期</th><th>原因</th></tr></thead><tbody>';
+  filtered.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(r=>{
+    const amt=r.shares*r.price;
+    h+=`<tr><td><b>${r.code}</b><br><span style="font-size:.75rem;color:var(--text2)">${r.name}</span></td><td>${r.person}</td><td>${r.role}</td><td>${r.type==='buy'?'<span class="badge badge-buy">增持</span>':'<span class="badge badge-sell">减持</span>'}</td><td>${r.shares.toLocaleString()}</td><td>¥${r.price}</td><td class="${r.type==='buy'?'up':'down'}">¥${(amt/10000).toFixed(1)}万</td><td>${r.date}</td><td style="font-size:.75rem">${r.reason}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  $('tableArea').innerHTML=h;
+  // Trend chart
+  const canvas=$('trendChart');
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.parentElement.getBoundingClientRect();
+  canvas.width=rect.width*dpr;canvas.height=200*dpr;
+  canvas.style.width=rect.width+'px';canvas.style.height='200px';
+  ctx.scale(dpr,dpr);
+  const w=rect.width,h2=200,pad={t:10,r:10,b:25,l:50};
+  const pw=w-pad.l-pad.r,ph=h2-pad.t-pad.b;
+  ctx.clearRect(0,0,w,h2);
+  // Group by date
+  const dateMap={};
+  records.forEach(r=>{if(!dateMap[r.date])dateMap[r.date]={buy:0,sell:0};dateMap[r.date][r.type]+=r.shares*r.price;});
+  const dates=Object.keys(dateMap).sort();
+  const maxVal=Math.max(...dates.map(d=>Math.max(dateMap[d].buy,dateMap[d].sell)),1);
+  ctx.strokeStyle='#30363d';ctx.lineWidth=0.5;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ph*i/4;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.textAlign='right';
+    ctx.fillText((maxVal*(4-i)/4/10000).toFixed(0)+'万',pad.l-4,y+4);
+  }
+  const bw=pw/dates.length*0.35;
+  dates.forEach((d,i)=>{
+    const x=pad.l+i*pw/dates.length+pw/dates.length/2;
+    const buyH=dateMap[d].buy/maxVal*ph;
+    const sellH=dateMap[d].sell/maxVal*ph;
+    ctx.fillStyle='rgba(35,134,54,0.7)';
+    ctx.fillRect(x-bw-1,pad.t+ph-buyH,bw,buyH);
+    ctx.fillStyle='rgba(239,68,68,0.7)';
+    ctx.fillRect(x+1,pad.t+ph-sellH,bw,sellH);
+    ctx.fillStyle='#8b949e';ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText(d.slice(5),x,h2-6);
+  });
+}
+$('searchInput').oninput=render;
+render();
+})();
+</script>
+<script src="../i18n.js" defer>
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

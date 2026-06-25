@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>财报日历</title>
+<meta name="description" content="A股/港股/美股财报发布日历，追踪上市公司财报时间">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--gold:#f59e0b;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;scroll-behavior:smooth}
+.container{max-width:800px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filter-btn{padding:5px 12px;border:1px solid var(--border);border-radius:20px;font-size:.78rem;cursor:pointer;background:var(--card);color:var(--text2);transition:all .2s}
+.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.search-input{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;margin-bottom:10px}
+.search-input:focus{outline:none;border-color:var(--blue)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border)}
+th{color:var(--text2);font-weight:500;background:var(--bg)}
+td:first-child,th:first-child{text-align:left}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.72rem;font-weight:600}
+.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-green{background:rgba(35,134,54,.15);color:var(--green)}
+.badge-blue{background:rgba(59,130,246,.15);color:var(--blue)}
+.badge-gold{background:rgba(245,158,11,.15);color:var(--gold)}
+.countdown{font-size:.78rem;color:var(--text2)}
+.countdown .soon{color:var(--red);font-weight:600}
+.empty{color:var(--text2);text-align:center;padding:30px;font-size:.85rem}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="财报日历">
+<meta property="og:description" content="A股/港股/美股财报发布日历">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>📅 财报日历</h1>
+    <p>追踪上市公司财报发布日期</p>
+  </header>
+  <div class="card">
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索股票代码或名称...">
+    <div class="filter-row" id="filterRow">
+      <span class="filter-btn active" data-f="all">全部</span>
+      <span class="filter-btn" data-f="today">今天</span>
+      <span class="filter-btn" data-f="week">本周</span>
+      <span class="filter-btn" data-f="month">本月</span>
+      <span class="filter-btn" data-f="upcoming">即将公布</span>
+      <span class="filter-btn" data-f="released">已公布</span>
+    </div>
+  </div>
+  <div class="card">
+    <div id="tableArea"></div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const today=new Date();
+const fmt=d=>d.toISOString().slice(0,10);
+const todayStr=fmt(today);
+const weekEnd=new Date(today);weekEnd.setDate(weekEnd.getDate()+7);
+const monthEnd=new Date(today);monthEnd.setMonth(monthEnd.getMonth()+1);
+const data=[
+  {code:'600519',name:'贵州茅台',market:'A股',period:'2024Q2',date:'2024-07-28',status:'upcoming',eps:'55.44',revenue:'389亿'},
+  {code:'000858',name:'五粮液',market:'A股',period:'2024Q2',date:'2024-07-30',status:'upcoming',eps:'7.61',revenue:'186亿'},
+  {code:'601318',name:'中国平安',market:'A股',period:'2024Q1',date:'2024-04-23',status:'released',eps:'4.92',revenue:'2382亿'},
+  {code:'300750',name:'宁德时代',market:'A股',period:'2024Q1',date:'2024-04-18',status:'released',eps:'8.82',revenue:'798亿'},
+  {code:'000333',name:'美的集团',market:'A股',period:'2024Q1',date:'2024-04-29',status:'released',eps:'5.02',revenue:'1065亿'},
+  {code:'AAPL',name:'Apple Inc.',market:'美股',period:'2024Q3',date:'2024-08-01',status:'upcoming',eps:'1.40',revenue:'818亿'},
+  {code:'MSFT',name:'Microsoft',market:'美股',period:'2024Q4',date:'2024-07-30',status:'upcoming',eps:'2.95',revenue:'619亿'},
+  {code:'GOOGL',name:'Alphabet',market:'美股',period:'2024Q2',date:'2024-07-23',status:'upcoming',eps:'1.84',revenue:'847亿'},
+  {code:'AMZN',name:'Amazon',market:'美股',period:'2024Q2',date:'2024-08-01',status:'upcoming',eps:'1.05',revenue:'1431亿'},
+  {code:'TSLA',name:'Tesla',market:'美股',period:'2024Q2',date:'2024-07-24',status:'upcoming',eps:'0.62',revenue:'255亿'},
+  {code:'META',name:'Meta',market:'美股',period:'2024Q2',date:'2024-07-31',status:'upcoming',eps:'4.72',revenue:'383亿'},
+  {code:'NVDA',name:'NVIDIA',market:'美股',period:'2025Q1',date:'2024-08-28',status:'upcoming',eps:'5.96',revenue:'260亿'},
+  {code:'00700',name:'腾讯控股',market:'港股',period:'2024Q2',date:'2024-08-14',status:'upcoming',eps:'11.20',revenue:'1595亿'},
+  {code:'09988',name:'阿里巴巴',market:'港股',period:'2024Q2',date:'2024-08-15',status:'upcoming',eps:'2.85',revenue:'2412亿'},
+  {code:'09618',name:'京东集团',market:'港股',period:'2024Q2',date:'2024-08-16',status:'upcoming',eps:'3.52',revenue:'2914亿'}
+];
+let filter='all';
+document.querySelectorAll('.filter-btn').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');filter=b.dataset.f;render();};
+});
+function getCountdown(d){
+  const target=new Date(d);
+  const diff=Math.ceil((target-today)/(1000*60*60*24));
+  if(diff<0)return'<span class="countdown">已公布</span>';
+  if(diff===0)return'<span class="countdown soon">今天</span>';
+  if(diff<=7)return`<span class="countdown soon">${diff}天后</span>`;
+  return`<span class="countdown">${diff}天后</span>`;
+}
+function render(){
+  const q=$('searchInput').value.trim().toLowerCase();
+  let filtered=data.filter(d=>{
+    if(q&&!d.code.toLowerCase().includes(q)&&!d.name.toLowerCase().includes(q))return false;
+    const dt=new Date(d.date);
+    switch(filter){
+      case'today':return d.date===todayStr;
+      case'week':return dt>=today&&dt<=weekEnd;
+      case'month':return dt>=today&&dt<=monthEnd;
+      case'upcoming':return d.status==='upcoming'&&dt>=today;
+      case'released':return d.status==='released';
+      default:return true;
+    }
+  });
+  filtered.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!filtered.length){$('tableArea').innerHTML='<div class="empty">没有匹配的记录</div>';return;}
+  let h='<table><thead><tr><th>代码</th><th>名称</th><th>市场</th><th>财报期</th><th>公布日期</th><th>EPS预期</th><th>营收预期</th><th>状态</th></tr></thead><tbody>';
+  filtered.forEach(d=>{
+    const statusBadge=d.status==='released'?'<span class="badge badge-green">已公布</span>':'<span class="badge badge-gold">待公布</span>';
+    const marketBadge=d.market==='A股'?'<span class="badge badge-red">'+d.market+'</span>':d.market==='美股'?'<span class="badge badge-blue">'+d.market+'</span>':'<span class="badge badge-gold">'+d.market+'</span>';
+    h+=`<tr><td><b>${d.code}</b></td><td>${d.name}</td><td>${marketBadge}</td><td>${d.period}</td><td>${d.date}<br>${getCountdown(d.date)}</td><td>$${d.eps}</td><td>${d.revenue}</td><td>${statusBadge}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  $('tableArea').innerHTML=h;
+}
+$('searchInput').oninput=render;
+render();
+})();
+</script>
+<script src="../i18n.js" defer>
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

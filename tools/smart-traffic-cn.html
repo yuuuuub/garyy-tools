@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚦 智能交通管理</title>
+<meta name="description" content="智能交通管理系统，实时路况监控、信号灯控制、违章检测">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#bf8700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.6}
+.ctn{max-width:1100px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}.hdr h1{font-size:1.8rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.stat-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.stat-card .icon{font-size:2rem;margin-bottom:6px}
+.stat-card .val{font-size:1.4rem;font-weight:700;color:var(--accent)}
+.stat-card .label{font-size:.8rem;color:var(--text2);margin-top:2px}
+.road-map{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.road{padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px}
+.road .name{font-weight:600;font-size:.9rem;margin-bottom:6px}
+.road .flow{display:flex;align-items:center;gap:8px;font-size:.8rem}
+.road .bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.road .fill{height:100%;border-radius:4px;transition:width .5s}
+.light-box{display:flex;gap:20px;justify-content:center;margin:16px 0}
+.light{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);transition:all .3s}
+.light.on-red{background:#ef4444;box-shadow:0 0 10px #ef4444}
+.light.on-yellow{background:#f59e0b;box-shadow:0 0 10px #f59e0b}
+.light.on-green{background:#22c55e;box-shadow:0 0 10px #22c55e}
+.signal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.signal{padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;text-align:center}
+.signal .road-name{font-size:.85rem;font-weight:600;margin-bottom:6px}
+违章-list{max-height:200px;overflow-y:auto}
+.违章-item{display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border);font-size:.85rem}
+.违章-item:last-child{border-bottom:none}
+.违章-badge{padding:2px 8px;border-radius:10px;font-size:.75rem;margin-right:8px}
+.badge-speed{background:rgba(239,68,68,.15);color:var(--danger)}
+.badge-red{background:rgba(245,158,11,.15);color:var(--warn)}
+.badge-park{background:rgba(59,130,246,.15);color:var(--accent)}
+.btn{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-size:.85rem}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:4px 10px;font-size:.8rem}
+.btn-success{background:var(--success)}.btn-danger{background:var(--danger)}.btn-warn{background:var(--warn)}
+canvas{width:100%;height:180px;border-radius:8px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚦</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🚦 智能交通管理">
+<meta property="og:description" content="智能交通管理系统，实时路况监控、信号灯控制、违章检测">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>🚦 智能交通管理</h1><p>实时路况监控、信号灯智能控制、违章自动检测</p></div>
+
+<div class="cd">
+<h2>📊 交通概况</h2>
+<div class="grid" id="stats"></div>
+</div>
+
+<div class="cd">
+<h2>🗺️ 主要路段路况</h2>
+<div class="road-map" id="roadMap"></div>
+</div>
+
+<div class="cd">
+<h2>🚦 信号灯控制</h2>
+<div id="signalControl"></div>
+</div>
+
+<div class="cd">
+<h2>📈 24小时车流量</h2>
+<canvas id="flowChart"></canvas>
+</div>
+
+<div class="cd">
+<h2>🚨 违章记录</h2>
+<div class="违章-list" id="violationList"></div>
+</div>
+
+<div class="cd">
+<h2>📋 实时事件</h2>
+<div id="trafficEvents"></div>
+</div>
+</div>
+
+<script src="i18n.js" defer></script>
+<script>
+(function(){
+var roads=['长安街','二环路','三环路','四环路','建国路','复兴路','西直门','东直门','国贸','望京'];
+var violations=[
+  {type:'超速',badge:'badge-speed',plate:'京A·'+Random.int(10000,99999),road:Random.pick(roads),speed:Math.round(60+Math.random()*40)},
+  {type:'闯红灯',badge:'badge-red',plate:'京B·'+Random.int(10000,99999),road:Random.pick(roads)},
+  {type:'违停',badge:'badge-park',plate:'京C·'+Random.int(10000,99999),road:Random.pick(roads)}
+];
+
+function renderStats(){
+  var data=[
+    {icon:'🚗',val:Math.round(8500+Math.random()*3000),label:'当前车流量/h'},
+    {icon:'⏱️',val:Math.round(25+Math.random()*20)+'min',label:'平均通勤时间'},
+    {icon:'📈',val:Math.round(60+Math.random()*30)+'%',label:'道路饱和度'},
+    {icon:'🚨',val:Math.round(5+Math.random()*15),label:'今日违章'},
+    {icon:'🔧',val:Math.round(2+Math.random()*5),label:'事故处理中'},
+    {icon:'🚦',val:Math.round(95+Math.random()*4)+'%',label:'信号灯正常率'}
+  ];
+  var h='';
+  data.forEach(function(d){h+='<div class="stat-card"><div class="icon">'+d.icon+'</div><div class="val">'+d.val+'</div><div class="label">'+d.label+'</div></div>'});
+  document.getElementById('stats').innerHTML=h;
+}
+
+function renderRoads(){
+  var h='';
+  roads.forEach(function(r){
+    var congestion=Math.round(20+Math.random()*80);
+    var color=congestion>70?'var(--danger)':congestion>40?'var(--warn)':'var(--success)';
+    var status=congestion>70?'拥堵':congestion>40?'缓行':'畅通';
+    h+='<div class="road"><div class="name">'+r+'</div><div class="flow"><span style="min-width:40px">'+status+'</span><div class="bar"><div class="fill" style="width:'+congestion+'%;background:'+color+'"></div></div><span>'+congestion+'%</span></div></div>';
+  });
+  document.getElementById('roadMap').innerHTML=h;
+}
+
+function renderSignals(){
+  var intersections=['建国门','复兴门','西直门','东直门','国贸桥','三元桥','公主坟','中关村'];
+  var h='<div class="light-box"><div class="light on-red" id="sigR"></div><div class="light" id="sigY"></div><div class="light on-green" id="sigG"></div></div>';
+  h+='<div style="text-align:center;margin-bottom:12px"><span id="signalStatus" style="font-size:.9rem;color:var(--success)">🟢 绿灯通行中</span> <button class="btn btn-sm" onclick="toggleSignal()" style="margin-left:8px">切换信号</button></div>';
+  h+='<div class="signal-grid">';
+  intersections.forEach(function(s){
+    var state=Math.random()>.5?'🟢':'🔴';
+    h+='<div class="signal"><div class="road-name">'+s+'</div><div style="font-size:1.5rem">'+state+'</div><div style="font-size:.75rem;color:var(--text2)">周期 '+Math.round(30+Math.random()*30)+'s</div></div>';
+  });
+  h+='</div>';
+  document.getElementById('signalControl').innerHTML=h;
+}
+
+var signalState='green';
+window.toggleSignal=function(){
+  signalState=signalState==='green'?'red':'green';
+  document.getElementById('sigR').className='light'+(signalState==='red'?' on-red':'');
+  document.getElementById('sigY').className='light';
+  document.getElementById('sigG').className='light'+(signalState==='green'?' on-green':'');
+  document.getElementById('signalStatus').innerHTML=signalState==='green'?'🟢 绿灯通行中':'🔴 红灯禁行中';
+  document.getElementById('signalStatus').style.color=signalState==='green'?'var(--success)':'var(--danger)';
+};
+
+function renderViolations(){
+  var h='';
+  for(var i=0;i<10;i++){
+    var v=violations[i%violations.length];
+    h+='<div class="违章-item"><span class="违章-badge '+v.badge+'">'+v.type+'</span><span style="flex:1">'+v.plate+' · '+v.road+'</span><span style="color:var(--text2);font-size:.8rem">'+Random.time(24)+':'+Random.int(0,59).toString().padStart(2,'0')+'</span></div>';
+  }
+  document.getElementById('violationList').innerHTML=h;
+}
+
+function renderEvents(){
+  var types=['🚗 ','🚨 ','🔧 ','📢 ','⚠️ '];
+  var msgs=['交通事故已处理完毕','交通管制已解除','道路施工开始','交通管制开始','新增违章抓拍点'];
+  var h='';
+  for(var i=0;i<6;i++){
+    h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.85rem"><span style="margin-right:8px">'+Random.pick(types)+'</span><span style="flex:1">'+Random.pick(msgs)+'</span><span style="color:var(--text2);font-size:.8rem">'+Random.time(24)+':'+Random.int(0,59).toString().padStart(2,'0')+'</span></div>';
+  }
+  document.getElementById('trafficEvents').innerHTML=h;
+}
+
+function drawChart(){
+  var canvas=document.getElementById('flowChart');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width=canvas.offsetWidth;
+  var H=canvas.height=180;
+  var data=[];
+  for(var i=0;i<24;i++) data.push(100+Math.random()*900);
+  var max=Math.max.apply(null,data);
+  var bw=(W-40)/24;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'#30363d';
+  ctx.fillRect(20,H/3,W-40,1);
+  ctx.fillRect(20,H*2/3,W-40,1);
+  data.forEach(function(v,i){
+    var bh=(v/max)*(H-40);
+    var x=20+i*bw;
+    ctx.fillStyle=i===Math.floor(new Date().getHours())?'#3b82f6':'rgba(59,130,246,0.3)';
+    ctx.fillRect(x+2,H-30-bh,bw-4,bh);
+  });
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim()||'#8b949e';
+  ctx.font='10px sans-serif';
+  for(var i=0;i<24;i+=4) ctx.fillText(i+':00',20+i*bw,H-5);
+}
+
+renderStats();renderRoads();renderSignals();renderViolations();renderEvents();
+setTimeout(drawChart,100);
+setInterval(function(){renderStats()},6000);
+})();
+</script>
+</body>
+</html>
