@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色觉模拟器 - Color Blindness 中文</title>
+<meta name="description" content="模拟8种色觉障碍类型，上传图片查看色盲用户眼中的世界">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👁️</text></svg>">
+<meta name="robots" content="index, follow">
+<style>
+:root{--radius:10px;--transition:.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.back{position:fixed;top:8px;left:8px;z-index:9999;text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)}
+.header{text-align:center;padding:2rem 1rem 1rem}
+.header h1{font-size:1.8rem;margin-bottom:.3rem}
+.header p{color:var(--text2);font-size:.9rem}
+.theme-btn{position:fixed;top:8px;right:8px;z-index:9999;background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:8px;cursor:pointer;font-size:.75rem}
+.container{max-width:1000px;margin:0 auto;padding:1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem}
+.card h2{font-size:1.1rem;margin-bottom:.8rem;color:var(--accent)}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all .2s;margin:1rem 0}
+.upload-zone:hover{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.upload-zone p{color:var(--text2);font-size:.9rem}
+.preview-area{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.preview-box{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.preview-box canvas{width:100%;display:block}
+.preview-label{padding:.5rem;font-size:.85rem;text-align:center;background:var(--bg)}
+.type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.8rem;margin:1rem 0}
+.type-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .2s}
+.type-card:hover{border-color:var(--accent)}
+.type-card.active{border-color:var(--accent);background:rgba(59,130,246,.08)}
+.type-card h3{font-size:.9rem;margin-bottom:.3rem}
+.type-card p{font-size:.75rem;color:var(--text2)}
+.type-card .prevalence{font-size:.7rem;color:var(--accent);margin-top:.3rem}
+.demo-palette{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0}
+.demo-swatch{width:48px;height:48px;border-radius:8px;border:1px solid var(--border)}
+.info-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-size:.85rem;color:var(--text2);line-height:1.6}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+@media(max-width:600px){.preview-area{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<a href="../index.html" class="back">← 首页</a>
+<button class="theme-btn" onclick="toggleTheme()">🌓 主题</button>
+<div class="header">
+<h1>👁️ 色觉模拟器</h1>
+<p>模拟8种色觉障碍类型，了解色盲用户眼中的世界</p>
+</div>
+<div class="container">
+
+<div class="card">
+<h2>上传图片</h2>
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+<p>📷 点击上传图片或拖拽图片到此处</p>
+<p style="font-size:.75rem;margin-top:.3rem">支持 JPG / PNG / WebP</p>
+</div>
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleUpload(event)">
+</div>
+
+<div class="card" id="resultCard" style="display:none">
+<h2>色觉模拟结果</h2>
+<div class="preview-area" id="previewArea"></div>
+</div>
+
+<div class="card">
+<h2>色觉障碍类型</h2>
+<div class="type-grid" id="typeGrid"></div>
+</div>
+
+<div class="card">
+<h2>色盲友好调色板</h2>
+<div class="info-box" style="margin-bottom:.8rem">以下颜色组合在各种色觉障碍类型下都能被区分，是无障碍设计的推荐配色。</div>
+<div class="demo-palette" id="safePalette"></div>
+</div>
+
+<div class="card">
+<h2>色盲友好设计建议</h2>
+<div class="info-box">
+<strong>1. 不要仅依赖颜色传递信息</strong><br>
+搭配图标、文字标签、纹理图案来辅助区分。<br><br>
+<strong>2. 使用高对比度</strong><br>
+确保前景和背景的明度差异足够大(至少4.5:1)。<br><br>
+<strong>3. 避免问题配色对</strong><br>
+红绿、蓝紫、绿棕等组合在色盲用户眼中难以区分。<br><br>
+<strong>4. 使用安全调色板</strong><br>
+参考上面的色盲友好配色方案进行设计。
+</div>
+</div>
+</div>
+
+<script>
+function toggleTheme(){const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t)}
+
+const cbTypes=[
+{id:'normal',name:'正常视觉',desc:'三色视觉正常',prevalence:'92% 男性 / 99.5% 女性',matrix:[1,0,0,0,1,0,0,0,1]},
+{id:'protanopia',name:'红色盲',desc:'无法感知红光',prevalence:'1% 男性',matrix:[0.567,0.433,0,0.558,0.442,0,0,0.242,0.758]},
+{id:'deuteranopia',name:'绿色盲',desc:'无法感知绿光',prevalence:'1% 男性',matrix:[0.625,0.375,0,0.7,0.3,0,0,0.3,0.7]},
+{id:'tritanopia',name:'蓝色盲',desc:'无法感知蓝光',prevalence:'0.001%',matrix:[0.95,0.05,0,0,0.433,0.567,0,0.475,0.525]},
+{id:'protanomaly',name:'红色弱',desc:'红色感知减弱',prevalence:'1% 男性',matrix:[0.817,0.183,0,0.333,0.667,0,0,0.125,0.875]},
+{id:'deuteranomaly',name:'绿色弱',desc:'绿色感知减弱',prevalence:'5% 男性',matrix:[0.8,0.2,0,0.258,0.742,0,0,0.142,0.858]},
+{id:'tritanomaly',name:'蓝色弱',desc:'蓝色感知减弱',prevalence:'0.01%',matrix:[0.967,0.033,0,0,0.733,0.267,0,0.183,0.817]},
+{id:'achromatopsia',name:'全色盲',desc:'只能看到灰度',prevalence:'0.003%',matrix:[0.299,0.587,0.114,0.299,0.587,0.114,0.299,0.587,0.114]}
+];
+let activeType='normal';
+const tg=document.getElementById('typeGrid');
+cbTypes.forEach(t=>{
+tg.innerHTML+=`<div class="type-card${t.id==='normal'?' active':''}" onclick="selectType('${t.id}')" id="tc-${t.id}"><h3>${t.name}</h3><p>${t.desc}</p><div class="prevalence">${t.prevalence}</div></div>`;
+});
+
+function selectType(id){
+activeType=id;
+document.querySelectorAll('.type-card').forEach(c=>c.classList.remove('active'));
+document.getElementById('tc-'+id).classList.add('active');
+if(uploadedImg)applyFilter();
+}
+
+const safeColors=['#0072B2','#E69F00','#CC79A7','#009E73','#F0E442','#56B4E9','#D55E00','#000000'];
+const sp=document.getElementById('safePalette');
+safeColors.forEach(c=>{
+sp.innerHTML+=`<div class="demo-swatch" style="background:${c}" title="${c}" onclick="navigator.clipboard&&navigator.clipboard.writeText('${c}')"></div>`;
+});
+
+let uploadedImg=null;
+function handleUpload(e){
+const file=e.target.files[0];if(!file)return;
+const reader=new FileReader();
+reader.onload=function(ev){
+const img=new Image();
+img.onload=function(){uploadedImg=img;applyFilter()};
+img.src=ev.target.result;
+};
+reader.readAsDataURL(file);
+}
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.borderColor='var(--accent)'});
+zone.addEventListener('dragleave',()=>{zone.style.borderColor='var(--border)'});
+zone.addEventListener('drop',e=>{e.preventDefault();zone.style.borderColor='var(--border)';
+const file=e.dataTransfer.files[0];if(!file)return;
+const reader=new FileReader();
+reader.onload=function(ev){const img=new Image();img.onload=function(){uploadedImg=img;applyFilter()};img.src=ev.target.result};
+reader.readAsDataURL(file);
+});
+
+function applyFilter(){
+if(!uploadedImg)return;
+document.getElementById('resultCard').style.display='block';
+const pa=document.getElementById('previewArea');
+pa.innerHTML='';
+
+const origCanvas=document.createElement('canvas');
+origCanvas.width=uploadedImg.width;origCanvas.height=uploadedImg.height;
+const octx=origCanvas.getContext('2d');
+octx.drawImage(uploadedImg,0,0);
+pa.innerHTML+=`<div class="preview-box"><canvas id="origCanvas"></canvas><div class="preview-label">原图</div></div>`;
+document.getElementById('origCanvas').replaceWith(origCanvas);
+
+const type=cbTypes.find(t=>t.id===activeType);
+const filtCanvas=document.createElement('canvas');
+filtCanvas.width=uploadedImg.width;filtCanvas.height=uploadedImg.height;
+const fctx=filtCanvas.getContext('2d');
+fctx.drawImage(uploadedImg,0,0);
+const imgData=fctx.getImageData(0,0,filtCanvas.width,filtCanvas.height);
+const d=imgData.data;
+const m=type.matrix;
+for(let i=0;i<d.length;i+=4){
+const r=d[i],g=d[i+1],b=d[i+2];
+d[i]=Math.min(255,r*m[0]+g*m[1]+b*m[2]);
+d[i+1]=Math.min(255,r*m[3]+g*m[4]+b*m[5]);
+d[i+2]=Math.min(255,r*m[6]+g*m[7]+b*m[8]);
+}
+fctx.putImageData(imgData,0,0);
+pa.innerHTML+=`<div class="preview-box"><canvas id="filtCanvas"></canvas><div class="preview-label">${type.name}</div></div>`;
+document.getElementById('filtCanvas').replaceWith(filtCanvas);
+}
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
