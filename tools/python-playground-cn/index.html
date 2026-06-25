@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python游乐场 - 在线Python编辑器</title>
+<meta name="description" content="在线Python编辑器，在浏览器中运行Python代码，支持Pyodide">
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--muted:#8b949e}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warning:#9a6700;--error:#cf222e;--muted:#656d76}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;scroll-behavior:smooth}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .logo{font-size:18px;font-weight:600;color:var(--accent2)}
+nav a{color:var(--accent);text-decoration:none;font-size:14px}
+.container{display:flex;flex-direction:column;height:calc(100vh - 52px)}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.2s}
+.btn-primary{background:var(--success);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{background:var(--border);color:var(--text)}
+.btn-secondary:hover{opacity:.8}
+.workspace{display:flex;flex:1;overflow:hidden}
+.editor-panel{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.output-panel{flex:1;display:flex;flex-direction:column}
+.panel-header{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;font-size:13px;color:var(--accent2);font-weight:500;display:flex;justify-content:space-between;align-items:center}
+.editor-wrapper{flex:1;position:relative}
+#pyEditor{width:100%;height:100%;background:var(--bg);border:none;color:var(--text);font-family:"Fira Code",Consolas,monospace;font-size:14px;padding:12px;resize:none;outline:none;line-height:1.6}
+.output-content{flex:1;overflow-y:auto;padding:12px;font-family:"Fira Code",Consolas,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.output-content .stdout{color:var(--text)}
+.output-content .stderr{color:var(--error)}
+.output-content .info{color:var(--accent2)}
+.templates{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.templates span{font-size:12px;color:var(--muted);margin-right:4px}
+.template-btn{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--accent2);cursor:pointer;transition:.2s}
+.template-btn:hover{border-color:var(--accent);color:var(--accent)}
+.status-bar{background:var(--card);border-top:1px solid var(--border);padding:4px 12px;font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+@media(max-width:768px){.workspace{flex-direction:column}.editor-panel{border-right:none;border-bottom:1px solid var(--border)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+h1{font-size:clamp(1.3rem,3vw,1.8rem);text-align:center;padding:20px 0 10px;font-weight:700}
+.loading{display:flex;align-items:center;gap:8px;padding:20px;color:var(--muted)}
+.loading .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Python游乐场 - 在线Python编辑器">
+<meta property="og:description" content="在线Python编辑器，在浏览器中运行Python代码">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/python-playground-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="/i18n.js" defer></script>
+</head>
+<body>
+<h1>Python游乐场 - 在线Python编辑器</h1>
+<nav>
+<span class="logo">Python游乐场</span>
+<a href="/index.html">← 返回工具箱</a>
+</nav>
+<div class="container">
+<div class="toolbar">
+<button class="btn btn-primary" onclick="runCode()" id="runBtn">▶ 运行</button>
+<button class="btn btn-secondary" onclick="clearOutput()">清空输出</button>
+<button class="btn btn-secondary" onclick="copyCode()">复制代码</button>
+<button class="btn btn-secondary" onclick="resetCode()">重置</button>
+</div>
+<div class="templates">
+<span>模板:</span>
+<button class="template-btn" data-code="# Hello World\nprint('Hello, Python!')\nprint('欢迎使用Python游乐场')">Hello World</button>
+<button class="template-btn" data-code="# 列表操作\nfruits = ['苹果', '香蕉', '橙子', '葡萄']\nprint('水果列表:', fruits)\nprint('第一个:', fruits[0])\nprint('切片:', fruits[1:3])\nfruits.append('西瓜')\nprint('添加后:', fruits)">列表操作</button>
+<button class="template-btn" data-code="# 字典操作\nperson = {'name': '张三', 'age': 25, 'city': '北京'}\nprint('信息:', person)\nfor key, value in person.items():\n    print(f'{key}: {value}')\nprint('姓名:', person.get('name', '未知'))">字典操作</button>
+<button class="template-btn" data-code="# 函数定义\ndef factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\n\nfor i in range(1, 11):\n    print(f'{i}! = {factorial(i)}')">函数定义</button>
+<button class="template-btn" data-code="# 类定义\nclass Dog:\n    def __init__(self, name, age):\n        self.name = name\n        self.age = age\n    \n    def bark(self):\n        return f'{self.name}说: 汪汪!'\n    \n    def info(self):\n        return f'{self.name}, {self.age}岁'\n\ndog = Dog('旺财', 3)\nprint(dog.bark())\nprint(dog.info())">类定义</button>
+<button class="template-btn" data-code="# 列表推导式\nsquares = [x**2 for x in range(1, 11)]\nprint('平方数:', squares)\n\nevens = [x for x in range(1, 21) if x % 2 == 0]\nprint('偶数:', evens)\n\nwords = ['hello', 'world', 'python']\nupper = [w.upper() for w in words]\nprint('大写:', upper)">列表推导式</button>
+</div>
+<div class="workspace">
+<div class="editor-panel">
+<div class="panel-header"><span>Python代码</span></div>
+<div class="editor-wrapper">
+<textarea id="pyEditor"># 在此编写Python代码
+# 点击"运行"按钮执行
+
+print('Hello, Python!')
+print('欢迎使用Python游乐场')
+
+# 列表操作
+numbers = [1, 2, 3, 4, 5]
+print('数字列表:', numbers)
+print('平方:', [x**2 for x in numbers])</textarea>
+</div>
+</div>
+<div class="output-panel">
+<div class="panel-header">
+<span>输出</span>
+<span id="execTime" style="font-size:12px;color:var(--muted)"></span>
+</div>
+<div class="output-content" id="outputContent">
+<div class="loading" id="loadingMsg" style="display:none"><div class="spinner"></div>加载Python运行环境...</div>
+<div id="outputText" style="color:var(--muted)">点击"运行"执行代码</div>
+</div>
+</div>
+</div>
+<div class="status-bar">
+<span id="statusText">就绪</span>
+<span id="pyodideStatus">Pyodide: 加载中...</span>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js" async onload="initPyodide()"></script>
+<script>
+let pyodide = null;
+let pyodideReady = false;
+
+async function initPyodide() {
+  document.getElementById('loadingMsg').style.display = 'flex';
+  document.getElementById('statusText').textContent = '正在加载Python运行环境...';
+  try {
+    pyodide = await loadPyodide();
+    pyodideReady = true;
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('pyodideStatus').textContent = 'Pyodide: 就绪';
+    document.getElementById('statusText').textContent = '就绪 - Pyodide已加载';
+  } catch(e) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('pyodideStatus').textContent = 'Pyodide: 加载失败';
+    document.getElementById('statusText').textContent = '就绪 - 使用模拟模式';
+    console.error('Pyodide加载失败:', e);
+  }
+}
+
+async function runCode() {
+  const code = document.getElementById('pyEditor').value;
+  const outputEl = document.getElementById('outputText');
+  const timeEl = document.getElementById('execTime');
+  const start = performance.now();
+
+  if (pyodideReady && pyodide) {
+    try {
+      pyodide.runPython(`
+import sys
+from io import StringIO
+_stdout = sys.stdout
+sys.stdout = StringIO()
+`);
+      pyodide.runPython(code);
+      const stdout = pyodide.runPython('sys.stdout.getvalue()');
+      sys.stdout = _stdout;
+      outputEl.innerHTML = '<span class="stdout">' + escapeHtml(stdout) + '</span>';
+    } catch(e) {
+      try { pyodide.runPython('import sys; sys.stdout = sys.__stdout__'); } catch(_) {}
+      outputEl.innerHTML = '<span class="stderr">错误: ' + escapeHtml(e.message.split('\n').pop()) + '</span>';
+    }
+  } else {
+    outputEl.innerHTML = simulatePython(code);
+  }
+  const elapsed = (performance.now() - start).toFixed(1);
+  timeEl.textContent = '耗时: ' + elapsed + 'ms';
+}
+
+function simulatePython(code) {
+  let output = '';
+  const lines = code.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const printMatch = trimmed.match(/^print\((.+)\)$/);
+    if (printMatch) {
+      let arg = printMatch[1];
+      arg = arg.replace(/^['"]|['"]$/g, '');
+      arg = arg.replace(/\{(.+?)\}/g, (_, expr) => eval(expr));
+      output += arg + '\n';
+    }
+  }
+  return output ? '<span class="stdout">' + escapeHtml(output) + '</span>' : '<span class="info">提示: 请安装Pyodide以获得完整Python支持。当前为简化模拟模式。</span>';
+}
+
+function escapeHtml(t) {
+  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function clearOutput() {
+  document.getElementById('outputText').innerHTML = '';
+  document.getElementById('execTime').textContent = '';
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(document.getElementById('pyEditor').value).then(() => alert('代码已复制'));
+}
+
+function resetCode() {
+  document.getElementById('pyEditor').value = '# 在此编写Python代码\nprint(\'Hello, Python!\')';
+  clearOutput();
+}
+
+document.querySelectorAll('.template-btn').forEach(btn => {
+  btn.onclick = () => { document.getElementById('pyEditor').value = btn.dataset.code; clearOutput(); };
+});
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="颜色猜猜猜 - 根据颜色提示猜出正确的颜色名称">
+    <meta name="robots" content="index, follow">
+    <title>颜色猜猜猜</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #6c5ce7; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #a29bfe; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; text-align: center; }
+        .color-display { width: 160px; height: 160px; border-radius: 50%; margin: 20px auto; border: 4px solid var(--border-color); transition: background 0.3s; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+        .opt-btn { padding: 14px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 16px; cursor: pointer; transition: all 0.2s; }
+        .opt-btn:hover { border-color: var(--primary-color); transform: translateY(-2px); }
+        .opt-btn.correct { background: var(--success-color); color: #fff; border-color: var(--success-color); }
+        .opt-btn.wrong { background: var(--danger-color); color: #fff; border-color: var(--danger-color); }
+        .score { font-size: 22px; font-weight: bold; color: var(--primary-color); }
+        .stats { display: flex; justify-content: center; gap: 30px; margin: 16px 0; }
+        .stat-item { text-align: center; }
+        .stat-item .num { font-size: 28px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 16px; }
+        .btn:hover { opacity: 0.9; }
+        .hex-code { font-family: monospace; font-size: 14px; color: var(--secondary-color); margin-top: 8px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .feedback { font-size: 20px; font-weight: bold; margin-top: 12px; min-height: 30px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>颜色猜猜猜</h1>
+        <div class="card">
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="score">0</div><div class="label">得分</div></div>
+                <div class="stat-item"><div class="num" id="streak">0</div><div class="label">连对</div></div>
+                <div class="stat-item"><div class="num" id="round">1</div><div class="label">回合</div></div>
+            </div>
+            <p>这个颜色叫什么？</p>
+            <div class="color-display" id="colorBox"></div>
+            <div class="hex-code" id="hexCode"></div>
+            <div class="options" id="options"></div>
+            <div class="feedback" id="feedback"></div>
+            <button class="btn" id="nextBtn" onclick="nextRound()" style="display:none;">下一题</button>
+        </div>
+    </div>
+    <script>
+        const COLORS = [
+            { name: '红色', hex: '#e74c3c' }, { name: '蓝色', hex: '#3498db' }, { name: '绿色', hex: '#2ecc71' },
+            { name: '黄色', hex: '#f1c40f' }, { name: '紫色', hex: '#9b59b6' }, { name: '橙色', hex: '#e67e22' },
+            { name: '粉色', hex: '#fd79a8' }, { name: '青色', hex: '#00cec9' }, { name: '棕色', hex: '#b71540' },
+            { name: '灰色', hex: '#636e72' }, { name: '黑色', hex: '#2d3436' }, { name: '白色', hex: '#dfe6e9' },
+            { name: '藏青', hex: '#0c2461' }, { name: '酒红', hex: '#800000' }, { name: '墨绿', hex: '#1e8449' },
+            { name: '天蓝', hex: '#74b9ff' }, { name: '玫红', hex: '#c0392b' }, { name: '米色', hex: '#ffeaa7' },
+            { name: '靛蓝', hex: '#4834d4' }, { name: '珊瑚', hex: '#ff7675' }
+        ];
+        let score = 0, streak = 0, round = 1, currentColor = null, answered = false;
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+            return a;
+        }
+
+        function pickOptions(correct, count = 4) {
+            const others = COLORS.filter(c => c.name !== correct.name);
+            const picked = shuffle(others).slice(0, count - 1);
+            return shuffle([correct, ...picked]);
+        }
+
+        function nextRound() {
+            answered = false;
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('nextBtn').style.display = 'none';
+            currentColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+            document.getElementById('colorBox').style.background = currentColor.hex;
+            document.getElementById('hexCode').textContent = currentColor.hex;
+            document.getElementById('round').textContent = round;
+            const opts = pickOptions(currentColor);
+            const container = document.getElementById('options');
+            container.innerHTML = '';
+            opts.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'opt-btn';
+                btn.textContent = opt.name;
+                btn.onclick = () => guess(opt.name, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function guess(name, btn) {
+            if (answered) return;
+            answered = true;
+            const correct = name === currentColor.name;
+            if (correct) {
+                score += 10 + streak * 2;
+                streak++;
+                btn.classList.add('correct');
+                document.getElementById('feedback').innerHTML = '<span style="color:var(--success-color)">✓ 正确！</span>';
+            } else {
+                streak = 0;
+                btn.classList.add('wrong');
+                document.getElementById('feedback').innerHTML = `<span style="color:var(--danger-color)">✗ 答案是「${currentColor.name}」</span>`;
+                document.querySelectorAll('.opt-btn').forEach(b => {
+                    if (b.textContent === currentColor.name) b.classList.add('correct');
+                });
+            }
+            document.getElementById('score').textContent = score;
+            document.getElementById('streak').textContent = streak;
+            round++;
+            document.getElementById('nextBtn').style.display = 'inline-block';
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        nextRound();
+    </script>
+</body>
+</html>

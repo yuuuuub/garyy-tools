@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ 速率图表</title>
+<meta name="description" content="团队速率图表工具，可视化展示Sprint速率趋势和预测">
+<script src="../i18n.js" defer></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a855f7;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#bf8700;--purple:#7c3aed}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:900px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}.hdr h1{font-size:1.8rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}
+button:hover{opacity:.9}button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+input[type=text],input[type=number]{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:8px}
+input:focus{outline:none;border-color:var(--accent)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat-card{text-align:center;padding:14px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.stat-card .num{font-size:1.5rem;font-weight:700}
+.stat-card .lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
+.chart-box{position:relative;height:280px;margin:12px 0}
+.chart-box canvas{width:100%;height:100%}
+.data-table{width:100%;border-collapse:collapse;margin-top:12px}
+.data-table th,.data-table td{padding:8px 10px;text-align:left;font-size:.85rem;border-bottom:1px solid var(--border)}
+.data-table th{color:var(--text2);font-weight:600;font-size:.8rem}
+.data-table tr:hover{background:var(--bg)}
+.data-table input{width:80px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem;text-align:center}
+.data-table input:focus{outline:none;border-color:var(--accent)}
+.data-table .trend-up{color:var(--green)}.data-table .trend-down{color:var(--red)}.data-table .trend-flat{color:var(--yellow)}
+.velocity-forecast{display:flex;align-items:center;gap:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);margin-top:12px}
+.forecast-num{font-size:2.5rem;font-weight:700;color:var(--accent)}
+.forecast-info{flex:1}
+.forecast-label{font-size:.85rem;color:var(--text2)}
+.forecast-desc{font-size:.9rem;margin-top:4px}
+.hidden{display:none}
+@media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}body{padding:10px}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="⚡ 速率图表">
+<meta property="og:description" content="团队速率图表工具，可视化展示Sprint速率趋势和预测">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn" id="app"></div>
+<script>
+const $=id=>document.getElementById(id);
+const STORE='velocity_chart';
+let state=JSON.parse(localStorage.getItem(STORE)||'null')||{
+  sprints:[
+    {name:'S1',committed:25,completed:22},
+    {name:'S2',committed:28,completed:25},
+    {name:'S3',committed:30,completed:28},
+    {name:'S4',committed:26,completed:20},
+    {name:'S5',committed:32,completed:30},
+    {name:'S6',committed:28,completed:26},
+    {name:'S7',committed:35,completed:32},
+    {name:'S8',committed:30,completed:24}
+  ],
+  showForecast:true
+};
+function save(){localStorage.setItem(STORE,JSON.stringify(state))}
+function addSprint(){const n=prompt('Sprint名称:');const c=prompt('承诺故事点:');if(n&&c){state.sprints.push({name:n.trim(),committed:+c,completed:+c});save();render()}}
+function removeSprint(i){if(confirm('确定删除?')){state.sprints.splice(i,1);save();render()}}
+function getAvgVelocity(){const n=state.sprints.length;if(!n)return 0;return Math.round(state.sprints.reduce((s,sp)=>s+sp.completed,0)/n)}
+function getRecentVelocity(count){const recent=state.sprints.slice(-count);if(!recent.length)return 0;return Math.round(recent.reduce((s,sp)=>s+sp.completed,0)/recent.length)}
+function getMinVelocity(){return state.sprints.length?Math.min(...state.sprints.map(s=>s.completed)):0}
+function getMaxVelocity(){return state.sprints.length?Math.max(...state.sprints.map(s=>s.completed)):0}
+function getCommitmentRatio(){const total=state.sprints.reduce((s,sp)=>s+sp.committed,0);const done=state.sprints.reduce((s,sp)=>s+sp.completed,0);return total?Math.round(done/total*100):0}
+function getTrend(){if(state.sprints.length<3)return 'flat';const last3=state.sprints.slice(-3);const first2Avg=(last3[0].completed+last3[1].completed)/2;const last1=last3[2].completed;return last1>first2Avg+2?'up':last1<first2Avg-2?'down':'flat'}
+function exportData(){let txt='速率图表报告\n'+'='.repeat(40)+'\n\n';state.sprints.forEach(s=>{const ratio=s.committed?Math.round(s.completed/s.committed*100):0;txt+=`${s.name}: 承诺${s.committed} | 完成${s.completed} (${ratio}%)\n`});txt+=`\n平均速率: ${getAvgVelocity()}SP\n最近3轮: ${getRecentVelocity(3)}SP\n承诺比率: ${getCommitmentRatio()}%\n趋势: ${getTrend()==='up'?'↑上升':getTrend()==='down'?'↓下降':'→持平'}`;const blob=new Blob([txt],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='速率报告.txt';a.click()}
+function render(){
+  const avgV=getAvgVelocity();
+  const recent3=getRecentVelocity(3);
+  const trend=getTrend();
+  const ratio=getCommitmentRatio();
+  let h=`<div class="hdr"><h1>⚡ 速率图表</h1><p>团队速率趋势分析与预测</p></div>`;
+  h+=`<div class="cd"><div class="stats-grid">`;
+  h+=`<div class="stat-card"><div class="num" style="color:var(--accent)">${avgV}SP</div><div class="lbl">平均速率</div></div>`;
+  h+=`<div class="stat-card"><div class="num" style="color:var(--green)">${recent3}SP</div><div class="lbl">最近3轮</div></div>`;
+  h+=`<div class="stat-card"><div class="num" style="color:var(--yellow)">${ratio}%</div><div class="lbl">承诺完成率</div></div>`;
+  h+=`<div class="stat-card"><div class="num" style="color:${trend==='up'?'var(--green)':trend==='down'?'var(--red)':'var(--yellow)'}">${trend==='up'?'↑':trend==='down'?'↓':'→'}</div><div class="lbl">趋势</div></div></div>`;
+  h+=`<div class="velocity-forecast"><div class="forecast-num">${recent3}</div><div class="forecast-info"><div class="forecast-label">预测下轮速率</div><div class="forecast-desc">基于最近3轮平均值，范围 ${getMinVelocity()}~${getMaxVelocity()}SP</div></div>`;
+  h+=`<div style="text-align:right"><div style="font-size:.85rem;color:var(--text2)">建议承诺</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${recent3}SP</div></div></div></div>`;
+  h+=`<div class="cd"><h2>📊 速率趋势图</h2><div class="chart-box"><canvas id="velocityCanvas"></canvas></div></div>`;
+  h+=`<div class="cd"><h2>📋 数据管理 <button class="sec" style="font-size:.75rem;padding:3px 10px;margin-left:6px" onclick="addSprint()">+ Sprint</button><button class="sec" style="font-size:.75rem;padding:3px 10px" onclick="exportData()">导出</button></h2>`;
+  h+=`<table class="data-table"><thead><tr><th>Sprint</th><th>承诺(SP)</th><th>完成(SP)</th><th>完成率</th><th>趋势</th><th></th></tr></thead><tbody>`;
+  state.sprints.forEach((s,i)=>{const ratio=s.committed?Math.round(s.completed/s.committed*100):0;const prev=i>0?state.sprints[i-1].completed:s.completed;const t=s.completed>prev+1?'up':s.completed<prev-1?'down':'flat';
+    h+=`<tr><td><input value="${s.name}" onchange="state.sprints[${i}].name=this.value;save();render()"></td>`;
+    h+=`<td><input type="number" value="${s.committed}" onchange="state.sprints[${i}].committed=+this.value;save();render()"></td>`;
+    h+=`<td><input type="number" value="${s.completed}" onchange="state.sprints[${i}].completed=+this.value;save();render()"></td>`;
+    h+=`<td><span style="color:${ratio>=80?'var(--green)':ratio>=50?'var(--yellow)':'var(--red)'}">${ratio}%</span></td>`;
+    h+=`<td class="trend-${t}">${t==='up'?'↑':t==='down'?'↓':'→'}</td>`;
+    h+=`<td><button class="sec dng" style="padding:2px 6px;font-size:.75rem" onclick="removeSprint(${i})">✕</button></td></tr>`});
+  h+=`</tbody></table></div>`;
+  h+=`<div class="cd"><h2>📈 承诺 vs 完成</h2><div class="chart-box"><canvas id="commitCanvas"></canvas></div></div>`;
+  $('app').innerHTML=h;
+  setTimeout(()=>{drawVelocity();drawCommit()},100);
+}
+function drawVelocity(){
+  const canvas=$('velocityCanvas');if(!canvas||!state.sprints.length)return;
+  const ctx=canvas.getContext('2d');const rect=canvas.parentElement.getBoundingClientRect();
+  canvas.width=rect.width;canvas.height=rect.height;
+  const w=canvas.width,h=canvas.height;
+  const pad={top:30,right:20,bottom:40,left:50};
+  const plotW=w-pad.left-pad.right;const plotH=h-pad.top-pad.bottom;
+  const data=state.sprints.map(s=>s.completed);
+  const maxVal=Math.max(...data,1)*1.2;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad.left,pad.top);ctx.lineTo(pad.left,h-pad.bottom);ctx.lineTo(w-pad.right,h-pad.bottom);ctx.stroke();
+  ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.textAlign='right';
+  for(let i=0;i<=5;i++){const y=pad.top+plotH*(i/5);const val=Math.round(maxVal*(1-i/5));ctx.fillText(val+'SP',pad.left-8,y+4);ctx.strokeStyle='rgba(48,54,61,0.3)';ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(w-pad.right,y);ctx.stroke()}
+  ctx.textAlign='center';
+  const barW=Math.min(40,plotW/data.length*0.6);
+  const gap=plotW/data.length;
+  data.forEach((v,i)=>{const x=pad.left+i*gap+gap/2;const barH=(v/maxVal)*plotH;const y=pad.top+plotH-barH;
+    const grad=ctx.createLinearGradient(0,y,0,h-pad.bottom);grad.addColorStop(0,'#3b82f6');grad.addColorStop(1,'#2563eb');
+    ctx.fillStyle=grad;ctx.beginPath();ctx.roundRect(x-barW/2,y,barW,barH,4);ctx.fill();
+    ctx.fillStyle='#e6edf3';ctx.font='bold 11px sans-serif';ctx.fillText(v+'SP',x,y-6);
+    ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.fillText(state.sprints[i].name,x,h-pad.bottom+16)});
+  if(state.showForecast){
+    const avgV=getRecentVelocity(3);const forecastY=pad.top+plotH*(1-avgV/maxVal);
+    ctx.strokeStyle='rgba(245,158,11,0.6)';ctx.setLineDash([6,4]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(pad.left,forecastY);ctx.lineTo(w-pad.right,forecastY);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#d29922';ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('预测: '+avgV+'SP',w-pad.right-80,forecastY-8)}
+  const avgAll=getAvgVelocity();const avgY=pad.top+plotH*(1-avgAll/maxVal);
+  ctx.strokeStyle='rgba(63,185,80,0.5)';ctx.setLineDash([3,3]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pad.left,avgY);ctx.lineTo(w-pad.right,avgY);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#3fb950';ctx.font='11px sans-serif';ctx.textAlign='left';ctx.fillText('均值: '+avgAll+'SP',pad.left+4,avgY-6);
+  ctx.strokeStyle='#a855f7';ctx.lineWidth=2;ctx.beginPath();
+  data.forEach((v,i)=>{const x=pad.left+i*gap+gap/2;const y=pad.top+plotH*(1-v/maxVal);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)});ctx.stroke();
+  data.forEach((v,i)=>{const x=pad.left+i*gap+gap/2;const y=pad.top+plotH*(1-v/maxVal);ctx.fillStyle='#a855f7';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill()});
+}
+function drawCommit(){
+  const canvas=$('commitCanvas');if(!canvas||!state.sprints.length)return;
+  const ctx=canvas.getContext('2d');const rect=canvas.parentElement.getBoundingClientRect();
+  canvas.width=rect.width;canvas.height=rect.height;
+  const w=canvas.width,h=canvas.height;
+  const pad={top:30,right:20,bottom:40,left:50};
+  const plotW=w-pad.left-pad.right;const plotH=h-pad.top-pad.bottom;
+  const committed=state.sprints.map(s=>s.committed);
+  const completed=state.sprints.map(s=>s.completed);
+  const maxVal=Math.max(...committed,...completed,1)*1.2;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='#30363d';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad.left,pad.top);ctx.lineTo(pad.left,h-pad.bottom);ctx.lineTo(w-pad.right,h-pad.bottom);ctx.stroke();
+  ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.textAlign='right';
+  for(let i=0;i<=5;i++){const y=pad.top+plotH*(i/5);const val=Math.round(maxVal*(1-i/5));ctx.fillText(val,pad.left-8,y+4)}
+  const gap=plotW/state.sprints.length;
+  const barW=gap*0.3;
+  state.sprints.forEach((s,i)=>{const x=pad.left+i*gap+gap/2;
+    const chH=(s.committed/maxVal)*plotH;const clH=(s.completed/maxVal)*plotH;
+    ctx.fillStyle='rgba(139,148,158,0.3)';ctx.beginPath();ctx.roundRect(x-barW-2,pad.top+plotH-chH,barW,chH,3);ctx.fill();
+    ctx.fillStyle=s.completed>=s.committed*0.8?'#3fb950':'#f85149';ctx.beginPath();ctx.roundRect(x+2,pad.top+plotH-clH,barW,clH,3);ctx.fill();
+    ctx.fillStyle='#8b949e';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(s.name,x,h-pad.bottom+16)});
+  ctx.fillStyle='#8b949e';ctx.font='11px sans-serif';ctx.textAlign='left';ctx.fillText('■ 承诺',pad.left+10,pad.top+16);
+  ctx.fillStyle='#3fb950';ctx.fillText('■ 完成',pad.left+80,pad.top+16);
+}
+render();
+</script>
+</body>
+</html>

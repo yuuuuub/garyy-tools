@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL游乐场 - 在线SQL编辑器</title>
+<meta name="description" content="在线SQL编辑器，在浏览器中执行SQL查询，支持SQLite语法">
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--muted:#8b949e}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warning:#9a6700;--error:#cf222e;--muted:#656d76}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;scroll-behavior:smooth}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .logo{font-size:18px;font-weight:600;color:var(--accent2)}
+nav a{color:var(--accent);text-decoration:none;font-size:14px}
+.container{display:flex;flex-direction:column;height:calc(100vh - 52px)}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{background:var(--border);color:var(--text)}
+.btn-secondary:hover{opacity:.8}
+.workspace{display:flex;flex:1;overflow:hidden}
+.editor-panel{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.result-panel{flex:1;display:flex;flex-direction:column}
+.panel-header{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;font-size:13px;color:var(--accent2);font-weight:500;display:flex;justify-content:space-between;align-items:center}
+.editor-wrapper{flex:1;position:relative}
+#sqlEditor{width:100%;height:100%;background:var(--bg);border:none;color:var(--text);font-family:"Fira Code",Consolas,monospace;font-size:14px;padding:12px;resize:none;outline:none;line-height:1.6}
+.result-content{flex:1;overflow:auto;padding:12px}
+.result-table{width:100%;border-collapse:collapse;font-size:13px}
+.result-table th{background:var(--card);border:1px solid var(--border);padding:8px 12px;text-align:left;font-weight:600;color:var(--accent2);position:sticky;top:0}
+.result-table td{border:1px solid var(--border);padding:6px 12px}
+.result-table tr:hover{background:rgba(59,130,246,0.05)}
+.templates{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.templates span{font-size:12px;color:var(--muted);margin-right:4px}
+.template-btn{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--accent2);cursor:pointer;transition:.2s}
+.template-btn:hover{border-color:var(--accent);color:var(--accent)}
+.info-bar{background:var(--card);border-top:1px solid var(--border);padding:4px 12px;font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+.msg{padding:12px;color:var(--muted);font-size:13px}
+.msg.error{color:var(--error)}
+.msg.success{color:var(--success)}
+@media(max-width:768px){.workspace{flex-direction:column}.editor-panel{border-right:none;border-bottom:1px solid var(--border)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+h1{font-size:clamp(1.3rem,3vw,1.8rem);text-align:center;padding:20px 0 10px;font-weight:700}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗄️</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="SQL游乐场 - 在线SQL编辑器">
+<meta property="og:description" content="在线SQL编辑器，在浏览器中执行SQL查询">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/sql-playground-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="/i18n.js" defer></script>
+</head>
+<body>
+<h1>SQL游乐场 - 在线SQL编辑器</h1>
+<nav>
+<span class="logo">SQL游乐场</span>
+<a href="/index.html">← 返回工具箱</a>
+</nav>
+<div class="container">
+<div class="toolbar">
+<button class="btn btn-primary" onclick="execSQL()" id="execBtn">▶ 执行</button>
+<button class="btn btn-secondary" onclick="createSampleDB()">创建示例表</button>
+<button class="btn btn-secondary" onclick="clearEditor()">清空编辑器</button>
+<button class="btn btn-secondary" onclick="copySQL()">复制SQL</button>
+<button class="btn btn-secondary" onclick="resetCode()">重置</button>
+</div>
+<div class="templates">
+<span>模板:</span>
+<button class="template-btn" data-code="SELECT * FROM employees;">查询所有</button>
+<button class="template-btn" data-code="SELECT name, salary FROM employees\nWHERE salary > 10000\nORDER BY salary DESC;">条件查询</button>
+<button class="template-btn" data-code="SELECT department, COUNT(*) as count, AVG(salary) as avg_salary\nFROM employees\nGROUP BY department\nHAVING count > 1\nORDER BY avg_salary DESC;">聚合函数</button>
+<button class="template-btn" data-code="SELECT e.name, e.department, o.product, o.amount\nFROM employees e\nJOIN orders o ON e.id = o.employee_id\nORDER BY o.amount DESC;">多表连接</button>
+<button class="template-btn" data-code="SELECT name, salary FROM employees\nWHERE salary > (SELECT AVG(salary) FROM employees);">子查询</button>
+<button class="template-btn" data-code="CREATE TABLE users (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  username TEXT NOT NULL UNIQUE,\n  email TEXT,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO users (username, email) VALUES ('admin', 'admin@example.com');\nINSERT INTO users (username, email) VALUES ('user1', 'user1@example.com');\nSELECT * FROM users;">创建表</button>
+</div>
+<div class="workspace">
+<div class="editor-panel">
+<div class="panel-header"><span>SQL代码</span></div>
+<div class="editor-wrapper">
+<textarea id="sqlEditor">SELECT * FROM employees;</textarea>
+</div>
+</div>
+<div class="result-panel">
+<div class="panel-header">
+<span>查询结果</span>
+<span id="resultInfo" style="font-size:12px;color:var(--muted)"></span>
+</div>
+<div class="result-content" id="resultContent">
+<div class="msg">点击"执行"运行SQL查询<br>首次使用请先点击"创建示例表"</div>
+</div>
+</div>
+</div>
+<div class="info-bar">
+<span id="dbStatus">数据库: 未初始化</span>
+<span id="execTime"></span>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+<script>
+let db = null;
+
+async function initDB() {
+  const SQL = await initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` });
+  db = new SQL.Database();
+  document.getElementById('dbStatus').textContent = '数据库: 就绪';
+}
+
+function createSampleDB() {
+  if (!db) { alert('数据库正在加载，请稍后'); return; }
+  db.run(`
+    DROP TABLE IF EXISTS orders;
+    DROP TABLE IF EXISTS employees;
+    CREATE TABLE employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      department TEXT,
+      salary REAL,
+      hire_date TEXT
+    );
+    CREATE TABLE orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER,
+      product TEXT,
+      amount REAL,
+      order_date TEXT,
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    );
+    INSERT INTO employees (name, department, salary, hire_date) VALUES
+      ('张三', '技术部', 15000, '2020-01-15'),
+      ('李四', '市场部', 12000, '2019-06-20'),
+      ('王五', '技术部', 18000, '2018-03-10'),
+      ('赵六', '人事部', 11000, '2021-09-01'),
+      ('钱七', '市场部', 13500, '2020-11-15'),
+      ('孙八', '技术部', 20000, '2017-07-08');
+    INSERT INTO orders (employee_id, product, amount, order_date) VALUES
+      (1, '笔记本电脑', 8999, '2024-01-10'),
+      (1, '显示器', 2999, '2024-02-15'),
+      (2, '投影仪', 4500, '2024-01-20'),
+      (3, '服务器', 25000, '2024-03-01'),
+      (4, '办公椅', 1200, '2024-02-28'),
+      (5, '键盘鼠标', 500, '2024-01-05');
+  `);
+  document.getElementById('dbStatus').textContent = '数据库: 已创建示例表 (employees, orders)';
+  alert('示例表已创建！');
+}
+
+function execSQL() {
+  if (!db) { alert('数据库正在加载，请稍后'); return; }
+  const sql = document.getElementById('sqlEditor').value.trim();
+  if (!sql) return;
+  const start = performance.now();
+  const resultContent = document.getElementById('resultContent');
+  const resultInfo = document.getElementById('resultInfo');
+  try {
+    const results = db.exec(sql);
+    const elapsed = (performance.now() - start).toFixed(1);
+    document.getElementById('execTime').textContent = '耗时: ' + elapsed + 'ms';
+    if (results.length === 0) {
+      resultContent.innerHTML = '<div class="msg success">执行成功 (无返回数据)</div>';
+      resultInfo.textContent = '0 行';
+      return;
+    }
+    const result = results[0];
+    let html = '<table class="result-table"><thead><tr>';
+    result.columns.forEach(col => { html += '<th>' + escapeHtml(col) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    result.values.forEach(row => {
+      html += '<tr>';
+      row.forEach(val => { html += '<td>' + (val === null ? '<em style="color:var(--muted)">NULL</em>' : escapeHtml(String(val))) + '</td>'; });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    resultContent.innerHTML = html;
+    resultInfo.textContent = result.values.length + ' 行';
+  } catch(e) {
+    const elapsed = (performance.now() - start).toFixed(1);
+    document.getElementById('execTime').textContent = '耗时: ' + elapsed + 'ms';
+    resultContent.innerHTML = '<div class="msg error">错误: ' + escapeHtml(e.message) + '</div>';
+    resultInfo.textContent = '错误';
+  }
+}
+
+function escapeHtml(t) {
+  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function clearEditor() { document.getElementById('sqlEditor').value = ''; }
+
+function copySQL() {
+  navigator.clipboard.writeText(document.getElementById('sqlEditor').value).then(() => alert('SQL已复制'));
+}
+
+function resetCode() {
+  document.getElementById('sqlEditor').value = 'SELECT * FROM employees;';
+  document.getElementById('resultContent').innerHTML = '<div class="msg">点击"执行"运行SQL查询</div>';
+}
+
+document.querySelectorAll('.template-btn').forEach(btn => {
+  btn.onclick = () => { document.getElementById('sqlEditor').value = btn.dataset.code; };
+});
+
+initDB();
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
