@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>汉字变形展示 v2 - 字形演变动画</title>
+<meta property="og:title" content="汉字变形展示 v2 - 字形演变动画">
+<meta property="og:description" content="汉字变形展示 v2 - 观看汉字在不同书体间的变形动画 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="汉字变形展示 v2 - 观看汉字在楷书、行书、草书、隶书、篆书等书体间的变形动画">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔄</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px;--transition:0.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}
+.container{max-width:800px;margin:auto}
+h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}
+.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px;transition:var(--transition)}
+.btn:hover{opacity:.85}
+.btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.btn-secondary{background:var(--border);color:var(--text)}
+.morph-stage{display:flex;align-items:center;justify-content:center;gap:20px;margin:20px 0;min-height:200px}
+.morph-char{width:150px;height:150px;display:flex;align-items:center;justify-content:center;font-size:5rem;background:var(--bg);border:2px solid var(--border);border-radius:var(--radius);transition:all 0.8s ease}
+.morph-char.active{border-color:var(--blue);transform:scale(1.1);box-shadow:0 0 20px rgba(59,130,246,0.3)}
+.morph-arrow{font-size:2rem;color:var(--blue);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.2)}}
+.progress-bar{width:100%;height:4px;background:var(--border);border-radius:2px;margin:16px 0;overflow:hidden}
+.progress-fill{height:100%;background:var(--blue);transition:width .3s;border-radius:2px}
+.controls{display:flex;gap:10px;justify-content:center;margin:16px 0}
+.speed-control{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.speed-control input{width:100px}
+.char-list{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin:16px 0}
+.char-item{padding:8px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:var(--transition);font-size:1.2rem}
+.char-item:hover{border-color:var(--blue);background:var(--card)}
+.char-item.selected{border-color:var(--blue);background:rgba(59,130,246,0.1)}
+.style-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.style-tab{padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:var(--transition);font-size:.85rem}
+.style-tab:hover,.style-tab.active{border-color:var(--blue);color:var(--blue)}
+.style-info{margin:16px 0;padding:12px;background:var(--bg);border-radius:8px;font-size:.85rem;line-height:1.6;color:var(--text2)}
+.history{margin-top:16px}
+.history-item{display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid var(--border);font-size:.85rem}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999">
+  <a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a>
+</div>
+<div class="container">
+  <h1>🔄 汉字变形展示 v2</h1>
+  <p class="sub">观看汉字在不同书体之间的变形动画</p>
+
+  <div class="card">
+    <div class="btn-group">
+      <button class="btn" onclick="startMorph()">▶ 开始变形</button>
+      <button class="btn btn-secondary" onclick="pauseMorph()">⏸ 暂停</button>
+      <button class="btn btn-secondary" onclick="resetMorph()">↺ 重置</button>
+      <button class="btn btn-secondary" onclick="toggleTheme()">🌓 主题</button>
+    </div>
+    <div class="speed-control">
+      <span>速度:</span>
+      <input type="range" id="speed" min="1" max="10" value="5" oninput="document.getElementById('speedLabel').textContent=this.value+'x'">
+      <span id="speedLabel">5x</span>
+      <span style="margin-left:16px">持续时间:</span>
+      <select id="duration" style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+        <option value="1000">1秒</option>
+        <option value="2000" selected>2秒</option>
+        <option value="3000">3秒</option>
+        <option value="5000">5秒</option>
+      </select>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+    <div class="morph-stage">
+      <div class="morph-char" id="fromChar">日</div>
+      <div class="morph-arrow" id="morphArrow">→</div>
+      <div class="morph-char" id="toChar" style="opacity:0.3">月</div>
+    </div>
+    <div style="text-align:center;margin:12px 0;font-size:.9rem;color:var(--text2)" id="morphInfo">选择汉字和变形序列，点击开始</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:12px">变形序列</h3>
+    <div class="style-tabs" id="styleTabs">
+      <div class="style-tab active" onclick="setStyle(this,0)">篆书→隶书</div>
+      <div class="style-tab" onclick="setStyle(this,1)">隶书→楷书</div>
+      <div class="style-tab" onclick="setStyle(this,2)">楷书→行书</div>
+      <div class="style-tab" onclick="setStyle(this,3)">行书→草书</div>
+      <div class="style-tab" onclick="setStyle(this,4)">全部演变</div>
+    </div>
+    <div class="style-info" id="styleInfo">
+      <strong>篆书→隶书</strong><br>
+      篆书笔画圆转，隶书化圆为方，是汉字从古文字向今文字转变的关键一步，史称"隶变"。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:12px">选择汉字</h3>
+    <div class="char-list" id="charList"></div>
+  </div>
+
+  <div class="card history" id="historyCard" style="display:none">
+    <h3 style="margin-bottom:12px">变形记录</h3>
+    <div id="history"></div>
+  </div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var characters = ['日','月','山','水','火','土','金','木','人','大','小','天','地','口','目','手','心','田','王','石','鸟','鱼','马','牛','羊','龙','虎','兔','蛇','鼠'];
+var styles = [
+  {name:'篆书',desc:'篆书笔画圆转，结构对称，保留了较多象形特征。代表作品有《峄山碑》。'},
+  {name:'隶书',desc:'隶书化圆为方，出现波磔笔画，是古文字向今文字转变的关键，史称"隶变"。'},
+  {name:'楷书',desc:'楷书字形方正，笔画平直，结构严谨，是现代通用的标准字体。'},
+  {name:'行书',desc:'行书是楷书的快写体，笔画连带，书写流畅，兼具实用性和艺术性。'},
+  {name:'草书',desc:'草书结构简省，笔画连绵，书写速度最快，艺术性最强，代表有张旭、怀素。'}
+];
+var styleSequences = [
+  [0,1],[1,2],[2,3],[3,4],[0,1,2,3,4]
+];
+var styleTexts = [
+  '<strong>篆书→隶书</strong><br>篆书笔画圆转，隶书化圆为方，是汉字从古文字向今文字转变的关键一步，史称"隶变"。',
+  '<strong>隶书→楷书</strong><br>楷书在隶书基础上进一步规范，字形由扁变方，笔画更加平直工整，成为标准字体。',
+  '<strong>楷书→行书</strong><br>行书是楷书的快写体，笔画之间增加连带，书写更加流畅自然。',
+  '<strong>行书→草书</strong><br>草书进一步简省笔画，字形高度抽象化，书写速度最快，艺术表现力最强。',
+  '<strong>完整演变</strong><br>从篆书到草书，完整展示汉字书体的五种主要形态及其演变过程。'
+];
+var currentChar = '日';
+var currentSequence = 0;
+var morphing = false;
+var paused = false;
+var progress = 0;
+var animId = null;
+var history = [];
+
+function init() {
+  renderCharList();
+  renderStyleInfo(0);
+}
+
+function renderCharList() {
+  var html = '';
+  characters.forEach(function(c) {
+    html += '<div class="char-item' + (c === currentChar ? ' selected' : '') + '" onclick="selectChar(\'' + c + '\')">' + c + '</div>';
+  });
+  document.getElementById('charList').innerHTML = html;
+}
+
+function selectChar(ch) {
+  currentChar = ch;
+  document.getElementById('fromChar').textContent = ch;
+  document.getElementById('toChar').textContent = ch;
+  document.getElementById('toChar').style.opacity = '0.3';
+  renderCharList();
+  resetMorph();
+}
+
+function setStyle(el, idx) {
+  document.querySelectorAll('.style-tab').forEach(function(t) { t.classList.remove('active'); });
+  el.classList.add('active');
+  currentSequence = idx;
+  renderStyleInfo(idx);
+}
+
+function renderStyleInfo(idx) {
+  document.getElementById('styleInfo').innerHTML = styleTexts[idx];
+}
+
+function startMorph() {
+  if (morphing && !paused) return;
+  if (!morphing) { progress = 0; }
+  morphing = true;
+  paused = false;
+  var seq = styleSequences[currentSequence];
+  document.getElementById('morphInfo').innerHTML = '变形中: <strong>' + currentChar + '</strong> · ' + seq.map(function(i){return styles[i].name}).join(' → ');
+  animate();
+}
+
+function pauseMorph() { paused = true; if (animId) cancelAnimationFrame(animId); }
+
+function resetMorph() {
+  morphing = false; paused = false; progress = 0;
+  if (animId) cancelAnimationFrame(animId);
+  document.getElementById('progress').style.width = '0%';
+  document.getElementById('fromChar').textContent = currentChar;
+  document.getElementById('fromChar').style.opacity = '1';
+  document.getElementById('fromChar').style.filter = 'none';
+  document.getElementById('toChar').textContent = currentChar;
+  document.getElementById('toChar').style.opacity = '0.3';
+  document.getElementById('toChar').style.filter = 'none';
+  document.getElementById('morphArrow').textContent = '→';
+  document.getElementById('morphInfo').innerHTML = '选择汉字和变形序列，点击开始';
+}
+
+function animate() {
+  if (paused) return;
+  var dur = parseInt(document.getElementById('duration').value);
+  var spd = parseInt(document.getElementById('speed').value);
+  progress += (spd / dur) * 16;
+  if (progress >= 1) { progress = 1; morphing = false; addToHistory(); }
+  document.getElementById('progress').style.width = (progress * 100) + '%';
+
+  var seq = styleSequences[currentSequence];
+  var totalStages = seq.length - 1;
+  var stageProgress = progress * totalStages;
+  var currentStage = Math.min(Math.floor(stageProgress), totalStages - 1);
+  var localProgress = stageProgress - currentStage;
+
+  var filterValues = ['blur(2px) brightness(1.2)', 'none', 'blur(1px)', 'blur(0.5) brightness(0.8)'];
+  var fromOpacity = 1 - localProgress;
+  var toOpacity = localProgress;
+
+  document.getElementById('fromChar').textContent = currentChar;
+  document.getElementById('fromChar').style.opacity = fromOpacity;
+  document.getElementById('fromChar').style.filter = filterValues[seq[currentStage]] || 'none';
+  document.getElementById('fromChar').style.transform = 'scale(' + (1 + localProgress * 0.2) + ') rotate(' + (localProgress * 5) + 'deg)';
+  document.getElementById('toChar').textContent = currentChar;
+  document.getElementById('toChar').style.opacity = toOpacity;
+  document.getElementById('toChar').style.filter = filterValues[seq[currentStage + 1]] || 'none';
+  document.getElementById('toChar').style.transform = 'scale(' + (0.8 + toOpacity * 0.2) + ') rotate(' + (-toOpacity * 5) + 'deg)';
+  document.getElementById('toChar').style.fontFamily = getStyleFont(seq[currentStage + 1]);
+
+  if (morphing) animId = requestAnimationFrame(animate);
+  else {
+    document.getElementById('fromChar').style.opacity = '0';
+    document.getElementById('toChar').style.opacity = '1';
+    document.getElementById('toChar').style.transform = 'none';
+    document.getElementById('morphInfo').innerHTML = '变形完成: <strong>' + currentChar + '</strong> · ' + seq.map(function(i){return styles[i].name}).join(' → ');
+  }
+}
+
+function getStyleFont(idx) {
+  var fonts = ['"KaiTi","STKaiti",serif', '"STXingkai","FangSong","STFangsong",serif', '"SimSun","STSong",serif', '"STXihei","PingFang SC",sans-serif', '"Cursive","STCaiyun",cursive'];
+  return fonts[idx] || fonts[2];
+}
+
+function addToHistory() {
+  var seq = styleSequences[currentSequence];
+  history.unshift({char: currentChar, seq: seq.map(function(i){return styles[i].name}).join('→'), time: new Date().toLocaleString()});
+  if (history.length > 10) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  if (history.length === 0) { document.getElementById('historyCard').style.display = 'none'; return; }
+  document.getElementById('historyCard').style.display = 'block';
+  var html = '';
+  history.forEach(function(h) {
+    html += '<div class="history-item"><span>' + h.char + ' ' + h.seq + '</span><span style="color:var(--text2)">' + h.time + '</span></div>';
+  });
+  document.getElementById('history').innerHTML = html;
+}
+
+function toggleTheme() {
+  var h = document.documentElement;
+  h.setAttribute('data-theme', h.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+}
+
+init();
+</script>
+</body>
+</html>

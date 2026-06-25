@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>汉字变形动画</title>
+<meta name="description" content="汉字形变动画效果，在两个汉字之间创建平滑过渡动画">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#bf8700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.6}
+.ctn{max-width:700px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}.hdr h1{font-size:1.8rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+input,select,button{font-family:inherit;font-size:.95rem}
+input[type=text],select{padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;transition:border .2s}
+input:focus,select:focus{border-color:var(--accent)}
+button{padding:10px 20px;background:var(--accent);color:var(--text);border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}button:hover{background:var(--accent2)}button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.morph-container{position:relative;width:100%;aspect-ratio:1;max-width:400px;margin:12px auto;background:var(--bg);border:2px solid var(--border);border-radius:var(--radius);overflow:hidden}
+canvas{width:100%;height:100%}
+.morph-display{text-align:center;padding:30px;background:var(--bg);border-radius:var(--radius);border:2px solid var(--accent);margin:12px 0}
+.morph-display .from{font-size:3rem;font-weight:700;color:var(--text2)}
+.morph-display .arrow{font-size:1.5rem;margin:0 16px;color:var(--accent)}
+.morph-display .to{font-size:3rem;font-weight:700;color:var(--accent)}
+.preset-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.preset-btn{padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:all .2s}
+.preset-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.preset-btn .chars{font-size:1.2rem;font-weight:700}
+.preset-btn .label{font-size:.8rem;color:var(--text2);margin-top:4px}
+.hidden{display:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔀</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="汉字变形动画">
+<meta property="og:description" content="汉字形变动画效果，平滑过渡">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>🔀 汉字变形动画</h1><p>在两个汉字之间创建平滑过渡动画</p></div>
+
+<div class="cd"><h2>设置变形</h2>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<div><label style="font-size:.85rem;color:var(--text2)">起始汉字</label><input type="text" id="fromChar" value="大" maxlength="1" style="width:80px;margin-top:4px"></div>
+<div style="font-size:1.5rem;color:var(--accent);padding-top:20px">→</div>
+<div><label style="font-size:.85rem;color:var(--text2)">目标汉字</label><input type="text" id="toChar" value="天" maxlength="1" style="width:80px;margin-top:4px"></div>
+</div>
+<div style="margin-top:12px">
+<label style="font-size:.85rem;color:var(--text2)">动画时长</label>
+<select id="duration" style="width:auto;margin-top:4px">
+<option value="1000">1秒</option><option value="2000" selected>2秒</option><option value="3000">3秒</option><option value="5000">5秒</option>
+</select>
+</div>
+<div style="margin-top:12px">
+<label style="font-size:.85rem;color:var(--text2)">动画效果</label>
+<select id="effect" style="width:auto;margin-top:4px">
+<option value="morph">字形变形</option><option value="fade">淡入淡出</option><option value="particle">粒子效果</option><option value="glitch">故障效果</option><option value="wave">波动效果</option>
+</select>
+</div>
+<div class="bg"><button onclick="startMorph()">▶ 开始动画</button><button class="sec" onclick="loopMorph()">🔁 循环播放</button><button class="dng" onclick="stopLoop()">⏹ 停止</button></div></div>
+
+<div class="cd"><h2>动画预览</h2>
+<div class="morph-display" id="morphDisplay">
+<span class="from" id="displayFrom">大</span>
+<span class="arrow">→</span>
+<span class="to" id="displayTo">天</span>
+</div>
+<div class="morph-container"><canvas id="morphCanvas"></canvas></div></div>
+
+<div class="cd"><h2>预设变形</h2>
+<div class="preset-grid" id="presetGrid"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let animFrame=null;let looping=false;let morphProgress=0;
+
+const presets=[
+  {from:'大',to:'天',label:'大→天'},
+  {from:'日',to:'月',label:'日→月'},
+  {from:'人',to:'入',label:'人→入'},
+  {from:'口',to:'回',label:'口→回'},
+  {from:'木',to:'林',label:'木→林'},
+  {from:'林',to:'森',label:'林→森'},
+  {from:'山',to:'出',label:'山→出'},
+  {from:'王',to:'玉',label:'王→玉'},
+  {from:'白',to:'百',label:'白→百'},
+  {from:'田',to:'由',label:'田→由'},
+  {from:'夫',to:'天',label:'夫→天'},
+  {from:'中',to:'申',label:'中→申'},
+];
+
+function initPresets(){
+  $('presetGrid').innerHTML=presets.map(p=>`<div class="preset-btn" onclick="applyPreset('${p.from}','${p.to}')"><div class="chars">${p.from} → ${p.to}</div><div class="label">${p.label}</div></div>`).join('');
+}
+
+function applyPreset(from,to){
+  $('fromChar').value=from;$('toChar').value=to;
+  $('displayFrom').textContent=from;$('displayTo').textContent=to;
+}
+
+function startMorph(){
+  const from=$('fromChar').value.trim()||'大';
+  const to=$('toChar').value.trim()||'天';
+  const duration=parseInt($('duration').value);
+  const effect=$('effect').value;
+  $('displayFrom').textContent=from;$('displayTo').textContent=to;
+  if(animFrame)cancelAnimationFrame(animFrame);
+  morphProgress=0;
+  const canvas=$('morphCanvas');
+  const size=400;canvas.width=size;canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  const startTime=performance.now();
+  function animate(now){
+    const elapsed=now-startTime;
+    morphProgress=Math.min(elapsed/duration,1);
+    ctx.clearRect(0,0,size,size);
+    const bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    ctx.fillStyle=bg;ctx.fillRect(0,0,size,size);
+    if(effect==='morph')drawMorphEffect(ctx,size,from,to,morphProgress);
+    else if(effect==='fade')drawFadeEffect(ctx,size,from,to,morphProgress);
+    else if(effect==='particle')drawParticleEffect(ctx,size,from,to,morphProgress);
+    else if(effect==='glitch')drawGlitchEffect(ctx,size,from,to,morphProgress);
+    else if(effect==='wave')drawWaveEffect(ctx,size,from,to,morphProgress);
+    if(morphProgress<1)animFrame=requestAnimationFrame(animate);
+  }
+  animFrame=requestAnimationFrame(animate);
+}
+
+function drawMorphEffect(ctx,size,from,to,t){
+  const eased=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.globalAlpha=1-eased;ctx.font=`bold ${size*0.6}px "PingFang SC","Noto Sans SC",sans-serif`;
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+  ctx.fillStyle=textColor;ctx.fillText(from,size/2,size/2);
+  ctx.globalAlpha=eased;
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  ctx.fillStyle=accent;ctx.fillText(to,size/2,size/2);
+  ctx.globalAlpha=1;
+  const radius=size*0.35;
+  const scaleX=1+Math.sin(eased*Math.PI)*0.1;
+  const scaleY=1-Math.sin(eased*Math.PI)*0.05;
+  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.globalAlpha=Math.sin(eased*Math.PI)*0.5;
+  ctx.beginPath();ctx.ellipse(size/2,size/2,radius*scaleX,radius*scaleY,0,0,Math.PI*2);ctx.stroke();
+  ctx.globalAlpha=1;
+}
+
+function drawFadeEffect(ctx,size,from,to,t){
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`bold ${size*0.6}px "PingFang SC","Noto Sans SC",sans-serif`;
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+  const blur1=ease*20;const blur2=(1-ease)*20;
+  ctx.filter=`blur(${blur1}px)`;ctx.globalAlpha=1-ease;ctx.fillStyle=textColor;ctx.fillText(from,size/2,size/2);
+  ctx.filter=`blur(${blur2}px)`;ctx.globalAlpha=ease;ctx.fillStyle=accent;ctx.fillText(to,size/2,size/2);
+  ctx.filter='none';ctx.globalAlpha=1;
+}
+
+function drawParticleEffect(ctx,size,from,to,t){
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+  if(ease<0.3){
+    ctx.font=`bold ${size*0.6}px "PingFang SC","Noto Sans SC",sans-serif`;
+    ctx.fillStyle=textColor;ctx.globalAlpha=1-ease/0.3;ctx.fillText(from,size/2,size/2);ctx.globalAlpha=1;
+  }
+  const particles=60;
+  for(let i=0;i<particles;i++){
+    const angle=(i/particles)*Math.PI*2;
+    const dist=ease*size*0.4;
+    const x=size/2+Math.cos(angle)*dist*(0.5+Math.random()*0.5);
+    const y=size/2+Math.sin(angle)*dist*(0.5+Math.random()*0.5);
+    const sz=2+Math.random()*4;
+    ctx.fillStyle=ease<0.5?textColor:accent;
+    ctx.globalAlpha=Math.sin(ease*Math.PI)*0.8;
+    ctx.beginPath();ctx.arc(x,y,sz,0,Math.PI*2);ctx.fill();
+  }
+  if(ease>0.3){
+    ctx.font=`bold ${size*0.6}px "PingFang SC","Noto Sans SC",sans-serif`;
+    ctx.fillStyle=accent;ctx.globalAlpha=(ease-0.3)/0.7;ctx.fillText(to,size/2,size/2);ctx.globalAlpha=1;
+  }
+}
+
+function drawGlitchEffect(ctx,size,from,to,t){
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`bold ${size*0.6}px "PingFang SC","Noto Sans SC",sans-serif`;
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+  const isGlitching=Math.sin(ease*Math.PI*8)>0.3;
+  if(isGlitching){
+    for(let i=0;i<5;i++){
+      const dx=(Math.random()-0.5)*20;const dy=(Math.random()-0.5)*10;
+      ctx.globalAlpha=0.3;ctx.fillStyle=['#ef4444','#3b82f6','#22c55e'][i%3];
+      ctx.fillText(Math.random()>0.5?from:to,size/2+dx,size/2+dy);
+    }
+  }
+  ctx.globalAlpha=ease<0.5?1-ease*2:0;
+  ctx.fillStyle=textColor;ctx.fillText(from,size/2,size/2);
+  ctx.globalAlpha=ease>0.5?(ease-0.5)*2:0;
+  ctx.fillStyle=accent;ctx.fillText(to,size/2,size/2);
+  ctx.globalAlpha=1;
+}
+
+function drawWaveEffect(ctx,size,from,to,t){
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`bold ${size*0.6}px "PingFang SC","Noto Sans SC",sans-serif`;
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text2').trim();
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+  for(let y=0;y<size;y+=4){
+    const rowProgress=y/size;
+    const localT=Math.max(0,Math.min(1,(ease-rowProgress*0.3)/0.7));
+    ctx.save();ctx.beginPath();ctx.rect(0,y,size,4);ctx.clip();
+    ctx.globalAlpha=1-localT;
+    const waveX=Math.sin(localT*Math.PI*4+rowProgress*6)*10;
+    ctx.fillStyle=textColor;ctx.fillText(from,size/2+waveX,size/2);
+    ctx.globalAlpha=localT;
+    ctx.fillStyle=accent;ctx.fillText(to,size/2-waveX,size/2);
+    ctx.restore();
+  }
+  ctx.globalAlpha=1;
+}
+
+function loopMorph(){
+  looping=true;
+  function doLoop(){if(!looping)return;startMorph();setTimeout(doLoop,parseInt($('duration').value)+200)}
+  doLoop();
+}
+
+function stopLoop(){looping=false;if(animFrame)cancelAnimationFrame(animFrame)}
+
+$('fromChar').addEventListener('input',()=>{$('displayFrom').textContent=$('fromChar').value||'?'});
+$('toChar').addEventListener('input',()=>{$('displayTo').textContent=$('toChar').value||'?'});
+initPresets();
+</script>
+</body>
+</html>
