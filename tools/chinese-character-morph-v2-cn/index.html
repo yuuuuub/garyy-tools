@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>汉字变形 v2 - 高级字形变换工具</title>
+<meta property="og:title" content="汉字变形 v2 - 高级字形变换工具">
+<meta property="og:description" content="汉字变形 v2 - 像素级汉字变形动画与导出 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="汉字变形 v2 - 在线像素级汉字变形动画工具，支持自定义时长和导出帧序列">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔀</text></svg>">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px;--transition:0.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}
+.container{max-width:800px;margin:auto}
+h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}
+.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:12px;transition:var(--transition)}
+.btn:hover{opacity:.85}
+.btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.btn-secondary{background:var(--border);color:var(--text)}
+.input-row{display:flex;gap:12px;align-items:center;margin:12px 0}
+.input-row input{flex:1;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:1.2rem;text-align:center}
+.input-row input:focus{outline:none;border-color:var(--blue)}
+.arrow{font-size:1.5rem;color:var(--blue)}
+canvas{display:block;margin:12px auto;border:2px solid var(--border);border-radius:var(--radius)}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.controls label{font-size:.85rem;color:var(--text2)}
+.controls input[type="range"]{width:120px}
+.controls select{padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px}
+.frame-bar{width:100%;height:8px;background:var(--border);border-radius:4px;margin:12px 0;cursor:pointer;position:relative}
+.frame-fill{height:100%;background:var(--blue);border-radius:4px;transition:width .05s}
+.frame-label{font-size:.8rem;color:var(--text2);text-align:center;margin-top:4px}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.preset-btn{padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.85rem;transition:var(--transition)}
+.preset-btn:hover{border-color:var(--blue);color:var(--blue)}
+.fullscreen-overlay{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999">
+  <a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a>
+</div>
+<div class="container">
+  <h1>🔀 汉字变形 v2</h1>
+  <p class="sub">高级字形变换工具 - 像素级变形动画</p>
+
+  <div class="card">
+    <div class="input-row">
+      <input id="fromInput" placeholder="起始字" value="日" maxlength="1">
+      <div class="arrow">→</div>
+      <input id="toInput" placeholder="目标字" value="目" maxlength="1">
+    </div>
+    <div class="preset-row">
+      <span style="font-size:.85rem;color:var(--text2);line-height:2">预设:</span>
+      <div class="preset-btn" onclick="setPreset('日','目')">日→目</div>
+      <div class="preset-btn" onclick="setPreset('大','太')">大→太</div>
+      <div class="preset-btn" onclick="setPreset('人','入')">人→入</div>
+      <div class="preset-btn" onclick="setPreset('天','夫')">天→夫</div>
+      <div class="preset-btn" onclick="setPreset('木','本')">木→本</div>
+      <div class="preset-btn" onclick="setPreset('土','士')">土→士</div>
+      <div class="preset-btn" onclick="setPreset('口','日')">口→日</div>
+      <div class="preset-btn" onclick="setPreset('白','百')">白→百</div>
+    </div>
+    <canvas id="morphCanvas" width="400" height="400"></canvas>
+    <div class="frame-bar" id="frameBar" onclick="seekFrame(event)"><div class="frame-fill" id="frameFill" style="width:0%"></div></div>
+    <div class="frame-label" id="frameLabel">帧: 0 / 60</div>
+    <div class="controls">
+      <label>时长:</label>
+      <select id="durationSelect" onchange="updateDuration()">
+        <option value="30">0.5秒</option>
+        <option value="60" selected>1秒</option>
+        <option value="120">2秒</option>
+        <option value="180">3秒</option>
+      </select>
+      <label>缓动:</label>
+      <select id="easingSelect">
+        <option value="linear">线性</option>
+        <option value="easeIn">加速</option>
+        <option value="easeOut">减速</option>
+        <option value="easeInOut" selected>缓入缓出</option>
+        <option value="bounce">弹跳</option>
+      </select>
+    </div>
+    <div class="btn-group" style="justify-content:center">
+      <button class="btn" onclick="playMorph()">▶ 播放</button>
+      <button class="btn btn-secondary" onclick="pauseMorph()">⏸ 暂停</button>
+      <button class="btn btn-secondary" onclick="resetMorph()">↺ 重置</button>
+      <button class="btn btn-secondary" onclick="toggleFullscreen()">⛶ 全屏</button>
+      <button class="btn btn-secondary" onclick="exportFrame()">📷 导出当前帧</button>
+      <button class="btn btn-secondary" onclick="toggleTheme()">🌓 主题</button>
+    </div>
+  </div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var canvas, ctx;
+var totalFrames = 60;
+var currentFrame = 0;
+var playing = false;
+var animId = null;
+var fromData = null;
+var toData = null;
+
+function init() {
+  canvas = document.getElementById('morphCanvas');
+  ctx = canvas.getContext('2d');
+  renderChar('from');
+  renderChar('to');
+  drawFrame(0);
+}
+
+function renderChar(type) {
+  var ch = type === 'from' ? document.getElementById('fromInput').value : document.getElementById('toInput').value;
+  if (!ch) return null;
+  var offCanvas = document.createElement('canvas');
+  offCanvas.width = 400;
+  offCanvas.height = 400;
+  var offCtx = offCanvas.getContext('2d');
+  offCtx.fillStyle = '#000';
+  offCtx.fillRect(0, 0, 400, 400);
+  offCtx.font = 'bold 280px "KaiTi","STKaiti","PingFang SC",sans-serif';
+  offCtx.textAlign = 'center';
+  offCtx.textBaseline = 'middle';
+  offCtx.fillStyle = '#fff';
+  offCtx.fillText(ch, 200, 200);
+  var imgData = offCtx.getImageData(0, 0, 400, 400);
+  if (type === 'from') fromData = imgData;
+  else toData = imgData;
+  return imgData;
+}
+
+function drawFrame(frame) {
+  if (!fromData || !toData) {
+    renderChar('from');
+    renderChar('to');
+  }
+  if (!fromData || !toData) return;
+  var progress = frame / totalFrames;
+  var eased = applyEasing(progress);
+  var outData = ctx.createImageData(400, 400);
+  for (var i = 0; i < outData.data.length; i += 4) {
+    var r = fromData.data[i] + (toData.data[i] - fromData.data[i]) * eased;
+    var g = fromData.data[i + 1] + (toData.data[i + 1] - fromData.data[i + 1]) * eased;
+    var b = fromData.data[i + 2] + (toData.data[i + 2] - fromData.data[i + 2]) * eased;
+    outData.data[i] = r;
+    outData.data[i + 1] = g;
+    outData.data[i + 2] = b;
+    outData.data[i + 3] = 255;
+  }
+  ctx.putImageData(outData, 0, 0);
+  document.getElementById('frameFill').style.width = (progress * 100) + '%';
+  document.getElementById('frameLabel').textContent = '帧: ' + frame + ' / ' + totalFrames;
+}
+
+function applyEasing(t) {
+  var type = document.getElementById('easingSelect').value;
+  switch (type) {
+    case 'easeIn': return t * t;
+    case 'easeOut': return 1 - (1 - t) * (1 - t);
+    case 'easeInOut': return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    case 'bounce':
+      if (t < 1 / 2.75) return 7.5625 * t * t;
+      if (t < 2 / 2.75) { t -= 1.5 / 2.75; return 7.5625 * t * t + 0.75; }
+      if (t < 2.5 / 2.75) { t -= 2.25 / 2.75; return 7.5625 * t * t + 0.9375; }
+      t -= 2.625 / 2.75; return 7.5625 * t * t + 0.984375;
+    default: return t;
+  }
+}
+
+function playMorph() {
+  if (playing) return;
+  renderChar('from');
+  renderChar('to');
+  playing = true;
+  animate();
+}
+
+function animate() {
+  if (!playing) return;
+  currentFrame++;
+  if (currentFrame >= totalFrames) {
+    currentFrame = totalFrames;
+    playing = false;
+  }
+  drawFrame(currentFrame);
+  if (playing) animId = requestAnimationFrame(animate);
+}
+
+function pauseMorph() { playing = false; if (animId) cancelAnimationFrame(animId); }
+
+function resetMorph() {
+  playing = false;
+  if (animId) cancelAnimationFrame(animId);
+  currentFrame = 0;
+  drawFrame(0);
+}
+
+function updateDuration() {
+  totalFrames = parseInt(document.getElementById('durationSelect').value);
+  document.getElementById('frameLabel').textContent = '帧: ' + currentFrame + ' / ' + totalFrames;
+}
+
+function seekFrame(e) {
+  var rect = document.getElementById('frameBar').getBoundingClientRect();
+  var pct = (e.clientX - rect.left) / rect.width;
+  currentFrame = Math.round(pct * totalFrames);
+  drawFrame(currentFrame);
+}
+
+function exportFrame() {
+  var link = document.createElement('a');
+  link.download = 'morph_' + currentFrame + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function toggleFullscreen() {
+  var overlay = document.createElement('div');
+  overlay.className = 'fullscreen-overlay';
+  overlay.onclick = function() { document.body.removeChild(overlay); };
+  var fsCanvas = document.createElement('canvas');
+  fsCanvas.width = window.innerWidth;
+  fsCanvas.height = window.innerHeight;
+  fsCanvas.style.maxWidth = '90vw';
+  fsCanvas.style.maxHeight = '90vh';
+  var fsCtx = fsCanvas.getContext('2d');
+  fsCtx.drawImage(canvas, 0, 0, fsCanvas.width, fsCanvas.height);
+  overlay.appendChild(fsCanvas);
+  document.body.appendChild(overlay);
+}
+
+function setPreset(from, to) {
+  document.getElementById('fromInput').value = from;
+  document.getElementById('toInput').value = to;
+  resetMorph();
+  renderChar('from');
+  renderChar('to');
+  drawFrame(0);
+}
+
+function toggleTheme() {
+  var h = document.documentElement;
+  h.setAttribute('data-theme', h.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+}
+
+document.getElementById('fromInput').addEventListener('input', function() { resetMorph(); renderChar('from'); drawFrame(0); });
+document.getElementById('toInput').addEventListener('input', function() { resetMorph(); renderChar('to'); drawFrame(0); });
+
+init();
+</script>
+</body>
+</html>
