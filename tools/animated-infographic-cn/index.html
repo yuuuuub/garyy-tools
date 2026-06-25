@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动画信息图工具</title>
+<meta property="og:title" content="动画信息图工具">
+<meta property="og:description" content="动画信息图工具 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="动画信息图工具，创建带动画效果的数据信息图">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<meta name="robots" content="index, follow">
+<script src="../i18n.js" defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a855f7;--pink:#ec4899;--cyan:#06b6d4;--orange:#f97316;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;--shadow:0 4px 24px rgba(0,0,0,.1)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:900px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:60px}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.infographic{position:relative;overflow:hidden;border-radius:var(--radius)}
+.info-block{padding:24px;text-align:center;opacity:0;transform:translateY(30px);transition:all .6s cubic-bezier(.4,0,.2,1)}
+.info-block.visible{opacity:1;transform:translateY(0)}
+.info-number{font-size:3rem;font-weight:800;line-height:1.2}
+.info-label{font-size:1rem;color:var(--text2);margin-top:4px}
+.info-icon{font-size:2.5rem;margin-bottom:8px}
+.progress-ring{transform:rotate(-90deg)}
+.progress-ring circle{transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1)}
+.timeline-item{display:flex;gap:16px;padding:16px 0;opacity:0;transform:translateX(-20px);transition:all .5s ease}
+.timeline-item.visible{opacity:1;transform:translateX(0)}
+.timeline-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.timeline-line{width:2px;background:var(--border);flex-shrink:0;margin-left:7px}
+.timeline-content{flex:1}
+.timeline-title{font-weight:600;margin-bottom:4px}
+.timeline-desc{font-size:.85rem;color:var(--text2)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0}to{opacity:1}}
+@keyframes expandWidth{from{width:0}to{width:var(--target-width)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.info-number{font-size:2rem}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🎨 动画信息图工具';
+const $=id=>document.getElementById(id);
+const APP=$('app');
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+let curTemplate='stats';
+
+let templates={
+  stats:{
+    title:'统计数据',
+    items:[
+      {icon:'👥',number:12580,label:'活跃用户',color:'#3b82f6'},
+      {icon:'📈',number:8920,label:'本月增长',color:'#3fb950'},
+      {icon:'💰',number:356000,label:'总营收(万)',color:'#d29922'},
+      {icon:'⭐',number:4.9,label:'用户评分',color:'#a855f7'}
+    ]
+  },
+  timeline:{
+    title:'发展历程',
+    items:[
+      {title:'项目启动',desc:'完成需求分析和团队组建',color:'#3b82f6',year:'2024 Q1'},
+      {title:'产品上线',desc:'核心功能开发完成，正式发布',color:'#3fb950',year:'2024 Q2'},
+      {title:'用户增长',desc:'月活跃用户突破10万',color:'#d29922',year:'2024 Q3'},
+      {title:'融资完成',desc:'获得A轮融资2000万',color:'#a855f7',year:'2024 Q4'},
+      {title:'全球化',desc:'拓展海外市场，支持多语言',color:'#ec4899',year:'2025 Q1'}
+    ]
+  },
+  progress:{
+    title:'项目进度',
+    items:[
+      {label:'前端开发',value:92,color:'#3b82f6'},
+      {label:'后端开发',value:78,color:'#3fb950'},
+      {label:'UI设计',value:100,color:'#a855f7'},
+      {label:'测试',value:65,color:'#d29922'},
+      {label:'文档',value:45,color:'#ec4899'}
+    ]
+  },
+  comparison:{
+    title:'数据对比',
+    items:[
+      {label:'搜索引擎',current:85,previous:72,color:'#3b82f6'},
+      {label:'社交媒体',current:68,previous:55,color:'#3fb950'},
+      {label:'直接访问',current:45,previous:60,color:'#d29922'},
+      {label:'邮件营销',current:32,previous:28,color:'#a855f7'}
+    ]
+  }
+};
+
+function render(){
+  let h=`<h1>🎨 动画信息图工具</h1><p class="subtitle">创建带动画效果的精美信息图</p>`;
+  h+=`<div class="card"><div class="flex-between"><div class="flex">`;
+  ['stats','timeline','progress','comparison'].forEach(t=>{
+    const names={stats:'📊 统计卡片',timeline:'📅 时间线',progress:'📈 进度条',comparison:'⚖️ 数据对比'};
+    h+=`<button class="btn btn-sm" style="background:${curTemplate===t?'var(--accent)':'var(--border)'}" onclick="curTemplate='${t}';render()">${names[t]}</button>`;
+  });
+  h+=`</div><button class="btn btn-sm btn-green" onclick="replayAnimation()">▶ 重播动画</button></div></div>`;
+
+  h+=`<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:none">`;
+  if(curTemplate==='stats') h+=renderStats();
+  else if(curTemplate==='timeline') h+=renderTimeline();
+  else if(curTemplate==='progress') h+=renderProgress();
+  else if(curTemplate==='comparison') h+=renderComparison();
+  h+=`</div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">⚙️ 自定义</h3>`;
+  h+=`<label>标题</label><input value="${templates[curTemplate].title}" onchange="templates[curTemplate].title=this.value;render()">`;
+  if(curTemplate==='stats'){
+    templates[curTemplate].items.forEach((item,i)=>{
+      h+=`<div style="display:flex;gap:8px;margin-bottom:8px"><input value="${item.icon}" style="width:50px;text-align:center" onchange="templates[curTemplate].items[${i}].icon=this.value;render()"><input value="${item.number}" style="width:100px" onchange="templates[curTemplate].items[${i}].number=parseFloat(this.value);render()"><input value="${item.label}" onchange="templates[curTemplate].items[${i}].label=this.value;render()"><input value="${item.color}" type="color" style="width:40px;height:38px;padding:2px" onchange="templates[curTemplate].items[${i}].color=this.value;render()"></div>`;
+    });
+  }
+  h+=`</div>`;
+  APP.innerHTML=h;
+  setTimeout(animateIn,100);
+}
+
+function renderStats(){
+  const t=templates.stats;
+  let h=`<h2 style="color:#fff;text-align:center;margin-bottom:24px;font-size:1.5rem">${t.title}</h2>`;
+  h+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">`;
+  t.items.forEach((item,i)=>{
+    h+=`<div class="info-block" style="background:rgba(255,255,255,.05);border-radius:12px;padding:24px;animation-delay:${i*0.2}s">`;
+    h+=`<div class="info-icon">${item.icon}</div>`;
+    h+=`<div class="info-number" style="color:${item.color}" data-target="${item.number}">0</div>`;
+    h+=`<div class="info-label" style="color:#8b949e">${item.label}</div>`;
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
+function renderTimeline(){
+  const t=templates.timeline;
+  let h=`<h2 style="color:#fff;text-align:center;margin-bottom:24px;font-size:1.5rem">${t.title}</h2>`;
+  h+=`<div style="max-width:500px;margin:0 auto">`;
+  t.items.forEach((item,i)=>{
+    h+=`<div class="timeline-item" style="animation-delay:${i*0.2}s">`;
+    h+=`<div><div class="timeline-dot" style="background:${item.color}"></div>`;
+    if(i<t.items.length-1) h+=`<div class="timeline-line"></div>`;
+    h+=`</div>`;
+    h+=`<div class="timeline-content"><div class="timeline-title" style="color:${item.color}">${item.title} <span style="color:var(--text2);font-size:.8rem;font-weight:400">${item.year||''}</span></div>`;
+    h+=`<div class="timeline-desc">${item.desc}</div></div></div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
+function renderProgress(){
+  const t=templates.progress;
+  let h=`<h2 style="color:#fff;text-align:center;margin-bottom:24px;font-size:1.5rem">${t.title}</h2>`;
+  t.items.forEach((item,i)=>{
+    h+=`<div class="info-block" style="animation-delay:${i*0.15}s;margin-bottom:16px">`;
+    h+=`<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#e6edf3;font-weight:600">${item.label}</span><span style="color:${item.color};font-weight:700">${item.value}%</span></div>`;
+    h+=`<div style="width:100%;height:12px;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden">`;
+    h+=`<div class="progress-bar" style="width:0%;height:100%;background:${item.color};border-radius:6px;transition:width 1.5s cubic-bezier(.4,0,.2,1)" data-width="${item.value}"></div>`;
+    h+=`</div></div>`;
+  });
+  return h;
+}
+
+function renderComparison(){
+  const t=templates.comparison;
+  let h=`<h2 style="color:#fff;text-align:center;margin-bottom:24px;font-size:1.5rem">${t.title}</h2>`;
+  t.items.forEach((item,i)=>{
+    h+=`<div class="info-block" style="animation-delay:${i*0.15}s;margin-bottom:20px">`;
+    h+=`<div style="color:#e6edf3;font-weight:600;margin-bottom:8px">${item.label}</div>`;
+    h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">`;
+    h+=`<span style="font-size:.75rem;color:#8b949e;width:50px">上期</span>`;
+    h+=`<div style="flex:1;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden"><div class="progress-bar" style="width:0%;height:100%;background:rgba(255,255,255,.3);border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)" data-width="${item.previous}"></div></div>`;
+    h+=`<span style="font-size:.8rem;color:#8b949e;width:35px;text-align:right">${item.previous}%</span></div>`;
+    h+=`<div style="display:flex;align-items:center;gap:10px">`;
+    h+=`<span style="font-size:.75rem;color:#8b949e;width:50px">本期</span>`;
+    h+=`<div style="flex:1;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden"><div class="progress-bar" style="width:0%;height:100%;background:${item.color};border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)" data-width="${item.current}"></div></div>`;
+    h+=`<span style="font-size:.8rem;color:${item.color};font-weight:700;width:35px;text-align:right">${item.current}%</span></div>`;
+    const diff=item.current-item.previous;
+    h+=`<div style="font-size:.8rem;margin-top:4px;color:${diff>=0?'#3fb950':'#f85149'}">${diff>=0?'↑':'↓'} ${Math.abs(diff)}%</div></div>`;
+  });
+  return h;
+}
+
+function animateIn(){
+  document.querySelectorAll('.info-block').forEach((el,i)=>{
+    setTimeout(()=>el.classList.add('visible'),i*150);
+  });
+  document.querySelectorAll('.timeline-item').forEach((el,i)=>{
+    setTimeout(()=>el.classList.add('visible'),i*200);
+  });
+  document.querySelectorAll('.progress-bar').forEach((el,i)=>{
+    setTimeout(()=>{el.style.width=el.dataset.width+'%';},i*150+100);
+  });
+  document.querySelectorAll('[data-target]').forEach(el=>{
+    const target=parseFloat(el.dataset.target);
+    const duration=1500;
+    const start=performance.now();
+    const isFloat=target%1!==0;
+    function update(now){
+      const elapsed=now-start;
+      const progress=Math.min(elapsed/duration,1);
+      const eased=1-Math.pow(1-progress,3);
+      const current=eased*target;
+      el.textContent=isFloat?current.toFixed(1):Math.round(current).toLocaleString();
+      if(progress<1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  });
+}
+
+function replayAnimation(){render();}
+render();
+</script>
+</body>
+</html>
