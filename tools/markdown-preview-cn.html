@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown预览器</title>
+    <meta name="description" content="在线Markdown实时预览编辑器，支持标题、列表、表格、代码块等语法">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; height: 100vh; display: flex; flex-direction: column; }
+        .header { padding: 1rem 2rem; background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; flex-shrink: 0; }
+        h1 { color: var(--accent); font-size: 1.2rem; }
+        .header-btns { margin-left: auto; display: flex; gap: 0.5rem; }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.4rem 0.8rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.8rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        .editor-wrap { flex: 1; display: flex; overflow: hidden; }
+        .editor-pane, .preview-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .pane-header { padding: 0.5rem 1rem; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; flex-shrink: 0; }
+        textarea {
+            flex: 1; width: 100%; padding: 1rem; border: none; resize: none;
+            background: var(--bg-secondary); color: var(--text-primary); font-family: 'Courier New', monospace;
+            font-size: 0.9rem; line-height: 1.6;
+        }
+        textarea:focus { outline: none; }
+        .preview {
+            flex: 1; padding: 1.5rem; overflow: auto; background: var(--bg-secondary);
+            font-size: 0.95rem; line-height: 1.7;
+        }
+        .divider { width: 4px; background: var(--border); cursor: col-resize; flex-shrink: 0; }
+        .divider:hover { background: var(--accent); }
+        .preview h1 { font-size: 2em; margin: 1em 0 0.5em; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 0.3em; }
+        .preview h2 { font-size: 1.5em; margin: 0.8em 0 0.4em; color: var(--accent-hover); }
+        .preview h3 { font-size: 1.3em; margin: 0.7em 0 0.3em; }
+        .preview h4 { font-size: 1.1em; margin: 0.6em 0 0.3em; }
+        .preview p { margin: 0.5em 0; }
+        .preview code { background: var(--bg-tertiary); padding: 0.15em 0.4em; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; }
+        .preview pre { background: var(--bg-tertiary); padding: 1em; border-radius: 8px; overflow-x: auto; margin: 0.8em 0; }
+        .preview pre code { background: none; padding: 0; }
+        .preview blockquote { border-left: 4px solid var(--accent); padding-left: 1em; margin: 0.8em 0; color: var(--text-secondary); background: rgba(233,69,96,0.05); padding: 0.5em 1em; border-radius: 0 8px 8px 0; }
+        .preview ul, .preview ol { padding-left: 2em; margin: 0.5em 0; }
+        .preview li { margin: 0.3em 0; }
+        .preview hr { border: none; border-top: 2px solid var(--border); margin: 1.5em 0; }
+        .preview a { color: var(--accent); text-decoration: none; }
+        .preview a:hover { text-decoration: underline; }
+        .preview img { max-width: 100%; border-radius: 8px; }
+        .preview table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+        .preview th, .preview td { border: 1px solid var(--border); padding: 0.5em 0.8em; text-align: left; }
+        .preview th { background: var(--bg-tertiary); }
+        .preview input[type="checkbox"] { margin-right: 0.5em; }
+        .preview strong { color: var(--accent-hover); }
+        .preview em { color: var(--text-secondary); }
+        .preview del { color: var(--text-secondary); }
+        @media (max-width: 768px) {
+            .editor-wrap { flex-direction: column; }
+            .divider { width: 100%; height: 4px; cursor: row-resize; }
+        }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 Markdown预览器</h1>
+        <div class="header-btns">
+            <button class="secondary" onclick="copyHtml()">复制HTML</button>
+            <button class="secondary" onclick="copyMd()">复制MD</button>
+            <button class="secondary" onclick="toggleView()">切换视图</button>
+        </div>
+    </div>
+    <div class="editor-wrap" id="editorWrap">
+        <div class="editor-pane" id="editorPane">
+            <div class="pane-header">📝 Markdown 编辑</div>
+            <textarea id="mdInput" oninput="renderPreview()"></textarea>
+        </div>
+        <div class="divider" id="divider"></div>
+        <div class="preview-pane" id="previewPane">
+            <div class="pane-header">👁️ 实时预览</div>
+            <div class="preview" id="preview"></div>
+        </div>
+    </div>
+
+    <script>
+const sampleMd = `# Markdown 预览器
+
+## 基本语法演示
+
+这是一个 **Markdown预览器**，支持实时渲染。支持 *斜体*、~~删除线~~ 和 \`行内代码\`。
+
+### 文本格式
+
+- **粗体文本** 使用双星号
+- *斜体文本* 使用单星号
+- ~~删除线~~ 使用双波浪号
+- \`行内代码\` 使用反引号
+
+### 列表
+
+#### 无序列表
+- 苹果
+- 香蕉
+- 橙子
+  - 橙子1
+  - 橙子2
+
+#### 有序列表
+1. 第一步：打开编辑器
+2. 第二步：输入Markdown
+3. 第三步：查看预览
+
+#### 任务列表
+- [x] 完成编辑器开发
+- [x] 实现实时预览
+- [ ] 添加更多语法支持
+- [ ] 发布上线
+
+### 引用
+
+> 学而不思则罔，思而不学则殆。
+> —— 孔子
+
+### 代码块
+
+\`\`\`javascript
+function greet(name) {
+    return \`你好, \${name}!\`;
+}
+console.log(greet("世界"));
+\`\`\`
+
+### 表格
+
+| 姓名 | 城市 | 职业 |
+|------|------|------|
+| 张三 | 北京 | 工程师 |
+| 李四 | 上海 | 设计师 |
+| 王五 | 广州 | 产品经理 |
+
+### 链接和图片
+
+[访问 GitHub](https://github.com)
+
+---
+
+*开始编辑左侧的Markdown内容，右侧会实时显示渲染效果！*`;
+
+document.getElementById('mdInput').value = sampleMd;
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function parseMarkdown(md) {
+    let html = '';
+    const lines = md.split('\n');
+    let inCode = false, codeLang = '', codeLines = [];
+    let inList = false, listType = '', listIndent = 0;
+    let inTable = false, tableRows = [];
+    let inBlockquote = false, bqLines = [];
+    let paragraphBuffer = [];
+
+    function flushParagraph() {
+        if (paragraphBuffer.length) {
+            html += '<p>' + paragraphBuffer.join(' ') + '</p>\n';
+            paragraphBuffer = [];
+        }
+    }
+
+    function flushList() {
+        if (inList) {
+            html += (listType === 'ul' ? '</ul>\n' : '</ol>\n');
+            inList = false;
+        }
+    }
+
+    function flushBlockquote() {
+        if (inBlockquote) {
+            html += '<blockquote>' + bqLines.join('<br>') + '</blockquote>\n';
+            inBlockquote = false; bqLines = [];
+        }
+    }
+
+    function flushTable() {
+        if (inTable && tableRows.length) {
+            html += '<table>';
+            if (tableRows.length >= 2) {
+                html += '<thead><tr>' + tableRows[0].map(c => `<th>${inlineFormat(c.trim())}</th>`).join('') + '</tr></thead>';
+                html += '<tbody>' + tableRows.slice(2).map(r => '<tr>' + r.map(c => `<td>${inlineFormat(c.trim())}</td>`).join('') + '</tr>').join('') + '</tbody>';
+            }
+            html += '</table>\n';
+            inTable = false; tableRows = [];
+        }
+    }
+
+    function inlineFormat(text) {
+        return text
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/~~(.+?)~~/g, '<del>$1</del>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Code blocks
+        if (line.trim().startsWith('```')) {
+            if (inCode) { html += `<pre><code class="language-${codeLang}">${escapeHtml(codeLines.join('\n'))}</code></pre>\n`; inCode = false; codeLines = []; codeLang = ''; }
+            else { flushParagraph(); flushList(); flushBlockquote(); flushTable(); inCode = true; codeLang = line.trim().slice(3).trim(); }
+            continue;
+        }
+        if (inCode) { codeLines.push(line); continue; }
+
+        // Table
+        if (line.includes('|') && line.trim().startsWith('|')) {
+            flushParagraph(); flushList(); flushBlockquote();
+            const cells = line.split('|').slice(1, -1);
+            if (!inTable) inTable = true;
+            if (cells.every(c => /^[\s\-:]+$/.test(c))) { tableRows.push(cells); continue; }
+            tableRows.push(cells);
+            continue;
+        } else if (inTable) { flushTable(); }
+
+        // Blockquote
+        if (line.trim().startsWith('> ')) {
+            flushParagraph(); flushList();
+            if (!inBlockquote) inBlockquote = true;
+            bqLines.push(inlineFormat(line.trim().slice(2)));
+            continue;
+        } else if (inBlockquote) { flushBlockquote(); }
+
+        // HR
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) { flushParagraph(); flushList(); html += '<hr>\n'; continue; }
+
+        // Headings
+        const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+        if (headingMatch) { flushParagraph(); flushList(); flushBlockquote(); flushTable(); const level = headingMatch[1].length; html += `<h${level}>${inlineFormat(headingMatch[2])}</h${level}>\n`; continue; }
+
+        // Task list
+        const taskMatch = line.match(/^(\s*)[-*]\s+\[([ x])\]\s+(.+)/);
+        if (taskMatch) {
+            flushParagraph(); flushBlockquote();
+            if (!inList) { html += '<ul>'; inList = true; listType = 'ul'; }
+            html += `<li><input type="checkbox" ${taskMatch[2] === 'x' ? 'checked' : ''} disabled> ${inlineFormat(taskMatch[3])}</li>\n`;
+            continue;
+        }
+
+        // Unordered list
+        const ulMatch = line.match(/^(\s*)[-*+]\s+(.+)/);
+        if (ulMatch) {
+            flushParagraph(); flushBlockquote();
+            if (!inList || listType !== 'ul') { flushList(); html += '<ul>'; inList = true; listType = 'ul'; }
+            html += `<li>${inlineFormat(ulMatch[2])}</li>\n`;
+            continue;
+        }
+
+        // Ordered list
+        const olMatch = line.match(/^(\s*)\d+\.\s+(.+)/);
+        if (olMatch) {
+            flushParagraph(); flushBlockquote();
+            if (!inList || listType !== 'ol') { flushList(); html += '<ol>'; inList = true; listType = 'ol'; }
+            html += `<li>${inlineFormat(olMatch[2])}</li>\n`;
+            continue;
+        }
+
+        // Empty line
+        if (line.trim() === '') { flushParagraph(); flushList(); flushBlockquote(); continue; }
+
+        // Paragraph
+        paragraphBuffer.push(inlineFormat(line));
+    }
+
+    flushParagraph(); flushList(); flushBlockquote(); flushTable(); flushList();
+    return html;
+}
+
+function renderPreview() {
+    const md = document.getElementById('mdInput').value;
+    document.getElementById('preview').innerHTML = parseMarkdown(md);
+}
+
+function copyHtml() {
+    navigator.clipboard.writeText(document.getElementById('preview').innerHTML).then(() => alert('HTML已复制'));
+}
+
+function copyMd() {
+    navigator.clipboard.writeText(document.getElementById('mdInput').value).then(() => alert('Markdown已复制'));
+}
+
+let viewMode = 'split';
+function toggleView() {
+    const editor = document.getElementById('editorPane');
+    const preview = document.getElementById('previewPane');
+    const divider = document.getElementById('divider');
+    if (viewMode === 'split') { preview.style.display = 'none'; divider.style.display = 'none'; viewMode = 'edit'; }
+    else if (viewMode === 'edit') { editor.style.display = 'none'; divider.style.display = 'none'; viewMode = 'preview'; }
+    else { editor.style.display = ''; preview.style.display = ''; divider.style.display = ''; viewMode = 'split'; }
+    renderPreview();
+}
+
+renderPreview();
+    </script>
+</body>
+</html>
