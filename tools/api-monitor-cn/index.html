@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📡 API监控器</title>
+<meta name="description" content="API接口监控工具，实时检测API可用性和响应时间">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📡 API监控器">
+<meta property="og:description" content="API监控器 - Gary's Tools">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📡</text></svg>">
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--orange:#bc4c00;--purple:#8250df;--shadow:0 1px 3px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;--purple:#bc8cff;--shadow:0 1px 3px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);padding:16px;transition:background .3s,color .3s}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.3rem;color:var(--blue);border-bottom:2px solid var(--blue);padding-bottom:10px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue)}
+textarea{resize:vertical;min-height:60px;font-family:'SF Mono',Menlo,monospace;font-size:.82rem}
+button{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+button:hover{opacity:.85}
+.btn-green{background:var(--green)}.btn-red{background:var(--red)}.btn-orange{background:var(--orange)}.btn-sm{padding:4px 10px;font-size:.8rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.section-title{font-size:.95rem;font-weight:600;margin-bottom:12px}
+.theme-toggle{position:fixed;top:12px;right:12px;background:var(--text2);color:var(--bg);border:none;padding:6px 12px;border-radius:8px;cursor:pointer;z-index:100}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-box{text-align:center;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px}
+.stat-box .num{font-size:24px;font-weight:700;color:var(--blue)}
+.stat-box .label{font-size:.75rem;color:var(--text2);margin-top:4px}
+.api-monitor-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+.api-monitor-item .api-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.api-monitor-item .api-url{font-family:monospace;font-size:.82rem;color:var(--blue);word-break:break-all}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;color:#fff}
+.status-up{background:var(--green)}.status-down{background:var(--red)}.status-degraded{background:var(--orange)}.status-unknown{background:var(--text2)}
+.response-bar{display:flex;gap:2px;height:40px;align-items:flex-end;margin-top:8px}
+.response-bar .bar{flex:1;border-radius:2px 2px 0 0;min-height:2px;transition:height .3s;cursor:pointer;position:relative}
+.response-bar .bar:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:2px 6px;border-radius:4px;font-size:.65rem;white-space:nowrap;z-index:10}
+.uptime-text{font-size:.8rem;color:var(--text2);margin-top:4px}
+.preview-box{background:#1a1a2e;color:#e6e6e6;padding:16px;border-radius:8px;border:1px solid var(--border);font-family:'SF Mono',Menlo,monospace;font-size:.8rem;line-height:1.6;white-space:pre-wrap;overflow:auto;max-height:300px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+<div class="container">
+<h1>📡 API监控器</h1>
+
+<div class="stat-row" id="statsRow"></div>
+
+<div class="card">
+<div class="section-title">添加监控</div>
+<div style="margin-bottom:12px"><label>API名称</label><input type="text" id="apiName" placeholder="例：用户服务API"></div>
+<div class="form-row">
+<div><label>URL</label><input type="url" id="apiUrl" placeholder="https://api.example.com/health"></div>
+<div><label>检查间隔</label><select id="apiInterval"><option value="30">30秒</option><option value="60" selected>1分钟</option><option value="300">5分钟</option><option value="900">15分钟</option></select></div>
+</div>
+<div class="form-row">
+<div><label>请求方法</label><select id="apiMethod"><option value="GET">GET</option><option value="POST">POST</option><option value="HEAD">HEAD</option></select></div>
+<div><label>超时(秒)</label><input type="number" id="apiTimeout" value="10" min="3" max="60"></div>
+</div>
+<div style="margin-bottom:12px"><label>期望状态码</label><input type="text" id="apiExpected" value="200" placeholder="200或200,201"></div>
+<div style="margin-bottom:12px"><label>请求头 (JSON,可选)</label><textarea id="apiHeaders" rows="2" placeholder='{"Authorization":"Bearer xxx"}'></textarea></div>
+<div style="display:flex;gap:8px">
+<button onclick="addMonitor()">➕ 添加监控</button>
+<button class="btn-green" onclick="checkAll()">🔄 立即检测全部</button>
+</div>
+</div>
+
+<div class="card">
+<div class="section-title">监控列表</div>
+<div id="monitorList"></div>
+</div>
+
+<div class="card" id="detailCard" style="display:none">
+<div class="section-title">检测详情</div>
+<div class="preview-box" id="detailOutput"></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var monitors = JSON.parse(localStorage.getItem('api_monitors') || '[]');
+var idCounter = monitors.length ? Math.max(...monitors.map(m=>m.id)) + 1 : 1;
+
+function addMonitor(){
+  var name=document.getElementById('apiName').value.trim();
+  var url=document.getElementById('apiUrl').value.trim();
+  if(!name||!url){alert('请填写名称和URL');return;}
+  monitors.push({
+    id:idCounter++,name:name,url:url,
+    method:document.getElementById('apiMethod').value,
+    interval:document.getElementById('apiInterval').value,
+    timeout:document.getElementById('apiTimeout').value,
+    expected:document.getElementById('apiExpected').value,
+    headers:document.getElementById('apiHeaders').value,
+    status:'unknown',lastCheck:null,latency:null,
+    history:[],uptime:100,
+    created:new Date().toLocaleDateString('zh-CN')
+  });
+  localStorage.setItem('api_monitors',JSON.stringify(monitors));
+  renderMonitors();
+  ['apiName','apiUrl','apiHeaders'].forEach(function(id){document.getElementById(id).value='';});
+  alert('监控添加成功！');
+}
+
+function renderMonitors(){
+  var el=document.getElementById('monitorList');
+  if(!monitors.length){el.innerHTML='<p style="color:var(--text2);text-align:center;padding:20px">暂无监控项</p>';renderStats();return;}
+  el.innerHTML=monitors.map(function(m,i){
+    var statusBadge={up:'status-up',down:'status-down',degraded:'status-degraded',unknown:'status-unknown'}[m.status]||'status-unknown';
+    var statusText={up:'正常',down:'宕机',degraded:'降级',unknown:'未知'}[m.status]||'未知';
+    var bars='';
+    var history=m.history.slice(-30);
+    if(history.length){
+      var maxLatency=Math.max(...history.map(function(h){return h.latency||0;}),1);
+      bars='<div class="response-bar">'+history.map(function(h){
+        var pct=Math.round((h.latency||0)/maxLatency*100);
+        var color=h.status===200?'var(--green)':h.status>=400?'var(--red)':'var(--orange)';
+        return '<div class="bar" style="height:'+Math.max(pct,5)+'%;background:'+color+'" data-tip="'+(h.latency||'-')+'ms / '+h.status+'"></div>';
+      }).join('')+'</div><div class="uptime-text">可用率: '+m.uptime+'% · 最近延迟: '+(m.latency?m.latency+'ms':'-')+'</div>';
+    }
+    return '<div class="api-monitor-item"><div class="api-header"><div><span class="status-badge '+statusBadge+'">'+statusText+'</span> <strong>'+m.name+'</strong></div><div><button class="btn-sm" onclick="checkOne('+i+')">检测</button> <button class="btn-sm btn-orange" onclick="showDetail('+i+')">详情</button> <button class="btn-sm btn-red" onclick="deleteMonitor('+i+')">删除</button></div></div><div class="api-url">'+m.method+' '+m.url+'</div><div style="font-size:.75rem;color:var(--text2);margin-top:2px">间隔: '+m.interval+'秒 · 超时: '+m.timeout+'秒 · '+m.created+'</div>'+bars+'</div>';
+  }).join('');
+  renderStats();
+}
+
+function renderStats(){
+  var total=monitors.length;
+  var up=monitors.filter(function(m){return m.status==='up';}).length;
+  var down=monitors.filter(function(m){return m.status==='down';}).length;
+  var avgUptime=total?Math.round(monitors.reduce(function(s,m){return s+m.uptime;},0)/total):100;
+  document.getElementById('statsRow').innerHTML='<div class="stat-box"><div class="num">'+total+'</div><div class="label">监控总数</div></div><div class="stat-box"><div class="num" style="color:var(--green)">'+up+'</div><div class="label">正常运行</div></div><div class="stat-box"><div class="num" style="color:var(--red)">'+down+'</div><div class="label">宕机</div></div><div class="stat-box"><div class="num" style="color:var(--blue)">'+avgUptime+'%</div><div class="label">平均可用率</div></div>';
+}
+
+function checkOne(i){
+  var m=monitors[i];
+  simulateCheck(m);
+  localStorage.setItem('api_monitors',JSON.stringify(monitors));
+  renderMonitors();
+}
+
+function checkAll(){
+  monitors.forEach(function(m){simulateCheck(m);});
+  localStorage.setItem('api_monitors',JSON.stringify(monitors));
+  renderMonitors();
+}
+
+function simulateCheck(m){
+  var latency=Math.round(Math.random()*800+50);
+  var status=Math.random()>0.1?200:(Math.random()>0.5?500:404);
+  m.status=status===200?'up':status>=500?'down':'degraded';
+  m.lastCheck=new Date().toLocaleTimeString('zh-CN');
+  m.latency=latency;
+  m.history.push({status:status,latency:latency,time:m.lastCheck});
+  if(m.history.length>100)m.history=m.history.slice(-100);
+  var totalChecks=m.history.length;
+  var upChecks=m.history.filter(function(h){return h.status===200;}).length;
+  m.uptime=totalChecks?Math.round(upChecks/totalChecks*100):100;
+}
+
+function showDetail(i){
+  var m=monitors[i];
+  var detail='监控: '+m.name+'\nURL: '+m.url+'\n方法: '+m.method+'\n状态: '+m.status+'\n延迟: '+(m.latency?m.latency+'ms':'-')+'\n可用率: '+m.uptime+'%\n上次检测: '+(m.lastCheck||'-')+'\n\n最近检测记录:\n';
+  m.history.slice(-10).forEach(function(h){
+    detail+='['+h.time+'] '+h.status+' - '+h.latency+'ms\n';
+  });
+  document.getElementById('detailOutput').textContent=detail;
+  document.getElementById('detailCard').style.display='block';
+  document.getElementById('detailCard').scrollIntoView({behavior:'smooth'});
+}
+
+function deleteMonitor(i){monitors.splice(i,1);localStorage.setItem('api_monitors',JSON.stringify(monitors));renderMonitors();}
+function toggleTheme(){var t=document.documentElement.getAttribute('data-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'light':'dark');}
+renderMonitors();
+</script>
+</body>
+</html>

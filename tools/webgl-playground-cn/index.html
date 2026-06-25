@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGL游乐场 - 在线WebGL编辑器</title>
+<meta name="description" content="在线WebGL编辑器，实时编写和预览WebGL 3D图形代码">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--accent:#3b82f6;--accent2:#58a6ff;--success:#3fb950;--warning:#d29922;--error:#f85149;--muted:#8b949e}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warning:#9a6700;--error:#cf222e;--muted:#656d76}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;scroll-behavior:smooth}
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+nav .logo{font-size:18px;font-weight:600;color:var(--accent2)}
+nav a{color:var(--accent);text-decoration:none;font-size:14px}
+.container{display:flex;flex-direction:column;height:calc(100vh - 52px)}
+.toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{background:var(--border);color:var(--text)}
+.btn-secondary:hover{opacity:.8}
+.workspace{display:flex;flex:1;overflow:hidden}
+.editor-panel{flex:2;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.preview-panel{flex:1;display:flex;flex-direction:column}
+.panel-header{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;font-size:13px;color:var(--accent2);font-weight:500;display:flex;justify-content:space-between;align-items:center}
+.editor-tabs{display:flex;gap:0;background:var(--card);border-bottom:1px solid var(--border)}
+.editor-tab{padding:8px 16px;cursor:pointer;font-size:12px;color:var(--muted);border-bottom:2px solid transparent;transition:.2s}
+.editor-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.editor-wrapper{flex:1;position:relative;display:none}
+.editor-wrapper.active{display:block}
+.codeArea{width:100%;height:100%;background:var(--bg);border:none;color:var(--text);font-family:"Fira Code",Consolas,monospace;font-size:13px;padding:12px;resize:none;outline:none;line-height:1.5}
+.preview-area{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;background:#000}
+#glCanvas{border-radius:4px}
+.templates{background:var(--card);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.templates span{font-size:12px;color:var(--muted);margin-right:4px}
+.template-btn{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--accent2);cursor:pointer;transition:.2s}
+.template-btn:hover{border-color:var(--accent);color:var(--accent)}
+.error-msg{color:var(--error);padding:8px 12px;font-size:12px;font-family:monospace}
+@media(max-width:768px){.workspace{flex-direction:column}.editor-panel{border-right:none;border-bottom:1px solid var(--border)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+h1{font-size:clamp(1.3rem,3vw,1.8rem);text-align:center;padding:20px 0 10px;font-weight:700}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="WebGL游乐场 - 在线WebGL编辑器">
+<meta property="og:description" content="在线WebGL编辑器，实时编写和预览WebGL 3D图形代码">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://garyy.top/tools/webgl-playground-cn/">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<script src="/i18n.js" defer></script>
+</head>
+<body>
+<h1>WebGL游乐场 - 在线WebGL编辑器</h1>
+<nav>
+<span class="logo">WebGL游乐场</span>
+<a href="/index.html">← 返回工具箱</a>
+</nav>
+<div class="container">
+<div class="toolbar">
+<button class="btn btn-primary" onclick="runWebGL()">▶ 运行</button>
+<button class="btn btn-secondary" onclick="copyCode()">复制代码</button>
+<button class="btn btn-secondary" onclick="resetCode()">重置</button>
+</div>
+<div class="templates">
+<span>模板:</span>
+<button class="template-btn" onclick="loadTemplate('triangle')">彩色三角形</button>
+<button class="template-btn" onclick="loadTemplate('cube')">旋转立方体</button>
+<button class="template-btn" onclick="loadTemplate('particles')">粒子系统</button>
+<button class="template-btn" onclick="loadTemplate('gradient')">渐变平面</button>
+<button class="template-btn" onclick="loadTemplate('wave')">波浪效果</button>
+</div>
+<div class="workspace">
+<div class="editor-panel">
+<div class="panel-header"><span>着色器代码</span></div>
+<div class="editor-tabs">
+<div class="editor-tab active" onclick="switchTab('vertex')">顶点着色器</div>
+<div class="editor-tab" onclick="switchTab('fragment')">片段着色器</div>
+<div class="editor-tab" onclick="switchTab('js')">JavaScript</div>
+</div>
+<div class="editor-wrapper active" id="tab-vertex">
+<textarea class="codeArea" id="vertexShader">attribute vec2 position;
+attribute vec3 color;
+varying vec3 vColor;
+void main() {
+  vColor = color;
+  gl_Position = vec4(position, 0.0, 1.0);
+}</textarea>
+</div>
+<div class="editor-wrapper" id="tab-fragment">
+<textarea class="codeArea" id="fragmentShader">precision mediump float;
+varying vec3 vColor;
+void main() {
+  gl_FragColor = vec4(vColor, 1.0);
+}</textarea>
+</div>
+<div class="editor-wrapper" id="tab-js">
+<textarea class="codeArea" id="jsCode">// 三角形顶点数据
+const vertices = new Float32Array([
+  // x, y, r, g, b
+  -0.5, -0.5, 1.0, 0.0, 0.0,
+   0.5, -0.5, 0.0, 1.0, 0.0,
+   0.0,  0.5, 0.0, 0.0, 1.0,
+]);
+drawStatic(vertices, 3);</textarea>
+</div>
+<div id="errorMsg" class="error-msg" style="display:none"></div>
+</div>
+<div class="preview-panel">
+<div class="panel-header">预览</div>
+<div class="preview-area">
+<canvas id="glCanvas" width="400" height="400"></canvas>
+</div>
+</div>
+</div>
+</div>
+<script>
+const glCanvas = document.getElementById('glCanvas');
+const gl = glCanvas.getContext('webgl');
+
+function switchTab(name) {
+  document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.editor-wrapper').forEach(w => w.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function compileShader(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error(gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+function createProgram(vsSource, fsSource) {
+  const vs = compileShader(gl.VERTEX_SHADER, vsSource);
+  const fs = compileShader(gl.FRAGMENT_SHADER, fsSource);
+  const program = gl.createProgram();
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error(gl.getProgramInfoLog(program));
+  }
+  return program;
+}
+
+function drawStatic(vertices, count) {
+  if (!gl) return;
+  const vsSource = document.getElementById('vertexShader').value;
+  const fsSource = document.getElementById('fragmentShader').value;
+  const errEl = document.getElementById('errorMsg');
+  errEl.style.display = 'none';
+
+  try {
+    const program = createProgram(vsSource, fsSource);
+    gl.useProgram(program);
+
+    const posLoc = gl.getAttribLocation(program, 'position');
+    const colorLoc = gl.getAttribLocation(program, 'color');
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 20, 0);
+
+    if (colorLoc >= 0) {
+      gl.enableVertexAttribArray(colorLoc);
+      gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 20, 8);
+    }
+
+    gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+    gl.clearColor(0.05, 0.07, 0.09, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, count);
+  } catch(e) {
+    errEl.textContent = '错误: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function runWebGL() {
+  const jsCode = document.getElementById('jsCode').value;
+  try {
+    const fn = new Function('gl', 'canvas', 'drawStatic', jsCode);
+    fn(gl, glCanvas, drawStatic);
+  } catch(e) {
+    const errEl = document.getElementById('errorMsg');
+    errEl.textContent = '错误: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function loadTemplate(name) {
+  const templates = {
+    triangle: {
+      vertex: 'attribute vec2 position;\nattribute vec3 color;\nvarying vec3 vColor;\nvoid main() {\n  vColor = color;\n  gl_Position = vec4(position, 0.0, 1.0);\n}',
+      fragment: 'precision mediump float;\nvarying vec3 vColor;\nvoid main() {\n  gl_FragColor = vec4(vColor, 1.0);\n}',
+      js: 'const vertices = new Float32Array([\n  -0.5, -0.5, 1.0, 0.0, 0.0,\n   0.5, -0.5, 0.0, 1.0, 0.0,\n   0.0,  0.5, 0.0, 0.0, 1.0,\n]);\ndrawStatic(vertices, 3);'
+    },
+    cube: {
+      vertex: 'attribute vec3 position;\nattribute vec3 color;\nvarying vec3 vColor;\nuniform mat4 uMatrix;\nvoid main() {\n  vColor = color;\n  gl_Position = uMatrix * vec4(position, 1.0);\n}',
+      fragment: 'precision mediump float;\nvarying vec3 vColor;\nvoid main() {\n  gl_FragColor = vec4(vColor, 1.0);\n}',
+      js: 'const vs = document.getElementById(\'vertexShader\').value;\nconst fs = document.getElementById(\'fragmentShader\').value;\nconst program = createProgram(vs, fs);\ngl.useProgram(program);\n\nconst verts = new Float32Array([\n  -0.5,-0.5, 0.5, 1,0,0,  0.5,-0.5, 0.5, 0,1,0,\n   0.5, 0.5, 0.5, 0,0,1, -0.5, 0.5, 0.5, 1,1,0,\n  -0.5,-0.5,-0.5, 1,0,1,  0.5,-0.5,-0.5, 0,1,1,\n   0.5, 0.5,-0.5, 1,1,1, -0.5, 0.5,-0.5, 0.5,0.5,0.5,\n]);\nconst idx = new Uint16Array([\n  0,1,2,0,2,3, 4,5,6,4,6,7,\n  0,1,5,0,5,4, 2,3,7,2,7,6,\n  0,3,7,0,7,4, 1,2,6,1,6,5\n]);\nconst buf = gl.createBuffer();\ngl.bindBuffer(gl.ARRAY_BUFFER, buf);\ngl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);\nconst idxBuf = gl.createBuffer();\ngl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);\ngl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);\nconst posLoc = gl.getAttribLocation(program, \'position\');\nconst colLoc = gl.getAttribLocation(program, \'color\');\ngl.enableVertexAttribArray(posLoc);\ngl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 24, 0);\ngl.enableVertexAttribArray(colLoc);\ngl.vertexAttribPointer(colLoc, 3, gl.FLOAT, false, 24, 12);\nconst uMat = gl.getUniformLocation(program, \'uMatrix\');\nfunction rotY(a) {\n  const c=Math.cos(a),s=Math.sin(a);\n  return [c,0,s,0, 0,1,0,0, -s,0,c,0, 0,0,0,1];\n}\nlet angle=0;\nfunction render() {\n  gl.clearColor(0.05,0.07,0.09,1);\n  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);\n  gl.enable(gl.DEPTH_TEST);\n  gl.uniformMatrix4fv(uMat, false, rotY(angle));\n  gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0);\n  angle+=0.02;\n  requestAnimationFrame(render);\n}\nrender();'
+    },
+    particles: {
+      vertex: 'attribute vec2 position;\nattribute float size;\nattribute vec3 color;\nvarying vec3 vColor;\nvoid main() {\n  vColor = color;\n  gl_Position = vec4(position, 0.0, 1.0);\n  gl_PointSize = size;\n}',
+      fragment: 'precision mediump float;\nvarying vec3 vColor;\nvoid main() {\n  float d = distance(gl_PointCoord, vec2(0.5));\n  if (d > 0.5) discard;\n  gl_FragColor = vec4(vColor, 1.0 - d * 2.0);\n}',
+      js: 'const count = 200;\nconst data = [];\nfor (let i = 0; i < count; i++) {\n  data.push(\n    (Math.random()-0.5)*1.8, (Math.random()-0.5)*1.8,\n    Math.random()*6+2,\n    Math.random(), Math.random()*0.5+0.5, Math.random()\n  );\n}\nconst vertices = new Float32Array(data);\nconst vs = document.getElementById(\'vertexShader\').value;\nconst fs = document.getElementById(\'fragmentShader\').value;\nconst program = createProgram(vs, fs);\ngl.useProgram(program);\nconst buf = gl.createBuffer();\ngl.bindBuffer(gl.ARRAY_BUFFER, buf);\ngl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);\nconst stride = 24;\nconst posLoc = gl.getAttribLocation(program, \'position\');\nconst sizeLoc = gl.getAttribLocation(program, \'size\');\nconst colLoc = gl.getAttribLocation(program, \'color\');\ngl.enableVertexAttribArray(posLoc);\ngl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, stride, 0);\ngl.enableVertexAttribArray(sizeLoc);\ngl.vertexAttribPointer(sizeLoc, 1, gl.FLOAT, false, stride, 8);\ngl.enableVertexAttribArray(colLoc);\ngl.vertexAttribPointer(colLoc, 3, gl.FLOAT, false, stride, 12);\ngl.clearColor(0.05,0.07,0.09,1);\ngl.enable(gl.BLEND);\ngl.blendFunc(gl.SRC_ALPHA, gl.ONE);\ngl.clear(gl.COLOR_BUFFER_BIT);\ngl.drawArrays(gl.POINTS, 0, count);'
+    },
+    gradient: {
+      vertex: 'attribute vec2 position;\nvarying vec2 vPos;\nvoid main() {\n  vPos = position;\n  gl_Position = vec4(position, 0.0, 1.0);\n}',
+      fragment: 'precision mediump float;\nvarying vec2 vPos;\nvoid main() {\n  vec3 c1 = vec3(0.4, 0.5, 0.92);\n  vec3 c2 = vec3(0.46, 0.29, 0.63);\n  vec3 c = mix(c1, c2, (vPos.x + 1.0) * 0.5);\n  gl_FragColor = vec4(c, 1.0);\n}',
+      js: 'const vertices = new Float32Array([-1,-1, 1,-1, 1,1, -1,-1, 1,1, -1,1]);\ndrawStatic(vertices, 6);'
+    },
+    wave: {
+      vertex: 'attribute vec2 position;\nattribute vec3 color;\nvarying vec3 vColor;\nuniform float uTime;\nvoid main() {\n  vec2 pos = position;\n  pos.y += sin(pos.x * 10.0 + uTime) * 0.1;\n  vColor = color;\n  gl_Position = vec4(pos, 0.0, 1.0);\n}',
+      fragment: 'precision mediump float;\nvarying vec3 vColor;\nvoid main() {\n  gl_FragColor = vec4(vColor, 1.0);\n}',
+      js: 'const vs = document.getElementById(\'vertexShader\').value;\nconst fs = document.getElementById(\'fragmentShader\').value;\nconst program = createProgram(vs, fs);\ngl.useProgram(program);\nconst rows = 20, cols = 40;\nconst data = [];\nfor (let r = 0; r < rows; r++) {\n  for (let c = 0; c < cols; c++) {\n    const x = (c/cols)*2-1, y = (r/rows)*2-1;\n    const h = 1/cols, v = 1/rows;\n    const hue = (r/rows)*0.4+0.55;\n    data.push(x,y,hue,0.7,1,\n              x+h,y,hue,0.7,1,\n              x,y+v,hue,0.7,1,\n              x+h,y,hue,0.7,1,\n              x+h,y+v,hue,0.7,1,\n              x,y+v,hue,0.7,1);\n  }\n}\nconst vertices = new Float32Array(data);\nconst buf = gl.createBuffer();\ngl.bindBuffer(gl.ARRAY_BUFFER, buf);\ngl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);\nconst stride = 20;\nconst posLoc = gl.getAttribLocation(program, \'position\');\nconst colLoc = gl.getAttribLocation(program, \'color\');\nconst timeLoc = gl.getUniformLocation(program, \'uTime\');\ngl.enableVertexAttribArray(posLoc);\ngl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, stride, 0);\ngl.enableVertexAttribArray(colLoc);\ngl.vertexAttribPointer(colLoc, 3, gl.FLOAT, false, stride, 8);\nlet t = 0;\nfunction render() {\n  gl.clearColor(0.05,0.07,0.09,1);\n  gl.clear(gl.COLOR_BUFFER_BIT);\n  gl.uniform1f(timeLoc, t);\n  t += 0.05;\n  gl.drawArrays(gl.TRIANGLES, 0, vertices.length/5);\n  requestAnimationFrame(render);\n}\nrender();'
+    }
+  };
+  const t = templates[name];
+  if (!t) return;
+  document.getElementById('vertexShader').value = t.vertex;
+  document.getElementById('fragmentShader').value = t.fragment;
+  document.getElementById('jsCode').value = t.js;
+  switchTab('vertex');
+  document.querySelectorAll('.editor-tab')[0].classList.add('active');
+  runWebGL();
+}
+
+function copyCode() {
+  const all = '// 顶点着色器\n' + document.getElementById('vertexShader').value +
+    '\n\n// 片段着色器\n' + document.getElementById('fragmentShader').value +
+    '\n\n// JavaScript\n' + document.getElementById('jsCode').value;
+  navigator.clipboard.writeText(all).then(() => alert('代码已复制'));
+}
+
+function resetCode() {
+  loadTemplate('triangle');
+}
+
+if (gl) {
+  runWebGL();
+} else {
+  document.getElementById('errorMsg').textContent = '您的浏览器不支持WebGL';
+  document.getElementById('errorMsg').style.display = 'block';
+}
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

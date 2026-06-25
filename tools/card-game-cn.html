@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="翻牌记忆 - 翻开卡牌找到配对，锻炼记忆力">
+    <meta name="robots" content="index, follow">
+    <title>翻牌记忆</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #00b894; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #55efc4; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 500px; margin: 0 auto; text-align: center; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .stats { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+        .stat-item .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .ctrl-btn { padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); cursor: pointer; font-size: 14px; }
+        .ctrl-btn.active { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+        .grid { display: grid; gap: 8px; justify-content: center; margin: 16px auto; }
+        .grid-3x4 { grid-template-columns: repeat(4, 80px); }
+        .grid-4x4 { grid-template-columns: repeat(4, 80px); }
+        .grid-4x5 { grid-template-columns: repeat(5, 75px); }
+        .tile { height: 80px; border-radius: 10px; border: 2px solid var(--border-color); background: var(--primary-color); color: #fff; font-size: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; user-select: none; perspective: 600px; }
+        .grid-4x5 .tile { height: 75px; width: 75px; font-size: 26px; }
+        .tile .inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.4s; }
+        .tile.flipped .inner { transform: rotateY(180deg); }
+        .tile .front, .tile .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+        .tile .front { background: var(--primary-color); color: #fff; font-size: 24px; }
+        .tile .back { background: var(--card-bg); color: var(--text-color); border: 2px solid var(--primary-color); transform: rotateY(180deg); }
+        .tile.matched .back { background: var(--success-color); color: #fff; border-color: var(--success-color); }
+        .tile:hover:not(.flipped):not(.matched) { transform: scale(1.05); }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 12px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .message { font-size: 18px; font-weight: bold; margin-top: 12px; min-height: 28px; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>翻牌记忆</h1>
+        <div class="card">
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="moves">0</div><div class="label">翻牌次数</div></div>
+                <div class="stat-item"><div class="num" id="pairs">0/6</div><div class="label">已配对</div></div>
+                <div class="stat-item"><div class="num" id="timer">0s</div><div class="label">用时</div></div>
+            </div>
+            <div class="controls">
+                <button class="ctrl-btn active" onclick="setSize('3x4',this)">3×4</button>
+                <button class="ctrl-btn" onclick="setSize('4x4',this)">4×4</button>
+                <button class="ctrl-btn" onclick="setSize('4x5',this)">4×5</button>
+            </div>
+            <div id="board" class="grid grid-3x4"></div>
+            <div class="message" id="message"></div>
+            <button class="btn" onclick="startGame()">重新开始</button>
+        </div>
+    </div>
+    <script>
+        const EMOJIS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🦄','🐙'];
+        const SIZES = { '3x4': 6, '4x4': 8, '4x5': 10 };
+        let sizeKey = '3x4', tiles = [], flipped = [], matchedCount = 0, moves = 0, seconds = 0, timerInterval = null, locked = false;
+
+        function setSize(s, btn) {
+            sizeKey = s;
+            document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            startGame();
+        }
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+            return a;
+        }
+
+        function startGame() {
+            clearInterval(timerInterval);
+            const pairs = SIZES[sizeKey];
+            const board = document.getElementById('board');
+            board.className = `grid grid-${sizeKey}`;
+            const chosen = shuffle(EMOJIS).slice(0, pairs);
+            tiles = shuffle([...chosen, ...chosen]);
+            flipped = []; matchedCount = 0; moves = 0; seconds = 0; locked = false;
+            document.getElementById('moves').textContent = '0';
+            document.getElementById('pairs').textContent = `0/${pairs}`;
+            document.getElementById('timer').textContent = '0s';
+            document.getElementById('message').textContent = '';
+            board.innerHTML = '';
+            tiles.forEach((emoji, i) => {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.dataset.index = i;
+                tile.innerHTML = '<div class="inner"><div class="front">?</div><div class="back">' + emoji + '</div></div>';
+                tile.onclick = () => flipTile(i, tile);
+                board.appendChild(tile);
+            });
+            timerInterval = setInterval(() => { seconds++; document.getElementById('timer').textContent = seconds + 's'; }, 1000);
+        }
+
+        function flipTile(i, el) {
+            if (locked || el.classList.contains('flipped') || el.classList.contains('matched') || flipped.length >= 2) return;
+            el.classList.add('flipped');
+            flipped.push({ i, el });
+            if (flipped.length === 2) {
+                moves++;
+                document.getElementById('moves').textContent = moves;
+                locked = true;
+                if (flipped[0].i !== flipped[1].i && tiles[flipped[0].i] === tiles[flipped[1].i]) {
+                    flipped.forEach(f => f.el.classList.add('matched'));
+                    matchedCount++;
+                    document.getElementById('pairs').textContent = `${matchedCount}/${SIZES[sizeKey]}`;
+                    flipped = [];
+                    locked = false;
+                    if (matchedCount === SIZES[sizeKey]) {
+                        clearInterval(timerInterval);
+                        document.getElementById('message').textContent = `🎉 恭喜通关！${moves}次翻牌 ${seconds}秒`;
+                    }
+                } else {
+                    setTimeout(() => {
+                        flipped.forEach(f => f.el.classList.remove('flipped'));
+                        flipped = [];
+                        locked = false;
+                    }, 800);
+                }
+            }
+        }
+
+        function toggleTheme() { const html = document.documentElement; html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        startGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="知识问答挑战 - 涵盖科学、历史、地理等多领域知识问答">
+    <meta name="robots" content="index, follow">
+    <title>知识问答挑战</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #6c5ce7; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #a29bfe; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 650px; margin: 0 auto; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; text-align: center; }
+        .stats { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+        .stat-item .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .progress-bar { width: 100%; height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+        .progress-fill { height: 100%; background: var(--primary-color); border-radius: 4px; transition: width 0.3s; }
+        .question { font-size: 18px; font-weight: bold; margin-bottom: 20px; line-height: 1.5; }
+        .category { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; background: var(--primary-color); color: #fff; margin-bottom: 12px; }
+        .options { display: flex; flex-direction: column; gap: 10px; }
+        .opt-btn { padding: 14px 20px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 16px; cursor: pointer; text-align: left; transition: all 0.2s; }
+        .opt-btn:hover:not(.disabled) { border-color: var(--primary-color); }
+        .opt-btn.correct { background: var(--success-color); color: #fff; border-color: var(--success-color); }
+        .opt-btn.wrong { background: var(--danger-color); color: #fff; border-color: var(--danger-color); }
+        .opt-btn.disabled { pointer-events: none; }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 16px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .feedback { font-size: 16px; margin-top: 12px; min-height: 24px; }
+        .result { font-size: 22px; font-weight: bold; margin: 16px 0; }
+        .explanation { font-size: 14px; color: var(--secondary-color); margin-top: 8px; font-style: italic; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>知识问答挑战</h1>
+        <div class="card">
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="score">0</div><div class="label">得分</div></div>
+                <div class="stat-item"><div class="num" id="qnum">1/10</div><div class="label">题目</div></div>
+                <div class="stat-item"><div class="num" id="correctCount">0</div><div class="label">正确</div></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress" style="width:10%"></div></div>
+            <div id="quizArea">
+                <div class="category" id="category"></div>
+                <div class="question" id="question"></div>
+                <div class="options" id="options"></div>
+                <div class="feedback" id="feedback"></div>
+                <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;">下一题</button>
+            </div>
+            <div id="resultArea" style="display:none;"></div>
+        </div>
+    </div>
+    <script>
+        const QUESTIONS = [
+            { q: '太阳系中最大的行星是？', cat: '天文', opts: ['火星','木星','土星','天王星'], ans: 1, exp: '木星是太阳系中体积和质量最大的行星。' },
+            { q: '水的化学式是什么？', cat: '化学', opts: ['H2O','CO2','NaCl','O2'], ans: 0, exp: '水由两个氢原子和一个氧原子组成。' },
+            { q: '长城的起点是？', cat: '历史', opts: ['嘉峪关','山海关','居庸关','八达岭'], ans: 1, exp: '山海关被称为"天下第一关"，是万里长城的东端起点。' },
+            { q: '光速大约是多少？', cat: '物理', opts: ['30万公里/秒','15万公里/秒','300万公里/秒','3万公里/秒'], ans: 0, exp: '光在真空中的速度约为每秒30万公里。' },
+            { q: '世界上最长的河流是？', cat: '地理', opts: ['长江','亚马逊河','尼罗河','密西西比河'], ans: 2, exp: '尼罗河全长约6670公里，是世界上最长的河流。' },
+            { q: '人体最大的器官是？', cat: '生物', opts: ['心脏','肝脏','皮肤','大脑'], ans: 2, exp: '皮肤是人体面积最大的器官，总面积约1.5-2平方米。' },
+            { q: '地球自转一周需要多长时间？', cat: '天文', opts: ['24小时','12小时','365天','30天'], ans: 0, exp: '地球自转一周约需23小时56分4秒，通常取24小时。' },
+            { q: 'HTTP默认端口号是？', cat: '计算机', opts: ['80','443','8080','21'], ans: 0, exp: 'HTTP协议默认使用80端口，HTTPS使用443端口。' },
+            { q: '中国的国宝动物是？', cat: '常识', opts: ['东北虎','大熊猫','金丝猴','白鳍豚'], ans: 1, exp: '大熊猫是中国特有的珍稀动物，被称为"国宝"。' },
+            { q: '1公里等于多少米？', cat: '数学', opts: ['100米','1000米','10000米','100米'], ans: 1, exp: '1公里 = 1千米 = 1000米。' },
+            { q: '哪个星球被称为"红色星球"？', cat: '天文', opts: ['金星','火星','木星','水星'], ans: 1, exp: '火星表面富含氧化铁，呈现红色，因此被称为"红色星球"。' },
+            { q: 'DNA的全称是？', cat: '生物', opts: ['脱氧核糖核酸','核糖核酸','氨基酸','脂肪酸'], ans: 0, exp: 'DNA全称脱氧核糖核酸，是携带遗传信息的分子。' },
+            { q: '一年有多少天？', cat: '常识', opts: ['364天','365天','366天','360天'], ans: 1, exp: '平年365天，闰年366天。通常说一年365天。' },
+            { q: '氧气约占空气体积的百分比是？', cat: '化学', opts: ['21%','50%','78%','10%'], ans: 0, exp: '氧气约占空气体积的21%，氮气约占78%。' },
+            { q: '世界上最高的山峰是？', cat: '地理', opts: ['K2','珠穆朗玛峰','干城章嘉峰','洛子峰'], ans: 1, exp: '珠穆朗玛峰海拔8848.86米，是世界最高峰。' }
+        ];
+
+        let currentQ = 0, score = 0, correctCount = 0, shuffled = [], answered = false;
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+            return a;
+        }
+
+        function startQuiz() {
+            shuffled = shuffle(QUESTIONS).slice(0, 10);
+            currentQ = 0; score = 0; correctCount = 0;
+            document.getElementById('resultArea').style.display = 'none';
+            document.getElementById('quizArea').style.display = 'block';
+            showQuestion();
+        }
+
+        function showQuestion() {
+            answered = false;
+            const q = shuffled[currentQ];
+            document.getElementById('qnum').textContent = `${currentQ + 1}/${shuffled.length}`;
+            document.getElementById('score').textContent = score;
+            document.getElementById('correctCount').textContent = correctCount;
+            document.getElementById('progress').style.width = ((currentQ + 1) / shuffled.length * 100) + '%';
+            document.getElementById('category').textContent = q.cat;
+            document.getElementById('question').textContent = q.q;
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('nextBtn').style.display = 'none';
+            const container = document.getElementById('options');
+            container.innerHTML = '';
+            q.opts.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'opt-btn';
+                btn.textContent = opt;
+                btn.onclick = () => answer(i, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function answer(i, btn) {
+            if (answered) return;
+            answered = true;
+            const q = shuffled[currentQ];
+            document.querySelectorAll('.opt-btn').forEach(b => b.classList.add('disabled'));
+            if (i === q.ans) {
+                btn.classList.add('correct');
+                score += 10;
+                correctCount++;
+                document.getElementById('feedback').innerHTML = '<span style="color:var(--success-color)">✓ 正确！</span>';
+            } else {
+                btn.classList.add('wrong');
+                document.querySelectorAll('.opt-btn')[q.ans].classList.add('correct');
+                document.getElementById('feedback').innerHTML = '<span style="color:var(--danger-color)">✗ 错误</span>';
+            }
+            document.getElementById('feedback').innerHTML += `<div class="explanation">${q.exp}</div>`;
+            document.getElementById('score').textContent = score;
+            document.getElementById('correctCount').textContent = correctCount;
+            document.getElementById('nextBtn').style.display = 'inline-block';
+            document.getElementById('nextBtn').textContent = currentQ < shuffled.length - 1 ? '下一题' : '查看结果';
+        }
+
+        function nextQuestion() {
+            currentQ++;
+            if (currentQ >= shuffled.length) {
+                showResult();
+            } else {
+                showQuestion();
+            }
+        }
+
+        function showResult() {
+            document.getElementById('quizArea').style.display = 'none';
+            const pct = Math.round(correctCount / shuffled.length * 100);
+            let grade = pct >= 90 ? '🏆 卓越' : pct >= 70 ? '👍 优秀' : pct >= 50 ? '😊 及格' : '💪 继续努力';
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('resultArea').innerHTML = `
+                <div class="result">得分: ${score}分</div>
+                <div style="font-size:18px;margin:12px 0;">正确率: ${pct}% (${correctCount}/${shuffled.length})</div>
+                <div style="font-size:20px;margin:16px 0;">${grade}</div>
+                <button class="btn" onclick="startQuiz()">再来一轮</button>
+            `;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+
+        startQuiz();
+    </script>
+</body>
+</html>

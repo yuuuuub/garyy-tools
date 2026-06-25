@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="成语接龙 - 中文成语接龙益智游戏">
+    <meta name="robots" content="index, follow">
+    <title>成语接龙</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #e17055; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #fab1a0; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; text-align: center; }
+        .stats { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+        .stat-item .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .current-word { font-size: 36px; font-weight: bold; color: var(--primary-color); margin: 16px 0; letter-spacing: 8px; }
+        .hint { font-size: 14px; color: var(--secondary-color); margin-bottom: 12px; }
+        .input-row { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+        .input-row input { padding: 12px 16px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 18px; width: 200px; text-align: center; letter-spacing: 4px; }
+        .input-row input:focus { outline: none; border-color: var(--primary-color); }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary { background: var(--secondary-color); }
+        .history { text-align: left; max-height: 200px; overflow-y: auto; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-top: 12px; }
+        .history-item { padding: 6px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; }
+        .history-item:last-child { border-bottom: none; }
+        .player-tag { font-size: 12px; padding: 2px 8px; border-radius: 10px; color: #fff; }
+        .player-tag.human { background: var(--primary-color); }
+        .player-tag.ai { background: var(--secondary-color); }
+        .feedback { font-size: 16px; margin-top: 12px; min-height: 24px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .word-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+        .word-chip { padding: 4px 10px; background: var(--border-color); border-radius: 4px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>成语接龙</h1>
+        <div class="card">
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="playerScore">0</div><div class="label">玩家</div></div>
+                <div class="stat-item"><div class="num" id="aiScore">0</div><div class="label">电脑</div></div>
+                <div class="stat-item"><div class="num" id="roundNum">1</div><div class="label">回合</div></div>
+            </div>
+            <div class="hint">请用「<span id="lastChar" style="color:var(--primary-color);font-weight:bold;"></span>」字开头的四字成语</div>
+            <div class="current-word" id="currentWord"></div>
+            <div class="input-row">
+                <input type="text" id="userInput" maxlength="4" placeholder="输入四字成语" autocomplete="off">
+                <button class="btn" onclick="submitWord()">回答</button>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">
+                <button class="btn btn-secondary" onclick="showHint()" style="font-size:13px;padding:6px 14px;">提示</button>
+                <button class="btn btn-secondary" onclick="giveUp()" style="font-size:13px;padding:6px 14px;">认输</button>
+                <button class="btn btn-secondary" onclick="newGame()" style="font-size:13px;padding:6px 14px;">新游戏</button>
+            </div>
+            <div class="feedback" id="feedback"></div>
+            <div class="history" id="history"></div>
+        </div>
+    </div>
+    <script>
+        const IDIOMS = [
+            '一心一意','二人同心','三心二意','四面八方','五颜六色','六神无主','七上八下','八仙过海','九牛一毛','十全十美',
+            '百发百中','千方百计','万紫千红','一本正经','二话不说','三言两语','四海为家','五花八门','六亲不认','七零八落',
+            '八面玲珑','九死一生','十拿九稳','百折不挠','千变万化','万象更新','一马当先','二龙戏珠','三顾茅庐','四季如春',
+            '五光十色','六韬三略','七步之才','八面威风','九霄云外','十面埋伏','百步穿杨','千军万马','万水千山','一鸣惊人',
+            '二分明月','三生有幸','四面楚歌','五洲四海','六根清净','七擒七纵','八斗之才','九鼎大吕','十指连心','百年好合',
+            '千载难逢','万众一心','一见如故','二泉映月','三番五次','四平八稳','五体投地','六畜兴旺','七窍生烟','八方支援',
+            '九九归一','十字街头','百感交集','千里迢迢','万事如意','一往无前','二姓之好','三缄其口','四通八达','五内俱焚',
+            '六月飞霜','七日来复','八方风雨','九曲回肠','十年寒窗','百花齐放','千锤百炼','万箭穿心','一尘不染','二竖为虐',
+            '三阳开泰','四海升平','五谷丰登','六街三市','七颠八倒','八拜之交','九转功成','十室九空','百川归海','千篇一律',
+            '万古长青','一落千丈','二惠竞爽','三位一体','四海承风','五风十雨','六朝金粉','七情六欲','八荒之外','九天揽月',
+            '十恶不赦','百无聊赖','千辛万苦','万念俱灰','一览无余','二三其德','三足鼎立','四面出击','五湖四海','六合之内'
+        ];
+
+        let usedWords = new Set(), playerScore = 0, aiScore = 0, round = 1, lastChar = '', gameOver = false, history = [];
+
+        function init() {
+            const start = IDIOMS[Math.floor(Math.random() * IDIOMS.length)];
+            usedWords.clear();
+            history = [];
+            usedWords.add(start);
+            lastChar = start[3];
+            document.getElementById('currentWord').textContent = start;
+            document.getElementById('lastChar').textContent = lastChar;
+            document.getElementById('history').innerHTML = `<div class="history-item"><span>${start}</span><span class="player-tag ai">电脑</span></div>`;
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('userInput').value = '';
+            gameOver = false;
+        }
+
+        function findIdiom(char) {
+            const available = IDIOMS.filter(idiom => idiom[0] === char && !usedWords.has(idiom));
+            return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : null;
+        }
+
+        function submitWord() {
+            if (gameOver) return;
+            const input = document.getElementById('userInput').value.trim();
+            if (input.length !== 4) { document.getElementById('feedback').innerHTML = '<span style="color:var(--danger-color)">请输入四字成语</span>'; return; }
+            if (usedWords.has(input)) { document.getElementById('feedback').innerHTML = '<span style="color:var(--danger-color)">这个成语已经用过了</span>'; return; }
+            if (input[0] !== lastChar) { document.getElementById('feedback').innerHTML = `<span style="color:var(--danger-color)">请用「${lastChar}」字开头</span>`; return; }
+            if (!IDIOMS.includes(input)) { document.getElementById('feedback').innerHTML = '<span style="color:var(--danger-color)">这不是有效的成语</span>'; return; }
+
+            usedWords.add(input);
+            playerScore++;
+            history.push({ word: input, player: 'human' });
+            document.getElementById('playerScore').textContent = playerScore;
+            addHistory(input, 'human');
+
+            const aiChar = input[3];
+            const aiWord = findIdiom(aiChar);
+            if (!aiWord) {
+                document.getElementById('feedback').innerHTML = '<span style="color:var(--success-color)">电脑接不出来了，你赢了！🎉</span>';
+                gameOver = true;
+                return;
+            }
+
+            usedWords.add(aiWord);
+            aiScore++;
+            history.push({ word: aiWord, player: 'ai' });
+            document.getElementById('aiScore').textContent = aiScore;
+            addHistory(aiWord, 'ai');
+
+            lastChar = aiWord[3];
+            document.getElementById('currentWord').textContent = aiWord;
+            document.getElementById('lastChar').textContent = lastChar;
+            document.getElementById('feedback').innerHTML = `<span style="color:var(--success-color)">电脑回答: ${aiWord}</span>`;
+            document.getElementById('userInput').value = '';
+            document.getElementById('userInput').focus();
+        }
+
+        function addHistory(word, player) {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `<span>${word}</span><span class="player-tag ${player}">${player === 'human' ? '玩家' : '电脑'}</span>`;
+            const h = document.getElementById('history');
+            h.appendChild(div);
+            h.scrollTop = h.scrollHeight;
+        }
+
+        function showHint() {
+            if (gameOver) return;
+            const available = IDIOMS.filter(idiom => idiom[0] === lastChar && !usedWords.has(idiom));
+            if (available.length === 0) { document.getElementById('feedback').innerHTML = '<span style="color:var(--danger-color)">没有更多可接的成语了</span>'; return; }
+            const hint = available[Math.floor(Math.random() * available.length)];
+            document.getElementById('feedback').innerHTML = `<span style="color:var(--warning-color)">提示: ${hint[0]}${hint[1]}??</span>`;
+        }
+
+        function giveUp() {
+            if (gameOver) return;
+            const aiWord = findIdiom(lastChar);
+            if (aiWord) {
+                usedWords.add(aiWord);
+                aiScore++;
+                document.getElementById('aiScore').textContent = aiScore;
+                addHistory(aiWord, 'ai');
+                document.getElementById('feedback').innerHTML = `<span style="color:var(--danger-color)">正确答案: ${aiWord}</span>`;
+                lastChar = aiWord[3];
+                document.getElementById('currentWord').textContent = aiWord;
+                document.getElementById('lastChar').textContent = lastChar;
+            } else {
+                document.getElementById('feedback').innerHTML = '<span style="color:var(--success-color)">电脑也接不出来了！</span>';
+                gameOver = true;
+            }
+        }
+
+        function newGame() { playerScore = 0; aiScore = 0; round = 1; document.getElementById('playerScore').textContent = '0'; document.getElementById('aiScore').textContent = '0'; document.getElementById('roundNum').textContent = '1'; init(); }
+
+        function toggleTheme() { const html = document.documentElement; html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        document.getElementById('userInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitWord(); });
+        init();
+    </script>
+</body>
+</html>
