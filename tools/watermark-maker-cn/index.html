@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💧 水印制作工具</title>
+<meta name="description" content="在线水印制作工具，文字/图片水印，平铺/单个/对角线，自定义样式，导出PNG">
+<style>
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#f5f5f5;--card-bg:#fff;--text:#1a1a1a;--text-secondary:#666;--border:#e0e0e0;--accent:#6366f1;--accent-hover:#4f46e5;--tag-bg:#eef2ff;--tag-text:#4338ca;--input-bg:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#1a1a2e;--card-bg:#16213e;--text:#e8e8e8;--text-secondary:#a0a0b8;--border:#2a2a4a;--accent:#818cf8;--accent-hover:#6366f1;--tag-bg:#1e1b4b;--tag-text:#a5b4fc;--input-bg:#1a1a2e;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;transition:background .3s,color .3s}
+.container{max-width:900px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+header h1{font-size:22px;font-weight:700}
+.theme-toggle{background:var(--card-bg);border:1px solid var(--border);border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.card{background:var(--card-bg);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.canvas-wrap{display:flex;justify-content:center;overflow:auto;padding:10px 0}
+canvas#wmCanvas{border:1px solid var(--border);border-radius:8px;max-width:100%}
+.form-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.form-row label{font-size:13px;color:var(--text-secondary);min-width:70px}
+.form-row input[type="text"],.form-row select{padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--input-bg);color:var(--text);flex:1;min-width:120px}
+.form-row input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px}
+.form-row input[type="range"]{flex:1;accent-color:var(--accent)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:10px 16px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:4px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:var(--accent);color:#fff}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--card-bg);color:var(--text);padding:10px 24px;border-radius:12px;font-size:14px;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow);border:1px solid var(--border)}
+.toast.show{opacity:1}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:30px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text-secondary)}
+.upload-zone:hover{border-color:var(--accent);color:var(--accent)}
+.layout-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.layout-card{padding:10px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;font-size:12px;transition:all .2s}
+.layout-card:hover{border-color:var(--accent)}
+.layout-card.active{border-color:var(--accent);background:var(--tag-bg)}
+.layout-card .layout-icon{font-size:24px;margin-bottom:4px}
+footer{text-align:center;padding:24px 0;color:var(--text-secondary);font-size:12px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💧</text></svg>">
+<meta name="robots" content="index, follow">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text-secondary);font-size:.75rem;background:var(--card-bg);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>💧 水印制作工具</h1>
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+  </header>
+
+  <div class="card">
+    <div class="card-title">🖼️ 预览</div>
+    <div class="canvas-wrap"><canvas id="wmCanvas" width="800" height="600"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📸 上传图片</div>
+    <div class="upload-zone" id="uploadZone">点击或拖拽上传需要添加水印的图片</div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
+  </div>
+
+  <div class="card">
+    <div class="card-title">📐 水印布局</div>
+    <div class="layout-grid" id="layoutGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📝 水印文字</div>
+    <div class="form-row"><label>文字</label><input type="text" id="wmText" value="© 版权所有" oninput="render()"></div>
+    <div class="form-row"><label>字号</label><input type="range" min="12" max="80" value="28" id="wmSize" oninput="render()"><span id="wmSz">28</span></div>
+    <div class="form-row"><label>颜色</label><input type="color" id="wmColor" value="#ffffff" onchange="render()"></div>
+    <div class="form-row"><label>字体</label>
+      <select id="wmFont" onchange="render()">
+        <option value="Arial">Arial</option>
+        <option value="Arial Black">Arial Black</option>
+        <option value="SimHei">黑体</option>
+        <option value="SimSun">宋体</option>
+        <option value="KaiTi">楷体</option>
+      </select>
+    </div>
+    <div class="form-row"><label>描边</label><input type="color" id="wmStroke" value="#000000" onchange="render()"></div>
+    <div class="form-row"><label>描边宽</label><input type="range" min="0" max="6" value="1" id="wmStrokeW" oninput="render()"><span id="wmSw">1</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚙️ 水印样式</div>
+    <div class="form-row"><label>透明度</label><input type="range" min="5" max="100" value="30" id="wmAlpha" oninput="render()"><span id="wmAl">30%</span></div>
+    <div class="form-row"><label>旋转角度</label><input type="range" min="-45" max="45" value="-30" id="wmRotation" oninput="render()"><span id="wmRt">-30°</span></div>
+    <div class="form-row"><label>间距X</label><input type="range" min="50" max="500" value="200" id="wmGapX" oninput="render()"><span id="wmGx">200</span></div>
+    <div class="form-row"><label>间距Y</label><input type="range" min="30" max="300" value="100" id="wmGapY" oninput="render()"><span id="wmGy">100</span></div>
+    <div class="form-row"><label>偏移X</label><input type="range" min="-200" max="200" value="0" id="wmOffX" oninput="render()"><span id="wmOx">0</span></div>
+    <div class="form-row"><label>偏移Y</label><input type="range" min="-200" max="200" value="0" id="wmOffY" oninput="render()"><span id="wmOy">0</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚡ 操作</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="exportPNG()">💾 导出PNG</button>
+      <button class="btn btn-outline" onclick="exportJPG()">💾 导出JPG</button>
+    </div>
+  </div>
+
+  <footer>💧 水印制作工具 - 保护您的图片版权</footer>
+</div>
+<div id="toast" class="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/i18n-js@3/dist/i18n.min.js" defer></script>
+<script>
+const C=document.getElementById('wmCanvas'),ctx=C.getContext('2d');
+let bgImg=null,layoutIdx=0;
+const layouts=[
+  {name:'平铺',icon:'🔲'},
+  {name:'居中',icon:'🎯'},
+  {name:'左下',icon:'↙️'},
+  {name:'右下',icon:'↘️'},
+  {name:'左上',icon:'↖️'},
+  {name:'右上',icon:'↗️'},
+  {name:'底部',icon:'⬇️'},
+  {name:'对角线',icon:'📐'},
+];
+
+function init(){
+  renderLayouts();
+  const uz=document.getElementById('uploadZone');
+  const fi=document.getElementById('fileInput');
+  uz.onclick=()=>fi.click();
+  uz.ondragover=e=>{e.preventDefault();uz.style.borderColor='var(--accent)';};
+  uz.ondragleave=()=>uz.style.borderColor='var(--border)';
+  uz.ondrop=e=>{e.preventDefault();uz.style.borderColor='var(--border)';handleFile(e.dataTransfer.files[0]);};
+  fi.onchange=()=>handleFile(fi.files[0]);
+  render();
+}
+
+function renderLayouts(){
+  const grid=document.getElementById('layoutGrid');grid.innerHTML='';
+  layouts.forEach((l,i)=>{
+    const card=document.createElement('div');
+    card.className='layout-card'+(i===layoutIdx?' active':'');
+    card.innerHTML=`<div class="layout-icon">${l.icon}</div><div>${l.name}</div>`;
+    card.onclick=()=>{layoutIdx=i;renderLayouts();render();};
+    grid.appendChild(card);
+  });
+}
+
+function handleFile(f){
+  if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{bgImg=img;C.width=img.width;C.height=img.height;render();showToast('图片已加载');};
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+
+function render(){
+  const w=C.width,h=C.height;
+  ctx.clearRect(0,0,w,h);
+
+  if(bgImg){
+    ctx.drawImage(bgImg,0,0,w,h);
+  }else{
+    const grad=ctx.createLinearGradient(0,0,w,h);
+    grad.addColorStop(0,'#2d3436');grad.addColorStop(1,'#636e72');
+    ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='rgba(255,255,255,0.1)';ctx.font='60px Arial';ctx.textAlign='center';
+    ctx.fillText('💧 上传图片后添加水印',w/2,h/2);
+    return;
+  }
+
+  const text=document.getElementById('wmText').value;
+  const size=parseInt(document.getElementById('wmSize').value);
+  const color=document.getElementById('wmColor').value;
+  const font=document.getElementById('wmFont').value;
+  const stroke=document.getElementById('wmStroke').value;
+  const strokeW=parseInt(document.getElementById('wmStrokeW').value);
+  const alpha=parseInt(document.getElementById('wmAlpha').value)/100;
+  const rotation=parseInt(document.getElementById('wmRotation').value);
+  const gapX=parseInt(document.getElementById('wmGapX').value);
+  const gapY=parseInt(document.getElementById('wmGapY').value);
+  const offX=parseInt(document.getElementById('wmOffX').value);
+  const offY=parseInt(document.getElementById('wmOffY').value);
+
+  document.getElementById('wmSz').textContent=size;
+  document.getElementById('wmSw').textContent=strokeW;
+  document.getElementById('wmAl').textContent=Math.round(alpha*100)+'%';
+  document.getElementById('wmRt').textContent=rotation+'°';
+  document.getElementById('wmGx').textContent=gapX;
+  document.getElementById('wmGy').textContent=gapY;
+  document.getElementById('wmOx').textContent=offX;
+  document.getElementById('wmOy').textContent=offY;
+
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.font=`bold ${size}px ${font}`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+
+  if(layoutIdx===0){
+    for(let y=-h;y<h*2;y+=gapY){
+      for(let x=-w;x<w*2;x+=gapX){
+        ctx.save();
+        ctx.translate(x+offX,y+offY);
+        ctx.rotate(rotation*Math.PI/180);
+        if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+        ctx.fillStyle=color;ctx.fillText(text,0,0);
+        ctx.restore();
+      }
+    }
+  }else if(layoutIdx===1){
+    ctx.save();ctx.translate(w/2+offX,h/2+offY);ctx.rotate(rotation*Math.PI/180);
+    if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+    ctx.fillStyle=color;ctx.fillText(text,0,0);ctx.restore();
+  }else if(layoutIdx===2){
+    ctx.save();ctx.translate(40+offX,h-30+offY);ctx.rotate(rotation*Math.PI/180);ctx.textAlign='left';
+    if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+    ctx.fillStyle=color;ctx.fillText(text,0,0);ctx.restore();
+  }else if(layoutIdx===3){
+    ctx.save();ctx.translate(w-40+offX,h-30+offY);ctx.rotate(rotation*Math.PI/180);ctx.textAlign='right';
+    if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+    ctx.fillStyle=color;ctx.fillText(text,0,0);ctx.restore();
+  }else if(layoutIdx===4){
+    ctx.save();ctx.translate(40+offX,30+offY);ctx.rotate(rotation*Math.PI/180);ctx.textAlign='left';
+    if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+    ctx.fillStyle=color;ctx.fillText(text,0,0);ctx.restore();
+  }else if(layoutIdx===5){
+    ctx.save();ctx.translate(w-40+offX,30+offY);ctx.rotate(rotation*Math.PI/180);ctx.textAlign='right';
+    if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+    ctx.fillStyle=color;ctx.fillText(text,0,0);ctx.restore();
+  }else if(layoutIdx===6){
+    ctx.save();ctx.translate(w/2+offX,h-20+offY);ctx.rotate(rotation*Math.PI/180);
+    if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+    ctx.fillStyle=color;ctx.fillText(text,0,0);ctx.restore();
+  }else if(layoutIdx===7){
+    const diag=Math.sqrt(w*w+h*h);
+    for(let d=-diag;d<diag*2;d+=gapX){
+      ctx.save();
+      ctx.translate(offX+d*0.7,offY+d*0.5);
+      ctx.rotate(rotation*Math.PI/180);
+      if(strokeW>0){ctx.strokeStyle=stroke;ctx.lineWidth=strokeW;ctx.lineJoin='round';ctx.strokeText(text,0,0);}
+      ctx.fillStyle=color;ctx.fillText(text,0,0);
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
+function exportPNG(){
+  const link=document.createElement('a');link.download='水印_'+Date.now()+'.png';link.href=C.toDataURL('image/png');link.click();showToast('已导出PNG');
+}
+function exportJPG(){
+  const link=document.createElement('a');link.download='水印_'+Date.now()+'.jpg';link.href=C.toDataURL('image/jpeg',0.95);link.click();showToast('已导出JPG');
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+function toggleTheme(){const d=document.documentElement;d.dataset.theme=d.dataset.theme==='dark'?'light':'dark';document.querySelector('.theme-toggle').textContent=d.dataset.theme==='dark'?'☀️':'🌙';}
+init();
+</script>
+</body>
+</html>
