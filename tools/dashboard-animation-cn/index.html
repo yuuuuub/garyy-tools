@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仪表盘动画工具</title>
+<meta name="description" content="仪表盘动画工具，创建带动画效果的数据仪表盘">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖥️</text></svg>">
+<meta name="robots" content="index, follow">
+<script src="../i18n.js" defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a855f7;--pink:#ec4899;--cyan:#06b6d4;--orange:#f97316;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;--shadow:0 4px 24px rgba(0,0,0,.1)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1100px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.grid-4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.gauge{position:relative;width:160px;height:100px;margin:0 auto}
+.gauge-bg{fill:none;stroke:var(--border);stroke-width:12;stroke-linecap:round}
+.gauge-fill{fill:none;stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1)}
+.gauge-value{position:absolute;bottom:0;left:50%;transform:translateX(-50%);font-size:1.5rem;font-weight:700}
+.gauge-label{text-align:center;font-size:.8rem;color:var(--text2);margin-top:4px}
+.sparkline{display:flex;align-items:end;gap:2px;height:40px}
+.spark-bar{flex:1;background:var(--accent);border-radius:2px;transition:height .6s cubic-bezier(.4,0,.2,1);opacity:.7}
+.spark-bar:hover{opacity:1}
+.widget{background:var(--bg);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden}
+.widget-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.widget-title{font-weight:600;font-size:.95rem}
+.widget-value{font-size:1.8rem;font-weight:700}
+.widget-change{font-size:.8rem;margin-top:4px}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-online{background:var(--green);animation:pulse 2s infinite}
+.status-offline{background:var(--red)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🖥️ 仪表盘动画工具';
+const $=id=>document.getElementById(id);
+const APP=$('app');
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+
+let dashboard={
+  widgets:[
+    {id:'revenue',title:'总营收',value:1280000,prev:1120000,prefix:'¥',suffix:'',icon:'💰',type:'number',color:'#3b82f6',sparkline:[65,78,82,90,85,95,100,108,115,120,128]},
+    {id:'users',title:'活跃用户',value:45600,prev:41200,prefix:'',suffix:'',icon:'👥',type:'number',color:'#3fb950',sparkline:[32,35,38,40,42,43,44,45,45,46,46]},
+    {id:'orders',title:'订单量',value:8920,prev:7650,prefix:'',suffix:'',icon:'📦',type:'number',color:'#d29922',sparkline:[60,65,70,72,78,80,82,85,87,89,89]},
+    {id:'conversion',title:'转化率',value:3.2,prev:2.8,prefix:'',suffix:'%',icon:'📈',type:'number',color:'#a855f7',sparkline:[2.1,2.3,2.5,2.6,2.7,2.8,2.9,3.0,3.0,3.1,3.2]},
+    {id:'satisfaction',title:'满意度',value:4.7,prev:4.5,prefix:'',suffix:'/5',icon:'⭐',type:'gauge',color:'#ec4899',max:5},
+    {id:'load',title:'系统负载',value:68,prev:72,prefix:'',suffix:'%',icon:'⚙️',type:'gauge',color:'#06b6d4',max:100},
+    {id:'response',title:'响应时间',value:125,prev:145,prefix:'',suffix:'ms',icon:'⚡',type:'gauge',color:'#f97316',max:300},
+    {id:'uptime',title:'可用性',value:99.9,prev:99.8,prefix:'',suffix:'%',icon:'✅',type:'gauge',color:'#3fb950',max:100}
+  ]
+};
+
+let animKey=0;
+
+function render(){
+  animKey++;
+  let h=`<h1>🖥️ 仪表盘动画工具</h1><p class="subtitle">实时数据仪表盘，带动画效果</p>`;
+  h+=`<div class="card"><div class="flex-between"><div class="flex"><span style="color:var(--green)"><span class="status-dot status-online"></span>实时更新中</span></div><div class="flex"><button class="btn btn-sm btn-green" onclick="refreshData()">🔄 刷新数据</button><button class="btn btn-sm" onclick="addWidget()">+ 添加组件</button></div></div></div>`;
+
+  h+=`<div class="grid grid-4">`;
+  dashboard.widgets.filter(w=>w.type==='number').forEach(w=>{
+    const change=((w.value-w.prev)/w.prev*100).toFixed(1);
+    const positive=change>=0;
+    h+=`<div class="widget" style="animation:slideUp .5s ease-out forwards;opacity:0" data-delay="${dashboard.widgets.indexOf(w)*0.1}">`;
+    h+=`<div class="widget-header"><span style="font-size:1.2rem">${w.icon}</span></div>`;
+    h+=`<div class="widget-value" style="color:${w.color}">${w.prefix}<span class="counter" data-target="${w.value}">0</span>${w.suffix}</div>`;
+    h+=`<div style="font-size:.85rem;color:var(--text2);margin-top:2px">${w.title}</div>`;
+    h+=`<div class="widget-change" style="color:${positive?'var(--green)':'var(--red)'}">${positive?'↑':'↓'} ${Math.abs(change)}% vs 上期</div>`;
+    if(w.sparkline) h+=`<div class="sparkline" style="margin-top:12px">${w.sparkline.map(v=>`<div class="spark-bar" style="height:0%;background:${w.color}" data-height="${v/Math.max(...w.sparkline)*100}"></div>`).join('')}</div>`;
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+
+  h+=`<div class="grid grid-4" style="margin-top:0">`;
+  dashboard.widgets.filter(w=>w.type==='gauge').forEach(w=>{
+    const pct=w.value/w.max;
+    h+=`<div class="widget" style="animation:slideUp .5s ease-out forwards;opacity:0" data-delay="${dashboard.widgets.indexOf(w)*0.1}">`;
+    h+=`<div style="font-size:.85rem;color:var(--text2);margin-bottom:8px;text-align:center">${w.icon} ${w.title}</div>`;
+    h+=renderGauge(w);
+    h+=`<div style="text-align:center;margin-top:4px;font-size:.8rem;color:var(--text2)">vs 上期: ${w.prev}${w.suffix}</div>`;
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+
+  h+=`<div class="grid grid-2">`;
+  h+=`<div class="card"><h3 style="margin-bottom:12px">📊 趋势图</h3>${renderTrendChart()}</div>`;
+  h+=`<div class="card"><h3 style="margin-bottom:12px">🏆 排行榜</h3>${renderLeaderboard()}</div>`;
+  h+=`</div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">📝 最近活动</h3>${renderActivity()}</div>`;
+  APP.innerHTML=h;
+  animateWidgets();
+}
+
+function renderGauge(w){
+  const r=60,cx=80,cy=80;
+  const startAngle=Math.PI*0.8;
+  const endAngle=Math.PI*2.2;
+  const totalAngle=endAngle-startAngle;
+  const bgPath描述=`M${cx+r*Math.cos(startAngle)},${cy+r*Math.sin(startAngle)} A${r},${r} 0 1,1 ${cx+r*Math.cos(endAngle)},${cy+r*Math.sin(endAngle)}`;
+  const valueAngle=startAngle+totalAngle*w.value/w.max;
+  const fillPath=`M${cx+r*Math.cos(startAngle)},${cy+r*Math.sin(startAngle)} A${r},${r} 0 ${totalAngle*w.value/w.max>Math.PI?1:0},1 ${cx+r*Math.cos(valueAngle)},${cy+r*Math.sin(valueAngle)}`;
+  const circumference=totalAngle*r;
+  const dashoffset=circumference*(1-w.value/w.max);
+  return`<svg viewBox="0 0 160 100" style="width:160px;height:100px;margin:0 auto;display:block"><path d="${bgPath描述}" class="gauge-bg"/><path d="${fillPath}" class="gauge-fill" stroke="${w.color}" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" style="animation:gaugeAnim 1.5s forwards" data-offset="${dashoffset}"/><text x="${cx}" y="${cy+5}" text-anchor="middle" fill="var(--text)" font-size="20" font-weight="700">${w.value}${w.suffix}</text></svg>`;
+}
+
+function renderTrendChart(){
+  const data=[12,19,15,25,22,30,28,35,32,40,38,45];
+  const labels=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const w=500,h=200,pad=40;
+  const max=Math.max(...data)*1.15;
+  const gap=(w-pad*2)/(data.length-1);
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:200px">`;
+  const pts=data.map((v,i)=>`${pad+gap*i},${h-pad-(v/max)*(h-pad*2)}`).join(' ');
+  let areaPath=`M${pad},${h-pad} `;
+  data.forEach((v,i)=>{areaPath+=`L${pad+gap*i},${h-pad-(v/max)*(h-pad*2)} `;});
+  areaPath+=`L${pad+gap*(data.length-1)},${h-pad} Z`;
+  s+=`<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>`;
+  s+=`<path d="${areaPath}" fill="url(#areaGrad)"/>`;
+  s+=`<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1200" stroke-dashoffset="1200"><animate attributeName="stroke-dashoffset" from="1200" to="0" dur="2s" fill="freeze"/></polyline>`;
+  data.forEach((v,i)=>{
+    const cx=pad+gap*i,cy=h-pad-(v/max)*(h-pad*2);
+    s+=`<circle cx="${cx}" cy="${cy}" r="0" fill="var(--accent)"><animate attributeName="r" from="0" to="4" dur=".3s" fill="freeze" begin="${0.5+i*0.1}s"/></circle>`;
+  });
+  labels.forEach((l,i)=>{s+=`<text x="${pad+gap*i}" y="${h-pad+16}" text-anchor="middle" fill="var(--text2)" font-size="9">${l}</text>`;});
+  s+=`</svg>`;
+  return s;
+}
+
+function renderLeaderboard(){
+  const items=[
+    {name:'产品A',value:'¥520K',pct:40,color:COLORS[0]},
+    {name:'产品B',value:'¥280K',pct:22,color:COLORS[1]},
+    {name:'产品C',value:'¥240K',pct:19,color:COLORS[2]},
+    {name:'产品D',value:'¥160K',pct:12,color:COLORS[3]},
+    {name:'产品E',value:'¥80K',pct:7,color:COLORS[4]}
+  ];
+  let h='';
+  items.forEach((item,i)=>{
+    h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;animation:slideUp .4s ease-out forwards;opacity:0" data-delay="${i*0.1}">`;
+    h+=`<span style="width:20px;text-align:center;font-weight:700;color:${item.color}">#${i+1}</span>`;
+    h+=`<span style="flex:1;font-size:.9rem">${item.name}</span>`;
+    h+=`<div style="width:100px;height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div class="bar-fill" style="width:0%;height:100%;background:${item.color};border-radius:3px;transition:width 1s forwards" data-width="${item.pct}"></div></div>`;
+    h+=`<span style="font-size:.85rem;font-weight:600;color:${item.color};width:60px;text-align:right">${item.value}</span>`;
+    h+=`</div>`;
+  });
+  return h;
+}
+
+function renderActivity(){
+  const activities=[
+    {time:'2分钟前',text:'新用户注册 +15',icon:'👤',color:'var(--green)'},
+    {time:'5分钟前',text:'订单完成 #8921',icon:'✅',color:'var(--accent)'},
+    {time:'12分钟前',text:'系统告警已恢复',icon:'🔔',color:'var(--yellow)'},
+    {time:'30分钟前',text:'数据库备份完成',icon:'💾',color:'var(--purple)'},
+    {time:'1小时前',text:'新功能上线 v2.1',icon:'🚀',color:'var(--pink)'}
+  ];
+  let h='';
+  activities.forEach((a,i)=>{
+    h+=`<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);animation:slideUp .3s ease-out forwards;opacity:0" data-delay="${i*0.08}">`;
+    h+=`<span style="font-size:1.2rem">${a.icon}</span>`;
+    h+=`<div style="flex:1"><div style="font-size:.9rem">${a.text}</div><div style="font-size:.75rem;color:var(--text2)">${a.time}</div></div>`;
+    h+=`<div style="width:8px;height:8px;border-radius:50%;background:${a.color};margin-top:6px"></div>`;
+    h+=`</div>`;
+  });
+  return h;
+}
+
+function animateWidgets(){
+  document.querySelectorAll('[data-delay]').forEach(el=>{
+    setTimeout(()=>{el.style.opacity='1';},parseFloat(el.dataset.delay)*1000);
+  });
+  document.querySelectorAll('.counter').forEach(el=>{
+    const target=parseFloat(el.dataset.target);
+    const duration=1500;
+    const start=performance.now();
+    const isFloat=target%1!==0;
+    function update(now){
+      const p=Math.min((now-start)/duration,1);
+      const eased=1-Math.pow(1-p,3);
+      el.textContent=isFloat?(eased*target).toFixed(1):Math.round(eased*target).toLocaleString();
+      if(p<1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  });
+  document.querySelectorAll('.spark-bar').forEach((el,i)=>{
+    setTimeout(()=>{el.style.height=el.dataset.height+'%';},i*50+200);
+  });
+  document.querySelectorAll('.bar-fill').forEach((el,i)=>{
+    setTimeout(()=>{el.style.width=el.dataset.width+'%';},i*100+300);
+  });
+  document.querySelectorAll('[data-offset]').forEach(el=>{
+    setTimeout(()=>{el.style.strokeDashoffset=el.dataset.offset;},300);
+  });
+}
+
+function refreshData(){
+  dashboard.widgets.forEach(w=>{
+    if(w.type==='number'){
+      const change=Math.floor(Math.random()*20000)-10000;
+      w.prev=w.value;
+      w.value=Math.max(0,w.value+change);
+      if(w.id==='conversion'||w.id==='satisfaction'||w.id==='uptime'){
+        w.value=Math.round((w.value/1000)*10)/10;
+        w.value=Math.min(w.value,w.max);
+      }
+      if(w.sparkline){w.sparkline=w.sparkline.slice(1);w.sparkline.push(w.value/10000);}
+    } else if(w.type==='gauge'){
+      w.prev=w.value;
+      w.value=Math.min(w.max,Math.max(0,w.value+Math.floor(Math.random()*20)-10));
+    }
+  });
+  render();
+}
+
+function addWidget(){
+  const title=prompt('组件名称：','新指标');
+  if(!title)return;
+  dashboard.widgets.push({id:'w'+Date.now(),title,value:Math.floor(Math.random()*1000),prev:Math.floor(Math.random()*500),prefix:'',suffix:'',icon:'📊',type:'number',color:COLORS[dashboard.widgets.length%COLORS.length],sparkline:Array.from({length:11},()=>Math.random()*100)});
+  render();
+}
+render();
+setInterval(refreshData,5000);
+</script>
+</body>
+</html>
