@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 自然之声</title>
+<meta property="og:title" content="🌿 自然之声">
+<meta property="og:description" content="🌿 自然之声 - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="在线自然声音生成器，包含雨声、风声、溪流、鸟鸣等自然音效">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#10b981;--accent2:#059669;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#059669;--accent2:#047857}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.ctn{width:100%;max-width:500px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px;box-shadow:var(--shadow)}
+header{text-align:center;margin-bottom:24px}h1{font-size:1.5rem;font-weight:700}.sub{color:var(--text2);font-size:.85rem;margin-top:4px}
+.section{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}.section h2{font-size:1rem;margin-bottom:12px;color:var(--accent)}
+.mixer{display:flex;flex-direction:column;gap:10px}
+.mix-row{display:flex;align-items:center;gap:10px}
+.mix-icon{font-size:1.2rem;min-width:28px;text-align:center}
+.mix-label{font-size:.85rem;min-width:50px;color:var(--text2)}
+.mix-slider{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--border);outline:none}
+.mix-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--card)}
+.mix-val{font-size:.8rem;min-width:30px;text-align:right;color:var(--text)}
+.timer-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tbtn{padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--card);color:var(--text);font-size:.8rem;cursor:pointer;transition:all .2s}.tbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ctrls{display:flex;gap:10px;margin-top:14px}.btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s}.btn-play{background:var(--accent);color:#fff}.btn-play:hover{background:var(--accent2)}.btn-play.playing{background:#ef4444}.btn-stop{background:var(--border);color:var(--text)}
+.status{text-align:center;margin-top:12px;font-size:.85rem;color:var(--text2);min-height:20px}
+.viz{display:flex;align-items:end;justify-content:center;gap:2px;height:50px;margin-top:12px}.bar{width:3px;background:var(--accent);border-radius:2px;transition:height .1s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body,.ctn{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div class="ctn">
+<header><h1>🌿 自然之声</h1><p class="sub">混合自然音效，创造专属环境</p></header>
+
+<div class="section"><h2>🎵 自然音效</h2>
+<div class="mixer" id="mixer"></div></div>
+
+<div class="section"><h2>⏱ 定时</h2>
+<div class="timer-btns">
+<button class="tbtn active" onclick="setTimer(0,this)">不限</button>
+<button class="tbtn" onclick="setTimer(15,this)">15分钟</button>
+<button class="tbtn" onclick="setTimer(30,this)">30分钟</button>
+<button class="tbtn" onclick="setTimer(60,this)">1小时</button>
+<button class="tbtn" onclick="setTimer(120,this)">2小时</button>
+</div></div>
+
+<div class="ctrls">
+<button class="btn btn-play" id="playBtn" onclick="toggle()">▶ 播放</button>
+<button class="btn btn-stop" onclick="stop()">⏹ 停止</button>
+</div>
+<div class="viz" id="viz"></div>
+<div class="status" id="status">调节音效，点击播放</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+const sounds=[
+  {id:'rain',icon:'🌧️',name:'雨声'},
+  {id:'wind',icon:'💨',name:'风声'},
+  {id:'stream',icon:'💧',name:'溪流'},
+  {id:'birds',icon:'🐦',name:'鸟鸣'},
+  {id:'thunder',icon:'⚡',name:'雷声'},
+  {id:'leaves',icon:'🍂',name:'树叶'},
+  {id:'crickets',icon:'🦗',name:'蟋蟀'},
+  {id:'waves',icon:'🌊',name:'海浪'}
+];
+
+let actx=null,playing=false,timerId=null,timerMin=0;
+let sources={},gains={},birdTimer=null;
+
+function $(id){return document.getElementById(id);}
+
+function initMixer(){
+  const m=$('mixer');
+  sounds.forEach(s=>{
+    const row=document.createElement('div');row.className='mix-row';
+    row.innerHTML=`<span class="mix-icon">${s.icon}</span><span class="mix-label">${s.name}</span><input type="range" class="mix-slider" id="mix_${s.id}" min="0" max="100" value="0" oninput="updateMix('${s.id}',this.value)"><span class="mix-val" id="val_${s.id}">0%</span>`;
+    m.appendChild(row);
+  });
+}
+
+function initViz(){const v=$('viz');for(let i=0;i<32;i++){const b=document.createElement('div');b.className='bar';b.style.height='2px';v.appendChild(b);}}
+
+function updateMix(id,val){$('val_'+id).textContent=val+'%';if(gains[id])gains[id].gain.value=val/100;}
+function setTimer(m,t){timerMin=m;document.querySelectorAll('.tbtn').forEach(x=>x.classList.remove('active'));t.classList.add('active');}
+
+function createNoise(ctx,len){const buf=ctx.createBuffer(1,len||ctx.sampleRate*2,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;return s;}
+
+function chirp(freq,dur){
+  if(!actx||!playing)return;
+  const now=actx.currentTime;
+  const osc=actx.createOscillator();osc.type='sine';
+  const g=actx.createGain();
+  osc.frequency.setValueAtTime(freq,now);
+  osc.frequency.linearRampToValueAtTime(freq*(1+Math.random()*0.3),now+dur);
+  g.gain.setValueAtTime(0,now);
+  g.gain.linearRampToValueAtTime(0.04,now+0.01);
+  g.gain.exponentialRampToValueAtTime(0.001,now+dur);
+  osc.connect(g);g.connect(gains.birds||actx.destination);
+  osc.start(now);osc.stop(now+dur);
+}
+
+function setupAudio(){
+  if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
+  const masterGain=actx.createGain();masterGain.gain.value=1;masterGain.connect(actx.destination);
+  const len=actx.sampleRate*4;
+
+  sounds.forEach(s=>{
+    const val=+$('mix_'+s.id).value;
+    if(val===0)return;
+    const g=actx.createGain();g.gain.value=val/100;
+    g.connect(masterGain);gains[s.id]=g;
+
+    if(s.id==='rain'||s.id==='wind'||s.id==='leaves'||s.id==='crickets'||s.id==='waves'){
+      const noise=createNoise(actx,len);
+      const lp=actx.createBiquadFilter();lp.type='lowpass';
+      const hp=actx.createBiquadFilter();hp.type='highpass';
+      switch(s.id){
+        case'rain':lp.frequency.value=2500;hp.frequency.value=500;break;
+        case'wind':lp.frequency.value=400;hp.frequency.value=50;break;
+        case'leaves':lp.frequency.value=3000;hp.frequency.value=1000;break;
+        case'crickets':lp.frequency.value=5000;hp.frequency.value=3000;break;
+        case'waves':lp.frequency.value=1500;hp.frequency.value=80;break;
+      }
+      noise.connect(hp);hp.connect(lp);lp.connect(g);noise.start();sources[s.id]=noise;
+    }
+    else if(s.id==='thunder'){
+      function thunderBolt(){
+        if(!playing||!gains.thunder)return;
+        const noise=createNoise(actx);
+        const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=150;
+        const now=actx.currentTime;
+        const tg=actx.createGain();
+        tg.gain.setValueAtTime(0,now);
+        tg.gain.linearRampToValueAtTime(0.3,now+0.05);
+        tg.gain.exponentialRampToValueAtTime(0.001,now+2.5);
+        noise.connect(lp);lp.connect(tg);tg.connect(gains.thunder);
+        noise.start(now);noise.stop(now+3);
+        setTimeout(thunderBolt,6000+Math.random()*12000);
+      }
+      thunderBolt();
+    }
+    else if(s.id==='stream'){
+      const noise=createNoise(actx,len);
+      const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=2000;bp.Q.value=0.3;
+      const lfo=actx.createOscillator();lfo.type='sine';lfo.frequency.value=0.5;
+      const lfoG=actx.createGain();lfoG.gain.value=800;
+      lfo.connect(lfoG);lfoG.connect(bp.frequency);
+      noise.connect(bp);bp.connect(g);lfo.start();noise.start();
+      sources[s.id]=noise;sources[s.id+'_lfo']=lfo;
+    }
+  });
+
+  const birdVal=+$('mix_birds').value;
+  if(birdVal>0){
+    function birdLoop(){
+      if(!playing)return;
+      const freqs=[1200,1800,2400,3000,800,1500,2000];
+      for(let i=0;i<2+Math.floor(Math.random()*3);i++){
+        setTimeout(()=>chirp(freqs[Math.floor(Math.random()*freqs.length)],0.1+Math.random()*0.1),i*80);
+      }
+      birdTimer=setTimeout(birdLoop,500+Math.random()*2000);
+    }
+    birdLoop();
+  }
+}
+
+function toggle(){if(playing){stop();return;}setupAudio();playing=true;$('playBtn').textContent='⏸ 暂停';$('playBtn').classList.add('playing');$('status').textContent='正在播放：自然之声';animateViz();if(timerMin>0)timerId=setTimeout(()=>{stop();$('status').textContent='定时结束';},timerMin*60000);}
+
+function stop(){if(!playing)return;if(birdTimer){clearTimeout(birdTimer);birdTimer=null;}Object.values(sources).forEach(s=>{try{s.stop();}catch(e){}});sources={};Object.values(gains).forEach(g=>{try{g.disconnect();}catch(e){}});gains={};playing=false;$('playBtn').textContent='▶ 播放';$('playBtn').classList.remove('playing');$('status').textContent='已停止';if(timerId){clearTimeout(timerId);timerId=null;}document.querySelectorAll('.bar').forEach(b=>b.style.height='2px');}
+
+function animateViz(){if(!playing)return;document.querySelectorAll('.bar').forEach(b=>{b.style.height=(Math.random()*40+4)+'px';});requestAnimationFrame(()=>setTimeout(animateViz,100));}
+
+initMixer();initViz();
+</script>
+</body>
+</html>

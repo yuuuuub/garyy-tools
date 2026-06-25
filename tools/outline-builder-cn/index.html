@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📝 中文大纲构建器</title>
+<meta name="description" content="大纲构建工具，创建层级大纲，支持拖拽排序、折叠展开、导出功能">
+<meta name="robots" content="index, follow">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}
+.ctn{max-width:800px;margin:0 auto}
+input,textarea,select,button{font-family:inherit;font-size:.95rem}
+button{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}
+button:hover{opacity:.85}button:active{transform:scale(.97)}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+button.dng{background:var(--red)}
+input[type=text],textarea{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none}
+input:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical}
+.bg{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.hidden{display:none}
+.outline-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;position:relative}
+.outline-input{flex:1;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.95rem;outline:none;transition:border .15s}
+.outline-input:focus{border-color:var(--accent)}
+.outline-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;white-space:nowrap}
+.outline-item:hover .outline-actions{opacity:1}
+.outline-btn{padding:4px 8px;font-size:.75rem;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);transition:all .15s}
+.outline-btn:hover{border-color:var(--accent);color:var(--accent)}
+.outline-btn.dng:hover{border-color:var(--red);color:var(--red)}
+.level-indicator{width:24px;text-align:center;font-size:.8rem;color:var(--text2);flex-shrink:0;padding-top:8px}
+.level-dots{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0}
+.level-dot{width:4px;height:4px;border-radius:50%;background:var(--border)}
+.level-line{width:2px;height:100%;position:absolute;left:35px;top:0;background:var(--border)}
+.drag-handle{cursor:grab;padding:4px;color:var(--text2);font-size:.8rem;user-select:none}
+.drag-handle:active{cursor:grabbing}
+.collapse-btn{cursor:pointer;font-size:.7rem;color:var(--text2);padding:4px;user-select:none}
+.collapse-btn:hover{color:var(--accent)}
+.outline-children{margin-left:24px;border-left:2px solid var(--border);padding-left:8px}
+.outline-children.collapsed{display:none}
+.node-count{font-size:.75rem;color:var(--text2);margin-left:8px}
+.export-area{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:monospace;font-size:.85rem;white-space:pre-wrap;max-height:400px;overflow-y:auto;color:var(--text)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<h1 style="position:fixed;top:6px;left:80px;z-index:999;font-size:1rem;pointer-events:none">📝 中文大纲构建器</h1>
+
+<div class="ctn" style="padding-top:50px">
+<div class="bg" style="justify-content:center;margin-bottom:20px">
+<button onclick="addChild(-1)">+ 添加顶层节点</button>
+<button onclick="expandAll()">展开全部</button>
+<button onclick="collapseAll()">折叠全部</button>
+<button class="sec" onclick="loadDemo()">📖 示例</button>
+<button class="sec" onclick="exportText()">📤 导出文本</button>
+<button class="sec" onclick="exportMD()">📤 导出Markdown</button>
+<button class="sec" onclick="importText()">📥 导入文本</button>
+</div>
+
+<div id="outline-root" class="cd" style="min-height:400px"></div>
+<div id="stats-bar" style="text-align:center;color:var(--text2);font-size:.85rem;margin-top:12px"></div>
+</div>
+
+<div class="modal-overlay hidden" id="import-modal"><div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:90%;max-width:600px"><h2 style="margin-bottom:12px">📥 导入文本大纲</h2><p style="color:var(--text2);margin-bottom:8px;font-size:.85rem">每行一个条目，缩进表示层级（Tab或空格）</p><textarea id="import-input" rows="12" placeholder="例如：&#10;第一章 绪论&#10;  1.1 研究背景&#10;  1.2 研究意义&#10;第二章 文献综述&#10;  2.1 国内研究&#10;  2.2 国外研究"></textarea><div class="bg"><button onclick="confirmImport()">导入</button><button class="sec" onclick="closeImport()">取消</button></div></div></div>
+
+<script>
+const STORAGE_KEY='outline_builder_data';
+let nodes=[];
+let nextId=1;
+
+function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY));if(d){nodes=d.nodes||[];nextId=d.nextId||1}}catch(e){}}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify({nodes,nextId}))}
+
+function createNode(text='',children=[]){return{id:nextId++,text,children,collapsed:false}}
+
+function addChild(parentId){
+const newNode=createNode('');
+if(parentId===-1){nodes.push(newNode)}
+else{const parent=findNode(nodes,parentId);if(parent){parent.children.push(newNode);parent.collapsed=false}}
+save();render();
+setTimeout(()=>{const input=document.querySelector(`[data-id="${newNode.id}"] .outline-input`);if(input)input.focus()},50);
+}
+
+function addSibling(nodeId){
+const parent=findParent(nodes,nodeId);
+if(!parent){const idx=nodes.findIndex(n=>n.id===nodeId);nodes.splice(idx+1,0,createNode(''));save();render();return}
+const idx=parent.children.findIndex(n=>n.id===nodeId);
+parent.children.splice(idx+1,0,createNode(''));
+save();render();
+}
+
+function deleteNode(nodeId){
+const parent=findParent(nodes,nodeId);
+if(parent){parent.children=parent.children.filter(n=>n.id!==nodeId)}
+else{nodes=nodes.filter(n=>n.id!==nodeId)}
+save();render();
+}
+
+function updateText(nodeId,text){
+const node=findNode(nodes,nodeId);
+if(node){node.text=text;save();updateStats()}
+}
+
+function toggleCollapse(nodeId){
+const node=findNode(nodes,nodeId);
+if(node){node.collapsed=!node.collapsed;save();render()}
+}
+
+function expandAll(){function f(n){n.collapsed=false;n.children.forEach(f)}nodes.forEach(f);save();render()}
+function collapseAll(){function f(n){if(n.children.length)n.collapsed=true;n.children.forEach(f)}nodes.forEach(f);save();render()}
+
+function findNode(list,id){for(let n of list){if(n.id===id)return n;const f=findNode(n.children,id);if(f)return f}return null}
+function findParent(list,id){for(let n of list){const idx=n.children.findIndex(c=>c.id===id);if(idx>=0)return n;const f=findParent(n.children,id);if(f)return f}return null}
+
+function countNodes(list){let c=0;list.forEach(n=>{c++;c+=countNodes(n.children)});return c}
+function countDepth(list,d=0){let m=d;list.forEach(n=>{m=Math.max(m,countDepth(n.children,d+1))});return m}
+
+function render(){
+const el=document.getElementById('outline-root');
+if(!nodes.length){el.innerHTML='<div style="text-align:center;padding:60px;color:var(--text2)">点击"+ 添加顶层节点"开始构建大纲</div>';updateStats();return}
+el.innerHTML=renderNodes(nodes,0);
+updateStats();
+bindEvents();
+}
+
+function renderNodes(list,depth){
+return list.map(node=>{
+const hasChildren=node.children.length>0;
+const childCount=countNodes(node.children);
+return`<div class="outline-item" data-id="${node.id}" draggable="true">
+${hasChildren?`<span class="collapse-btn" onclick="toggleCollapse(${node.id})">${node.collapsed?'▶':'▼'}</span>`:'<span style="width:18px;display:inline-block"></span>'}
+<input class="outline-input" value="${escHtml(node.text)}" oninput="updateText(${node.id},this.value)" onkeydown="handleKey(event,${node.id})" placeholder="输入内容...">
+<div class="outline-actions">
+<span class="node-count">${childCount?childCount+'项':''}</span>
+<button class="outline-btn" onclick="addChild(${node.id})" title="添加子节点">+</button>
+<button class="outline-btn" onclick="addSibling(${node.id})" title="添加同级">↔</button>
+<button class="outline-btn dng" onclick="deleteNode(${node.id})" title="删除">×</button>
+</div>
+</div>${hasChildren?`<div class="outline-children ${node.collapsed?'collapsed':''}">${renderNodes(node.children,depth+1)}</div>`:''}`;
+}).join('');
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function handleKey(e,nodeId){
+if(e.key==='Enter'){e.preventDefault();addSibling(nodeId)}
+else if(e.key==='Tab'){e.preventDefault();addChild(nodeId)}
+else if(e.key==='Backspace'&&!e.target.value){e.preventDefault();deleteNode(nodeId)}
+}
+
+function updateStats(){
+const total=countNodes(nodes);
+const depth=countDepth(nodes);
+document.getElementById('stats-bar').textContent=`共 ${total} 个节点，${depth} 层深度`;
+}
+
+function exportText(){
+let text='';
+function toText(list,indent=0){list.forEach(n=>{text+='  '.repeat(indent)+n.text+'\n';toText(n.children,indent+1)})}
+toText(nodes);
+const blob=new Blob([text],{type:'text/plain'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='大纲.txt';a.click();
+}
+
+function exportMD(){
+let text='';
+function toMD(list,indent=0){list.forEach(n=>{text+='  '.repeat(indent)+'- '+n.text+'\n';toMD(n.children,indent+1)})}
+toMD(nodes);
+const blob=new Blob([text],{type:'text/markdown'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='大纲.md';a.click();
+}
+
+function importText(){document.getElementById('import-input').value='';document.getElementById('import-modal').classList.remove('hidden')}
+function closeImport(){document.getElementById('import-modal').classList.add('hidden')}
+function confirmImport(){
+const text=document.getElementById('import-input').value;
+if(!text.trim())return;
+const lines=text.split('\n');
+nodes=[];
+const stack=[{children:nodes}];
+lines.forEach(line=>{
+if(!line.trim())return;
+const indent=line.search(/\S/);
+const level=Math.floor(indent/2);
+const node=createNode(line.trim());
+while(stack.length>level+1)stack.pop();
+stack[stack.length-1].children.push(node);
+stack.push(node);
+});
+save();closeImport();render();
+}
+
+function loadDemo(){
+nodes=[
+createNode('项目报告',[
+createNode('第一章 项目概述',[
+createNode('1.1 项目背景'),
+createNode('1.2 项目目标'),
+createNode('1.3 项目范围')
+]),
+createNode('第二章 需求分析',[
+createNode('2.1 用户需求'),
+createNode('2.2 功能需求'),
+createNode('2.3 非功能需求')
+]),
+createNode('第三章 技术方案',[
+createNode('3.1 架构设计'),
+createNode('3.2 技术选型'),
+createNode('3.3 接口设计')
+]),
+createNode('第四章 实现细节',[
+createNode('4.1 核心模块'),
+createNode('4.2 数据库设计'),
+createNode('4.3 前端实现')
+]),
+createNode('第五章 测试与部署',[
+createNode('5.1 测试方案'),
+createNode('5.2 部署流程'),
+createNode('5.3 运维监控')
+])
+])
+];
+save();render();
+}
+
+function bindEvents(){
+document.querySelectorAll('.outline-item[draggable]').forEach(el=>{
+el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',el.dataset.id);el.style.opacity='.4'});
+el.addEventListener('dragend',e=>{el.style.opacity='1'});
+el.addEventListener('dragover',e=>{e.preventDefault();el.style.borderTop='2px solid var(--accent)'});
+el.addEventListener('dragleave',e=>{el.style.borderTop=''});
+el.addEventListener('drop',e=>{
+e.preventDefault();el.style.borderTop='';
+const fromId=parseInt(e.dataTransfer.getData('text/plain'));
+const toId=parseInt(el.dataset.id);
+if(fromId===toId)return;
+const fromNode=findNode(nodes,fromId);if(!fromNode)return;
+const fromParent=findParent(nodes,fromId);
+if(fromParent)fromParent.children=fromParent.children.filter(n=>n.id!==fromId);
+else nodes=nodes.filter(n=>n.id!==fromId);
+const toNode=findNode(nodes,toId);if(toNode){const toParent=findParent(nodes,toId);if(toParent){const idx=toParent.children.indexOf(toNode);toParent.children.splice(idx,0,fromNode)}}
+else nodes.push(fromNode);
+save();render();
+});
+});
+}
+
+load();render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>

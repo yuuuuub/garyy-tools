@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML预览器</title>
+    <meta name="description" content="在线HTML代码实时预览编辑器，支持手机/平板/桌面预览模式">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; height: 100vh; display: flex; flex-direction: column; }
+        .header { padding: 0.75rem 1.5rem; background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; flex-shrink: 0; flex-wrap: wrap; }
+        h1 { color: var(--accent); font-size: 1.1rem; white-space: nowrap; }
+        .header-btns { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.4rem 0.8rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.8rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        button.active { background: var(--success); }
+        .device-btn { width: 32px; height: 32px; padding: 0; font-size: 1.1rem; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary); border: 2px solid transparent; }
+        button.device-btn.active { border-color: var(--accent); color: var(--accent); }
+        .main { flex: 1; display: flex; overflow: hidden; }
+        .editor-pane { flex: 1; display: flex; flex-direction: column; border-right: 2px solid var(--border); min-width: 0; }
+        .pane-header { padding: 0.4rem 1rem; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+        textarea {
+            flex: 1; width: 100%; padding: 1rem; border: none; resize: none;
+            background: var(--bg-secondary); color: var(--text-primary);
+            font-family: 'Courier New', monospace; font-size: 0.9rem; line-height: 1.5; tab-size: 2;
+        }
+        textarea:focus { outline: none; }
+        .preview-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .preview-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; overflow: auto; background: var(--bg-tertiary); padding: 1rem; }
+        #previewFrame { border: none; background: white; transition: width 0.3s, height 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-radius: 4px; }
+        .error-bar { padding: 0.5rem 1rem; background: rgba(244,67,54,0.15); color: var(--danger); font-size: 0.85rem; display: none; flex-shrink: 0; }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="header">
+        <h1>🌐 HTML预览器</h1>
+        <div class="header-btns">
+            <button class="device-btn active" onclick="setDevice('desktop', this)" title="桌面">🖥️</button>
+            <button class="device-btn" onclick="setDevice('tablet', this)" title="平板">📱</button>
+            <button class="device-btn" onclick="setDevice('phone', this)" title="手机">📲</button>
+            <button onclick="runCode()">▶ 运行</button>
+            <button class="secondary" onclick="copyCode()">复制代码</button>
+            <button class="secondary" onclick="copyHtml()">复制HTML</button>
+            <button class="secondary" onclick="formatCode()">格式化</button>
+        </div>
+    </div>
+    <div class="error-bar" id="errorBar"></div>
+    <div class="main">
+        <div class="editor-pane" id="editorPane">
+            <div class="pane-header"><span>📝 HTML代码</span><span id="lineInfo"></span></div>
+            <textarea id="htmlInput" oninput="autoRun()" spellcheck="false"></textarea>
+        </div>
+        <div class="preview-pane" id="previewPane">
+            <div class="pane-header"><span>👁️ 预览</span><span id="previewSize"></span></div>
+            <div class="preview-container">
+                <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const sampleHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: white; border-radius: 16px; padding: 2.5rem; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-width: 500px; width: 100%; }
+    h1 { color: #333; margin-bottom: 0.5rem; }
+    p { color: #666; line-height: 1.6; }
+    .btn { display: inline-block; margin-top: 1.5rem; padding: 0.8rem 2rem; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102,126,234,0.4); }
+    ul { margin-top: 1rem; color: #555; }
+    li { margin: 0.3rem 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎉 欢迎使用 HTML预览器</h1>
+    <p>在左侧编辑器中修改代码，右侧实时显示效果。支持响应式预览。</p>
+    <ul>
+      <li>✨ 实时预览</li>
+      <li>📱 多设备预览模式</li>
+      <li>🎨 支持内联CSS</li>
+    </ul>
+    <button class="btn" onclick="alert('你好！')">点击我</button>
+  </div>
+</body>
+</html>`;
+
+document.getElementById('htmlInput').value = sampleHtml;
+
+let runTimer = null;
+let currentDevice = 'desktop';
+
+function autoRun() {
+    clearTimeout(runTimer);
+    runTimer = setTimeout(runCode, 500);
+}
+
+function runCode() {
+    const code = document.getElementById('htmlInput').value;
+    const frame = document.getElementById('previewFrame');
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write(code);
+    doc.close();
+    document.getElementById('errorBar').style.display = 'none';
+}
+
+function setDevice(device, btn) {
+    currentDevice = device;
+    document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const frame = document.getElementById('previewFrame');
+    if (device === 'phone') { frame.style.width = '375px'; frame.style.height = '667px'; }
+    else if (device === 'tablet') { frame.style.width = '768px'; frame.style.height = '1024px'; }
+    else { frame.style.width = '100%'; frame.style.height = '100%'; }
+    document.getElementById('previewSize').textContent = device === 'phone' ? '375×667' : device === 'tablet' ? '768×1024' : '自适应';
+}
+
+function copyCode() { navigator.clipboard.writeText(document.getElementById('htmlInput').value).then(() => alert('代码已复制')); }
+function copyHtml() { const f = document.getElementById('previewFrame'); navigator.clipboard.writeText(f.contentDocument.documentElement.outerHTML).then(() => alert('渲染后HTML已复制')); }
+
+function formatCode() {
+    const ta = document.getElementById('htmlInput');
+    let code = ta.value;
+    let formatted = '', indent = 0;
+    const tags = code.replace(/>\s+</g, '>\n<').split('\n');
+    tags.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        if (trimmed.match(/^<\/\w/)) indent--;
+        formatted += '  '.repeat(Math.max(0, indent)) + trimmed + '\n';
+        if (trimmed.match(/^<\w[^>]*[^\/]>/) && !trimmed.match(/^<(img|br|hr|input|meta|link)/i)) indent++;
+    });
+    ta.value = formatted.trim();
+}
+
+function updateLineInfo() {
+    const ta = document.getElementById('htmlInput');
+    const pos = ta.selectionStart;
+    const lines = ta.value.substring(0, pos).split('\n');
+    document.getElementById('lineInfo').textContent = `行 ${lines.length}, 列 ${lines[lines.length - 1].length + 1}`;
+}
+
+document.getElementById('htmlInput').addEventListener('keyup', updateLineInfo);
+setDevice('desktop', document.querySelector('.device-btn'));
+runCode();
+    </script>
+</body>
+</html>
