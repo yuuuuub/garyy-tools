@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>债券计算器</title>
+<meta name="description" content="债券收益率、久期、凸性计算工具，支持国债/企业债/可转债">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--gold:#f59e0b;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;scroll-behavior:smooth}
+.container{max-width:700px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:.85rem;color:var(--text2);margin-bottom:4px;display:block}
+input,select{width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem}
+input:focus{outline:none;border-color:var(--blue)}
+.btn{background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:var(--radius);cursor:pointer;font-size:.9rem;transition:opacity .2s;width:100%;margin-top:10px}
+.btn:hover{opacity:.85}
+.result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem}
+.result-row:last-child{border-bottom:none}
+.result-label{color:var(--text2)}
+.result-val{font-weight:600}
+.up{color:var(--green)}.down{color:var(--red)}
+.bond-type-tabs{display:flex;gap:6px;margin-bottom:14px}
+.bond-type-tab{padding:6px 14px;border:1px solid var(--border);border-radius:20px;font-size:.82rem;cursor:pointer;background:var(--card);color:var(--text2);transition:all .2s}
+.bond-type-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.coupon-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:10px}
+.coupon-table th,.coupon-table td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)}
+.coupon-table th{color:var(--text2);font-weight:500;background:var(--bg)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏦</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="债券计算器">
+<meta property="og:description" content="债券收益率、久期、凸性计算工具">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>🏦 债券计算器</h1>
+    <p>计算债券收益率、久期、凸性</p>
+  </header>
+  <div class="card">
+    <div class="bond-type-tabs" id="bondTypeTabs">
+      <div class="bond-type-tab active" data-type="fixed">固定利率</div>
+      <div class="bond-type-tab" data-type="zero">零息债券</div>
+      <div class="bond-type-tab" data-type="float">浮动利率</div>
+    </div>
+    <div class="form-grid">
+      <div><label>债券面值 (元)</label><input type="number" id="faceValue" value="100" step="0.01"></div>
+      <div><label>票面利率 (%)</label><input type="number" id="couponRate" value="3.5" step="0.01"></div>
+      <div><label>到期年限</label><input type="number" id="years" value="5" min="1" max="50"></div>
+      <div><label>付息频率</label><select id="frequency"><option value="1">每年</option><option value="2" selected>每半年</option><option value="4">每季度</option></select></div>
+      <div><label>当前价格 (元)</label><input type="number" id="currentPrice" value="98.5" step="0.01"></div>
+      <div><label>再投资收益率 (%)</label><input type="number" id="reinvestRate" value="3.0" step="0.01"></div>
+    </div>
+    <button class="btn" id="calcBtn">计算</button>
+  </div>
+  <div id="result"></div>
+  <div id="cashflowSection"></div>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const tabs=document.querySelectorAll('.bond-type-tab');
+let bondType='fixed';
+tabs.forEach(t=>{t.onclick=()=>{tabs.forEach(x=>x.classList.remove('active'));t.classList.add('active');bondType=t.dataset.type;calc();}});
+function calc(){
+  const F=+$('faceValue').value;
+  const c=+$('couponRate').value/100;
+  const n=+$('years').value;
+  const freq=+$('frequency').value;
+  const P=+$('currentPrice').value;
+  const reinvest=+$('reinvestRate').value/100;
+  const periods=n*freq;
+  const couponPerPeriod=bondType==='zero'?0:(F*c/freq);
+  const pricePer100=P/F*100;
+  // YTM (Newton-Raphson)
+  let ytm=0.03;
+  for(let i=0;i<100;i++){
+    let pv=0,dpv=0;
+    for(let t=1;t<=periods;t++){
+      const cf=t<periods?couponPerPeriod:couponPerPeriod+F;
+      const df=Math.pow(1+ytm/freq,-t);
+      pv+=cf*df;
+      dpv+=-t/freq*cf*Math.pow(1+ytm/freq,-t-1);
+    }
+    const err=pv-P;
+    if(Math.abs(err)<0.0001)break;
+    ytm-=err/dpv;
+  }
+  const ytmPct=(ytm*100).toFixed(4);
+  // Macaulay Duration
+  let macDur=0,durPv=0;
+  for(let t=1;t<=periods;t++){
+    const cf=t<periods?couponPerPeriod:couponPerPeriod+F;
+    const df=Math.pow(1+ytm/freq,-t);
+    macDur+=t/freq*cf*df;
+    durPv+=cf*df;
+  }
+  macDur=durPv>0?macDur/durPv:0;
+  const modDur=macDur/(1+ytm/freq);
+  // Convexity
+  let conv=0;
+  for(let t=1;t<=periods;t++){
+    const cf=t<periods?couponPerPeriod:couponPerPeriod+F;
+    const df=Math.pow(1+ytm/freq,-t);
+    conv+=t*(t+1)*cf*df;
+  }
+  conv/=(durPv*Math.pow(1+ytm/freq,2)*freq*freq);
+  // Current Yield
+  const currentYield=F*c/P*100;
+  // Total Return
+  let totalCF=0;
+  for(let t=1;t<=periods;t++){
+    const cf=t<periods?couponPerPeriod:couponPerPeriod+F;
+    totalCF+=cf;
+  }
+  const totalReturn=((totalCF-P)/P/n*100).toFixed(2);
+  const capitalGain=((F-P)/n).toFixed(2);
+  let html='<div class="card"><b>计算结果</b>';
+  const rows=[
+    ['到期收益率(YTM)',ytmPct+'%'],
+    ['当前收益率',currentYield.toFixed(2)+'%'],
+    ['修正久期',modDur.toFixed(4)],
+    ['麦考利久期',macDur.toFixed(4)],
+    ['凸性',conv.toFixed(4)],
+    ['到期总收益','¥'+(totalCF-P).toFixed(2)],
+    ['年化总收益',totalReturn+'%'],
+    ['年均资本利得','¥'+capitalGain]
+  ];
+  rows.forEach(([l,v])=>{html+=`<div class="result-row"><span class="result-label">${l}</span><span class="result-val">${v}</span></div>`;});
+  html+='</div>';
+  // Duration impact
+  const rateUp=ytm+0.01;
+  const rateDown=ytm-0.01;
+  const priceChange=(-modDur*0.01+0.5*conv*0.01*0.01)*100;
+  html+='<div class="card"><b>利率敏感性</b>';
+  html+=`<div class="result-row"><span class="result-label">利率+1%时价格变动</span><span class="result-val down">${(-modDur+0.5*conv).toFixed(2)}%</span></div>`;
+  html+=`<div class="result-row"><span class="result-label">利率-1%时价格变动</span><span class="result-val up">+${(modDur+0.5*conv).toFixed(2)}%</span></div>`;
+  html+=`<div class="result-row"><span class="result-label">凸性调整</span><span class="result-val">${(0.5*conv*0.01*0.01*100).toFixed(4)}%</span></div>`;
+  html+='</div>';
+  // Cashflow table
+  html+='<div class="card"><b>现金流明细</b><table class="coupon-table"><thead><tr><th>期数</th><th>时间</th><th>票息</th><th>本金</th><th>现值</th></tr></thead><tbody>';
+  for(let t=1;t<=periods;t++){
+    const cf=t<periods?couponPerPeriod:couponPerPeriod+F;
+    const principal=t===periods?F:0;
+    const pv=cf*Math.pow(1+ytm/freq,-t);
+    const period=(t/freq).toFixed(1);
+    html+=`<tr><td>${t}</td><td>${period}年</td><td>¥${couponPerPeriod.toFixed(2)}</td><td>¥${principal.toFixed(2)}</td><td>¥${pv.toFixed(2)}</td></tr>`;
+  }
+  html+='</tbody></table></div>';
+  html+='<div class="hint">计算结果仅供参考，实际投资请以市场数据为准</div>';
+  $('result').innerHTML=html;
+}
+$('calcBtn').onclick=calc;
+calc();
+})();
+</script>
+<script src="../i18n.js" defer>
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

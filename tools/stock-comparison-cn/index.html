@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>股票对比工具</title>
+<meta name="description" content="股票对比分析工具，同时对比多只A股/美股关键指标">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;scroll-behavior:smooth}
+.container{max-width:900px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.3rem;margin-bottom:4px}
+header p{font-size:.85rem;color:var(--text2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+input,select,button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:.9rem;font-family:inherit}
+input:focus{outline:none;border-color:var(--blue)}
+.btn{background:var(--blue);color:#fff;border:none;padding:8px 20px;border-radius:var(--radius);cursor:pointer;font-size:.9rem;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn-sm{background:var(--card);border:1px solid var(--border);color:var(--text);padding:4px 10px;font-size:.78rem;margin-left:4px}
+.btn-sm:hover{border-color:var(--red);color:var(--red)}
+.search-row{display:flex;gap:8px;margin-bottom:10px}
+.search-row input{flex:1}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tag{display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:.78rem}
+.tag .remove{cursor:pointer;color:var(--text2);font-size:1rem;line-height:1}
+.tag .remove:hover{color:var(--red)}
+.compare-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
+.compare-table th,.compare-table td{padding:10px 12px;text-align:center;border-bottom:1px solid var(--border)}
+.compare-table th{color:var(--text2);font-weight:500;background:var(--bg)}
+.compare-table th:first-child,.compare-table td:first-child{text-align:left}
+.bar-row{display:flex;align-items:center;margin:6px 0;gap:8px}
+.bar-row .label{min-width:60px;font-size:.8rem;color:var(--text2)}
+.bar-row .bar-track{flex:1;background:var(--bg);border-radius:4px;height:20px;overflow:hidden}
+.bar-row .bar-fill{height:100%;border-radius:4px;transition:width .6s}
+.bar-row .val{min-width:80px;text-align:right;font-size:.8rem;font-weight:600}
+.up{color:var(--green)}
+.down{color:var(--red)}
+.hint{font-size:.78rem;color:var(--text2);margin-top:6px;text-align:center}
+@media(max-width:640px){.compare-table{font-size:.78rem}.compare-table th,.compare-table td{padding:6px 4px}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="股票对比工具">
+<meta property="og:description" content="股票对比分析工具，同时对比多只A股/美股关键指标">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+  <header>
+    <h1>📊 股票对比</h1>
+    <p>对比多只股票关键指标</p>
+  </header>
+  <div class="card">
+    <div class="search-row">
+      <select id="marketSelect" style="width:100px;flex:none">
+        <option value="cn">A股</option>
+        <option value="us">美股</option>
+      </select>
+      <input type="text" id="stockInput" placeholder="输入股票代码 (如 600519, 000858)" title="Enter键添加">
+      <button class="btn" id="addBtn">添加</button>
+    </div>
+    <div class="tag-list" id="tagList"></div>
+    <div class="hint">输入股票代码后点击添加，至少2只股票进行对比</div>
+  </div>
+  <div id="compareResult"></div>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const stockInput=$('stockInput'),addBtn=$('addBtn'),tagList=$('tagList'),compareResult=$('compareResult'),marketSelect=$('marketSelect');
+let stocks=[];
+const cnData={
+  '600519':{name:'贵州茅台',price:1580.00,change:1.25,pe:28.5,eps:55.44,div:1.85,mktCap:'2.0T',volume:2800000,sector:'白酒'},
+  '000858':{name:'五粮液',price:138.50,change:-0.72,pe:18.2,eps:7.61,div:2.10,mktCap:'534B',volume:12500000,sector:'白酒'},
+  '601318':{name:'中国平安',price:48.25,change:0.52,pe:9.8,eps:4.92,div:4.50,mktCap:'880B',volume:35600000,sector:'保险'},
+  '000333':{name:'美的集团',price:62.80,change:1.85,pe:12.5,eps:5.02,div:3.20,mktCap:'437B',volume:18200000,sector:'家电'},
+  '600036':{name:'招商银行',price:35.60,change:0.28,pe:6.8,eps:5.24,div:5.10,mktCap:'897B',volume:28400000,sector:'银行'},
+  '002714':{name:'牧原股份',price:42.30,change:-2.15,pe:35.2,eps:1.20,div:0.80,mktCap:'231B',volume:42100000,sector:'畜牧'},
+  '601012':{name:'隆基绿能',price:22.80,change:-1.42,pe:22.8,eps:1.00,div:0.50,mktCap:'172B',volume:52300000,sector:'光伏'},
+  '300750':{name:'宁德时代',price:198.50,change:2.35,pe:22.5,eps:8.82,div:0.60,mktCap:'869B',volume:15600000,sector:'电池'},
+  '000001':{name:'平安银行',price:11.85,change:0.17,pe:5.2,eps:2.28,div:6.20,mktCap:'230B',volume:48500000,sector:'银行'},
+  '600900':{name:'长江电力',price:28.90,change:0.35,pe:20.6,eps:1.40,div:3.80,mktCap:'671B',volume:22100000,sector:'电力'}
+};
+const usData={
+  'AAPL':{name:'Apple Inc.',price:198.72,change:1.35,pe:30.2,eps:6.58,div:0.52,mktCap:'2.98T',volume:52400000,sector:'科技'},
+  'MSFT':{name:'Microsoft Corp.',price:458.19,change:0.87,pe:36.8,eps:12.45,div:0.72,mktCap:'3.41T',volume:18200000,sector:'科技'},
+  'GOOGL':{name:'Alphabet Inc.',price:174.35,change:-0.23,pe:26.4,eps:6.60,div:0.20,mktCap:'2.15T',volume:28500000,sector:'科技'},
+  'AMZN':{name:'Amazon.com',price:198.02,change:1.12,pe:50.1,eps:3.95,div:0,mktCap:'2.06T',volume:41500000,sector:'科技'},
+  'TSLA':{name:'Tesla Inc.',price:263.55,change:-0.88,pe:62.3,eps:4.23,div:0,mktCap:'837B',volume:108000000,sector:'汽车'},
+  'NVDA':{name:'NVIDIA Corp.',price:950.02,change:3.21,pe:75.4,eps:12.60,div:0.04,mktCap:'2.34T',volume:43200000,sector:'芯片'},
+  'META':{name:'Meta Platforms',price:527.34,change:1.55,pe:27.9,eps:18.90,div:0.50,mktCap:'1.34T',volume:15600000,sector:'科技'},
+  'JPM':{name:'JPMorgan Chase',price:205.45,change:0.52,pe:12.3,eps:16.68,div:4.25,mktCap:'591B',volume:9500000,sector:'银行'}
+};
+function getData(code){
+  const m=marketSelect.value;
+  const src=m==='cn'?cnData:usData;
+  const c=code.toUpperCase();
+  if(src[c])return{...src[c],code:c};
+  return{name:c+' Inc.',price:Math.round(Math.random()*500+10)/10,change:Math.round((Math.random()*10-5)*100)/100,pe:Math.round((Math.random()*60+5)*10)/10,eps:Math.round(Math.random()*2000)/100,div:Math.round(Math.random()*600)/100,mktCap:['125B','58B','340B'][Math.floor(Math.random()*3)],volume:Math.round(Math.random()*50000000+1000000),sector:'其他',code:c};
+}
+function renderTags(){
+  tagList.innerHTML=stocks.map((s,i)=>`<span class="tag">${s} <span class="remove" data-i="${i}">&times;</span></span>`).join('');
+  tagList.querySelectorAll('.remove').forEach(el=>{el.onclick=()=>{stocks.splice(+el.dataset.i,1);renderTags();renderCompare();}});
+}
+function renderCompare(){
+  if(stocks.length<2){compareResult.innerHTML='<div class="card" style="text-align:center;color:var(--text2);padding:40px">请添加至少2只股票进行对比</div>';return;}
+  const data=stocks.map(s=>getData(s));
+  const maxPrice=Math.max(...data.map(d=>d.price));
+  const maxPE=Math.max(...data.map(d=>d.pe));
+  const maxVol=Math.max(...data.map(d=>d.volume));
+  let h='<div class="card"><table class="compare-table"><thead><tr><th>指标</th>';
+  data.forEach(d=>{h+=`<th>${d.code}</th>`;});
+  h+='</tr></thead><tbody>';
+  const rows=[
+    ['名称',d=>d.name],
+    ['价格',d=>(data[0].code.length<=6?'¥':'$')+d.price.toFixed(2)],
+    ['涨跌幅',d=>`<span class="${d.change>=0?'up':'down'}">${d.change>=0?'+':''}${d.change.toFixed(2)}%</span>`],
+    ['市盈率(PE)',d=>d.pe>0?d.pe.toFixed(1):'--'],
+    ['每股收益(EPS)',d=>'¥'+d.eps.toFixed(2)],
+    ['股息率',d=>d.div>0?d.div.toFixed(2)+'%':'--'],
+    ['市值',d=>d.mktCap],
+    ['成交量',d=>(d.volume/1000000).toFixed(1)+'M'],
+    ['行业',d=>d.sector]
+  ];
+  rows.forEach(([label,fn])=>{
+    h+=`<tr><td>${label}</td>`;
+    data.forEach(d=>{h+=`<td>${fn(d)}</td>`;});
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div class="card"><b>价格对比</b>';
+  data.forEach(d=>{
+    const pct=d.price/maxPrice*100;
+    const color=d.change>=0?'var(--green)':'var(--red)';
+    h+=`<div class="bar-row"><div class="label">${d.code}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="val">${d.price.toFixed(2)}</div></div>`;
+  });
+  h+='</div>';
+  h+='<div class="card"><b>PE对比</b>';
+  data.forEach(d=>{
+    const pct=d.pe>0?d.pe/maxPE*100:0;
+    h+=`<div class="bar-row"><div class="label">${d.code}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--gold)"></div></div><div class="val">${d.pe>0?d.pe.toFixed(1):'--'}</div></div>`;
+  });
+  h+='</div>';
+  h+='<div class="card"><b>成交量对比</b>';
+  data.forEach(d=>{
+    const pct=d.volume/maxVol*100;
+    h+=`<div class="bar-row"><div class="label">${d.code}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--blue)"></div></div><div class="val">${(d.volume/1000000).toFixed(1)}M</div></div>`;
+  });
+  h+='</div><div class="hint">数据为模拟数据，仅供参考</div>';
+  compareResult.innerHTML=h;
+}
+addBtn.onclick=()=>{
+  const val=stockInput.value.trim().toUpperCase();
+  if(!val)return;
+  if(stocks.includes(val))return;
+  if(stocks.length>=8){alert('最多对比8只股票');return;}
+  stocks.push(val);stockInput.value='';renderTags();renderCompare();
+};
+stockInput.onkeydown=e=>{if(e.key==='Enter')addBtn.click();};
+stocks=['600519','000858'];renderTags();renderCompare();
+})();
+</script>
+<script src="../i18n.js" defer>
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();var inp=document.querySelector('input[type=text],input[type=search],input:not([type])');if(inp)inp.focus();}if(e.key==='Escape'){var inp=document.activeElement;if(inp&&inp.tagName==='INPUT')inp.blur();}});
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
