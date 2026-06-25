@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>计时器组件 - garyy-tools</title>
+<meta name="description" content="多功能计时器组件，支持倒计时、正计时和预设时间">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:16px;scroll-behavior:smooth}.container{max-width:500px;margin:auto;padding-bottom:50px}header{text-align:center;padding:28px 0 16px}h1{font-size:1.3rem;margin-bottom:4px}.sub{color:var(--text2);font-size:.85rem}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;text-align:center}button{padding:9px 20px;border-radius:6px;border:none;background:var(--blue);color:var(--text);font-size:.85rem;cursor:pointer;transition:opacity .2s}button:hover{opacity:.85}.btn-green{background:var(--green)}.btn-red{background:var(--red)}.btn-gold{background:var(--gold)}.timer-display{font-size:4rem;font-weight:700;font-variant-numeric:tabular-nums;margin:20px 0;letter-spacing:2px}.timer-inputs{display:flex;gap:8px;justify-content:center;margin-bottom:16px}.timer-inputs input{width:70px;text-align:center;font-size:1.2rem;padding:10px;font-weight:600}.btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}.presets{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}.preset{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.8rem;transition:all .2s}.preset:hover{border-color:var(--blue);background:rgba(59,130,246,.1)}.preset.active{border-color:var(--blue);background:rgba(59,130,246,.15)}.progress-ring{margin:0 auto 16px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="计时器组件 - garyy-tools">
+<meta property="og:description" content="多功能计时器组件，支持倒计时、正计时和预设时间">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<header>
+<h1>⏱ 计时器组件</h1>
+<div class="sub">倒计时 · 正计时 · 预设时间</div>
+</header>
+<div class="card">
+<div class="presets">
+<div class="preset" data-sec="60">1分钟</div>
+<div class="preset" data-sec="300">5分钟</div>
+<div class="preset" data-sec="600">10分钟</div>
+<div class="preset" data-sec="900">15分钟</div>
+<div class="preset" data-sec="1800">30分钟</div>
+<div class="preset" data-sec="3600">1小时</div>
+</div>
+<div class="timer-inputs">
+<input type="number" id="inH" value="0" min="0" max="23" placeholder="时">
+<input type="number" id="inM" value="5" min="0" max="59" placeholder="分">
+<input type="number" id="inS" value="0" min="0" max="59" placeholder="秒">
+</div>
+<svg class="progress-ring" width="180" height="180"><circle cx="90" cy="90" r="82" fill="none" stroke="var(--border)" stroke-width="6"/><circle id="ring" cx="90" cy="90" r="82" fill="none" stroke="var(--blue)" stroke-width="6" stroke-dasharray="515" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 90 90)"/></svg>
+<div class="timer-display" id="display">00:05:00</div>
+<div class="btn-row">
+<button class="btn-green" id="btnStart">开始</button>
+<button id="btnPause" style="display:none">暂停</button>
+<button class="btn-red" id="btnReset">重置</button>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+let totalSec=300,remain=300,running=false,interval=null,isStopwatch=false,startTs=0,elapsed=0;
+const display=document.getElementById('display');
+const ring=document.getElementById('ring');
+const circumference=2*Math.PI*82;
+ring.style.strokeDasharray=circumference;
+function fmt(s){const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sec=s%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
+function updateRing(){
+const progress=isStopwatch?Math.min(elapsed/totalSec,1):(1-remain/totalSec);
+ring.style.strokeDashoffset=circumference*(1-progress);
+}
+function render(){display.textContent=isStopwatch?fmt(elapsed):fmt(remain);updateRing();}
+function getInputSec(){return(+document.getElementById('inH').value||0)*3600+(+document.getElementById('inM').value||0)*60+(+document.getElementById('inS').value||0);}
+document.querySelectorAll('.preset').forEach(p=>{
+p.onclick=()=>{
+document.querySelectorAll('.preset').forEach(x=>x.classList.remove('active'));p.classList.add('active');
+const sec=+p.dataset.sec;
+document.getElementById('inH').value=Math.floor(sec/3600);
+document.getElementById('inM').value=Math.floor((sec%3600)/60);
+document.getElementById('inS').value=sec%60;
+isStopwatch=false;totalSec=sec;remain=sec;elapsed=0;render();
+};
+});
+document.getElementById('btnStart').onclick=()=>{
+if(running)return;
+const s=getInputSec();if(s<=0&&!isStopwatch)return;
+if(!running){totalSec=s;remain=s;isStopwatch=false;}
+running=true;
+document.getElementById('btnStart').style.display='none';
+document.getElementById('btnPause').style.display='inline-block';
+startTs=Date.now()-elapsed*1000;
+interval=setInterval(()=>{
+if(isStopwatch){elapsed=Math.floor((Date.now()-startTs)/1000);render();if(elapsed>=totalSec){clearInterval(interval);running=false;alert('时间到！');document.getElementById('btnStart').style.display='inline-block';document.getElementById('btnPause').style.display='none';}}
+else{remain--;render();if(remain<=0){clearInterval(interval);running=false;alert('时间到！');document.getElementById('btnStart').style.display='inline-block';document.getElementById('btnPause').style.display='none';}}
+},1000);
+};
+document.getElementById('btnPause').onclick=()=>{
+clearInterval(interval);running=false;
+elapsed=isStopwatch?elapsed:totalSec-remain;
+document.getElementById('btnStart').style.display='inline-block';
+document.getElementById('btnPause').style.display='none';
+};
+document.getElementById('btnReset').onclick=()=>{
+clearInterval(interval);running=false;
+const s=getInputSec();totalSec=s;remain=s;isStopwatch=false;elapsed=0;render();
+document.getElementById('btnStart').style.display='inline-block';
+document.getElementById('btnPause').style.display='none';
+document.querySelectorAll('.preset').forEach(x=>x.classList.remove('active'));
+};
+render();
+})();
+</script>
+</body>
+</html>
