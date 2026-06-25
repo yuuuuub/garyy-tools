@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" style="scroll-behavior:smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚨 事件管理器</title>
+<meta name="description" content="事件管理器，创建和跟踪IT事件、故障报告和处理流程">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🚨 事件管理器">
+<meta property="og:description" content="事件管理器 - Gary's Tools">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚨</text></svg>">
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--orange:#bc4c00;--purple:#8250df;--shadow:0 1px 3px rgba(0,0,0,.08)}
+[data-theme="dark"]{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;--purple:#bc8cff;--shadow:0 1px 3px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;background:var(--bg);color:var(--text);padding:16px;transition:background .3s,color .3s}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.3rem;color:var(--blue);border-bottom:2px solid var(--blue);padding-bottom:10px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue)}
+textarea{resize:vertical;min-height:60px}
+button{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600}
+button:hover{opacity:.85}
+.btn-green{background:var(--green)}.btn-red{background:var(--red)}.btn-orange{background:var(--orange)}.btn-purple{background:var(--purple)}.btn-sm{padding:4px 10px;font-size:.8rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.section-title{font-size:.95rem;font-weight:600;margin-bottom:12px}
+.theme-toggle{position:fixed;top:12px;right:12px;background:var(--text2);color:var(--bg);border:none;padding:6px 12px;border-radius:8px;cursor:pointer;z-index:100}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-box{text-align:center;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px}
+.stat-box .num{font-size:24px;font-weight:700}
+.stat-box .label{font-size:.75rem;color:var(--text2);margin-top:4px}
+.severity-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;color:#fff}
+.sev-critical{background:#dc2626}.sev-high{background:#ea580c}.sev-medium{background:#d97706}.sev-low{background:#65a30d}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;color:#fff}
+.st-open{background:var(--blue)}.st-progress{background:var(--orange)}.st-resolved{background:var(--green)}.st-closed{background:var(--text2)}
+.incident-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;border-left:4px solid var(--blue)}
+.incident-item.sev-critical{border-left-color:#dc2626}.incident-item.sev-high{border-left-color:#ea580c}.incident-item.sev-medium{border-left-color:#d97706}.incident-item.sev-low{border-left-color:#65a30d}
+.timeline{margin-top:8px;padding-left:16px;border-left:2px solid var(--border)}
+.timeline-item{padding:6px 0 6px 12px;font-size:.8rem;color:var(--text2);position:relative}
+.timeline-item::before{content:'';position:absolute;left:-5px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.timeline-item .time{font-size:.7rem;color:var(--text2)}
+.detail-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+<div class="container">
+<h1>🚨 事件管理器</h1>
+
+<div class="stat-row" id="statsRow"></div>
+
+<div class="card">
+<div class="section-title">上报事件</div>
+<div style="margin-bottom:12px"><label>事件标题</label><input type="text" id="iTitle" placeholder="例：API服务不可用"></div>
+<div class="form-row">
+<div><label>严重程度</label><select id="iSeverity"><option value="critical">严重 (P0)</option><option value="high">高 (P1)</option><option value="medium" selected>中 (P2)</option><option value="low">低 (P3)</option></select></div>
+<div><label>受影响服务</label><input type="text" id="iService" placeholder="例：用户服务"></div>
+</div>
+<div style="margin-bottom:12px"><label>事件描述</label><textarea id="iDesc" rows="3" placeholder="详细描述事件现象和影响范围"></textarea></div>
+<div class="form-row">
+<div><label>报告人</label><input type="text" id="iReporter" placeholder="姓名"></div>
+<div><label>通知方式</label><select id="iNotify"><option value="email">邮件</option><option value="sms">短信</option><option value="webhook">Webhook</option><option value="all">全部</option></select></div>
+</div>
+<div style="display:flex;gap:8px">
+<button onclick="createIncident()">🚨 上报事件</button>
+</div>
+</div>
+
+<div class="card">
+<div class="section-title">筛选</div>
+<div class="form-row">
+<div><label>状态</label><select id="filterStatus" onchange="renderIncidents()"><option value="all">全部</option><option value="open">待处理</option><option value="progress">处理中</option><option value="resolved">已解决</option><option value="closed">已关闭</option></select></div>
+<div><label>严重程度</label><select id="filterSeverity" onchange="renderIncidents()"><option value="all">全部</option><option value="critical">严重</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></div>
+</div>
+</div>
+
+<div class="card">
+<div class="section-title">事件列表 <span id="incidentCount" style="font-size:.8rem;color:var(--text2)">(0)</span></div>
+<div id="incidentList"></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var incidents = JSON.parse(localStorage.getItem('incidents') || '[]');
+var idCounter = incidents.length ? Math.max(...incidents.map(inc=>inc.id)) + 1 : 1;
+
+function createIncident(){
+  var title=document.getElementById('iTitle').value.trim();
+  var desc=document.getElementById('iDesc').value.trim();
+  if(!title){alert('请输入事件标题');return;}
+  var now=new Date().toLocaleString('zh-CN');
+  incidents.unshift({
+    id:idCounter++,title:title,severity:document.getElementById('iSeverity').value,
+    service:document.getElementById('iService').value,description:desc,
+    reporter:document.getElementById('iReporter').value,
+    notify:document.getElementById('iNotify').value,
+    status:'open',timeline:[{action:'事件上报',by:document.getElementById('iReporter').value||'系统',time:now,note:desc}],
+    created:now,updated:now
+  });
+  localStorage.setItem('incidents',JSON.stringify(incidents));
+  renderIncidents();
+  renderStats();
+  ['iTitle','iDesc','iService','iReporter'].forEach(function(id){document.getElementById(id).value='';});
+  alert('事件已上报！');
+}
+
+function renderIncidents(){
+  var filter=document.getElementById('filterStatus').value;
+  var sevFilter=document.getElementById('filterSeverity').value;
+  var filtered=incidents.filter(function(inc){
+    if(filter!=='all'&&inc.status!==filter)return false;
+    if(sevFilter!=='all'&&inc.severity!==sevFilter)return false;
+    return true;
+  });
+  document.getElementById('incidentCount').textContent='('+filtered.length+')';
+  var el=document.getElementById('incidentList');
+  if(!filtered.length){el.innerHTML='<p style="color:var(--text2);text-align:center;padding:20px">暂无事件</p>';return;}
+  el.innerHTML=filtered.map(function(inc){
+    var sevClass='sev-'+inc.severity;
+    var sevText={critical:'P0 严重',high:'P1 高',medium:'P2 中',low:'P3 低'}[inc.severity];
+    var stClass='st-'+inc.status;
+    var stText={open:'待处理',progress:'处理中',resolved:'已解决',closed:'已关闭'}[inc.status];
+    var timelineHtml='<div class="timeline">'+inc.timeline.map(function(t){
+      return '<div class="timeline-item"><div>'+t.action+'</div><div class="time">'+t.by+' · '+t.time+'</div>'+(t.note?'<div style="margin-top:2px">'+t.note+'</div>':'')+'</div>';
+    }).join('')+'</div>';
+    var actions='';
+    if(inc.status==='open')actions='<button class="btn-sm btn-orange" onclick="updateStatus('+inc.id+',\'progress\')">开始处理</button>';
+    if(inc.status==='progress')actions='<button class="btn-sm btn-green" onclick="updateStatus('+inc.id+',\'resolved\')">标记解决</button>';
+    if(inc.status==='resolved')actions='<button class="btn-sm" style="background:var(--text2)" onclick="updateStatus('+inc.id+',\'closed\')">关闭</button>';
+    return '<div class="incident-item '+sevClass+'"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><strong>'+inc.title+'</strong><div style="font-size:.8rem;color:var(--text2);margin-top:2px">'+inc.service+' · '+inc.reporter+' · '+inc.created+'</div></div><div style="display:flex;gap:4px;align-items:center"><span class="severity-badge '+sevClass+'">'+sevText+'</span><span class="status-badge '+stClass+'">'+stText+'</span>'+actions+' <button class="btn-sm btn-red" onclick="deleteIncident('+inc.id+')">删除</button></div></div>'+timelineHtml+'</div>';
+  }).join('');
+}
+
+function updateStatus(id,status){
+  var inc=incidents.find(function(x){return x.id===id;});
+  if(!inc)return;
+  var stText={open:'待处理',progress:'处理中',resolved:'已解决',closed:'已关闭'}[status];
+  inc.status=status;
+  inc.updated=new Date().toLocaleString('zh-CN');
+  inc.timeline.push({action:'状态变更 → '+stText,by:'系统',time:inc.updated});
+  localStorage.setItem('incidents',JSON.stringify(incidents));
+  renderIncidents();
+  renderStats();
+}
+
+function deleteIncident(id){
+  incidents=incidents.filter(function(inc){return inc.id!==id;});
+  localStorage.setItem('incidents',JSON.stringify(incidents));
+  renderIncidents();
+  renderStats();
+}
+
+function renderStats(){
+  var total=incidents.length;
+  var open=incidents.filter(function(inc){return inc.status==='open';}).length;
+  var progress=incidents.filter(function(inc){return inc.status==='progress';}).length;
+  var critical=incidents.filter(function(inc){return inc.severity==='critical'&&inc.status!=='resolved'&&inc.status!=='closed';}).length;
+  document.getElementById('statsRow').innerHTML='<div class="stat-box"><div class="num">'+total+'</div><div class="label">总事件数</div></div><div class="stat-box"><div class="num" style="color:var(--blue)">'+open+'</div><div class="label">待处理</div></div><div class="stat-box"><div class="num" style="color:var(--orange)">'+progress+'</div><div class="label">处理中</div></div><div class="stat-box"><div class="num" style="color:var(--red)">'+critical+'</div><div class="label">严重未解决</div></div>';
+}
+
+function toggleTheme(){var t=document.documentElement.getAttribute('data-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'light':'dark');}
+renderIncidents();renderStats();
+</script>
+</body>
+</html>

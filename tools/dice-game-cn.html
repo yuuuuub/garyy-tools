@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="骰子大战 - 多种骰子玩法，比大小、掷点数">
+    <meta name="robots" content="index, follow">
+    <title>骰子大战</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #e17055; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #fab1a0; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; text-align: center; }
+        .controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .ctrl-btn { padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); cursor: pointer; font-size: 14px; }
+        .ctrl-btn.active { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+        .dice-area { display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap; }
+        .dice { width: 100px; height: 100px; border: 3px solid var(--primary-color); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--card-bg); transition: transform 0.1s; }
+        .dice.rolling { animation: shake 0.1s infinite; }
+        @keyframes shake { 0%,100%{ transform: rotate(0); } 25%{ transform: rotate(-10deg); } 75%{ transform: rotate(10deg); } }
+        .player-label { font-size: 14px; color: var(--secondary-color); margin-top: 8px; }
+        .vs { font-size: 28px; font-weight: bold; color: var(--primary-color); align-self: center; }
+        .result { font-size: 22px; font-weight: bold; margin: 16px 0; min-height: 32px; }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 18px; cursor: pointer; margin: 8px; }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary { background: var(--secondary-color); }
+        .stats { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+        .stat-item .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .scoreboard { display: flex; justify-content: center; gap: 30px; margin: 12px 0; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; }
+        .score-item { text-align: center; }
+        .score-item .val { font-size: 20px; font-weight: bold; }
+        .score-item .lbl { font-size: 12px; color: var(--secondary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .multi-dice { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .multi-dice .dice { width: 70px; height: 70px; font-size: 32px; }
+        .bet-area { margin: 12px 0; }
+        .bet-area input { width: 120px; padding: 8px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); font-size: 16px; text-align: center; }
+        .history { max-height: 150px; overflow-y: auto; text-align: left; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; margin-top: 12px; font-size: 13px; }
+        .history-item { padding: 4px 0; border-bottom: 1px solid var(--border-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>骰子大战</h1>
+        <div class="card">
+            <div class="controls">
+                <button class="ctrl-btn active" onclick="setMode('compare',this)">比大小</button>
+                <button class="ctrl-btn" onclick="setMode('sum',this)">猜点数</button>
+                <button class="ctrl-btn" onclick="setMode('multi',this)">多骰子</button>
+            </div>
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="winCount">0</div><div class="label">胜利</div></div>
+                <div class="stat-item"><div class="num" id="loseCount">0</div><div class="label">失败</div></div>
+                <div class="stat-item"><div class="num" id="drawCount">0</div><div class="label">平局</div></div>
+            </div>
+            <div id="gameArea"></div>
+            <div class="result" id="result"></div>
+            <button class="btn" id="rollBtn" onclick="rollDice()">🎲 掷骰子</button>
+            <div class="history" id="history"></div>
+        </div>
+    </div>
+    <script>
+        let mode = 'compare', win = 0, lose = 0, draw = 0, rolling = false, diceCount = 2, historyLog = [];
+
+        const DOTS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+        function setMode(m, btn) {
+            mode = m;
+            document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderArea();
+        }
+
+        function renderArea() {
+            const area = document.getElementById('gameArea');
+            document.getElementById('result').textContent = '';
+            if (mode === 'compare') {
+                area.innerHTML = `
+                    <div class="dice-area">
+                        <div><div class="dice" id="d1">⚀</div><div class="player-label">玩家</div></div>
+                        <div class="vs">VS</div>
+                        <div><div class="dice" id="d2">⚀</div><div class="player-label">电脑</div></div>
+                    </div>`;
+            } else if (mode === 'sum') {
+                area.innerHTML = `
+                    <div class="bet-area">
+                        <label>猜猜两个骰子的点数之和（2-12）：</label><br>
+                        <input type="number" id="betNum" min="2" max="12" value="7" style="margin-top:8px;">
+                    </div>
+                    <div class="multi-dice" id="diceArea">
+                        <div class="dice">⚀</div>
+                        <div class="dice">⚀</div>
+                    </div>`;
+            } else {
+                area.innerHTML = `
+                    <div class="controls" style="margin-bottom:12px;">
+                        <button class="ctrl-btn ${diceCount===2?'active':''}" onclick="setDiceCount(2,this)">2个</button>
+                        <button class="ctrl-btn ${diceCount===3?'active':''}" onclick="setDiceCount(3,this)">3个</button>
+                        <button class="ctrl-btn ${diceCount===4?'active':''}" onclick="setDiceCount(4,this)">4个</button>
+                    </div>
+                    <div class="multi-dice" id="diceArea"></div>
+                    <div style="margin-top:12px;font-size:14px;color:var(--secondary-color);">总点数: <span id="totalSum" style="font-size:20px;font-weight:bold;color:var(--primary-color);">0</span></div>`;
+                const da = document.getElementById('diceArea');
+                da.innerHTML = '';
+                for (let i = 0; i < diceCount; i++) { const d = document.createElement('div'); d.className = 'dice'; d.textContent = '⚀'; da.appendChild(d); }
+            }
+        }
+
+        function setDiceCount(n, btn) {
+            diceCount = n;
+            document.querySelectorAll('#gameArea .ctrl-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderArea();
+        }
+
+        function rollDice() {
+            if (rolling) return;
+            rolling = true;
+            document.getElementById('rollBtn').disabled = true;
+            document.getElementById('result').textContent = '';
+
+            let count = 0;
+            const maxCount = 15;
+            const interval = setInterval(() => {
+                count++;
+                if (mode === 'compare') {
+                    document.getElementById('d1').textContent = DOTS[Math.ceil(Math.random() * 6)];
+                    document.getElementById('d2').textContent = DOTS[Math.ceil(Math.random() * 6)];
+                } else {
+                    const diceEls = document.querySelectorAll('#diceArea .dice');
+                    diceEls.forEach(d => d.textContent = DOTS[Math.ceil(Math.random() * 6)]);
+                }
+                if (count >= maxCount) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 80);
+        }
+
+        function resolve() {
+            if (mode === 'compare') {
+                const p = Math.ceil(Math.random() * 6);
+                const c = Math.ceil(Math.random() * 6);
+                document.getElementById('d1').textContent = DOTS[p];
+                document.getElementById('d2').textContent = DOTS[c];
+                let r;
+                if (p > c) { win++; r = `<span style="color:var(--success-color)">🎉 你赢了！${p} > ${c}</span>`; }
+                else if (p < c) { lose++; r = `<span style="color:var(--danger-color)">😢 你输了 ${p} < ${c}</span>`; }
+                else { draw++; r = `<span style="color:var(--warning-color)">🤝 平局 ${p} = ${c}</span>`; }
+                document.getElementById('result').innerHTML = r;
+                addHistory(`比大小: ${p} vs ${c} - ${p>c?'赢':p<c?'输':'平'}`);
+            } else if (mode === 'sum') {
+                const bet = parseInt(document.getElementById('betNum').value) || 7;
+                const d1 = Math.ceil(Math.random() * 6);
+                const d2 = Math.ceil(Math.random() * 6);
+                const sum = d1 + d2;
+                const diceEls = document.querySelectorAll('#diceArea .dice');
+                diceEls[0].textContent = DOTS[d1];
+                diceEls[1].textContent = DOTS[d2];
+                let r;
+                if (sum === bet) { win++; r = `<span style="color:var(--success-color)">🎉 猜对了！${d1}+${d2}=${sum}</span>`; }
+                else { lose++; r = `<span style="color:var(--danger-color)">✗ 没猜对 ${d1}+${d2}=${sum}，你猜了${bet}</span>`; }
+                document.getElementById('result').innerHTML = r;
+                addHistory(`猜点数: ${d1}+${d2}=${sum} (猜${bet}) - ${sum===bet?'对':'错'}`);
+            } else {
+                const results = [];
+                const diceEls = document.querySelectorAll('#diceArea .dice');
+                diceEls.forEach(d => { const v = Math.ceil(Math.random() * 6); d.textContent = DOTS[v]; results.push(v); });
+                const sum = results.reduce((a, b) => a + b, 0);
+                document.getElementById('totalSum').textContent = sum;
+                addHistory(`多骰子(${diceCount}个): [${results.join(',')}] = ${sum}`);
+            }
+            rolling = false;
+            document.getElementById('rollBtn').disabled = false;
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('winCount').textContent = win;
+            document.getElementById('loseCount').textContent = lose;
+            document.getElementById('drawCount').textContent = draw;
+        }
+
+        function addHistory(text) {
+            historyLog.unshift(text);
+            if (historyLog.length > 20) historyLog.pop();
+            const h = document.getElementById('history');
+            h.innerHTML = historyLog.map(t => `<div class="history-item">${t}</div>`).join('');
+        }
+
+        function toggleTheme() { const html = document.documentElement; html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        renderArea();
+    </script>
+</body>
+</html>
