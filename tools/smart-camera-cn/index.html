@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📷 智能摄像头监控</title>
+<meta name="description" content="智能摄像头实时监控、录像回放、移动侦测与报警设置">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#238636;--red:#ef4444;--blue:#3b82f6;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#2563eb;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--success:#1a7f37;--warn:#bf8700;--danger:#cf222e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.6}
+.ctn{max-width:900px;margin:0 auto}
+.hdr{text-align:center;margin-bottom:24px}.hdr h1{font-size:1.8rem;font-weight:700}.hdr p{color:var(--text2);margin-top:4px;font-size:.9rem}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}.cd h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+.live-view{background:#000;border-radius:var(--radius);overflow:hidden;position:relative;aspect-ratio:16/9;margin-bottom:16px}
+.live-feed{width:100%;height:100%;object-fit:cover;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem}
+.live-badge{position:absolute;top:12px;left:12px;background:var(--danger);color:#fff;padding:4px 8px;border-radius:4px;font-size:.75rem;font-weight:600;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.live-time{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.6);color:#fff;padding:4px 8px;border-radius:4px;font-size:.75rem}
+.camera-controls{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+.cam-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:.85rem;transition:all .2s}
+.cam-btn:hover{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.cam-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ptz-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:200px;margin:0 auto 16px}
+.ptz-btn{padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:1.2rem;transition:all .2s}
+.ptz-btn:hover{border-color:var(--accent);background:rgba(59,130,246,.1)}
+.ptz-center{grid-column:2;grid-row:2}
+.recording-list{max-height:300px;overflow-y:auto}
+.recording-item{padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.recording-item:last-child{border-bottom:none}
+.recording-info{display:flex;align-items:center;gap:12px}
+.recording-thumb{width:60px;height:40px;background:var(--bg);border-radius:4px;display:flex;align-items:center;justify-content:center}
+.recording-duration{font-size:.8rem;color:var(--text2)}
+.motion-zone{position:relative;width:100%;height:200px;background:var(--bg);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.motion-zone canvas{width:100%;height:100%}
+.detection-list{display:flex;flex-direction:column;gap:8px}
+.detection-item{padding:12px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+.detection-time{color:var(--text2);font-size:.85rem}
+.detection-type{padding:4px 8px;border-radius:4px;font-size:.8rem}
+.detection-type.person{background:rgba(59,130,246,.1);color:var(--accent)}
+.detection-type.vehicle{background:rgba(34,197,94,.1);color:var(--success)}
+.detection-type.animal{background:rgba(245,158,11,.1);color:var(--warn)}
+.settings-group{margin-bottom:16px}
+.settings-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:6px}
+.settings-group input[type=text],.settings-group select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.9rem}
+.toggle-group{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.toggle-group:last-child{border-bottom:none}
+.toggle{width:50px;height:26px;border-radius:13px;background:var(--border);position:relative;transition:background .2s;cursor:pointer}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform .2s}
+.toggle.on::after{transform:translateX(24px)}
+button{padding:8px 16px;background:var(--accent);color:var(--text);border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}
+button:hover{background:var(--accent2)}
+.hidden{display:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📷</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📷 智能摄像头监控">
+<meta property="og:description" content="智能摄像头实时监控、录像回放、移动侦测与报警设置">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="ctn">
+<div class="hdr"><h1>📷 智能摄像头监控</h1><p>实时查看监控画面，管理录像与报警</p></div>
+
+<div class="cd">
+<div class="live-view">
+<div class="live-feed" id="liveFeed">📹 监控画面加载中...</div>
+<div class="live-badge">● LIVE</div>
+<div class="live-time" id="liveTime"></div>
+</div>
+<div class="camera-controls">
+<button class="cam-btn active" onclick="switchCamera(0)">前门</button>
+<button class="cam-btn" onclick="switchCamera(1)">客厅</button>
+<button class="cam-btn" onclick="switchCamera(2)">后院</button>
+<button class="cam-btn" onclick="toggleRecording()" id="recordBtn">⏺ 录制</button>
+<button class="cam-btn" onclick="takeSnapshot()">📸 截图</button>
+</div>
+</div>
+
+<div class="cd">
+<h2>云台控制</h2>
+<div class="ptz-controls">
+<button class="ptz-btn" onclick="ptzMove('up-left')">↖</button>
+<button class="ptz-btn" onclick="ptzMove('up')">↑</button>
+<button class="ptz-btn" onclick="ptzMove('up-right')">↗</button>
+<button class="ptz-btn" onclick="ptzMove('left')">←</button>
+<button class="ptz-btn ptz-center" onclick="ptzMove('center')">⊙</button>
+<button class="ptz-btn" onclick="ptzMove('right')">→</button>
+<button class="ptz-btn" onclick="ptzMove('down-left')">↙</button>
+<button class="ptz-btn" onclick="ptzMove('down')">↓</button>
+<button class="ptz-btn" onclick="ptzMove('down-right')">↘</button>
+</div>
+</div>
+
+<div class="cd">
+<h2>移动侦测区域</h2>
+<div class="motion-zone">
+<canvas id="motionCanvas"></canvas>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:12px">
+<button onclick="clearMotionZones()">清除区域</button>
+<button onclick="addRandomZone()">添加侦测区</button>
+</div>
+</div>
+
+<div class="cd">
+<h2>最近检测</h2>
+<div class="detection-list" id="detectionList"></div>
+</div>
+
+<div class="cd">
+<h2>录像记录</h2>
+<div class="recording-list" id="recordingList"></div>
+</div>
+
+<div class="cd">
+<h2>摄像头设置</h2>
+<div class="settings-group">
+<label>摄像头名称</label>
+<input type="text" id="cameraName" value="前门摄像头" onchange="saveSettings()">
+</div>
+<div class="settings-group">
+<label>画质</label>
+<select id="videoQuality" onchange="saveSettings()">
+<option value="1080p" selected>1080p</option>
+<option value="720p">720p</option>
+<option value="480p">480p</option>
+</select>
+</div>
+<div class="toggle-group">
+<span>移动侦测</span>
+<div class="toggle on" id="motionToggle" onclick="toggleSetting('motion')"></div>
+</div>
+<div class="toggle-group">
+<span>夜视模式</span>
+<div class="toggle" id="nightToggle" onclick="toggleSetting('night')"></div>
+</div>
+<div class="toggle-group">
+<span>声音检测</span>
+<div class="toggle on" id="soundToggle" onclick="toggleSetting('sound')"></div>
+</div>
+<div class="toggle-group">
+<span>云端存储</span>
+<div class="toggle on" id="cloudToggle" onclick="toggleSetting('cloud')"></div>
+</div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let currentCamera=0;
+let isRecording=false;
+let motionZones=JSON.parse(localStorage.getItem('sc_motion')||'[]');
+let detections=JSON.parse(localStorage.getItem('sc_detections')||'[]');
+let recordings=JSON.parse(localStorage.getItem('sc_recordings')||'[]');
+let settings=JSON.parse(localStorage.getItem('sc_settings')||'{"name":"前门摄像头","quality":"1080p","motion":true,"night":false,"sound":true,"cloud":true}');
+
+function save(){localStorage.setItem('sc_motion',JSON.stringify(motionZones));}
+function saveDetections(){localStorage.setItem('sc_detections',JSON.stringify(detections.slice(-20)));}
+function saveRecordings(){localStorage.setItem('sc_recordings',JSON.stringify(recordings.slice(-20)));}
+function saveSettings(){localStorage.setItem('sc_settings',JSON.stringify(settings));}
+
+function updateUI(){
+  $('cameraName').value=settings.name;
+  $('videoQuality').value=settings.quality;
+  ['motion','night','sound','cloud'].forEach(key=>{
+    $(key+'Toggle').className='toggle '+(settings[key]?'on':'');
+  });
+}
+
+function updateTime(){
+  const now=new Date();
+  $('liveTime').textContent=now.toLocaleTimeString('zh-CN');
+}
+
+function switchCamera(index){
+  currentCamera=index;
+  document.querySelectorAll('.cam-btn').forEach((btn,i)=>{
+    if(i<3)btn.className='cam-btn '+(i===index?'active':'');
+  });
+  const cameras=['前门摄像头','客厅摄像头','后院摄像头'];
+  $('liveFeed').textContent='📹 '+cameras[index]+' 画面';
+}
+
+function toggleRecording(){
+  isRecording=!isRecording;
+  $('recordBtn').className='cam-btn '+(isRecording?'active':'');
+  $('recordBtn').textContent=isRecording?'⏹ 停止':'⏺ 录制';
+  if(isRecording){
+    addDetection('开始录制','录制');
+  }
+}
+
+function takeSnapshot(){
+  addDetection('截图保存','截图');
+}
+
+function ptzMove(direction){
+  addDetection('云台移动: '+direction,'云台');
+}
+
+function drawMotionZones(){
+  const canvas=$('motionCanvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth;
+  canvas.height=canvas.offsetHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  motionZones.forEach(zone=>{
+    ctx.fillStyle='rgba(59,130,246,0.2)';
+    ctx.strokeStyle='var(--accent)';
+    ctx.lineWidth=2;
+    ctx.fillRect(zone.x,zone.y,zone.w,zone.h);
+    ctx.strokeRect(zone.x,zone.y,zone.w,zone.h);
+  });
+}
+
+function clearMotionZones(){
+  motionZones=[];
+  save();
+  drawMotionZones();
+}
+
+function addRandomZone(){
+  const canvas=$('motionCanvas');
+  const w=100+Math.random()*100;
+  const h=50+Math.random()*50;
+  const x=Math.random()*(canvas.width-w);
+  const y=Math.random()*(canvas.height-h);
+  motionZones.push({x,y,w,h});
+  save();
+  drawMotionZones();
+}
+
+function addDetection(type,category){
+  const now=new Date();
+  detections.unshift({time:now.toLocaleString('zh-CN'),type,category});
+  saveDetections();
+  renderDetections();
+}
+
+function renderDetections(){
+  $('detectionList').innerHTML=detections.slice(0,10).map(d=>`
+    <div class="detection-item">
+      <div><div>${d.type}</div><div class="detection-time">${d.time}</div></div>
+      <div class="detection-type ${d.category.toLowerCase()}">${d.category}</div>
+    </div>
+  `).join('');
+}
+
+function renderRecordings(){
+  $('recordingList').innerHTML=recordings.map(r=>`
+    <div class="recording-item">
+      <div class="recording-info">
+        <div class="recording-thumb">🎬</div>
+        <div>
+          <div>${r.name}</div>
+          <div class="recording-duration">${r.duration}</div>
+        </div>
+      </div>
+      <div>${r.time}</div>
+    </div>
+  `).join('');
+}
+
+function toggleSetting(key){
+  settings[key]=!settings[key];
+  saveSettings();
+  updateUI();
+}
+
+function simulateDetection(){
+  if(Math.random()>0.7){
+    const types=['检测到人形','检测到车辆','检测到动物','检测到移动','声音检测'];
+    const categories=['person','vehicle','animal','person','sound'];
+    const i=Math.floor(Math.random()*types.length);
+    addDetection(types[i],categories[i]);
+  }
+}
+
+// Initialize with sample data
+if(detections.length===0){
+  detections=[
+    {time:new Date(Date.now()-300000).toLocaleString('zh-CN'),type:'检测到人形',category:'person'},
+    {time:new Date(Date.now()-600000).toLocaleString('zh-CN'),type:'检测到车辆',category:'vehicle'},
+    {time:new Date(Date.now()-900000).toLocaleString('zh-CN'),type:'检测到移动',category:'person'}
+  ];
+  saveDetections();
+}
+
+if(recordings.length===0){
+  recordings=[
+    {name:'前门录像',duration:'02:30',time:'10:30'},
+    {name:'客厅录像',duration:'05:15',time:'09:45'},
+    {name:'后院录像',duration:'01:45',time:'08:20'}
+  ];
+  saveRecordings();
+}
+
+updateUI();
+updateTime();
+renderDetections();
+renderRecordings();
+setTimeout(drawMotionZones,100);
+setInterval(updateTime,1000);
+setInterval(simulateDetection,10000);
+window.addEventListener('resize',drawMotionZones);
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
