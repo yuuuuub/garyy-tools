@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>便签组件 - garyy-tools</title>
+<meta name="description" content="便签笔记组件，支持创建、编辑、分类和本地存储">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:16px;scroll-behavior:smooth}.container{max-width:600px;margin:auto;padding-bottom:50px}header{text-align:center;padding:28px 0 16px}h1{font-size:1.3rem;margin-bottom:4px}.sub{color:var(--text2);font-size:.85rem}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}button{padding:8px 16px;border-radius:6px;border:none;background:var(--blue);color:var(--text);font-size:.85rem;cursor:pointer;transition:opacity .2s}button:hover{opacity:.85}.btn-green{background:var(--green)}.btn-red{background:var(--red)}input,textarea,select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.9rem;width:100%;outline:none;font-family:inherit}input:focus,textarea:focus,select:focus{border-color:var(--blue)}textarea{resize:vertical;min-height:80px}.note-editor{margin-bottom:16px}.note-editor .row{display:flex;gap:10px;margin-bottom:10px}.note-editor .row input{flex:1}.note-editor .row select{width:auto;flex-shrink:0}.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.note-card{background:var(--bg);border-radius:8px;padding:14px;position:relative;cursor:pointer;transition:all .2s;border:1px solid transparent}.note-card:hover{border-color:var(--blue)}.note-card .cat{font-size:.7rem;color:var(--blue);margin-bottom:4px;font-weight:600;text-transform:uppercase}.note-card .title{font-weight:600;margin-bottom:6px;font-size:.95rem}.note-card .body{font-size:.82rem;color:var(--text2);line-height:1.5;max-height:60px;overflow:hidden}.note-card .meta{font-size:.7rem;color:var(--text2);margin-top:8px}.note-card .del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem;padding:4px;border-radius:4px;opacity:0;transition:opacity .2s}.note-card:hover .del{opacity:1}.note-card .del:hover{background:rgba(239,68,68,.15)}.empty{text-align:center;color:var(--text2);padding:30px;font-size:.85rem}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="便签组件 - garyy-tools">
+<meta property="og:description" content="便签笔记组件，支持创建、编辑、分类和本地存储">
+<script src="../i18n.js" defer></script>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<header>
+<h1>📝 便签组件</h1>
+<div class="sub">笔记管理 · 分类存储 · 本地持久化</div>
+</header>
+<div class="card">
+<div class="note-editor">
+<div class="row"><input type="text" id="noteTitle" placeholder="标题" maxlength="50"><select id="noteCat"><option value="工作">工作</option><option value="学习">学习</option><option value="生活">生活</option><option value="灵感">灵感</option></select></div>
+<textarea id="noteBody" placeholder="写下你的想法..." maxlength="2000"></textarea>
+<div style="display:flex;gap:8px;margin-top:10px">
+<button class="btn-green" id="btnSave">保存</button>
+<button id="btnClear" style="background:var(--bg);color:var(--text2);border:1px solid var(--border)">清空</button>
+</div>
+</div>
+</div>
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<div style="font-weight:600">我的便签</div>
+<select id="filterCat" style="width:auto;padding:6px 10px;font-size:.8rem"><option value="全部">全部</option><option value="工作">工作</option><option value="学习">学习</option><option value="生活">生活</option><option value="灵感">灵感</option></select>
+</div>
+<div class="notes-grid" id="notesGrid"></div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+const NOTES_KEY='widget-notes';
+let notes=JSON.parse(localStorage.getItem(NOTES_KEY)||'[]');
+let editingId=null;
+function save(){localStorage.setItem(NOTES_KEY,JSON.stringify(notes));}
+function render(){
+const filter=document.getElementById('filterCat').value;
+const filtered=filter==='全部'?notes:notes.filter(n=>n.cat===filter);
+const grid=document.getElementById('notesGrid');
+if(!filtered.length){grid.innerHTML='<div class="empty">暂无便签</div>';return;}
+grid.innerHTML=filtered.map(n=>'<div class="note-card" data-id="'+n.id+'"><button class="del" data-id="'+n.id+'">✕</button><div class="cat">'+n.cat+'</div><div class="title">'+escHtml(n.title||'无标题')+'</div><div class="body">'+escHtml(n.body)+'</div><div class="meta">'+new Date(n.ts).toLocaleString('zh-CN')+'</div></div>').join('');
+}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+document.getElementById('btnSave').onclick=()=>{
+const title=document.getElementById('noteTitle').value.trim();
+const body=document.getElementById('noteBody').value.trim();
+const cat=document.getElementById('noteCat').value;
+if(!body){alert('请输入内容');return;}
+if(editingId){
+const n=notes.find(x=>x.id===editingId);if(n){n.title=title;n.body=body;n.cat=cat;n.ts=Date.now();}
+editingId=null;
+}else{
+notes.unshift({id:Date.now(),title,body,cat,ts:Date.now()});
+}
+save();clearForm();render();
+};
+document.getElementById('btnClear').onclick=()=>{editingId=null;clearForm();};
+function clearForm(){document.getElementById('noteTitle').value='';document.getElementById('noteBody').value='';}
+document.getElementById('notesGrid').onclick=function(e){
+if(e.target.classList.contains('del')){
+e.stopPropagation();
+const id=+e.target.dataset.id;notes=notes.filter(n=>n.id!==id);save();render();return;
+}
+const card=e.target.closest('.note-card');
+if(card){
+const id=+card.dataset.id;const n=notes.find(x=>x.id===id);
+if(n){editingId=id;document.getElementById('noteTitle').value=n.title;document.getElementById('noteBody').value=n.body;document.getElementById('noteCat').value=n.cat;window.scrollTo({top:0,behavior:'smooth'});}
+}
+};
+document.getElementById('filterCat').onchange=render;
+render();
+})();
+</script>
+</body>
+</html>
