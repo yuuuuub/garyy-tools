@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据可视化工具</title>
+<meta name="description" content="数据可视化工具，支持多种图表类型，实时数据渲染与交互">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+<meta name="robots" content="index, follow">
+<script src="../i18n.js" defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a855f7;--pink:#ec4899;--cyan:#06b6d4;--orange:#f97316;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--shadow:0 4px 24px rgba(0,0,0,.1)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1100px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-yellow{background:var(--yellow);color:#000}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.grid-4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(63,185,80,.2);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.2);color:var(--red)}
+.badge-yellow{background:rgba(210,153,34,.2);color:var(--yellow)}
+.stat{text-align:center;padding:12px}
+.stat-num{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:.8rem;color:var(--text2)}
+.chart-container{position:relative;width:100%;overflow:hidden}
+.chart-container canvas{width:100%!important;height:auto!important}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);transition:all .2s;background:transparent;border:none}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+.tooltip{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.8rem;pointer-events:none;z-index:100;box-shadow:var(--shadow);opacity:0;transition:opacity .2s}
+.bar{transition:height .6s cubic-bezier(.4,0,.2,1),opacity .4s ease}
+.pie-segment{transition:transform .3s ease;transform-origin:center}
+.pie-segment:hover{transform:scale(1.05)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:12px;font-size:.8rem}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.hidden{display:none!important}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='📈 数据可视化工具';
+const $=id=>document.getElementById(id);
+const APP=$('app');
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+let curType='bar';
+let curTab='charts';
+
+const defaultData={
+  labels:['一月','二月','三月','四月','五月','六月'],
+  datasets:[
+    {label:'销售额',data:[120,200,150,280,220,310],color:COLORS[0]},
+    {label:'利润',data:[80,140,100,200,160,240],color:COLORS[1]}
+  ]
+};
+
+let data=JSON.parse(JSON.stringify(defaultData));
+
+function render(){
+  let h=`<h1>📈 数据可视化工具</h1><p class="subtitle">支持柱状图、折线图、饼图、雷达图、进度条等多种图表</p>`;
+  h+=`<div class="card"><div class="flex-between"><div class="tabs">`;
+  ['bar','line','pie','radar','progress','area'].forEach(t=>{
+    const icons={bar:'📊',line:'📉',pie:'🥧',radar:'🕸️',progress:'📈',area:'🏔️'};
+    h+=`<button class="tab ${curTab===t?'active':''}" onclick="curTab='${t}';render()">${icons[t]} ${t.toUpperCase()}</button>`;
+  });
+  h+=`</div><div class="flex"><button class="btn btn-sm" onclick="resetData()">重置</button><button class="btn btn-sm btn-green" onclick="randomizeData()">随机数据</button></div></div></div>`;
+
+  h+=`<div class="grid grid-4">`;
+  const total=data.datasets[0].data.reduce((a,b)=>a+b,0);
+  const avg=Math.round(total/data.datasets[0].data.length);
+  const max=Math.max(...data.datasets[0].data);
+  const min=Math.min(...data.datasets[0].data);
+  [{n:total,l:'总计',c:'var(--accent)'},{n:avg,l:'平均',c:'var(--green)'},{n:max,l:'最高',c:'var(--yellow)'},{n:min,l:'最低',c:'var(--red)'}].forEach(s=>{
+    h+=`<div class="card stat"><div class="stat-num" style="color:${s.c}">${s.n}</div><div class="stat-label">${s.l}</div></div>`;
+  });
+  h+=`</div>`;
+
+  h+=`<div class="card"><div class="chart-container">`;
+  if(curTab==='bar') h+=drawBarChart();
+  else if(curTab==='line') h+=drawLineChart();
+  else if(curTab==='pie') h+=drawPieChart();
+  else if(curTab==='radar') h+=drawRadarChart();
+  else if(curTab==='progress') h+=drawProgressChart();
+  else if(curTab==='area') h+=drawAreaChart();
+  h+=`</div></div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">📋 数据编辑</h3>`;
+  h+=`<label>标签（逗号分隔）</label><input id="labelsInput" value="${data.labels.join(',')}" onchange="updateLabels(this.value)">`;
+  data.datasets.forEach((ds,i)=>{
+    h+=`<label>${ds.label}（逗号分隔）</label><input value="${ds.data.join(',')}" onchange="updateData(${i},this.value)">`;
+  });
+  h+=`<div class="flex"><button class="btn btn-sm btn-green" onclick="addDataset()">+ 添加数据集</button>`;
+  if(data.datasets.length>1) h+=`<button class="btn btn-sm btn-red" onclick="removeDataset()">- 移除数据集</button>`;
+  h+=`</div></div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">🎨 图例</h3><div class="legend">`;
+  data.datasets.forEach(ds=>{
+    h+=`<div class="legend-item"><div class="legend-dot" style="background:${ds.color}"></div>${ds.label}</div>`;
+  });
+  h+=`</div></div>`;
+  APP.innerHTML=h;
+  animateCharts();
+}
+
+function drawBarChart(){
+  const w=800,h=300,pad=50;
+  const maxVal=Math.max(...data.datasets.flatMap(d=>d.data))*1.1||1;
+  const barW=(w-pad*2)/data.labels.length/data.datasets.length*.6;
+  const gap=(w-pad*2)/data.labels.length;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">`;
+  svg+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)" stroke-width="1"/>`;
+  for(let i=0;i<=5;i++){
+    const y=h-pad-(h-pad*2)*i/5;
+    const v=Math.round(maxVal*i/5);
+    svg+=`<text x="${pad-8}" y="${y+4}" text-anchor="end" fill="var(--text2)" font-size="11">${v}</text>`;
+    svg+=`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4"/>`;
+  }
+  data.labels.forEach((label,li)=>{
+    const x=pad+gap*li+gap/2;
+    svg+=`<text x="${x}" y="${h-pad+18}" text-anchor="middle" fill="var(--text2)" font-size="11">${label}</text>`;
+    data.datasets.forEach((ds,di)=>{
+      const bx=x-barW*data.datasets.length/2+barW*di;
+      const bh=(ds.data[li]/maxVal)*(h-pad*2);
+      svg+=`<rect class="bar" x="${bx}" y="${h-pad}" width="${barW-2}" height="0" rx="3" fill="${ds.color}" opacity=".85"><animate attributeName="height" from="0" to="${bh}" dur=".8s" fill="freeze" begin="${li*0.05}s"/><animate attributeName="y" from="${h-pad}" to="${h-pad-bh}" dur=".8s" fill="freeze" begin="${li*0.05}s"/></rect>`;
+    });
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function drawLineChart(){
+  const w=800,h=300,pad=50;
+  const maxVal=Math.max(...data.datasets.flatMap(d=>d.data))*1.1||1;
+  const gap=(w-pad*2)/(data.labels.length-1||1);
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">`;
+  svg+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)" stroke-width="1"/>`;
+  for(let i=0;i<=5;i++){
+    const y=h-pad-(h-pad*2)*i/5;
+    svg+=`<text x="${pad-8}" y="${y+4}" text-anchor="end" fill="var(--text2)" font-size="11">${Math.round(maxVal*i/5)}</text>`;
+    svg+=`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4"/>`;
+  }
+  data.labels.forEach((l,i)=>{
+    svg+=`<text x="${pad+gap*i}" y="${h-pad+18}" text-anchor="middle" fill="var(--text2)" font-size="11">${l}</text>`;
+  });
+  data.datasets.forEach(ds=>{
+    const pts=ds.data.map((v,i)=>`${pad+gap*i},${h-pad-(v/maxVal)*(h-pad*2)}`).join(' ');
+    svg+=`<polyline points="${pts}" fill="none" stroke="${ds.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1000" stroke-dashoffset="1000"><animate attributeName="stroke-dashoffset" from="1000" to="0" dur="1.5s" fill="freeze"/></polyline>`;
+    ds.data.forEach((v,i)=>{
+      const cx=pad+gap*i,cy=h-pad-(v/maxVal)*(h-pad*2);
+      svg+=`<circle cx="${cx}" cy="${cy}" r="4" fill="${ds.color}" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${0.3+i*0.1}s"/></circle>`;
+    });
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function drawPieChart(){
+  const w=400,h=300,cx=w/2,cy=h/2,r=120;
+  const total=data.datasets[0].data.reduce((a,b)=>a+b,0)||1;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:400px;height:auto;margin:0 auto;display:block">`;
+  let cum=0;
+  data.labels.forEach((l,i)=>{
+    const val=data.datasets[0].data[i];
+    const pct=val/total;
+    const start=cum*Math.PI*2-Math.PI/2;
+    cum+=pct;
+    const end=cum*Math.PI*2-Math.PI/2;
+    const x1=cx+r*Math.cos(start),y1=cy+r*Math.sin(start);
+    const x2=cx+r*Math.cos(end),y2=cy+r*Math.sin(end);
+    const large=pct>.5?1:0;
+    const midAngle=(start+end)/2;
+    const tx=cx+r*.6*Math.cos(midAngle),ty=cy+r*.6*Math.sin(midAngle);
+    svg+=`<path class="pie-segment" d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${COLORS[i%COLORS.length]}" opacity="0"><animate attributeName="opacity" from="0" to=".85" dur=".5s" fill="freeze" begin="${i*0.15}s"/></path>`;
+    svg+=`<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-size="12" font-weight="600" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${0.3+i*0.15}s"/>${Math.round(pct*100)}%</text>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function drawRadarChart(){
+  const w=400,h=400,cx=w/2,cy=h/2,r=140;
+  const n=data.labels.length;
+  const maxVal=Math.max(...data.datasets.flatMap(d=>d.data))||1;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:400px;height:auto;margin:0 auto;display:block">`;
+  for(let ring=1;ring<=5;ring++){
+    const rr=r*ring/5;
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const angle=Math.PI*2*i/n-Math.PI/2;
+      pts.push(`${cx+rr*Math.cos(angle)},${cy+rr*Math.sin(angle)}`);
+    }
+    svg+=`<polygon points="${pts.join(' ')}" fill="none" stroke="var(--border)" stroke-width=".5"/>`;
+  }
+  for(let i=0;i<n;i++){
+    const angle=Math.PI*2*i/n-Math.PI/2;
+    const x=cx+(r+20)*Math.cos(angle),y=cy+(r+20)*Math.sin(angle);
+    svg+=`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="var(--text2)" font-size="11">${data.labels[i]}</text>`;
+    svg+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(angle)}" y2="${cy+r*Math.sin(angle)}" stroke="var(--border)" stroke-width=".5"/>`;
+  }
+  data.datasets.forEach(ds=>{
+    const pts=ds.data.map((v,i)=>{
+      const angle=Math.PI*2*i/n-Math.PI/2;
+      const rr=(v/maxVal)*r;
+      return`${cx+rr*Math.cos(angle)},${cy+rr*Math.sin(angle)}`;
+    }).join(' ');
+    svg+=`<polygon points="${pts}" fill="${ds.color}" fill-opacity=".2" stroke="${ds.color}" stroke-width="2" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".8s" fill="freeze"/></polygon>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function drawProgressChart(){
+  let h='';
+  data.labels.forEach((l,i)=>{
+    const v=data.datasets[0].data[i];
+    const maxV=Math.max(...data.datasets[0].data)||1;
+    const pct=Math.round(v/maxV*100);
+    h+=`<div style="margin-bottom:14px"><div class="flex-between" style="margin-bottom:4px"><span style="font-size:.85rem">${l}</span><span class="badge badge-blue">${v}</span></div>`;
+    h+=`<div style="width:100%;height:24px;background:var(--border);border-radius:12px;overflow:hidden">`;
+    h+=`<div style="width:0%;height:100%;background:${COLORS[i%COLORS.length]};border-radius:12px;transition:width 1s cubic-bezier(.4,0,.2,1)"><div style="animation:growBar 1s forwards" data-width="${pct}"></div></div>`;
+    h+=`</div></div>`;
+  });
+  return h;
+}
+
+function drawAreaChart(){
+  const w=800,h=300,pad=50;
+  const maxVal=Math.max(...data.datasets.flatMap(d=>d.data))*1.1||1;
+  const gap=(w-pad*2)/(data.labels.length-1||1);
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">`;
+  svg+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)" stroke-width="1"/>`;
+  for(let i=0;i<=5;i++){
+    const y=h-pad-(h-pad*2)*i/5;
+    svg+=`<text x="${pad-8}" y="${y+4}" text-anchor="end" fill="var(--text2)" font-size="11">${Math.round(maxVal*i/5)}</text>`;
+  }
+  data.labels.forEach((l,i)=>{svg+=`<text x="${pad+gap*i}" y="${h-pad+18}" text-anchor="middle" fill="var(--text2)" font-size="11">${l}</text>`;});
+  data.datasets.forEach(ds=>{
+    const baseY=h-pad;
+    const pts=ds.data.map((v,i)=>`${pad+gap*i},${h-pad-(v/maxVal)*(h-pad*2)}`).join(' ');
+    const areaPath=`M${pad},${baseY} L${pts.split(' ').map(p=>p).join(' L')} L${pad+gap*(ds.data.length-1)},${baseY} Z`;
+    svg+=`<path d="${areaPath}" fill="${ds.color}" fill-opacity=".15" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="1s" fill="freeze"/></path>`;
+    svg+=`<polyline points="${pts}" fill="none" stroke="${ds.color}" stroke-width="2.5" stroke-dasharray="1000" stroke-dashoffset="1000"><animate attributeName="stroke-dashoffset" from="1000" to="0" dur="1.5s" fill="freeze"/></polyline>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function animateCharts(){
+  document.querySelectorAll('[data-width]').forEach(el=>{
+    setTimeout(()=>{el.parentElement.style.width=el.dataset.width+'%';},100);
+  });
+}
+
+function updateLabels(v){data.labels=v.split(',').map(s=>s.trim());render();}
+function updateData(i,v){data.datasets[i].data=v.split(',').map(Number);render();}
+function addDataset(){
+  const name=prompt('数据集名称：','新数据集');
+  if(!name)return;
+  data.datasets.push({label:name,data:data.labels.map(()=>Math.floor(Math.random()*200)),color:COLORS[data.datasets.length%COLORS.length]});
+  render();
+}
+function removeDataset(){if(data.datasets.length>1){data.datasets.pop();render();}}
+function resetData(){data=JSON.parse(JSON.stringify(defaultData));render();}
+function randomizeData(){
+  data.datasets.forEach(ds=>{ds.data=ds.data.map(()=>Math.floor(Math.random()*300)+50);});
+  render();
+}
+render();
+</script>
+</body>
+</html>

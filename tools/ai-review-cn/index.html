@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔍 AI评审 - Gary's Tools</title>
+<meta name="description" content="AI代码/文档评审工具，自动检测问题、给出改进建议">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh;scroll-behavior:smooth}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.88rem;resize:vertical;font-family:'SF Mono',Monaco,Consolas,monospace;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;outline:none;cursor:pointer}
+select:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:var(--text);font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.result-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px;min-height:60px}
+.result-box .label{color:var(--text2);font-size:.8rem;margin-bottom:6px}
+.result-box .value{font-size:.92rem;line-height:1.7;white-space:pre-wrap}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:10px;color:var(--red);font-size:.82rem;margin-top:10px;display:none}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.config-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.copy-btn{background:var(--card);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.75rem;margin-top:8px}
+.copy-btn:hover{border-color:var(--blue);color:var(--blue)}
+.score-bar{display:flex;align-items:center;gap:10px;margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+.score-num{font-size:1.8rem;font-weight:700;min-width:50px;text-align:center}
+.score-label{font-size:.82rem;color:var(--text2)}
+.score-bar .bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.score-bar .bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.check-list{margin-top:12px}
+.check-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.88rem}
+.check-item:last-child{border-bottom:none}
+.check-icon{flex-shrink:0;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem}
+.check-pass{background:rgba(35,134,54,.2);color:var(--green)}
+.check-warn{background:rgba(245,158,11,.2);color:var(--gold)}
+.check-fail{background:rgba(239,68,68,.2);color:var(--red)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="🔍 AI评审 - Gary's Tools">
+<meta property="og:description" content="AI代码/文档评审工具，自动检测问题">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<header>
+<h1>🔍 AI评审</h1>
+<p>SiliconFlow · 代码审查 · 文档评审</p>
+<div style="margin-top:8px">
+<button onclick="promptApiKey()" style="padding:4px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:.75rem;cursor:pointer">⚙️ 设置 API Key</button>
+<span id="keyStatus" style="font-size:.7rem;color:var(--text2);margin-left:8px"></span>
+</div>
+</header>
+<div class="card">
+<div class="config-row">
+<select id="reviewType">
+<option value="code">💻 代码审查</option>
+<option value="doc">📄 文档评审</option>
+<option value="design">🎨 设计评审</option>
+<option value="api">🔌 API评审</option>
+</select>
+<select id="lang">
+<option value="javascript">JavaScript</option>
+<option value="python">Python</option>
+<option value="typescript">TypeScript</option>
+<option value="java">Java</option>
+<option value="go">Go</option>
+<option value="other">其他</option>
+</select>
+</div>
+<div class="card-title">输入代码/文档</div>
+<textarea id="reviewInput" rows="10" placeholder="粘贴需要评审的代码或文档内容..."></textarea>
+<div class="btn-group">
+<button id="reviewBtn" onclick="review()">🔍 开始评审</button>
+<button onclick="document.getElementById('reviewInput').value='';document.getElementById('resultArea').style.display='none';hideError();" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="errorMsg" class="error-msg"></div>
+<div id="resultArea" style="display:none">
+<div id="scoreBar" class="score-bar" style="display:none">
+<div>
+<div class="score-num" id="scoreNum">--</div>
+<div class="score-label">综合评分</div>
+</div>
+<div style="flex:1">
+<div class="score-label" style="margin-bottom:4px">质量指标</div>
+<div class="bar"><div class="bar-fill" id="scoreFill" style="width:0"></div></div>
+</div>
+</div>
+<div class="result-box">
+<div class="label">评审报告</div>
+<div id="reviewResult" class="value"></div>
+<button class="copy-btn" onclick="copyResult()">📋 复制报告</button>
+</div>
+<div id="checkList" class="check-list"></div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var API_URL='https://api.siliconflow.cn/v1/chat/completions';
+var API_KEY=localStorage.getItem('sf_api_key')||'';
+var MODEL='Qwen/Qwen2.5-7B-Instruct';
+
+var TYPE_PROMPTS={
+  code:'你是一个资深代码审查专家。请审查以下代码，从以下维度评分（每项0-20分，总分100）：代码质量、可读性、性能、安全性、可维护性。然后给出：1.评分卡（JSON格式 {quality:n,readability:n,performance:n,security:n,maintainability:n}）2.问题列表 3.改进建议 4.亮点。',
+  doc:'你是一个文档评审专家。请评审以下文档，从以下维度评分（每项0-20分，总分100）：内容完整性、逻辑性、准确性、可读性、格式规范。然后给出：1.评分卡 2.问题列表 3.改进建议 4.亮点。',
+  design:'你是一个设计评审专家。请评审以下设计方案，从以下维度评分（每项0-20分，总分100）：用户体验、视觉效果、一致性、可扩展性、创新性。然后给出：1.评分卡 2.问题列表 3.改进建议 4.亮点。',
+  api:'你是一个API设计专家。请评审以下API设计，从以下维度评分（每项0-20分，总分100）：RESTful规范、安全性、性能、文档完整性、错误处理。然后给出：1.评分卡 2.问题列表 3.改进建议 4.亮点。'
+};
+
+window.review=function(){
+  var input=document.getElementById('reviewInput').value.trim();
+  if(!input){showError('请输入需要评审的内容');return;}
+  if(!API_KEY){showError('请先设置 API Key');return;}
+  var type=document.getElementById('reviewType').value;
+  var lang=document.getElementById('lang').value;
+  setLoading(true);hideError();
+  document.getElementById('resultArea').style.display='none';
+  var langHint=lang==='other'?'':'代码语言：'+lang+'。';
+  fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+    body:JSON.stringify({model:MODEL,messages:[{role:'system',content:TYPE_PROMPTS[type]+langHint+'用中文输出。'},{role:'user',content:input}],max_tokens:2048,temperature:0.3})
+  })
+  .then(function(r){
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.error?.message||'请求失败')});
+    return r.json();
+  })
+  .then(function(data){
+    setLoading(false);
+    if(data&&data.choices&&data.choices[0]&&data.choices[0].message){
+      var content=data.choices[0].message.content;
+      document.getElementById('resultArea').style.display='block';
+      document.getElementById('reviewResult').textContent=content;
+      try{
+        var jsonMatch=content.match(/\{[^{}]*quality[^{}]*\}/);
+        if(jsonMatch){
+          var scores=JSON.parse(jsonMatch[0]);
+          var total=scores.quality+scores.readability+scores.performance+scores.security+scores.maintainability;
+          document.getElementById('scoreBar').style.display='flex';
+          document.getElementById('scoreNum').textContent=total;
+          var color=total>=80?'var(--green)':total>=60?'var(--gold)':'var(--red)';
+          document.getElementById('scoreNum').style.color=color;
+          document.getElementById('scoreFill').style.width=total+'%';
+          document.getElementById('scoreFill').style.background=color;
+        }
+      }catch(e){}
+    }else{showError('无法解析返回结果');}
+  })
+  .catch(function(err){setLoading(false);showError(err.message||'请求失败，请稍后重试');});
+};
+
+window.copyResult=function(){
+  navigator.clipboard.writeText(document.getElementById('reviewResult').textContent).then(function(){
+    var btn=document.querySelector('.copy-btn');btn.textContent='✅ 已复制';
+    setTimeout(function(){btn.textContent='📋 复制报告';},1500);
+  });
+};
+
+function setLoading(v){document.getElementById('reviewBtn').disabled=v;document.getElementById('reviewBtn').textContent=v?'⏳ 评审中...':'🔍 开始评审';}
+function showError(msg){var e=document.getElementById('errorMsg');e.textContent=msg;e.style.display='block';}
+window.hideError=function(){document.getElementById('errorMsg').style.display='none';};
+
+function promptApiKey(){
+  var key=prompt('请输入 SiliconFlow API Key\n\n免费注册: https://cloud.siliconflow.cn',API_KEY);
+  if(key!==null){API_KEY=key.trim();localStorage.setItem('sf_api_key',API_KEY);updateKeyStatus();}
+}
+function updateKeyStatus(){
+  var el=document.getElementById('keyStatus');
+  if(API_KEY){el.textContent='✅ 已设置';el.style.color='var(--green)';}
+  else{el.textContent='❌ 未设置';el.style.color='var(--red)';}
+}
+updateKeyStatus();
+})();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>

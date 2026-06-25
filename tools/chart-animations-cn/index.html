@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图表动画工具</title>
+<meta name="description" content="图表动画工具，支持柱状图、折线图、饼图等动画效果展示">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<meta name="robots" content="index, follow">
+<script src="../i18n.js" defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a855f7;--pink:#ec4899;--cyan:#06b6d4;--orange:#f97316;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;--shadow:0 4px 24px rgba(0,0,0,.1)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1100px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:12px}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;white-space:nowrap;color:var(--text2);background:transparent;border:none;transition:all .2s}
+.tab.active{background:var(--accent);color:#fff}
+.tab:hover:not(.active){background:var(--border)}
+.speed-slider{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--border);outline:none}
+.speed-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:12px;font-size:.8rem}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 12px currentColor)}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='📊 图表动画工具';
+const $=id=>document.getElementById(id);
+const APP=$('app');
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+let curType='bar';
+let speed=1;
+let animKey=0;
+let data={labels:['A','B','C','D','E','F'],values:[120,200,160,280,220,310]};
+
+function render(){
+  animKey++;
+  let h=`<h1>📊 图表动画工具</h1><p class="subtitle">观看图表以动画方式渲染数据</p>`;
+  h+=`<div class="card"><div class="flex-between"><div class="tabs">`;
+  ['bar','line','pie','donut','radar','scatter'].forEach(t=>{
+    const icons={bar:'📊',line:'📉',pie:'🥧',donut:'🍩',radar:'🕸️',scatter:'✨'};
+    h+=`<button class="tab ${curType===t?'active':''}" onclick="curType='${t}';render()">${icons[t]} ${t.toUpperCase()}</button>`;
+  });
+  h+=`</div><div class="flex"><button class="btn btn-sm btn-green" onclick="randomData()">随机</button><button class="btn btn-sm btn-red" onclick="replay()">重播</button></div></div>`;
+  h+=`<label>动画速度: ${speed}x</label><input type="range" class="speed-slider" min="0.2" max="3" step="0.1" value="${speed}" oninput="speed=parseFloat(this.value);render()"></div>`;
+
+  h+=`<div class="card"><div id="chartArea" style="min-height:320px"></div></div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">📋 数据</h3>`;
+  h+=`<label>标签（逗号分隔）</label><input id="lblIn" value="${data.labels.join(',')}" onchange="data.labels=this.value.split(',').map(s=>s.trim());render()">`;
+  h+=`<label>数值（逗号分隔）</label><input id="valIn" value="${data.values.join(',')}" onchange="data.values=this.value.split(',').map(Number);render()">`;
+  h+=`</div>`;
+  h+=`<div class="card"><div class="legend">`;
+  data.labels.forEach((l,i)=>{h+=`<div class="legend-item"><div class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>${l}: ${data.values[i]}</div>`;});
+  h+=`</div></div>`;
+  APP.innerHTML=h;
+  drawChart();
+}
+
+function drawChart(){
+  const area=$('chartArea');
+  if(!area)return;
+  const dur=1/speed;
+  if(curType==='bar') area.innerHTML=genBar(dur);
+  else if(curType==='line') area.innerHTML=genLine(dur);
+  else if(curType==='pie') area.innerHTML=genPie(dur);
+  else if(curType==='donut') area.innerHTML=genDonut(dur);
+  else if(curType==='radar') area.innerHTML=genRadar(dur);
+  else if(curType==='scatter') area.innerHTML=genScatter(dur);
+}
+
+function genBar(dur){
+  const w=800,h=300,pad=50;
+  const max=Math.max(...data.values)*1.15||1;
+  const gap=(w-pad*2)/data.labels.length;
+  const bw=gap*.6;
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:300px">`;
+  s+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)"/>`;
+  for(let i=0;i<=5;i++){
+    const y=h-pad-(h-pad*2)*i/5;
+    s+=`<text x="${pad-8}" y="${y+4}" text-anchor="end" fill="var(--text2)" font-size="11">${Math.round(max*i/5)}</text>`;
+    s+=`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4"/>`;
+  }
+  data.labels.forEach((l,i)=>{
+    const x=pad+gap*i+gap/2;
+    const bh=(data.values[i]/max)*(h-pad*2);
+    const delay=i*0.1;
+    s+=`<text x="${x}" y="${h-pad+18}" text-anchor="middle" fill="var(--text2)" font-size="11">${l}</text>`;
+    s+=`<rect x="${x-bw/2}" y="${h-pad}" width="${bw}" rx="4" fill="${COLORS[i%COLORS.length]}" opacity=".9"><animate attributeName="height" from="0" to="${bh}" dur="${dur}s" fill="freeze" begin="${delay}s" calcMode="spline" keySplines="0.4 0 0.2 1"/><animate attributeName="y" from="${h-pad}" to="${h-pad-bh}" dur="${dur}s" fill="freeze" begin="${delay}s" calcMode="spline" keySplines="0.4 0 0.2 1"/></rect>`;
+    s+=`<text x="${x}" y="${h-pad-bh-8}" text-anchor="middle" fill="${COLORS[i%COLORS.length]}" font-size="12" font-weight="600" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${delay+dur}s"/>${data.values[i]}</text>`;
+  });
+  s+=`</svg>`;
+  return s;
+}
+
+function genLine(dur){
+  const w=800,h=300,pad=50;
+  const max=Math.max(...data.values)*1.15||1;
+  const gap=(w-pad*2)/(data.labels.length-1||1);
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:300px">`;
+  s+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)"/>`;
+  const pts=data.values.map((v,i)=>`${pad+gap*i},${h-pad-(v/max)*(h-pad*2)}`).join(' ');
+  let areaPts=`M${pad},${h-pad} `;
+  data.values.forEach((v,i)=>{areaPts+=`L${pad+gap*i},${h-pad-(v/max)*(h-pad*2)} `;});
+  areaPts+=`L${pad+gap*(data.values.length-1)},${h-pad} Z`;
+  s+=`<path d="${areaPts}" fill="${COLORS[0]}" fill-opacity=".12" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="${dur}s" fill="freeze"/></path>`;
+  s+=`<polyline points="${pts}" fill="none" stroke="${COLORS[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2000" stroke-dashoffset="2000"><animate attributeName="stroke-dashoffset" from="2000" to="0" dur="${dur}s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1"/></polyline>`;
+  data.values.forEach((v,i)=>{
+    const cx=pad+gap*i,cy=h-pad-(v/max)*(h-pad*2);
+    s+=`<circle cx="${cx}" cy="${cy}" r="0" fill="${COLORS[0]}"><animate attributeName="r" from="0" to="6" dur=".3s" fill="freeze" begin="${dur*i/data.labels.length}s"/><animate attributeName="r" from="6" to="4" dur=".2s" fill="freeze" begin="${dur*i/data.labels.length+0.3}s"/></circle>`;
+    s+=`<text x="${cx}" y="${cy-12}" text-anchor="middle" fill="var(--text)" font-size="11" font-weight="600" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${dur*i/data.labels.length+0.3}s"/>${v}</text>`;
+  });
+  data.labels.forEach((l,i)=>{s+=`<text x="${pad+gap*i}" y="${h-pad+18}" text-anchor="middle" fill="var(--text2)" font-size="11">${l}</text>`;});
+  s+=`</svg>`;
+  return s;
+}
+
+function genPie(dur){
+  const w=400,h=350,cx=w/2,cy=160,r=120;
+  const total=data.values.reduce((a,b)=>a+b,0)||1;
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:400px;height:350px;margin:0 auto;display:block">`;
+  let cum=0;
+  data.labels.forEach((l,i)=>{
+    const pct=data.values[i]/total;
+    const start=cum*Math.PI*2-Math.PI/2;
+    cum+=pct;
+    const end=cum*Math.PI*2-Math.PI/2;
+    const x1=cx+r*Math.cos(start),y1=cy+r*Math.sin(start);
+    const x2=cx+r*Math.cos(end),y2=cy+r*Math.sin(end);
+    const large=pct>.5?1:0;
+    const midAngle=(start+end)/2;
+    const tx=cx+r*.55*Math.cos(midAngle),ty=cy+r*.55*Math.sin(midAngle);
+    s+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${COLORS[i%COLORS.length]}" opacity="0" style="cursor:pointer"><animate attributeName="opacity" from="0" to=".9" dur="${dur}s" fill="freeze" begin="${i*dur*.2}s"/></path>`;
+    s+=`<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-size="13" font-weight="700" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${i*dur*.2+dur*.5}s"/>${Math.round(pct*100)}%</text>`;
+    s+=`<text x="${cx}" y="${h-10+i*0}" text-anchor="middle" fill="var(--text2)" font-size="11" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${i*dur*.2+dur*.3}s"/>● ${l}: ${data.values[i]}</text>`;
+  });
+  s+=`</svg>`;
+  return s;
+}
+
+function genDonut(dur){
+  const w=400,h=350,cx=w/2,cy=160,r=120,sw=35;
+  const total=data.values.reduce((a,b)=>a+b,0)||1;
+  const circ=2*Math.PI*r;
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:400px;height:350px;margin:0 auto;display:block">`;
+  s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${sw}" opacity=".3"/>`;
+  let cum=0;
+  data.labels.forEach((l,i)=>{
+    const pct=data.values[i]/total;
+    const dash=circ*pct;
+    const gap=circ*(1-pct);
+    const offset=-circ*cum+circ*.25;
+    s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORS[i%COLORS.length]}" stroke-width="${sw}" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${offset}" stroke-linecap="round" opacity="0" transform="rotate(-90 ${cx} ${cy})"><animate attributeName="opacity" from="0" to="1" dur=".4s" fill="freeze" begin="${i*dur*.25}s"/><animate attributeName="stroke-dasharray" from="0 ${circ}" to="${dash} ${gap}" dur="${dur}s" fill="freeze" begin="${i*dur*.25}s"/></circle>`;
+    cum+=pct;
+  });
+  s+=`<text x="${cx}" y="${cy-8}" text-anchor="middle" fill="var(--text)" font-size="24" font-weight="700">${total}</text>`;
+  s+=`<text x="${cx}" y="${cy+14}" text-anchor="middle" fill="var(--text2)" font-size="12">总计</text>`;
+  s+=`</svg>`;
+  return s;
+}
+
+function genRadar(dur){
+  const w=400,h=400,cx=w/2,cy=h/2,r=150;
+  const n=data.labels.length;
+  const max=Math.max(...data.values)||1;
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:400px;height:400px;margin:0 auto;display:block">`;
+  for(let ring=1;ring<=5;ring++){
+    const rr=r*ring/5;
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const angle=Math.PI*2*i/n-Math.PI/2;
+      pts.push(`${cx+rr*Math.cos(angle)},${cy+rr*Math.sin(angle)}`);
+    }
+    s+=`<polygon points="${pts.join(' ')}" fill="none" stroke="var(--border)" stroke-width=".5"/>`;
+  }
+  for(let i=0;i<n;i++){
+    const angle=Math.PI*2*i/n-Math.PI/2;
+    s+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(angle)}" y2="${cy+r*Math.sin(angle)}" stroke="var(--border)" stroke-width=".5"/>`;
+    s+=`<text x="${cx+(r+22)*Math.cos(angle)}" y="${cy+(r+22)*Math.sin(angle)}" text-anchor="middle" dominant-baseline="middle" fill="var(--text2)" font-size="11">${data.labels[i]}</text>`;
+  }
+  const pts=data.values.map((v,i)=>{
+    const angle=Math.PI*2*i/n-Math.PI/2;
+    const rr=(v/max)*r;
+    return`${cx+rr*Math.cos(angle)},${cy+rr*Math.sin(angle)}`;
+  }).join(' ');
+  s+=`<polygon points="${pts}" fill="${COLORS[0]}" fill-opacity=".2" stroke="${COLORS[0]}" stroke-width="2.5" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="${dur}s" fill="freeze"/></polygon>`;
+  data.values.forEach((v,i)=>{
+    const angle=Math.PI*2*i/n-Math.PI/2;
+    const rr=(v/max)*r;
+    s+=`<circle cx="${cx+rr*Math.cos(angle)}" cy="${cy+rr*Math.sin(angle)}" r="0" fill="${COLORS[0]}"><animate attributeName="r" from="0" to="5" dur=".3s" fill="freeze" begin="${dur*i/n}s"/></circle>`;
+  });
+  s+=`</svg>`;
+  return s;
+}
+
+function genScatter(dur){
+  const w=800,h=350,pad=50;
+  let s=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:350px">`;
+  s+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--border)"/>`;
+  s+=`<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="var(--border)"/>`;
+  const points=data.values.map((v,i)=>({x:pad+(w-pad*2)*i/(data.labels.length-1||1),y:h-pad-(v/Math.max(...data.values)*1.1||1)*(h-pad*2),v,label:data.labels[i]}));
+  points.forEach((p,i)=>{
+    s+=`<circle cx="${p.x}" cy="${h-pad}" r="0" fill="${COLORS[i%COLORS.length]}" opacity=".8"><animate attributeName="cy" from="${h-pad}" to="${p.y}" dur="${dur}s" fill="freeze" begin="${i*0.1}s" calcMode="spline" keySplines="0.4 0 0.2 1"/><animate attributeName="r" from="0" to="8" dur=".3s" fill="freeze" begin="${i*0.1+dur*.5}s"/></circle>`;
+    s+=`<text x="${p.x}" y="${p.y-14}" text-anchor="middle" fill="var(--text)" font-size="11" font-weight="600" opacity="0"><animate attributeName="opacity" from="0" to="1" dur=".3s" fill="freeze" begin="${i*0.1+dur}s"/>${p.label}: ${p.v}</text>`;
+  });
+  data.labels.forEach((l,i)=>{s+=`<text x="${pad+(w-pad*2)*i/(data.labels.length-1||1)}" y="${h-pad+18}" text-anchor="middle" fill="var(--text2)" font-size="11">${l}</text>`;});
+  s+=`</svg>`;
+  return s;
+}
+
+function randomData(){
+  data.values=data.values.map(()=>Math.floor(Math.random()*300)+30);
+  render();
+}
+function replay(){render();}
+render();
+</script>
+</body>
+</html>
