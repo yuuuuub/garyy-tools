@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>谚语知识问答 - Chinese Proverb Quiz</title>
+<meta name="description" content="中国谚语知识问答游戏 - 填空、选择、释义配对，测试你的谚语知识水平">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px;scroll-behavior:smooth}
+.container{max-width:800px;margin:auto}
+h1{text-align:center;padding:24px 0 8px;font-size:1.5rem;font-weight:700}
+.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.input-group{margin-bottom:12px}
+.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px}
+.input-group select{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem}
+.input-group select:focus{border-color:var(--blue);outline:none}
+.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:8px;margin-right:8px}
+.btn:hover{opacity:.85}
+.btn-green{background:var(--green)}
+.stats-bar{display:flex;gap:12px;justify-content:center;margin:12px 0;font-size:.85rem;flex-wrap:wrap}
+.stat{padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px}
+.timer-bar{width:100%;height:4px;background:var(--border);border-radius:2px;margin:8px 0}
+.timer-fill{height:100%;background:var(--blue);border-radius:2px;transition:width 1s linear}
+.timer-fill.warning{background:var(--red)}
+.question-box{padding:20px;background:var(--bg);border-radius:8px;margin:12px 0;text-align:center}
+.question-text{font-size:1.1rem;line-height:1.6;margin-bottom:16px}
+.option{display:block;width:100%;padding:12px 16px;margin:6px 0;background:var(--card);border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;font-size:.95rem;color:var(--text);transition:all .2s}
+.option:hover{border-color:var(--blue)}
+.option.correct{border-color:var(--green);background:rgba(35,134,54,0.15);color:var(--green)}
+.option.wrong{border-color:var(--red);background:rgba(239,68,68,0.15);color:var(--red)}
+.option.disabled{pointer-events:none}
+.explanation{margin-top:12px;padding:12px;background:var(--bg);border-radius:6px;font-size:.85rem;color:var(--text2);display:none}
+.explanation.show{display:block}
+.result-screen{text-align:center;padding:20px}
+.result-score{font-size:3rem;font-weight:700;color:var(--blue);margin:16px 0}
+.result-rank{font-size:1.3rem;padding:12px;background:var(--bg);border-radius:8px;margin:16px 0}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>🧠 谚语知识问答</h1>
+<p class="sub">测试你的中国谚语知识水平</p>
+
+<div class="card" id="setupPanel">
+<div class="input-group">
+<label>题目类型</label>
+<select id="quizType">
+<option value="fill">谚语填空</option>
+<option value="meaning">释义选择</option>
+<option value="source">出处配对</option>
+<option value="xiehouyu">歇后语补全</option>
+</select>
+</div>
+<div class="input-group">
+<label>难度</label>
+<select id="difficulty">
+<option value="easy">入门（5题）</option>
+<option value="medium">进阶（10题）</option>
+<option value="hard">挑战（15题）</option>
+</select>
+</div>
+<button class="btn" onclick="startQuiz()">📝 开始答题</button>
+</div>
+
+<div id="quizPanel" style="display:none">
+<div class="stats-bar">
+<div class="stat">📝 <span id="qNum">1</span>/<span id="qTotal">10</span></div>
+<div class="stat">✅ <span id="qCorrect">0</span></div>
+<div class="stat">⏱ <span id="qTimer">30</span>秒</div>
+</div>
+<div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+<div class="question-box" id="questionBox"></div>
+<div id="optionsBox"></div>
+<div class="explanation" id="explanation"></div>
+<button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;margin:12px auto">下一题 →</button>
+</div>
+
+<div id="resultPanel" style="display:none"></div>
+</div>
+<script src="../i18n.js" defer></script>
+<script>
+var quizData={
+fill:[
+{q:'请补全：千里之行，______。',options:['始于足下','积于跬步','成于坚持','在于勤奋'],answer:0,explain:'出自老子《道德经》，比喻事情的成功是由小到大逐渐积累的。'},
+{q:'请补全：己所不欲，______。',options:['勿施于人','施之于人','先施于人','后施于人'],answer:0,explain:'出自《论语》，自己不想要的东西，不要强加给别人。'},
+{q:'请补全：学而时习之，______。',options:['不亦说乎','不亦乐乎','不亦快乎','不亦喜乎'],answer:0,explain:'出自《论语》，学习并且经常复习，不是很快乐吗？'},
+{q:'请补全：业精于勤，______。',options:['荒于嬉','毁于随','废于惰','败于懒'],answer:0,explain:'出自韩愈《进学解》，学业精进在于勤奋。'},
+{q:'请补全：路遥知马力，______。',options:['日久见人心','岁久见真情','久处见品格','长远知人心'],answer:0,explain:'日子长了才能看出人心的好坏。'},
+{q:'请补全：滴水穿石，______。',options:['非一日之功','在于坚持不懈','贵在持之以恒','需千日之功'],answer:0,explain:'比喻坚持不懈才能成功。'},
+{q:'请补全：一分耕耘，______。',options:['一分收获','一分成果','一分回报','一分成绩'],answer:0,explain:'付出一份努力，就会有一份收获。'},
+{q:'请补全：不经一番寒彻骨，______。',options:['怎得梅花扑鼻香','哪来梅花扑鼻香','难得梅花扑鼻香','岂有梅花扑鼻香'],answer:0,explain:'不经历艰难困苦，就不能获得成功。'},
+{q:'请补全：满招损，______。',options:['谦受益','满受益','骄受益','傲受益'],answer:0,explain:'出自《尚书》，自满招来损害，谦虚得到益处。'},
+{q:'请补全：黑发不知勤学早，______。',options:['白首方悔读书迟','白头才知读书迟','老大方悔读书迟','暮年始觉读书迟'],answer:0,explain:'出自颜真卿，年轻时不知道勤奋学习，到老了才后悔。'}
+],
+meaning:[
+{q:'"塞翁失马，焉知非福"的正确释义是？',options:['坏事可能变成好事','失去马很不幸','塞翁丢了马','马跑了很可惜'],answer:0,explain:'比喻一时虽然受到损失，但也有可能带来好处。'},
+{q:'"三人行，必有我师焉"强调的是？',options:['要善于向他人学习','三个人一起走路','老师很重要','行路需要同伴'],answer:0,explain:'要善于发现别人的优点，向他人学习。'},
+{q:'"温故而知新"强调的学习方法是？',options:['复习旧知识获得新理解','只学新知识','不用复习','死记硬背'],answer:0,explain:'温习旧知识从而得知新的理解。'},
+{q:'"种瓜得瓜，种豆得豆"说明什么道理？',options:['因果报应','农业种植','植物生长','种子发芽'],answer:0,explain:'做了什么事，就会得到什么样的结果。'},
+{q:'"冰冻三尺，非一日之寒"比喻什么？',options:['事物形成是长期积累的结果','天气很冷','冰很厚','冬天很长'],answer:0,explain:'比喻事物的形成是长期积累的结果。'},
+{q:'"近朱者赤，近墨者黑"说明什么？',options:['环境对人的影响很大','红色和黑色','朱砂和墨水','颜色会变'],answer:0,explain:'接近好人可以变好，接近坏人可以变坏。'},
+{q:'"吃一堑，长一智"的意思是？',options:['受一次挫折增长一分见识','吃东西长智慧','挖坑种树','填平道路'],answer:0,explain:'从失败中吸取教训，增长见识。'},
+{q:'"家和万事兴"强调的是？',options:['家庭和睦的重要性','家里有很多事','兴旺发达','万事如意'],answer:0,explain:'家庭和睦，一切事情都会兴旺发达。'}
+],
+source:[
+{q:'"己所不欲，勿施于人"出自哪里？',options:['《论语》','《道德经》','《孟子》','《庄子》'],answer:0,explain:'出自《论语·颜渊》，是孔子的核心思想之一。'},
+{q:'"千里之行，始于足下"出自哪里？',options:['《道德经》','《论语》','《孟子》','《庄子》'],answer:0,explain:'出自老子《道德经》第六十四章。'},
+{q:'"业精于勤，荒于嬉"出自哪位文人？',options:['韩愈','柳宗元','苏轼','欧阳修'],answer:0,explain:'出自韩愈《进学解》。'},
+{q:'"满招损，谦受益"出自哪里？',options:['《尚书》','《论语》','《诗经》','《周易》'],answer:0,explain:'出自《尚书·大禹谟》。'},
+{q:'"天时不如地利，地利不如人和"出自哪里？',options:['《孟子》','《论语》','《道德经》','《庄子》'],answer:0,explain:'出自《孟子·公孙丑下》。'},
+{q:'"百闻不如一见"出自哪里？',options:['《汉书》','《史记》','《战国策》','《左传》'],answer:0,explain:'出自《汉书·赵充国传》。'},
+{q:'"良药苦口利于病"出自哪里？',options:['《史记》','《论语》','《孟子》','《左传》'],answer:0,explain:'出自《史记·留侯世家》。'},
+{q:'"一年之计在于春"最早出自？',民间谚语/梁萧绎《纂要》',options:['民间谚语','《论语》','《诗经》','《周易》'],answer:0,explain:'这是中国民间广为流传的谚语。'}
+],
+xiehouyu:[
+{q:'歇后语："竹篮打水——"',options:['一场空','两头空','空欢喜','白费劲'],answer:0,explain:'比喻白费力气，没有成果。'},
+{q:'歇后语："哑巴吃黄连——"',options:['有苦说不出','苦不堪言','自讨苦吃','苦在心里'],answer:0,explain:'比喻有苦难言，只能默默承受。'},
+{q:'歇后语："猪八戒照镜子——"',options:['里外不是人','两面不是人','自讨没趣','丑态百出'],answer:0,explain:'比喻怎么做都不讨好，到处受埋怨。'},
+{q:'歇后语："老鼠过街——"',options:['人人喊打','四散逃窜','无处藏身','胆战心惊'],answer:0,explain:'比喻害人的东西，人人都痛恨。'},
+{q:'歇后语："八仙过海——"',options:['各显神通','各显其能','各施本领','各展才华'],answer:0,explain:'比喻各自发挥本领，互相竞争。'},
+{q:'歇后语："姜太公钓鱼——"',options:['愿者上钩','直钩钓鱼','等鱼上钩','愿者上钩'],answer:0,explain:'比喻心甘情愿上圈套或主动投入。'},
+{q:'歇后语："黄鼠狼给鸡拜年——"',options:['没安好心','不安好心','不怀好意','别有用心'],answer:0,explain:'比喻假装好意，实则心怀不轨。'},
+{q:'歇后语："外甥打灯笼——"',options:['照旧（舅）','照旧','光明正大','一路顺风'],answer:0,explain:'谐音歇后语，"舅"谐音"旧"，意为一切照旧。'}
+]
+};
+
+var state={type:'fill',questions:[],current:0,total:10,score:0,timer:30,timerId:null,answered:false};
+
+function startQuiz(){
+var type=document.getElementById('quizType').value;
+var diff=document.getElementById('difficulty').value;
+var count=diff==='easy'?5:diff==='medium'?10:15;
+var pool=quizData[type].slice();
+pool=shuffle(pool).slice(0,count);
+while(pool.length<count){pool=pool.concat(shuffle(quizData[type].slice()).slice(0,count-pool.length));}
+
+state.type=type;
+state.questions=pool;
+state.current=0;
+state.total=count;
+state.score=0;
+
+document.getElementById('setupPanel').style.display='none';
+document.getElementById('resultPanel').style.display='none';
+document.getElementById('quizPanel').style.display='block';
+document.getElementById('qTotal').textContent=count;
+
+showQuestion();
+}
+
+function showQuestion(){
+if(state.current>=state.total){endQuiz();return;}
+var q=state.questions[state.current];
+state.answered=false;
+state.timer=30;
+
+document.getElementById('qNum').textContent=state.current+1;
+document.getElementById('qCorrect').textContent=state.score;
+document.getElementById('timerFill').style.width='100%';
+document.getElementById('timerFill').classList.remove('warning');
+document.getElementById('explanation').className='explanation';
+document.getElementById('nextBtn').style.display='none';
+
+document.getElementById('questionBox').innerHTML='<div class="question-text">'+q.q+'</div>';
+
+var opts='';
+q.options.forEach(function(o,i){
+opts+='<button class="option" onclick="selectAnswer('+i+')" id="opt'+i+'">'+String.fromCharCode(65+i)+'. '+o+'</button>';
+});
+document.getElementById('optionsBox').innerHTML=opts;
+
+startTimer();
+}
+
+function selectAnswer(idx){
+if(state.answered)return;
+state.answered=true;
+clearInterval(state.timerId);
+
+var q=state.questions[state.current];
+document.querySelectorAll('.option').forEach(function(el){el.classList.add('disabled');});
+
+if(idx===q.answer){
+document.getElementById('opt'+idx).classList.add('correct');
+state.score++;
+}else{
+document.getElementById('opt'+idx).classList.add('wrong');
+document.getElementById('opt'+q.answer).classList.add('correct');
+}
+
+document.getElementById('explanation').textContent='💡 '+q.explain;
+document.getElementById('explanation').className='explanation show';
+document.getElementById('qCorrect').textContent=state.score;
+document.getElementById('nextBtn').style.display='block';
+document.getElementById('nextBtn').textContent=state.current<state.total-1?'下一题 →':'查看结果';
+}
+
+function nextQuestion(){
+state.current++;
+showQuestion();
+}
+
+function startTimer(){
+if(state.timerId)clearInterval(state.timerId);
+state.timer=30;
+state.timerId=setInterval(function(){
+state.timer--;
+document.getElementById('qTimer').textContent=state.timer;
+var pct=(state.timer/30)*100;
+document.getElementById('timerFill').style.width=pct+'%';
+if(state.timer<=10)document.getElementById('timerFill').classList.add('warning');
+if(state.timer<=0){
+clearInterval(state.timerId);
+if(!state.answered){
+state.answered=true;
+var q=state.questions[state.current];
+document.querySelectorAll('.option').forEach(function(el){el.classList.add('disabled');});
+document.getElementById('opt'+q.answer).classList.add('correct');
+document.getElementById('explanation').textContent='⏰ 时间到！'+q.explain;
+document.getElementById('explanation').className='explanation show';
+document.getElementById('nextBtn').style.display='block';
+}
+}
+},1000);
+}
+
+function endQuiz(){
+clearInterval(state.timerId);
+var pct=Math.round((state.score/state.total)*100);
+var rank=pct>=90?'🏆 谚语大师':pct>=70?'⭐ 谚语达人':pct>=50?'📖 谚语学徒':'🔰 谚语新手';
+
+var html='<div class="card result-screen">';
+html+='<h2>🎉 答题结束</h2>';
+html+='<div class="result-score">'+state.score+'/'+state.total+'</div>';
+html+='<div style="font-size:1.2rem;margin:8px 0">正确率：'+pct+'%</div>';
+html+='<div class="result-rank">称号：'+rank+'</div>';
+html+='<button class="btn" onclick="resetQuiz()">🔄 再来一局</button>';
+html+='</div>';
+document.getElementById('resultPanel').innerHTML=html;
+document.getElementById('quizPanel').style.display='none';
+document.getElementById('resultPanel').style.display='block';
+}
+
+function resetQuiz(){
+document.getElementById('setupPanel').style.display='block';
+document.getElementById('quizPanel').style.display='none';
+document.getElementById('resultPanel').style.display='none';
+}
+
+function shuffle(arr){
+var a=arr.slice();
+for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+return a;
+}
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body></html>
