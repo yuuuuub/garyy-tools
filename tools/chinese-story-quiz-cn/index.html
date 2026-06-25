@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>中国故事知识问答 - Chinese Story Quiz</title>
+<meta name="description" content="中国故事知识问答 - 成语故事、寓言故事、民间传说知识问答游戏">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px;scroll-behavior:smooth}
+.container{max-width:800px;margin:auto}
+h1{text-align:center;padding:24px 0 8px;font-size:1.5rem;font-weight:700}
+.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.input-group{margin-bottom:12px}
+.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px}
+.input-group select{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem}
+.input-group select:focus{border-color:var(--blue);outline:none}
+.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin-top:8px;margin-right:8px}
+.btn:hover{opacity:.85}
+.btn-green{background:var(--green)}
+.stats-bar{display:flex;gap:12px;justify-content:center;margin:12px 0;font-size:.85rem;flex-wrap:wrap}
+.stat{padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px}
+.timer-bar{width:100%;height:4px;background:var(--border);border-radius:2px;margin:8px 0}
+.timer-fill{height:100%;background:var(--blue);border-radius:2px;transition:width 1s linear}
+.timer-fill.warning{background:var(--red)}
+.question-box{padding:20px;background:var(--bg);border-radius:8px;margin:12px 0;text-align:center}
+.question-text{font-size:1.1rem;line-height:1.6;margin-bottom:16px}
+.option{display:block;width:100%;padding:12px 16px;margin:6px 0;background:var(--card);border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;font-size:.95rem;color:var(--text);transition:all .2s}
+.option:hover{border-color:var(--blue)}
+.option.correct{border-color:var(--green);background:rgba(35,134,54,0.15);color:var(--green)}
+.option.wrong{border-color:var(--red);background:rgba(239,68,68,0.15);color:var(--red)}
+.option.disabled{pointer-events:none}
+.explanation{margin-top:12px;padding:12px;background:var(--bg);border-radius:6px;font-size:.85rem;color:var(--text2);display:none}
+.explanation.show{display:block}
+.result-screen{text-align:center;padding:20px}
+.result-score{font-size:3rem;font-weight:700;color:var(--blue);margin:16px 0}
+.result-rank{font-size:1.3rem;padding:12px;background:var(--bg);border-radius:8px;margin:16px 0}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>🧠 中国故事知识问答</h1>
+<p class="sub">测试你对中国经典故事的了解程度</p>
+
+<div class="card" id="setupPanel">
+<div class="input-group">
+<label>题目类型</label>
+<select id="quizType">
+<option value="title">故事识别</option>
+<option value="moral">寓意理解</option>
+<option value="character">人物角色</option>
+<option value="source">出处来源</option>
+</select>
+</div>
+<div class="input-group">
+<label>难度</label>
+<select id="difficulty">
+<option value="easy">入门（5题）</option>
+<option value="medium">进阶（10题）</option>
+<option value="hard">挑战（15题）</option>
+</select>
+</div>
+<button class="btn" onclick="startQuiz()">📝 开始答题</button>
+</div>
+
+<div id="quizPanel" style="display:none">
+<div class="stats-bar">
+<div class="stat">📝 <span id="qNum">1</span>/<span id="qTotal">10</span></div>
+<div class="stat">✅ <span id="qCorrect">0</span></div>
+<div class="stat">⏱ <span id="qTimer">30</span>秒</div>
+</div>
+<div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+<div class="question-box" id="questionBox"></div>
+<div id="optionsBox"></div>
+<div class="explanation" id="explanation"></div>
+<button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;margin:12px auto">下一题 →</button>
+</div>
+
+<div id="resultPanel" style="display:none"></div>
+</div>
+<script src="../i18n.js" defer></script>
+<script>
+var quizData={
+title:[
+{q:'"一个人每天守在树桩旁等兔子"描述的是哪个故事？',options:['守株待兔','狐假虎威','愚公移山','刻舟求剑'],answer:0,explain:'《守株待兔》讲述宋国农夫偶然捡到撞死在树桩上的兔子，从此不再劳作，天天守候。'},
+{q:'"一个人在船上刻记号找掉入水中的剑"是哪个故事？',options:['刻舟求剑','守株待兔','掩耳盗铃','画蛇添足'],answer:0,explain:'《刻舟求剑》讽刺那些用静止眼光看待变化事物的人。'},
+{q:'"一只鸟每天衔石子填海"描述的是哪个故事？',options:['精卫填海','夸父追日','愚公移山','大禹治水'],answer:0,explain:'《精卫填海》讲述炎帝之女溺亡后化为精卫鸟，誓要填平东海。'},
+{q:'"老虎借着狐狸的威风吓跑百兽"是哪个故事？',options:['狐假虎威','鹤立鸡群','对牛弹琴','画龙点睛'],answer:0,explain:'《狐假虎威》比喻倚仗别人的威势来欺压人。'},
+{q:'"一个人把铁杵磨成针"是哪个故事？',options:['铁杵磨针','愚公移山','精卫填海','夸父追日'],answer:0,explain:'《铁杵磨针》告诉我们只要有恒心，再难的事也能做成。'},
+{q:'"一个人每天移动门前的大山"是哪个故事？',options:['愚公移山','精卫填海','夸父追日','大禹治水'],answer:0,explain:'《愚公移山》赞扬了坚持不懈、不怕困难的精神。'},
+{q:'"一个人追赶太阳，最后渴死在路上"是哪个故事？',options:['夸父追日','愚公移山','精卫填海','后羿射日'],answer:0,explain:'《夸父追日》体现了古人征服自然的雄心壮志。'},
+{q:'"一个人用金簪划出银河分离牛郎织女"是哪个故事？',options:['牛郎织女','嫦娥奔月','白蛇传','孟姜女哭长城'],answer:0,explain:'《牛郎织女》是中国四大民间传说之一，讲述忠贞的爱情故事。'}
+],
+moral:[
+{q:'"愚公移山"这个故事告诉我们什么道理？',options:['坚持不懈终能成功','不要做愚蠢的事','移山是不可能的','要请人帮忙'],answer:0,explain:'愚公移山的精神告诉我们：只要有坚定的意志和持之以恒的精神，再大的困难也能克服。'},
+{q:'"守株待兔"的寓意是什么？',options:['不劳而获终将一无所获','兔子很笨','树桩很重要','农民很懒'],answer:0,explain:'不要把偶然的幸运当作必然的规律，要通过自己的努力去创造价值。'},
+{q:'"刻舟求剑"讽刺的是什么样的人？',options:['用静止眼光看变化事物的人','不会游泳的人','丢了剑的人','坐船的人'],answer:0,explain:'世界万物都在不断变化，不能用静止的眼光看待发展变化的事物。'},
+{q:'"狐假虎威"比喻什么？',options:['倚仗别人威势欺压人','狐狸很聪明','老虎很蠢','动物之间的友谊'],answer:0,explain:'比喻倚仗别人的威势来欺压人。真正的权威来自自身的能力。'},
+{q:'"精卫填海"体现了什么精神？',options:['不屈不挠永不放弃','海太大了','鸟很勇敢','填海很容易'],answer:0,explain:'精卫填海的精神代表了不屈不挠、永不放弃的意志。'},
+{q:'"铁杵磨针"告诉我们要有？',options:['恒心和毅力','很大的力气','很多铁杵','一根针'],answer:0,explain:'只要功夫深，铁杵磨成针。要有恒心和毅力。'},
+{q:'"塞翁失马"告诉我们什么道理？',options:['祸福相依互相转化','马很重要','塞翁很聪明','丢马是好事'],answer:0,explain:'祸福相依，坏事可能变成好事。要以辩证的眼光看待得失。'},
+{q:'"一诺千金"强调的是什么品质？',options:['诚信守诺','金钱很重要','说话要多','承诺不重要'],answer:0,explain:'一个承诺价值千金，强调了诚信的重要性。'}
+],
+character:[
+{q:'"愚公移山"中的主人公是谁？',options:['愚公','智叟','夸娥氏','愚公的妻子'],answer:0,explain:'愚公是故事的主人公，他年近九十，带领子孙移山。'},
+{q:'"精卫填海"中的精卫是谁的女儿？',options:['炎帝','黄帝','舜帝','尧帝'],answer:0,explain:'精卫是炎帝的小女儿女娃的灵魂所化。'},
+{q:'"牛郎织女"中的牛郎靠什么维生？',options:['放牛','种地','经商','读书'],answer:0,explain:'牛郎是一个放牛的年轻人，与一头老牛相依为命。'},
+{q:'"守株待兔"中的农夫来自哪个国家？',options:['宋国','楚国','齐国','秦国'],answer:0,explain:'故事发生在宋国，讲述一个宋国农夫的故事。'},
+{q:'"狐假虎威"中的狐狸借的是谁的威风？',options:['老虎','狮子','龙','凤'],answer:0,explain:'狐狸走在老虎前面，借老虎的威风吓跑百兽。'},
+{q:'"刻舟求剑"中的剑掉入了什么？',options:['河中','井中','湖中','海中'],answer:0,explain:'楚人渡江时，剑从船上掉入河中。'},
+{q:'"夸父追日"中的夸父最后怎么死的？',options:['渴死','累死','病死','饿死'],answer:0,explain:'夸父追日时口渴，喝干了黄河渭水仍不够，最终渴死在路上。'},
+{q:'"塞翁失马"中的塞翁住在哪？',options:['边塞附近','城市中心','深山里','海边'],answer:0,explain:'塞翁住在边塞附近，故称"塞上之人"。'}
+],
+source:[
+{q:'"愚公移山"出自哪部典籍？',options:['《列子·汤问》','《庄子》','《孟子》','《论语》'],answer:0,explain:'《愚公移山》出自《列子·汤问》。'},
+{q:'"刻舟求剑"出自哪部典籍？',options:['《吕氏春秋》','《韩非子》','《战国策》','《左传》'],answer:0,explain:'《刻舟求剑》出自《吕氏春秋·察今》。'},
+{q:'"守株待兔"出自哪部典籍？',options:['《韩非子》','《论语》','《孟子》','《庄子》'],answer:0,explain:'《守株待兔》出自《韩非子·五蠹》。'},
+{q:'"精卫填海"出自哪部典籍？',options:['《山海经》','《搜神记》','《列子》','《庄子》'],answer:0,explain:'《精卫填海》出自《山海经·北山经》。'},
+{q:'"牛郎织女"属于什么类型的故事？',options:['民间传说','成语故事','寓言故事','历史故事'],answer:0,explain:'牛郎织女是中国四大民间传说之一。'},
+{q:'"狐假虎威"出自哪部典籍？',options:['《战国策》','《韩非子》','《左传》','《史记》'],answer:0,explain:'《狐假虎威》出自《战国策·楚策》。'},
+{q:'"铁杵磨针"的故事与哪位诗人有关？',options:['李白','杜甫','白居易','苏轼'],answer:0,explain:'传说李白幼年读书时遇到磨铁杵的老婆婆，深受启发。'},
+{q:'"塞翁失马"出自哪部典籍？',options:['《淮南子》','《列子》','《庄子》','《韩非子》'],answer:0,explain:'《塞翁失马》出自《淮南子·人间训》。'}
+]
+};
+
+var state={type:'title',questions:[],current:0,total:10,score:0,timer:30,timerId:null,answered:false};
+
+function startQuiz(){
+var type=document.getElementById('quizType').value;
+var diff=document.getElementById('difficulty').value;
+var count=diff==='easy'?5:diff==='medium'?10:15;
+var pool=quizData[type].slice();
+pool=shuffle(pool).slice(0,count);
+while(pool.length<count)pool=pool.concat(shuffle(quizData[type].slice()).slice(0,count-pool.length));
+
+state.type=type;
+state.questions=pool;
+state.current=0;
+state.total=count;
+state.score=0;
+
+document.getElementById('setupPanel').style.display='none';
+document.getElementById('resultPanel').style.display='none';
+document.getElementById('quizPanel').style.display='block';
+document.getElementById('qTotal').textContent=count;
+
+showQuestion();
+}
+
+function showQuestion(){
+if(state.current>=state.total){endQuiz();return;}
+var q=state.questions[state.current];
+state.answered=false;
+state.timer=30;
+
+document.getElementById('qNum').textContent=state.current+1;
+document.getElementById('qCorrect').textContent=state.score;
+document.getElementById('timerFill').style.width='100%';
+document.getElementById('timerFill').classList.remove('warning');
+document.getElementById('explanation').className='explanation';
+document.getElementById('nextBtn').style.display='none';
+
+document.getElementById('questionBox').innerHTML='<div class="question-text">'+q.q+'</div>';
+
+var opts='';
+q.options.forEach(function(o,i){
+opts+='<button class="option" onclick="selectAnswer('+i+')" id="opt'+i+'">'+String.fromCharCode(65+i)+'. '+o+'</button>';
+});
+document.getElementById('optionsBox').innerHTML=opts;
+
+startTimer();
+}
+
+function selectAnswer(idx){
+if(state.answered)return;
+state.answered=true;
+clearInterval(state.timerId);
+
+var q=state.questions[state.current];
+document.querySelectorAll('.option').forEach(function(el){el.classList.add('disabled');});
+
+if(idx===q.answer){
+document.getElementById('opt'+idx).classList.add('correct');
+state.score++;
+}else{
+document.getElementById('opt'+idx).classList.add('wrong');
+document.getElementById('opt'+q.answer).classList.add('correct');
+}
+
+document.getElementById('explanation').textContent='💡 '+q.explain;
+document.getElementById('explanation').className='explanation show';
+document.getElementById('qCorrect').textContent=state.score;
+document.getElementById('nextBtn').style.display='block';
+document.getElementById('nextBtn').textContent=state.current<state.total-1?'下一题 →':'查看结果';
+}
+
+function nextQuestion(){
+state.current++;
+showQuestion();
+}
+
+function startTimer(){
+if(state.timerId)clearInterval(state.timerId);
+state.timer=30;
+state.timerId=setInterval(function(){
+state.timer--;
+document.getElementById('qTimer').textContent=state.timer;
+var pct=(state.timer/30)*100;
+document.getElementById('timerFill').style.width=pct+'%';
+if(state.timer<=10)document.getElementById('timerFill').classList.add('warning');
+if(state.timer<=0){
+clearInterval(state.timerId);
+if(!state.answered){
+state.answered=true;
+var q=state.questions[state.current];
+document.querySelectorAll('.option').forEach(function(el){el.classList.add('disabled');});
+document.getElementById('opt'+q.answer).classList.add('correct');
+document.getElementById('explanation').textContent='⏰ 时间到！'+q.explain;
+document.getElementById('explanation').className='explanation show';
+document.getElementById('nextBtn').style.display='block';
+}
+}
+},1000);
+}
+
+function endQuiz(){
+clearInterval(state.timerId);
+var pct=Math.round((state.score/state.total)*100);
+var rank=pct>=90?'🏆 故事大师':pct>=70?'⭐ 故事达人':pct>=50?'📖 故事学徒':'🔰 故事新手';
+
+var html='<div class="card result-screen">';
+html+='<h2>🎉 答题结束</h2>';
+html+='<div class="result-score">'+state.score+'/'+state.total+'</div>';
+html+='<div style="font-size:1.2rem;margin:8px 0">正确率：'+pct+'%</div>';
+html+='<div class="result-rank">称号：'+rank+'</div>';
+html+='<button class="btn" onclick="resetQuiz()">🔄 再来一局</button>';
+html+='</div>';
+document.getElementById('resultPanel').innerHTML=html;
+document.getElementById('quizPanel').style.display='none';
+document.getElementById('resultPanel').style.display='block';
+}
+
+function resetQuiz(){
+document.getElementById('setupPanel').style.display='block';
+document.getElementById('quizPanel').style.display='none';
+document.getElementById('resultPanel').style.display='none';
+}
+
+function shuffle(arr){
+var a=arr.slice();
+for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+return a;
+}
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button>
+<script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body></html>
