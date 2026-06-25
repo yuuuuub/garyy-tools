@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📝 AI摘要 V2 - Gary's Tools</title>
+<meta name="description" content="AI智能摘要工具V2，支持多长度摘要、要点提取、结构化总结">
+<style>
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--gold:#f59e0b;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);padding:0 16px;line-height:1.6;min-height:100vh;scroll-behavior:smooth}
+.container{max-width:880px;margin:auto;padding-bottom:50px}
+header{text-align:center;padding:28px 0 16px}
+header h1{font-size:1.8rem;font-weight:700;margin-bottom:4px}
+header p{color:var(--text2);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text2)}
+textarea{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;width:100%;font-size:.9rem;resize:vertical;font-family:inherit;outline:none;transition:border .2s}
+textarea:focus{border-color:var(--blue)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;outline:none;cursor:pointer}
+select:focus{border-color:var(--blue)}
+button{padding:9px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:var(--text);font-size:.85rem;cursor:pointer;font-family:inherit;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.result-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px;min-height:60px}
+.result-box .label{color:var(--text2);font-size:.8rem;margin-bottom:6px}
+.result-box .value{font-size:.95rem;line-height:1.7;white-space:pre-wrap}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:10px;color:var(--red);font-size:.82rem;margin-top:10px;display:none}
+.btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.config-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.copy-btn{background:var(--card);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.75rem;margin-top:8px}
+.copy-btn:hover{border-color:var(--blue);color:var(--blue)}
+.stats{display:flex;gap:16px;margin-top:8px;font-size:.78rem;color:var(--text2)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="📝 AI摘要 V2 - Gary's Tools">
+<meta property="og:description" content="AI智能摘要工具V2，支持多长度摘要、要点提取">
+<meta property="og:type" content="website">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<header>
+<h1>📝 AI摘要 V2</h1>
+<p>SiliconFlow · 多模式摘要 · 要点提取</p>
+<div style="margin-top:8px">
+<button onclick="promptApiKey()" style="padding:4px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:.75rem;cursor:pointer">⚙️ 设置 API Key</button>
+<span id="keyStatus" style="font-size:.7rem;color:var(--text2);margin-left:8px"></span>
+</div>
+</header>
+<div class="card">
+<div class="config-row">
+<select id="mode">
+<option value="brief">精简摘要</option>
+<option value="detail">详细摘要</option>
+<option value="bullets">要点列表</option>
+<option value="structure">结构化总结</option>
+</select>
+<select id="length">
+<option value="short">短 (50字内)</option>
+<option value="medium" selected>中 (100字内)</option>
+<option value="long">长 (200字内)</option>
+</select>
+</div>
+<div class="card-title">输入文本</div>
+<textarea id="inputText" rows="8" placeholder="粘贴需要摘要的文章或文本..."></textarea>
+<div class="stats">
+<span>字数：<span id="wordCount">0</span></span>
+<span>预计：<span id="readTime">0</span> 分钟阅读</span>
+</div>
+<div class="btn-group">
+<button id="summarizeBtn" onclick="summarize()">📝 生成摘要</button>
+<button onclick="document.getElementById('inputText').value='';document.getElementById('resultArea').style.display='none';hideError();updateStats();" style="border-color:var(--border);background:transparent;color:var(--text)">清空</button>
+</div>
+<div id="errorMsg" class="error-msg"></div>
+<div id="resultArea" style="display:none">
+<div class="result-box">
+<div class="label" id="resultLabel">摘要结果</div>
+<div id="summaryText" class="value"></div>
+<button class="copy-btn" onclick="copyResult()">📋 复制</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+'use strict';
+var API_URL='https://api.siliconflow.cn/v1/chat/completions';
+var API_KEY=localStorage.getItem('sf_api_key')||'';
+var MODEL='Qwen/Qwen2.5-7B-Instruct';
+
+document.getElementById('inputText').addEventListener('input',updateStats);
+
+function updateStats(){
+  var text=document.getElementById('inputText').value;
+  document.getElementById('wordCount').textContent=text.length;
+  document.getElementById('readTime').textContent=Math.max(1,Math.ceil(text.length/500));
+}
+window.updateStats=updateStats;
+
+var PROMPTS={
+  brief:'你是一个文本摘要专家。请对以下文本进行精简摘要，用1-2句话概括核心内容，只输出摘要。',
+  detail:'你是一个文本摘要专家。请对以下文本进行详细摘要，保留关键信息和主要论点，只输出摘要。',
+  bullets:'你是一个文本摘要专家。请将以下文本提取为要点列表，每个要点用•开头，列出3-7个关键信息。',
+  structure:'你是一个文本摘要专家。请对以下文本进行结构化总结：\n1. 主题：一句话概括\n2. 核心内容：3-5个要点\n3. 结论：一句话总结'
+};
+
+var LABELS={brief:'精简摘要',detail:'详细摘要',bullets:'要点列表',structure:'结构化总结'};
+
+window.summarize=function(){
+  var text=document.getElementById('inputText').value.trim();
+  if(!text){showError('请输入需要摘要的文本');return;}
+  if(!API_KEY){showError('请先设置 API Key');return;}
+  var mode=document.getElementById('mode').value;
+  var length=document.getElementById('length').value;
+  var maxLen={short:100,medium:200,long:400}[length];
+  setLoading(true);hideError();
+  document.getElementById('resultArea').style.display='none';
+  var prompt=PROMPTS[mode]+'限制在'+maxLen+'字以内。';
+  fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+    body:JSON.stringify({model:MODEL,messages:[{role:'system',content:prompt},{role:'user',content:text}],max_tokens:512,temperature:0.3})
+  })
+  .then(function(r){
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.error?.message||'请求失败')});
+    return r.json();
+  })
+  .then(function(data){
+    setLoading(false);
+    if(data&&data.choices&&data.choices[0]&&data.choices[0].message){
+      document.getElementById('resultArea').style.display='block';
+      document.getElementById('resultLabel').textContent=LABELS[mode]+'结果';
+      document.getElementById('summaryText').textContent=data.choices[0].message.content;
+    }else{showError('无法解析返回结果');}
+  })
+  .catch(function(err){setLoading(false);showError(err.message||'请求失败，请稍后重试');});
+};
+
+window.copyResult=function(){
+  navigator.clipboard.writeText(document.getElementById('summaryText').textContent).then(function(){
+    var btn=document.querySelector('.copy-btn');btn.textContent='✅ 已复制';
+    setTimeout(function(){btn.textContent='📋 复制';},1500);
+  });
+};
+
+function setLoading(v){document.getElementById('summarizeBtn').disabled=v;document.getElementById('summarizeBtn').textContent=v?'⏳ 生成中...':'📝 生成摘要';}
+function showError(msg){var e=document.getElementById('errorMsg');e.textContent=msg;e.style.display='block';}
+window.hideError=function(){document.getElementById('errorMsg').style.display='none';};
+
+function promptApiKey(){
+  var key=prompt('请输入 SiliconFlow API Key\n\n免费注册: https://cloud.siliconflow.cn',API_KEY);
+  if(key!==null){API_KEY=key.trim();localStorage.setItem('sf_api_key',API_KEY);updateKeyStatus();}
+}
+function updateKeyStatus(){
+  var el=document.getElementById('keyStatus');
+  if(API_KEY){el.textContent='✅ 已设置';el.style.color='var(--green)';}
+  else{el.textContent='❌ 未设置';el.style.color='var(--red)';}
+}
+updateKeyStatus();
+})();
+</script>
+<script src="../i18n.js" defer></script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body>
+</html>
