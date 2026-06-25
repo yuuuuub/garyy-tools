@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="打字速度测试 - 测试你的中文打字速度和准确率">
+    <meta name="robots" content="index, follow">
+    <title>打字速度测试</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #0984e3; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #74b9ff; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 700px; margin: 0 auto; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .stats { display: flex; justify-content: center; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+        .stat-item { text-align: center; min-width: 80px; }
+        .stat-item .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .progress-bar { width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
+        .progress-fill { height: 100%; background: var(--primary-color); border-radius: 3px; transition: width 0.1s; }
+        .text-display { font-size: 20px; line-height: 1.8; padding: 16px; border: 2px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; min-height: 100px; letter-spacing: 2px; }
+        .char { transition: color 0.1s; }
+        .char.correct { color: var(--success-color); }
+        .char.wrong { color: var(--danger-color); text-decoration: underline; }
+        .char.current { background: var(--primary-color); color: #fff; padding: 0 2px; border-radius: 2px; }
+        .char.pending { color: var(--secondary-color); }
+        .input-area { width: 100%; padding: 14px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-color); font-size: 18px; font-family: inherit; resize: none; box-sizing: border-box; letter-spacing: 1px; }
+        .input-area:focus { outline: none; border-color: var(--primary-color); }
+        .input-area:disabled { opacity: 0.6; }
+        .controls { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+        .ctrl-btn { padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); cursor: pointer; font-size: 14px; }
+        .ctrl-btn.active { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 12px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .result { font-size: 18px; text-align: center; margin: 16px 0; }
+        .result .big { font-size: 36px; font-weight: bold; color: var(--primary-color); }
+        .timer { font-size: 32px; font-weight: bold; color: var(--primary-color); text-align: center; margin: 8px 0; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>打字速度测试</h1>
+        <div class="card">
+            <div class="controls" style="margin-bottom:12px;">
+                <button class="ctrl-btn active" onclick="setTextMode('easy',this)">简单</button>
+                <button class="ctrl-btn" onclick="setTextMode('medium',this)">中等</button>
+                <button class="ctrl-btn" onclick="setTextMode('hard',this)">困难</button>
+            </div>
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="wpm">0</div><div class="label">字/分钟</div></div>
+                <div class="stat-item"><div class="num" id="accuracy">100%</div><div class="label">准确率</div></div>
+                <div class="stat-item"><div class="num" id="correctChars">0</div><div class="label">正确</div></div>
+                <div class="stat-item"><div class="num" id="wrongChars">0</div><div class="label">错误</div></div>
+            </div>
+            <div class="timer" id="timer">60s</div>
+            <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+            <div class="text-display" id="textDisplay"></div>
+            <textarea class="input-area" id="inputArea" rows="3" placeholder="点击这里开始输入..." disabled></textarea>
+            <div class="result" id="result"></div>
+            <div class="controls">
+                <button class="btn" onclick="startTest()">开始测试</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const TEXTS = {
+            easy: [
+                '今天天气真好，我和朋友一起去公园散步。公园里的花开了，五颜六色的，非常漂亮。',
+                '妈妈做了一桌子好菜，有红烧肉、清蒸鱼和炒青菜，我吃得津津有味。',
+                '小明每天都早起读书，他的学习成绩一直很好，是班里的学习委员。',
+                '春天来了，小草从土里钻出来，柳树发了新芽，到处一片生机勃勃的景象。',
+                '我最喜欢吃的水果是苹果，它又甜又脆，营养丰富，对身体很好。'
+            ],
+            medium: [
+                '人工智能正在改变我们的生活方式，从智能手机到自动驾驶汽车，科技无处不在。未来的世界将更加智能化和便捷化。',
+                '阅读是一种很好的习惯，它不仅能增长知识，还能开阔视野，丰富我们的精神世界。每天坚持阅读半小时，一年下来会有很大的收获。',
+                '环境保护是当今社会面临的重要课题，我们需要减少碳排放，保护森林资源，为子孙后代留下一个美丽的地球。',
+                '中国的高铁技术已经走在世界前列，时速三百五十公里的复兴号列车让城市之间的距离大大缩短，出行变得更加便捷。',
+                '健康的生活方式包括合理饮食、适量运动和充足睡眠，三者缺一不可。只有保持良好的生活习惯，才能拥有健康的身体。'
+            ],
+            hard: [
+                '量子计算利用量子力学原理进行信息处理，其运算能力远超传统计算机。谷歌公司的量子处理器已实现"量子优越性"，在特定任务上比最快的超级计算机快百万倍。',
+                '区块链技术通过分布式账本和密码学算法确保数据的不可篡改性和透明性，已广泛应用于加密货币、供应链管理和数字身份认证等领域。',
+                '神经网络模拟人脑神经元的连接方式，通过大量数据训练来识别模式和做出决策。深度学习在图像识别、自然语言处理和语音合成方面取得了突破性进展。',
+                '碳达峰和碳中和是中国应对气候变化的重要承诺，需要在能源结构转型、产业升级和技术创新等方面做出系统性变革，实现经济社会的可持续发展。',
+                '基因编辑技术CRISPR-Cas9能够精确修改生物体的DNA序列，为治疗遗传疾病和改良农作物提供了革命性工具，但也引发了伦理和安全性方面的广泛讨论。'
+            ]
+        };
+
+        let textMode = 'easy', targetText = '', timer = null, timeLeft = 60, started = false, correctCount = 0, wrongCount = 0;
+
+        function setTextMode(mode, btn) {
+            textMode = mode;
+            document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resetTest();
+        }
+
+        function resetTest() {
+            clearInterval(timer);
+            started = false;
+            timeLeft = 60;
+            correctCount = 0;
+            wrongCount = 0;
+            const texts = TEXTS[textMode];
+            targetText = texts[Math.floor(Math.random() * texts.length)];
+            document.getElementById('timer').textContent = '60s';
+            document.getElementById('progress').style.width = '0%';
+            document.getElementById('wpm').textContent = '0';
+            document.getElementById('accuracy').textContent = '100%';
+            document.getElementById('correctChars').textContent = '0';
+            document.getElementById('wrongChars').textContent = '0';
+            document.getElementById('result').textContent = '';
+            const input = document.getElementById('inputArea');
+            input.value = '';
+            input.disabled = true;
+            renderText('');
+        }
+
+        function renderText(typed) {
+            const display = document.getElementById('textDisplay');
+            let html = '';
+            for (let i = 0; i < targetText.length; i++) {
+                let cls = 'pending';
+                if (i < typed.length) {
+                    cls = typed[i] === targetText[i] ? 'correct' : 'wrong';
+                } else if (i === typed.length) {
+                    cls = 'current';
+                }
+                html += `<span class="char ${cls}">${targetText[i]}</span>`;
+            }
+            display.innerHTML = html;
+        }
+
+        function startTest() {
+            resetTest();
+            const input = document.getElementById('inputArea');
+            input.disabled = false;
+            input.focus();
+            started = true;
+            timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = timeLeft + 's';
+                document.getElementById('progress').style.width = ((60 - timeLeft) / 60 * 100) + '%';
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    input.disabled = true;
+                    showResult();
+                }
+            }, 1000);
+        }
+
+        function showResult() {
+            const totalTyped = correctCount + wrongCount;
+            const accuracy = totalTyped > 0 ? Math.round(correctCount / totalTyped * 100) : 0;
+            const wpm = Math.round(correctCount / 5);
+            document.getElementById('result').innerHTML = `
+                <div class="big">${wpm} 字/分钟</div>
+                <div>准确率: ${accuracy}% | 总输入: ${totalTyped}字</div>
+                <div style="margin-top:8px;color:var(--secondary-color);">${wpm >= 60 ? '🏆 打字高手！' : wpm >= 40 ? '👍 不错！' : wpm >= 20 ? '😊 继续加油！' : '💪 多练习就会进步！'}</div>
+            `;
+        }
+
+        document.getElementById('inputArea').addEventListener('input', function () {
+            if (!started) return;
+            const typed = this.value;
+            renderText(typed);
+            correctCount = 0;
+            wrongCount = 0;
+            for (let i = 0; i < typed.length && i < targetText.length; i++) {
+                if (typed[i] === targetText[i]) correctCount++;
+                else wrongCount++;
+            }
+            const totalTyped = correctCount + wrongCount;
+            const accuracy = totalTyped > 0 ? Math.round(correctCount / totalTyped * 100) : 100;
+            const wpm = Math.round(correctCount / 5);
+            document.getElementById('wpm').textContent = wpm;
+            document.getElementById('accuracy').textContent = accuracy + '%';
+            document.getElementById('correctChars').textContent = correctCount;
+            document.getElementById('wrongChars').textContent = wrongCount;
+            if (typed.length >= targetText.length) {
+                clearInterval(timer);
+                this.disabled = true;
+                started = false;
+                showResult();
+            }
+        });
+
+        function toggleTheme() { const html = document.documentElement; html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        resetTest();
+    </script>
+</body>
+</html>

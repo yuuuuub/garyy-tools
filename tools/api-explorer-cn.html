@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API调试工具</title>
+    <meta name="description" content="在线API接口测试调试工具，支持GET/POST/PUT/DELETE等请求方法">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 1rem; text-align: center; }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; }
+        .card { background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); }
+        .card h2 { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+        .request-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        select, input, textarea {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-tertiary); color: var(--text-primary); font-size: 1rem; font-family: inherit;
+        }
+        select { width: 130px; flex-shrink: 0; cursor: pointer; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.75rem 1.5rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.95rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        .kv-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
+        .kv-row input { flex: 1; }
+        .kv-row .kv-del { background: var(--danger); padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+        .kv-row .kv-del:hover { background: #d32f2f; }
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 2px solid var(--border); }
+        .tab { padding: 0.5rem 1.2rem; cursor: pointer; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; font-size: 0.9rem; }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .response-area { background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; max-height: 500px; overflow: auto; font-family: 'Courier New', monospace; font-size: 0.9rem; white-space: pre-wrap; word-break: break-all; }
+        .status-bar { display: flex; gap: 1.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .status-item { font-size: 0.9rem; }
+        .status-item span { font-weight: 600; }
+        .status-ok { color: var(--success); }
+        .status-err { color: var(--danger); }
+        .history-item { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.85rem; display: flex; gap: 0.5rem; align-items: center; }
+        .history-item:hover { background: var(--bg-tertiary); }
+        .method-badge { padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; color: white; }
+        .method-GET { background: var(--success); }
+        .method-POST { background: var(--warning); }
+        .method-PUT { background: #2196f3; }
+        .method-DELETE { background: var(--danger); }
+        .method-PATCH { background: #9c27b0; }
+        .loading { color: var(--warning); }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 API调试工具</h1>
+        <p class="subtitle">发送HTTP请求并查看响应结果</p>
+
+        <div class="card">
+            <div class="request-bar">
+                <select id="method">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
+                </select>
+                <input type="text" id="url" placeholder="输入请求URL，例如 https://httpbin.org/get" value="https://httpbin.org/get">
+                <button id="sendBtn" onclick="sendRequest()">发送</button>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('headers')">请求头</div>
+                <div class="tab" onclick="switchTab('body')">请求体</div>
+            </div>
+
+            <div id="tab-headers" class="tab-content active">
+                <div id="headersList">
+                    <div class="kv-row">
+                        <input type="text" placeholder="键" value="Content-Type">
+                        <input type="text" placeholder="值" value="application/json">
+                        <button class="kv-del" onclick="removeRow(this)">✕</button>
+                    </div>
+                </div>
+                <button class="secondary" onclick="addHeaderRow()" style="margin-top:0.5rem;">+ 添加请求头</button>
+            </div>
+
+            <div id="tab-body" class="tab-content">
+                <textarea id="bodyInput" rows="6" placeholder='输入请求体 JSON，例如：{"key": "value"}'></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>响应结果</h2>
+            <div class="status-bar" id="statusBar" style="display:none;">
+                <div class="status-item">状态码: <span id="statusCode"></span></div>
+                <div class="status-item">耗时: <span id="respTime"></span></div>
+                <div class="status-item">大小: <span id="respSize"></span></div>
+            </div>
+            <div class="response-area" id="responseArea">点击「发送」按钮发起请求...</div>
+        </div>
+
+        <div class="card">
+            <h2>请求历史</h2>
+            <div id="historyArea" style="max-height:300px;overflow:auto;">
+                <p style="color:var(--text-secondary);font-size:0.9rem;">暂无历史记录</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const history = [];
+        let activeTab = 'headers';
+
+        function switchTab(name) {
+            activeTab = name;
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', (name === 'headers' && i === 0) || (name === 'body' && i === 1));
+            });
+            document.getElementById('tab-headers').classList.toggle('active', name === 'headers');
+            document.getElementById('tab-body').classList.toggle('active', name === 'body');
+        }
+
+        function addHeaderRow() {
+            const row = document.createElement('div');
+            row.className = 'kv-row';
+            row.innerHTML = '<input type="text" placeholder="键"><input type="text" placeholder="值"><button class="kv-del" onclick="removeRow(this)">✕</button>';
+            document.getElementById('headersList').appendChild(row);
+        }
+
+        function removeRow(btn) {
+            btn.parentElement.remove();
+        }
+
+        function getHeaders() {
+            const headers = {};
+            document.querySelectorAll('#headersList .kv-row').forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const key = inputs[0].value.trim();
+                const val = inputs[1].value.trim();
+                if (key) headers[key] = val;
+            });
+            return headers;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(2) + ' MB';
+        }
+
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+            return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"([^"]+)"(?=\s*:)/g, '<span style="color:#ff6b6b">"$1"</span>')
+                .replace(/:\s*"([^"]*)"/g, ': <span style="color:#4caf50">"$1"</span>')
+                .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#ff9800">$1</span>')
+                .replace(/:\s*(true|false)/g, ': <span style="color:#2196f3">$1</span>')
+                .replace(/:\s*(null)/g, ': <span style="color:#9e9e9e">$1</span>');
+        }
+
+        async function sendRequest() {
+            const method = document.getElementById('method').value;
+            const url = document.getElementById('url').value.trim();
+            const btn = document.getElementById('sendBtn');
+            const area = document.getElementById('responseArea');
+            const statusBar = document.getElementById('statusBar');
+
+            if (!url) { area.textContent = '请输入URL'; return; }
+
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+            area.innerHTML = '<span class="loading">⏳ 请求发送中...</span>';
+
+            const headers = getHeaders();
+            const opts = { method, headers };
+
+            if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                const body = document.getElementById('bodyInput').value.trim();
+                if (body) opts.body = body;
+            }
+
+            const startTime = performance.now();
+            try {
+                const resp = await fetch(url, opts);
+                const elapsed = (performance.now() - startTime).toFixed(0);
+                const text = await resp.text();
+                const size = new Blob([text]).size;
+
+                let formatted = text;
+                try { formatted = syntaxHighlight(JSON.stringify(JSON.parse(text), null, 2)); }
+                catch { formatted = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+                area.innerHTML = formatted;
+                statusBar.style.display = 'flex';
+                const codeEl = document.getElementById('statusCode');
+                codeEl.textContent = resp.status + ' ' + resp.statusText;
+                codeEl.className = resp.ok ? 'status-ok' : 'status-err';
+                document.getElementById('respTime').textContent = elapsed + ' ms';
+                document.getElementById('respSize').textContent = formatBytes(size);
+
+                history.unshift({ method, url, status: resp.status, time: elapsed, ts: new Date().toLocaleTimeString() });
+                renderHistory();
+            } catch (err) {
+                area.innerHTML = '<span style="color:var(--danger)">❌ 请求失败: ' + err.message + '</span>';
+                statusBar.style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '发送';
+            }
+        }
+
+        function renderHistory() {
+            const el = document.getElementById('historyArea');
+            if (!history.length) { el.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">暂无历史记录</p>'; return; }
+            el.innerHTML = history.map((h, i) =>
+                `<div class="history-item" onclick="loadHistory(${i})">
+                    <span class="method-badge method-${h.method}">${h.method}</span>
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.url}</span>
+                    <span style="color:${h.status < 400 ? 'var(--success)' : 'var(--danger)'}">${h.status}</span>
+                    <span style="color:var(--text-secondary)">${h.time}ms</span>
+                    <span style="color:var(--text-secondary)">${h.ts}</span>
+                </div>`
+            ).join('');
+        }
+
+        function loadHistory(i) {
+            const h = history[i];
+            document.getElementById('method').value = h.method;
+            document.getElementById('url').value = h.url;
+        }
+
+        document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') sendRequest(); });
+    </script>
+</body>
+</html>

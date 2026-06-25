@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="反应力测试 - 测试你的反应速度，点击变色方块">
+    <meta name="robots" content="index, follow">
+    <title>反应力测试</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #e17055; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #fab1a0; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 600px; margin: 0 auto; text-align: center; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .game-area { width: 100%; height: 350px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; cursor: pointer; transition: background 0.1s; user-select: none; margin: 16px 0; }
+        .game-area.waiting { background: var(--danger-color); color: #fff; }
+        .game-area.ready { background: var(--success-color); color: #fff; }
+        .game-area.idle { background: var(--border-color); color: var(--text-color); }
+        .game-area.tooearly { background: var(--warning-color); color: #333; }
+        .stats { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+        .stat-item .num { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-item .label { font-size: 12px; color: var(--secondary-color); }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 18px; cursor: pointer; margin: 8px; }
+        .btn:hover { opacity: 0.9; }
+        .result { font-size: 28px; font-weight: bold; margin: 16px 0; min-height: 40px; }
+        .history { max-height: 180px; overflow-y: auto; text-align: left; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-top: 12px; }
+        .history-item { padding: 6px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; font-size: 14px; }
+        .rank { font-size: 14px; padding: 3px 10px; border-radius: 12px; color: #fff; }
+        .rank.s { background: var(--danger-color); }
+        .rank.a { background: var(--primary-color); }
+        .rank.b { background: var(--success-color); }
+        .rank.c { background: var(--warning-color); color: #333; }
+        .rank.d { background: var(--secondary-color); }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .avg-bar { margin-top: 16px; }
+        .avg-bar .label { font-size: 14px; color: var(--secondary-color); }
+        .avg-bar .val { font-size: 20px; font-weight: bold; color: var(--primary-color); }
+        .mode-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+        .mode-tab { padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); cursor: pointer; font-size: 14px; }
+        .mode-tab.active { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>反应力测试</h1>
+        <div class="card">
+            <div class="mode-tabs">
+                <button class="mode-tab active" onclick="setMode('single',this)">单次测试</button>
+                <button class="mode-tab" onclick="setMode('multi',this)">连续5次</button>
+            </div>
+            <div class="stats">
+                <div class="stat-item"><div class="num" id="bestTime">--</div><div class="label">最佳</div></div>
+                <div class="stat-item"><div class="num" id="avgTime">--</div><div class="label">平均</div></div>
+                <div class="stat-item"><div class="num" id="attempts">0</div><div class="label">测试次数</div></div>
+            </div>
+            <div class="game-area idle" id="gameArea" onclick="handleClick()">
+                点击开始测试
+            </div>
+            <div class="result" id="result"></div>
+            <button class="btn" id="startBtn" onclick="startTest()">开始测试</button>
+            <div class="history" id="history"></div>
+        </div>
+    </div>
+    <script>
+        let state = 'idle', startTime = 0, timeout = null, results = [], mode = 'single', roundNum = 0;
+
+        function setMode(m, btn) {
+            mode = m;
+            document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resetGame();
+        }
+
+        function resetGame() {
+            clearTimeout(timeout);
+            state = 'idle';
+            roundNum = 0;
+            const area = document.getElementById('gameArea');
+            area.className = 'game-area idle';
+            area.textContent = '点击开始测试';
+            document.getElementById('result').textContent = '';
+            document.getElementById('startBtn').textContent = '开始测试';
+        }
+
+        function startTest() {
+            results = [];
+            roundNum = 0;
+            document.getElementById('history').innerHTML = '';
+            nextRound();
+        }
+
+        function nextRound() {
+            if (mode === 'multi' && roundNum >= 5) {
+                showFinalResult();
+                return;
+            }
+            state = 'waiting';
+            const area = document.getElementById('gameArea');
+            area.className = 'game-area waiting';
+            area.textContent = '等待变绿...';
+            document.getElementById('result').textContent = '';
+            const delay = 1500 + Math.random() * 3500;
+            timeout = setTimeout(() => {
+                if (state !== 'waiting') return;
+                state = 'ready';
+                startTime = performance.now();
+                area.className = 'game-area ready';
+                area.textContent = '现在点击！';
+            }, delay);
+        }
+
+        function handleClick() {
+            if (state === 'idle') { startTest(); return; }
+            if (state === 'waiting') {
+                clearTimeout(timeout);
+                state = 'tooearly';
+                const area = document.getElementById('gameArea');
+                area.className = 'game-area tooearly';
+                area.textContent = '太早了！点击重试';
+                state = 'idle';
+                return;
+            }
+            if (state === 'ready') {
+                const reactionTime = Math.round(performance.now() - startTime);
+                results.push(reactionTime);
+                roundNum++;
+                const rank = getRank(reactionTime);
+                document.getElementById('result').innerHTML = `${reactionTime}ms <span class="rank ${rank.toLowerCase()}">${rank}</span>`;
+                addHistory(reactionTime, rank);
+                updateStats();
+                state = 'idle';
+                const area = document.getElementById('gameArea');
+                area.className = 'game-area idle';
+                area.textContent = '点击继续';
+                if (mode === 'multi' && roundNum < 5) {
+                    setTimeout(nextRound, 1000);
+                } else if (mode === 'single') {
+                    area.textContent = `你的成绩: ${reactionTime}ms`;
+                }
+                return;
+            }
+            if (state === 'tooearly') { startTest(); return; }
+        }
+
+        function getRank(ms) {
+            if (ms < 200) return 'S';
+            if (ms < 250) return 'A';
+            if (ms < 350) return 'B';
+            if (ms < 500) return 'C';
+            return 'D';
+        }
+
+        function addHistory(ms, rank) {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `<span>第${results.length}次</span><span>${ms}ms</span><span class="rank ${rank.toLowerCase()}">${rank}</span>`;
+            const h = document.getElementById('history');
+            h.appendChild(div);
+            h.scrollTop = h.scrollHeight;
+        }
+
+        function updateStats() {
+            if (results.length === 0) return;
+            const best = Math.min(...results);
+            const avg = Math.round(results.reduce((a, b) => a + b, 0) / results.length);
+            document.getElementById('bestTime').textContent = best + 'ms';
+            document.getElementById('avgTime').textContent = avg + 'ms';
+            document.getElementById('attempts').textContent = results.length;
+        }
+
+        function showFinalResult() {
+            const avg = Math.round(results.reduce((a, b) => a + b, 0) / results.length);
+            const best = Math.min(...results);
+            const area = document.getElementById('gameArea');
+            area.className = 'game-area idle';
+            area.innerHTML = `<div><div style="font-size:36px;font-weight:bold;color:var(--primary-color)">${avg}ms</div><div style="font-size:16px;margin-top:8px">平均反应时间</div><div style="font-size:14px;color:var(--secondary-color)">最佳: ${best}ms</div></div>`;
+            document.getElementById('result').innerHTML = `<span class="rank ${getRank(avg).toLowerCase()}">${getRank(avg)}</span> 综合评级`;
+            document.getElementById('startBtn').textContent = '再来一轮';
+            state = 'idle';
+        }
+
+        function toggleTheme() { const html = document.documentElement; html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark'; }
+    </script>
+</body>
+</html>

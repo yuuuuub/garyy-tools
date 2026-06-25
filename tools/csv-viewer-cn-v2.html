@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV查看器 V2</title>
+    <meta name="description" content="在线CSV数据查看器，支持拖拽上传、排序、搜索、分页、导出">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 1rem; text-align: center; }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; }
+        .card { background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); }
+        .drop-zone {
+            border: 2px dashed var(--border); border-radius: 12px; padding: 3rem 2rem; text-align: center;
+            cursor: pointer; transition: all 0.3s;
+        }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(233,69,96,0.05); }
+        .drop-zone p { color: var(--text-secondary); margin-top: 0.5rem; }
+        .drop-icon { font-size: 3rem; }
+        input[type="file"] { display: none; }
+        textarea {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-tertiary); color: var(--text-primary); font-family: 'Courier New', monospace;
+            font-size: 0.9rem; resize: vertical; margin-top: 1rem;
+        }
+        .toolbar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+        .stats { color: var(--text-secondary); font-size: 0.85rem; margin-left: auto; }
+        input[type="text"], input[type="search"] {
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.9rem;
+        }
+        input[type="text"]:focus, input[type="search"]:focus { outline: none; border-color: var(--accent); }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.5rem 1rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.85rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: var(--bg-tertiary); padding: 0.75rem 1rem; text-align: left;
+            cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; z-index: 1;
+        }
+        th:hover { background: var(--border); }
+        th .sort-icon { margin-left: 0.3rem; color: var(--text-secondary); }
+        td { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        tr:hover td { background: rgba(233,69,96,0.05); }
+        tr.highlight td { background: rgba(233,69,96,0.15); }
+        .pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: center; margin-top: 1rem; }
+        .pagination button { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+        .pagination span { color: var(--text-secondary); font-size: 0.85rem; }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 CSV查看器 V2</h1>
+        <p class="subtitle">拖拽上传或粘贴CSV数据，支持排序、搜索、分页、导出</p>
+
+        <div class="card" id="uploadCard">
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="drop-icon">📁</div>
+                <p>拖拽CSV文件到此处，或点击选择文件</p>
+                <p style="font-size:0.8rem;margin-top:0.5rem;">支持 .csv 和 .tsv 文件</p>
+            </div>
+            <input type="file" id="fileInput" accept=".csv,.tsv,.txt" onchange="handleFile(this.files[0])">
+            <textarea id="textInput" rows="4" placeholder="或在此粘贴CSV文本数据..."></textarea>
+            <div style="margin-top:0.5rem;display:flex;gap:0.5rem;">
+                <button onclick="loadFromText()">加载文本</button>
+                <button class="secondary" onclick="loadSample()">加载示例数据</button>
+            </div>
+        </div>
+
+        <div class="card" id="tableCard" style="display:none;">
+            <div class="toolbar">
+                <input type="search" id="searchInput" placeholder="搜索行..." oninput="filterRows()" style="width:250px;">
+                <button class="secondary" onclick="exportCsv()">导出CSV</button>
+                <button class="secondary" onclick="copyTable()">复制表格</button>
+                <button class="secondary" onclick="resetData()">重新加载</button>
+                <span class="stats" id="statsInfo"></span>
+            </div>
+            <div class="table-wrap" style="max-height:600px;overflow:auto;">
+                <table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <script>
+        let allRows = [], headers = [], filteredRows = [], sortCol = -1, sortAsc = true, page = 1;
+        const PAGE_SIZE = 50;
+
+        const sampleCsv = `姓名,年龄,城市,职业,薪资,入职日期
+张三,28,北京,前端工程师,25000,2021-03-15
+李四,35,上海,产品经理,32000,2019-07-01
+王五,24,深圳,UI设计师,20000,2022-01-10
+赵六,42,杭州,技术总监,45000,2018-05-20
+钱七,31,广州,后端工程师,28000,2020-09-08
+孙八,26,成都,数据分析师,22000,2021-11-25
+周九,38,武汉,架构师,38000,2017-02-14
+吴十,29,南京,测试工程师,18000,2022-06-30
+郑十一,33,西安,运维工程师,21000,2020-04-18
+陈十二,27,重庆,算法工程师,30000,2021-08-12
+林十三,40,厦门,项目经理,35000,2019-01-05
+黄十四,25,长沙,前端工程师,19000,2023-02-20
+刘十五,37,天津,安全工程师,27000,2020-07-15
+杨十六,30,苏州,移动端开发,24000,2021-04-22
+马十七,44,青岛,CTO,60000,2016-03-01`;
+
+        function detectDelimiter(text) {
+            const firstLine = text.split('\n')[0];
+            const counts = { ',': (firstLine.match(/,/g) || []).length, '\t': (firstLine.match(/\t/g) || []).length, ';': (firstLine.match(/;/g) || []).length, '|': (firstLine.match(/\|/g) || []).length };
+            return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][1] > 0 ? Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] : ',';
+        }
+
+        function parseCsv(text, delimiter) {
+            delimiter = delimiter || detectDelimiter(text);
+            const rows = [];
+            let current = '', inQuote = false, row = [];
+            for (let i = 0; i < text.length; i++) {
+                const c = text[i];
+                if (inQuote) {
+                    if (c === '"' && text[i + 1] === '"') { current += '"'; i++; }
+                    else if (c === '"') inQuote = false;
+                    else current += c;
+                } else {
+                    if (c === '"') inQuote = true;
+                    else if (c === delimiter) { row.push(current); current = ''; }
+                    else if (c === '\n' || c === '\r') {
+                        if (c === '\r' && text[i + 1] === '\n') i++;
+                        row.push(current); current = '';
+                        if (row.some(c => c.trim())) rows.push(row);
+                        row = [];
+                    } else current += c;
+                }
+            }
+            if (current || row.length) { row.push(current); rows.push(row); }
+            return rows;
+        }
+
+        function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        function renderTable() {
+            const start = (page - 1) * PAGE_SIZE;
+            const pageRows = filteredRows.slice(start, start + PAGE_SIZE);
+
+            document.getElementById('tableHead').innerHTML = '<tr>' + headers.map((h, i) => {
+                const icon = sortCol === i ? (sortAsc ? ' ▲' : ' ▼') : ' ↕';
+                return `<th onclick="sortBy(${i})">${escapeHtml(h)}<span class="sort-icon">${icon}</span></th>`;
+            }).join('') + '</tr>';
+
+            document.getElementById('tableBody').innerHTML = pageRows.map(row =>
+                '<tr>' + row.map(c => `<td title="${escapeHtml(c)}">${escapeHtml(c)}</td>`).join('') + '</tr>'
+            ).join('');
+
+            const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE);
+            document.getElementById('statsInfo').textContent = `共 ${filteredRows.length} 行 / ${headers.length} 列 | 第 ${page}/${totalPages || 1} 页`;
+
+            let pagHtml = `<button class="secondary" onclick="goPage(1)" ${page <= 1 ? 'disabled' : ''}>首页</button>`;
+            pagHtml += `<button class="secondary" onclick="goPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>上一页</button>`;
+            pagHtml += `<span>${page} / ${totalPages || 1}</span>`;
+            pagHtml += `<button class="secondary" onclick="goPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>`;
+            pagHtml += `<button class="secondary" onclick="goPage(${totalPages})" ${page >= totalPages ? 'disabled' : ''}>末页</button>`;
+            document.getElementById('pagination').innerHTML = pagHtml;
+        }
+
+        function sortBy(col) {
+            if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+            filteredRows.sort((a, b) => {
+                let va = a[col] || '', vb = b[col] || '';
+                const na = parseFloat(va), nb = parseFloat(vb);
+                if (!isNaN(na) && !isNaN(nb)) return sortAsc ? na - nb : nb - na;
+                return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            renderTable();
+        }
+
+        function filterRows() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            filteredRows = q ? allRows.filter(row => row.some(c => c.toLowerCase().includes(q))) : [...allRows];
+            sortCol = -1; page = 1;
+            renderTable();
+        }
+
+        function goPage(p) { page = p; renderTable(); }
+
+        function loadData(text) {
+            const rows = parseCsv(text);
+            if (rows.length < 2) { alert('数据不足'); return; }
+            headers = rows[0];
+            allRows = rows.slice(1).filter(r => r.some(c => c.trim()));
+            filteredRows = [...allRows];
+            sortCol = -1; page = 1;
+            document.getElementById('uploadCard').style.display = 'none';
+            document.getElementById('tableCard').style.display = 'block';
+            renderTable();
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => loadData(e.target.result);
+            reader.readAsText(file);
+        }
+
+        function loadFromText() { loadData(document.getElementById('textInput').value); }
+        function loadSample() { loadData(sampleCsv); }
+        function resetData() {
+            document.getElementById('uploadCard').style.display = 'block';
+            document.getElementById('tableCard').style.display = 'none';
+        }
+
+        function exportCsv() {
+            const csv = [headers.join(','), ...filteredRows.map(r => r.map(c => c.includes(',') || c.includes('"') ? '"' + c.replace(/"/g, '""') + '"' : c).join(','))].join('\n');
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'export.csv'; a.click();
+        }
+
+        function copyTable() {
+            const text = [headers.join('\t'), ...filteredRows.map(r => r.join('\t'))].join('\n');
+            navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+        }
+
+        // Drag and drop
+        const dz = document.getElementById('dropZone');
+        ['dragenter', 'dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('dragover'); }));
+        ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('dragover'); }));
+        dz.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+    </script>
+</body>
+</html>

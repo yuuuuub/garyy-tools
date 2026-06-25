@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAML查看器</title>
+    <meta name="description" content="在线YAML数据查看器和转换工具，支持YAML转JSON、格式化、树形展示">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 1rem; text-align: center; }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; }
+        .layout { display: flex; gap: 1.5rem; }
+        .panel { flex: 1; background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); min-height: 500px; display: flex; flex-direction: column; }
+        .panel h2 { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+        textarea {
+            flex: 1; width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--bg-tertiary); color: var(--text-primary); font-family: 'Courier New', monospace;
+            font-size: 0.9rem; resize: vertical; min-height: 400px;
+        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.6rem 1.2rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.9rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        .output-area {
+            flex: 1; overflow: auto; font-family: 'Courier New', monospace; font-size: 0.9rem;
+            background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; min-height: 400px; white-space: pre-wrap;
+        }
+        .tree-key { color: #ff6b6b; }
+        .tree-val-str { color: #4caf50; }
+        .tree-val-num { color: #ff9800; }
+        .tree-val-bool { color: #2196f3; }
+        .tree-val-null { color: #9e9e9e; }
+        .tree-comment { color: #6a6a6a; font-style: italic; }
+        .error-msg { color: var(--danger); padding: 1rem; background: rgba(244,67,54,0.1); border-radius: 8px; }
+        @media (max-width: 768px) {
+            .layout { flex-direction: column; }
+            textarea { min-height: 250px; }
+        }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 YAML查看器</h1>
+        <p class="subtitle">解析YAML数据，转换为JSON，可视化查看结构</p>
+
+        <div class="layout">
+            <div class="panel">
+                <h2>YAML输入</h2>
+                <textarea id="yamlInput" placeholder="在此粘贴YAML数据..."></textarea>
+                <div class="btn-row">
+                    <button onclick="parseYaml()">解析</button>
+                    <button class="secondary" onclick="convertToJson()">转JSON</button>
+                    <button class="secondary" onclick="formatYaml()">格式化</button>
+                    <button class="secondary" onclick="copyOutput()">复制</button>
+                </div>
+                <div id="parseError" style="margin-top:0.5rem;"></div>
+            </div>
+            <div class="panel">
+                <h2>输出结果</h2>
+                <div id="outputArea" class="output-area">
+                    <p style="color:var(--text-secondary)">点击「解析」查看结果...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const sampleYaml = `# Kubernetes Deployment 配置示例
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: production
+  labels:
+    app: web-app
+    version: v2.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: host
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "200m"
+              memory: "128Mi"
+      restartPolicy: Always`;
+
+document.getElementById('yamlInput').value = sampleYaml;
+
+function parseYamlBlock(yaml) {
+    const lines = yaml.split('\n');
+    const result = {};
+    const stack = [{ indent: -1, obj: result, key: null }];
+    let lastKey = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '' || line.trim().startsWith('#')) continue;
+
+        const indent = line.search(/\S/);
+        const content = line.trim();
+
+        // Pop stack to correct level
+        while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
+        const parent = stack[stack.length - 1].obj;
+
+        if (content.startsWith('- ')) {
+            const val = content.substring(2).trim();
+            if (lastKey && !Array.isArray(parent[lastKey])) parent[lastKey] = [];
+            const parsedVal = parseYamlValue(val);
+            if (typeof parsedVal === 'object' && parsedVal !== null) {
+                parent[lastKey].push(parsedVal);
+                stack.push({ indent: indent + 2, obj: parsedVal, key: null });
+            } else {
+                parent[lastKey].push(parsedVal);
+            }
+        } else if (content.includes(':')) {
+            const colonIdx = content.indexOf(':');
+            const key = content.substring(0, colonIdx).trim();
+            const val = content.substring(colonIdx + 1).trim();
+            lastKey = key;
+
+            if (val === '' || val === '|' || val === '>') {
+                // Nested object or block scalar
+                if (Array.isArray(parent)) {
+                    const obj = {};
+                    parent.push(obj);
+                    stack.push({ indent, obj, key: null });
+                } else {
+                    parent[key] = {};
+                    stack.push({ indent, obj: parent[key], key });
+                }
+            } else if (val.startsWith('[') || val.startsWith('{')) {
+                try { parent[key] = JSON.parse(val); } catch { parent[key] = val; }
+            } else {
+                const parsed = parseYamlValue(val);
+                if (Array.isArray(parent)) {
+                    const obj = {};
+                    obj[key] = parsed;
+                    parent.push(obj);
+                } else {
+                    parent[key] = parsed;
+                }
+            }
+        }
+    }
+    return result;
+}
+
+function parseYamlValue(val) {
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    if (val === 'null' || val === '~' || val === '') return null;
+    if (/^-?\d+$/.test(val)) return parseInt(val, 10);
+    if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val);
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
+        return val.slice(1, -1);
+    if (val.startsWith('[')) { try { return JSON.parse(val); } catch {} }
+    return val;
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toTreeHtml(obj, depth = 0, isLast = true) {
+    if (obj === null) return `<span class="tree-val-null">null</span>`;
+    if (typeof obj === 'boolean') return `<span class="tree-val-bool">${obj}</span>`;
+    if (typeof obj === 'number') return `<span class="tree-val-num">${obj}</span>`;
+    if (typeof obj === 'string') return `<span class="tree-val-str">"${escapeHtml(obj)}"</span>`;
+
+    if (Array.isArray(obj)) {
+        if (obj.length === 0) return '[]';
+        const indent = '  '.repeat(depth);
+        const inner = obj.map((item, i) =>
+            `${indent}  - ${typeof item === 'object' && item !== null ? toTreeHtml(item, depth + 1, i === obj.length - 1) : toTreeHtml(item, depth + 1, i === obj.length - 1)}`
+        ).join('\n');
+        return `[\n${inner}\n${indent}]`;
+    }
+
+    if (typeof obj === 'object') {
+        const entries = Object.entries(obj);
+        if (entries.length === 0) return '{}';
+        const indent = '  '.repeat(depth);
+        const inner = entries.map(([k, v], i) =>
+            `${indent}  <span class="tree-key">${escapeHtml(k)}</span>: ${typeof v === 'object' && v !== null ? toTreeHtml(v, depth + 1, i === entries.length - 1) : toTreeHtml(v, depth + 1, i === entries.length - 1)}`
+        ).join('\n');
+        return `{\n${inner}\n${indent}}`;
+    }
+    return String(obj);
+}
+
+let parsedData = null;
+
+function parseYaml() {
+    const input = document.getElementById('yamlInput').value;
+    const output = document.getElementById('outputArea');
+    const errEl = document.getElementById('parseError');
+    errEl.innerHTML = '';
+
+    try {
+        parsedData = parseYamlBlock(input);
+        output.innerHTML = toTreeHtml(parsedData);
+    } catch (e) {
+        errEl.innerHTML = `<div class="error-msg">❌ 解析错误: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function convertToJson() {
+    const input = document.getElementById('yamlInput').value;
+    const output = document.getElementById('outputArea');
+    const errEl = document.getElementById('parseError');
+    errEl.innerHTML = '';
+
+    try {
+        parsedData = parseYamlBlock(input);
+        const jsonStr = JSON.stringify(parsedData, null, 2);
+        output.innerHTML = escapeHtml(jsonStr)
+            .replace(/"([^"]+)":/g, '<span class="tree-key">"$1"</span>:')
+            .replace(/: "([^"]*)"/g, ': <span class="tree-val-str">"$1"</span>')
+            .replace(/: (\d+\.?\d*)/g, ': <span class="tree-val-num">$1</span>')
+            .replace(/: (true|false)/g, ': <span class="tree-val-bool">$1</span>')
+            .replace(/: (null)/g, ': <span class="tree-val-null">$1</span>');
+    } catch (e) {
+        errEl.innerHTML = `<div class="error-msg">❌ 转换错误: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function formatYaml() {
+    if (!parsedData) { parseYaml(); return; }
+    const output = document.getElementById('outputArea');
+    output.innerHTML = toTreeHtml(parsedData);
+}
+
+function copyOutput() {
+    const text = document.getElementById('outputArea').innerText;
+    navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+}
+
+document.getElementById('yamlInput').addEventListener('input', parseYaml);
+    </script>
+</body>
+</html>

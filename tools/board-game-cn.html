@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="五子棋 - 经典五子棋对战游戏，支持人人对战和人机对战">
+    <meta name="robots" content="index, follow">
+    <title>五子棋</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="i18n.js" defer></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #333333; --primary-color: #2d3436; --secondary-color: #636e72; --success-color: #00b894; --warning-color: #fdcb6e; --danger-color: #d63031; --border-color: #dfe6e9; --card-bg: #f8f9fa; }
+        [data-theme="dark"] { --bg-color: #1a1a2e; --text-color: #eee; --primary-color: #dfe6e9; --secondary-color: #b2bec3; --success-color: #55efc4; --warning-color: #ffeaa7; --danger-color: #ff7675; --border-color: #444; --card-bg: #16213e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; }
+        .container { max-width: 600px; margin: 0 auto; text-align: center; }
+        .card { padding: 24px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); margin-bottom: 20px; }
+        .controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .ctrl-btn { padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); cursor: pointer; font-size: 14px; }
+        .ctrl-btn.active { border-color: var(--primary-color); background: var(--primary-color); color: #fff; }
+        .board-wrapper { display: inline-block; padding: 12px; background: #c8a96e; border-radius: 8px; margin: 12px 0; }
+        .board { display: grid; grid-template-columns: repeat(15, 28px); grid-template-rows: repeat(15, 28px); gap: 0; }
+        .cell { width: 28px; height: 28px; position: relative; cursor: pointer; }
+        .cell::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #8b6914; }
+        .cell::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #8b6914; }
+        .stone { width: 24px; height: 24px; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1; box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .stone.black { background: radial-gradient(circle at 35% 35%, #555, #111); }
+        .stone.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); }
+        .stone.last { box-shadow: 0 0 0 3px var(--danger-color), 2px 2px 4px rgba(0,0,0,0.3); }
+        .status { font-size: 18px; font-weight: bold; margin: 12px 0; }
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 8px; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; padding: 8px 12px; background: var(--secondary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; z-index: 100; }
+        .info { display: flex; justify-content: center; gap: 24px; margin-bottom: 12px; }
+        .info-item { font-size: 14px; }
+        .info-item span { font-weight: bold; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
+    <div class="container">
+        <h1>五子棋</h1>
+        <div class="card">
+            <div class="controls">
+                <button class="ctrl-btn active" onclick="setMode('pvp',this)">人人对战</button>
+                <button class="ctrl-btn" onclick="setMode('pve',this)">人机对战</button>
+            </div>
+            <div class="info">
+                <div class="info-item">当前: <span id="turn">黑棋</span></div>
+                <div class="info-item">步数: <span id="stepCount">0</span></div>
+            </div>
+            <div class="board-wrapper">
+                <div class="board" id="board"></div>
+            </div>
+            <div class="status" id="status"></div>
+            <button class="btn" onclick="initGame()">重新开始</button>
+        </div>
+    </div>
+    <script>
+        const SIZE = 15;
+        let grid, turn, gameOver, mode, lastMove, stepCount;
+
+        function initGame() {
+            grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+            turn = 1; gameOver = false; lastMove = null; stepCount = 0;
+            document.getElementById('status').textContent = '';
+            document.getElementById('turn').textContent = '黑棋';
+            document.getElementById('stepCount').textContent = '0';
+            render();
+        }
+
+        function render() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.onclick = () => placeStone(r, c);
+                    if (grid[r][c] !== 0) {
+                        const stone = document.createElement('div');
+                        stone.className = 'stone ' + (grid[r][c] === 1 ? 'black' : 'white');
+                        if (lastMove && lastMove[0] === r && lastMove[1] === c) stone.classList.add('last');
+                        cell.appendChild(stone);
+                    }
+                    board.appendChild(cell);
+                }
+            }
+        }
+
+        function placeStone(r, c) {
+            if (gameOver || grid[r][c] !== 0) return;
+            grid[r][c] = turn;
+            lastMove = [r, c];
+            stepCount++;
+            document.getElementById('stepCount').textContent = stepCount;
+            if (checkWin(r, c, turn)) {
+                gameOver = true;
+                document.getElementById('status').innerHTML = `<span style="color:var(--success-color)">🎉 ${turn === 1 ? '黑棋' : '白棋'}获胜！</span>`;
+                render();
+                return;
+            }
+            if (stepCount === SIZE * SIZE) {
+                gameOver = true;
+                document.getElementById('status').innerHTML = '<span style="color:var(--warning-color)">🤝 平局！</span>';
+                render();
+                return;
+            }
+            turn = turn === 1 ? 2 : 1;
+            document.getElementById('turn').textContent = turn === 1 ? '黑棋' : '白棋';
+            render();
+            if (mode === 'pve' && turn === 2 && !gameOver) {
+                setTimeout(aiMove, 300);
+            }
+        }
+
+        function checkWin(r, c, player) {
+            const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+            for (const [dr, dc] of dirs) {
+                let count = 1;
+                for (let i = 1; i < 5; i++) {
+                    const nr = r + dr * i, nc = c + dc * i;
+                    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && grid[nr][nc] === player) count++;
+                    else break;
+                }
+                for (let i = 1; i < 5; i++) {
+                    const nr = r - dr * i, nc = c - dc * i;
+                    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && grid[nr][nc] === player) count++;
+                    else break;
+                }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+
+        function aiMove() {
+            let best = null, bestScore = -Infinity;
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (grid[r][c] !== 0) continue;
+                    if (!hasNeighbor(r, c)) continue;
+                    const score = evaluate(r, c);
+                    if (score > bestScore) { bestScore = score; best = [r, c]; }
+                }
+            }
+            if (!best) {
+                best = [7, 7];
+                if (grid[7][7] !== 0) {
+                    for (let r = 6; r <= 8; r++) for (let c = 6; c <= 8; c++) if (grid[r][c] === 0) { best = [r, c]; break; }
+                }
+            }
+            grid[best[0]][best[1]] = 2;
+            lastMove = best;
+            stepCount++;
+            document.getElementById('stepCount').textContent = stepCount;
+            if (checkWin(best[0], best[1], 2)) {
+                gameOver = true;
+                document.getElementById('status').innerHTML = '<span style="color:var(--danger-color)">😢 电脑获胜！</span>';
+                render();
+                return;
+            }
+            turn = 1;
+            document.getElementById('turn').textContent = '黑棋';
+            render();
+        }
+
+        function hasNeighbor(r, c) {
+            for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && grid[nr][nc] !== 0) return true;
+            }
+            return false;
+        }
+
+        function evaluate(r, c) {
+            let score = 0;
+            const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+            for (const [dr, dc] of dirs) {
+                let own = 0, empty = 0, opp = 0;
+                for (let i = -4; i <= 4; i++) {
+                    if (i === 0) continue;
+                    const nr = r + dr * i, nc = c + dc * i;
+                    if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+                    if (grid[nr][nc] === 2) own++;
+                    else if (grid[nr][nc] === 1) opp++;
+                    else empty++;
+                }
+                if (own >= 4) score += 100000;
+                else if (own === 3 && empty >= 2) score += 10000;
+                else if (own === 2 && empty >= 3) score += 1000;
+                if (opp >= 4) score += 50000;
+                else if (opp === 3 && empty >= 2) score += 5000;
+                else if (opp === 2 && empty >= 3) score += 500;
+            }
+            score += (7 - Math.abs(r - 7)) + (7 - Math.abs(c - 7));
+            return score;
+        }
+
+        function setMode(m, btn) {
+            mode = m;
+            document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            initGame();
+        }
+
+        function toggleTheme() { const html = document.documentElement; html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark'; }
+
+        mode = 'pvp';
+        initGame();
+    </script>
+</body>
+</html>

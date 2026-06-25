@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔗 中文概念图</title>
+<meta name="description" content="在线概念图工具，创建概念关系网络图，支持节点连接和布局">
+<meta name="robots" content="index, follow">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+#toolbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px;z-index:100}
+#toolbar button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}
+#toolbar button:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+#toolbar .sep{width:1px;height:26px;background:var(--border);margin:0 4px}
+#canvas-wrap{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+#canvas-wrap:active{cursor:grabbing}
+svg{width:100%;height:100%}
+.cm-node{cursor:pointer}
+.cm-circle{transition:fill .15s}
+.cm-text{fill:var(--text);font-size:13px;font-family:inherit;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.cm-edge{stroke:var(--border);stroke-width:2;fill:none}
+.cm-label{fill:var(--text2);font-size:11px;font-family:inherit;text-anchor:middle;pointer-events:none}
+.cm-add{fill:var(--green);cursor:pointer;font-size:18px;pointer-events:all}
+.cm-del{fill:var(--red);cursor:pointer;font-size:14px;pointer-events:all}
+#edge-mode-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;z-index:100;display:none}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:90%;max-width:400px}
+input[type=text]{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;margin:8px 0;font-family:inherit;font-size:.95rem}
+input:focus{border-color:var(--accent)}
+button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s;font-family:inherit;font-size:.95rem}
+button:hover{opacity:.85}
+button.sec{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔗</text></svg>">
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<h1 style="position:fixed;top:6px;left:80px;z-index:999;font-size:1rem;pointer-events:none">🔗 中文概念图</h1>
+<div id="toolbar">
+<button onclick="addNode()">+ 添加概念</button>
+<button onclick="toggleEdgeMode()" id="edge-btn">🔗 连线模式</button>
+<button onclick="clearAll()">🗑️ 清空</button>
+<div class="sep"></div>
+<button onclick="autoLayout()">📐 自动布局</button>
+<button onclick="loadDemo()">📖 示例</button>
+<button onclick="exportPNG()">💾 导出PNG</button>
+</div>
+<div id="canvas-wrap"></div>
+<div id="edge-mode-hint">🔗 连线模式：点击两个节点创建连线 | ESC退出</div>
+
+<script>
+const SVG_NS='http://www.w3.org/2000/svg';
+const wrap=document.getElementById('canvas-wrap');
+const hint=document.getElementById('edge-mode-hint');
+let nodes=[],edges=[];
+let edgeMode=false,edgeFrom=null;
+let viewBox={x:0,y:0,w:1200,h:800};
+let isPanning=false,panStart={x:0,y:0};
+let dragNode=null,dragOffset={x:0,y:0};
+
+function save(){localStorage.setItem('cm_data',JSON.stringify({nodes,edges}))}
+function load(){try{const d=JSON.parse(localStorage.getItem('cm_data'));if(d){nodes=d.nodes||[];edges=d.edges||[]}}catch(e){}}
+
+function addNode(){
+const text=prompt('输入概念名称:','新概念');
+if(!text)return;
+const x=viewBox.x+viewBox.w/2+Math.random()*200-100;
+const y=viewBox.y+viewBox.h/2+Math.random()*200-100;
+nodes.push({id:Date.now(),text,x,y,color:getColor(nodes.length)});
+save();render();
+}
+
+function getColor(i){
+const colors=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+return colors[i%colors.length];
+}
+
+function toggleEdgeMode(){
+edgeMode=!edgeMode;edgeFrom=null;
+document.getElementById('edge-btn').style.background=edgeMode?'var(--accent)':'var(--bg)';
+document.getElementById('edge-btn').style.color=edgeMode?'#fff':'var(--text)';
+hint.style.display=edgeMode?'block':'none';
+render();
+}
+
+function addEdge(from,to,label){
+if(from===to)return;
+if(edges.find(e=>(e.from===from&&e.to===to)||(e.from===to&&e.to===from)))return;
+label=prompt('连线标签(可选):','')||'';
+edges.push({from,to,label});
+save();
+}
+
+function deleteNode(id){
+nodes=nodes.filter(n=>n.id!==id);
+edges=edges.filter(e=>e.from!==id&&e.to!==id);
+save();render();
+}
+
+function editNode(id){
+const node=nodes.find(n=>n.id===id);
+if(!node)return;
+const text=prompt('编辑概念名称:',node.text);
+if(text!==null&&text.trim()){node.text=text.trim();save();render()}
+}
+
+function clearAll(){
+if(!confirm('清空所有内容？'))return;
+nodes=[];edges=[];save();render();
+}
+
+function autoLayout(){
+if(!nodes.length)return;
+const cx=viewBox.x+viewBox.w/2;
+const cy=viewBox.y+viewBox.h/2;
+const r=Math.min(viewBox.w,viewBox.h)*0.3;
+nodes.forEach((n,i)=>{
+const angle=(2*Math.PI*i/nodes.length)-Math.PI/2;
+n.x=cx+r*Math.cos(angle);
+n.y=cy+r*Math.sin(angle);
+});
+save();render();
+}
+
+function render(){
+const svg=document.createElementNS(SVG_NS,'svg');
+svg.setAttribute('viewBox',`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+svg.style.background='var(--bg)';
+
+// Draw edges
+edges.forEach(e=>{
+const from=nodes.find(n=>n.id===e.from);
+const to=nodes.find(n=>n.id===e.to);
+if(!from||!to)return;
+const line=document.createElementNS(SVG_NS,'line');
+line.setAttribute('x1',from.x);line.setAttribute('y1',from.y);
+line.setAttribute('x2',to.x);line.setAttribute('y2',to.y);
+line.classList.add('cm-edge');
+svg.appendChild(line);
+if(e.label){
+const mx=(from.x+to.x)/2,my=(from.y+to.y)/2;
+const text=document.createElementNS(SVG_NS,'text');
+text.textContent=e.label;text.setAttribute('x',mx);text.setAttribute('y',my-8);
+text.classList.add('cm-label');
+svg.appendChild(text);
+}
+});
+
+// Draw nodes
+nodes.forEach(n=>{
+const g=document.createElementNS(SVG_NS,'g');
+g.setAttribute('transform',`translate(${n.x},${n.y})`);
+g.classList.add('cm-node');
+if(edgeMode){g.style.cursor='pointer'}
+if(edgeFrom===n.id){
+const sel=document.createElementNS(SVG_NS,'circle');
+sel.setAttribute('r',28);sel.setAttribute('fill','none');
+sel.setAttribute('stroke','var(--accent)');sel.setAttribute('stroke-width','3');
+sel.setAttribute('stroke-dasharray','4');
+g.appendChild(sel);
+}
+
+const circle=document.createElementNS(SVG_NS,'circle');
+circle.setAttribute('r',24);circle.setAttribute('fill',n.color+'33');
+circle.setAttribute('stroke',n.color);circle.setAttribute('stroke-width','2');
+circle.classList.add('cm-circle');
+g.appendChild(circle);
+
+const text=document.createElementNS(SVG_NS,'text');
+text.textContent=n.text.length>6?n.text.substring(0,6)+'...':n.text;
+text.setAttribute('title',n.text);
+text.classList.add('cm-text');
+g.appendChild(text);
+
+// Delete button
+const del=document.createElementNS(SVG_NS,'text');
+del.textContent='×';del.setAttribute('x',18);del.setAttribute('y',-18);
+del.setAttribute('font-size','14');del.classList.add('cm-del');
+del.onclick=(e)=>{e.stopPropagation();deleteNode(n.id)};
+g.appendChild(del);
+
+// Edit on double click
+g.onclick=()=>{
+if(edgeMode){
+if(!edgeFrom){edgeFrom=n.id;render()}
+else{addEdge(edgeFrom,n.id);edgeFrom=null;render()}
+}else{editNode(n.id)}
+};
+
+// Drag
+g.onmousedown=(e)=>{
+if(edgeMode||e.target.classList.contains('cm-del'))return;
+e.stopPropagation();
+dragNode=n;
+dragOffset={x:e.clientX-viewBox.x*(wrap.clientWidth/viewBox.w)-n.x,y:e.clientY-viewBox.y*(wrap.clientHeight/viewBox.h)-n.y};
+};
+
+svg.appendChild(g);
+});
+
+wrap.innerHTML='';
+wrap.appendChild(svg);
+}
+
+// Drag handlers
+wrap.addEventListener('mousemove',e=>{
+if(!dragNode)return;
+const scale=wrap.clientWidth/viewBox.w;
+dragNode.x=(e.clientX-viewBox.x*scale)/scale;
+dragNode.y=(e.clientY-52-viewBox.y*scale)/scale;
+render();
+});
+wrap.addEventListener('mouseup',()=>{if(dragNode){dragNode=null;save()}});
+wrap.addEventListener('mouseleave',()=>{if(dragNode){dragNode=null;save()}});
+
+// Pan
+wrap.addEventListener('mousedown',e=>{
+if(dragNode||e.target.closest('.cm-node'))return;
+isPanning=true;panStart={x:e.clientX-viewBox.x,y:e.clientY-viewBox.y};
+});
+wrap.addEventListener('mousemove',e=>{
+if(!isPanning)return;
+viewBox.x=e.clientX-panStart.x;viewBox.y=e.clientY-panStart.y;render();
+});
+wrap.addEventListener('mouseup',()=>{isPanning=false});
+
+// Zoom
+wrap.addEventListener('wheel',e=>{
+e.preventDefault();
+const f=e.deltaY>0?1.1:0.9;
+const mx=e.clientX,my=e.clientY-52;
+viewBox.x=mx-(mx-viewBox.x)*f;viewBox.y=my-(my-viewBox.y)*f;
+viewBox.w*=f;viewBox.h*=f;render();
+});
+
+// ESC exit edge mode
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&edgeMode){edgeMode=false;edgeFrom=null;hint.style.display='none';render()}});
+
+function exportPNG(){
+const svgEl=wrap.querySelector('svg');
+const serializer=new XMLSerializer();
+const source=serializer.serializeToString(svgEl);
+const canvas=document.createElement('canvas');
+canvas.width=1600;canvas.height=1000;
+const ctx=canvas.getContext('2d');
+ctx.fillStyle='#0d1117';ctx.fillRect(0,0,1600,1000);
+const img=new Image();
+img.onload=()=>{ctx.drawImage(img,0,0);const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='概念图.png';a.click()};
+img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(source)));
+}
+
+function loadDemo(){
+nodes=[
+{id:1,text:'人工智能',x:600,y:400,color:'#3b82f6'},
+{id:2,text:'机器学习',x:350,y:250,color:'#10b981'},
+{id:3,text:'深度学习',x:200,y:400,color:'#f59e0b'},
+{id:4,text:'自然语言处理',x:850,y:250,color:'#ef4444'},
+{id:5,text:'计算机视觉',x:800,y:450,color:'#8b5cf6'},
+{id:6,text:'神经网络',x:350,y:550,color:'#ec4899'},
+{id:7,text:'大数据',x:600,y:200,color:'#06b6d4'}
+];
+edges=[
+{from:1,to:2,label:'包含'},{from:1,to:4,label:'包含'},{from:1,to:5,label:'包含'},
+{from:2,to:3,label:'子集'},{from:2,to:6,label:'基于'},{from:3,to:6,label:'使用'},
+{from:4,to:3,label:'应用'},{from:5,to:3,label:'应用'},{from:7,to:2,label:'支撑'}
+];
+save();render();
+}
+
+load();render();
+</script>
+<script src="../i18n.js" defer></script>
+</body>
+</html>

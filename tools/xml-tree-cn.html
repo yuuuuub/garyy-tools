@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML树形查看器</title>
+    <meta name="description" content="在线XML数据可视化树形查看器，支持折叠展开、格式化、转JSON">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 1rem; text-align: center; }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; }
+        .layout { display: flex; gap: 1.5rem; }
+        .panel { flex: 1; background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); min-height: 500px; display: flex; flex-direction: column; }
+        .panel h2 { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+        textarea {
+            flex: 1; width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--bg-tertiary); color: var(--text-primary); font-family: 'Courier New', monospace;
+            font-size: 0.9rem; resize: vertical; min-height: 400px;
+        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.6rem 1.2rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.9rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        .output-area {
+            flex: 1; overflow: auto; font-family: 'Courier New', monospace; font-size: 0.9rem;
+            background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; min-height: 400px; white-space: pre-wrap;
+        }
+        .xml-tag { color: #ff6b6b; }
+        .xml-attr { color: #ff9800; }
+        .xml-val { color: #4caf50; }
+        .xml-text { color: var(--text-primary); }
+        .xml-comment { color: #6a6a6a; font-style: italic; }
+        .tree-toggle { cursor: pointer; user-select: none; color: var(--text-secondary); }
+        .tree-toggle:hover { color: var(--accent); }
+        .collapsed { display: none; }
+        .error-msg { color: var(--danger); padding: 1rem; background: rgba(244,67,54,0.1); border-radius: 8px; }
+        .node-line { padding-left: 1.2rem; }
+        @media (max-width: 768px) {
+            .layout { flex-direction: column; }
+            textarea { min-height: 250px; }
+        }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ XML树形查看器</h1>
+        <p class="subtitle">解析XML数据，可视化查看DOM树结构</p>
+
+        <div class="layout">
+            <div class="panel">
+                <h2>XML输入</h2>
+                <textarea id="xmlInput" placeholder="在此粘贴XML数据..."></textarea>
+                <div class="btn-row">
+                    <button onclick="parseXml()">解析</button>
+                    <button class="secondary" onclick="formatXml()">格式化</button>
+                    <button class="secondary" onclick="convertToJson()">转JSON</button>
+                    <button class="secondary" onclick="copyOutput()">复制</button>
+                </div>
+                <div id="parseError" style="margin-top:0.5rem;"></div>
+            </div>
+            <div class="panel">
+                <h2>树形视图</h2>
+                <div id="outputArea" class="output-area">
+                    <p style="color:var(--text-secondary)">点击「解析」查看树形结构...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>
+<bookstore category="fiction">
+  <book category="cooking">
+    <title lang="zh">天天饮食</title>
+    <author>李咏</author>
+    <year>2020</year>
+    <price>39.95</price>
+  </book>
+  <book category="children">
+    <title lang="zh">小王子</title>
+    <author>圣埃克苏佩里</author>
+    <year>1943</year>
+    <price>29.99</price>
+  </book>
+  <book category="web">
+    <title lang="en">Learning XML</title>
+    <author>Erik T. Ray</author>
+    <year>2003</year>
+    <price>39.95</price>
+  </book>
+</bookstore>`;
+
+document.getElementById('xmlInput').value = sampleXml;
+
+let nodeId = 0;
+let outputEl;
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderXmlTree(node, depth) {
+    if (node.nodeType === 3) {
+        const text = node.textContent.trim();
+        if (!text) return '';
+        return `<div class="node-line" style="padding-left:${depth * 1.2}rem"><span class="xml-text">"${escapeHtml(text)}"</span></div>`;
+    }
+    if (node.nodeType === 8) {
+        return `<div class="node-line" style="padding-left:${depth * 1.2}rem"><span class="xml-comment">&lt;!-- ${escapeHtml(node.textContent)} --&gt;</span></div>`;
+    }
+    if (node.nodeType !== 1) return '';
+
+    const id = 'xnode' + (nodeId++);
+    const tag = node.tagName;
+    const attrs = Array.from(node.attributes).map(a =>
+        ` <span class="xml-attr">${escapeHtml(a.name)}</span>=<span class="xml-val">"${escapeHtml(a.value)}"</span>`
+    ).join('');
+
+    const children = Array.from(node.childNodes).map(c => renderXmlTree(c, depth + 1)).filter(Boolean).join('');
+    const hasChildren = children.trim().length > 0;
+
+    if (!hasChildren) {
+        return `<div class="node-line" style="padding-left:${depth * 1.2}rem"><span class="xml-tag">&lt;${escapeHtml(tag)}</span>${attrs}<span class="xml-tag"> /&gt;</span></div>`;
+    }
+
+    return `<div class="node-line" style="padding-left:${depth * 1.2}rem"><span class="tree-toggle" onclick="toggleXml('${id}')">▼</span> <span class="xml-tag">&lt;${escapeHtml(tag)}</span>${attrs}<span class="xml-tag">&gt;</span></div>
+<div id="${id}">${children}</div>
+<div class="node-line" style="padding-left:${depth * 1.2}rem"><span class="xml-tag">&lt;/${escapeHtml(tag)}&gt;</span></div>`;
+}
+
+function toggleXml(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('collapsed');
+    const toggle = el.previousElementSibling.querySelector('.tree-toggle');
+    toggle.textContent = el.classList.contains('collapsed') ? '▶' : '▼';
+}
+
+function parseXml() {
+    const input = document.getElementById('xmlInput').value;
+    const output = document.getElementById('outputArea');
+    const errEl = document.getElementById('parseError');
+    errEl.innerHTML = '';
+    outputEl = output;
+
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(input, 'text/xml');
+        const error = doc.querySelector('parsererror');
+        if (error) throw new Error(error.textContent.split('\n')[0]);
+
+        nodeId = 0;
+        output.innerHTML = renderXmlTree(doc.documentElement, 0);
+    } catch (e) {
+        errEl.innerHTML = `<div class="error-msg">❌ XML解析错误: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function formatXml() {
+    const input = document.getElementById('xmlInput').value;
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(input, 'text/xml');
+        const error = doc.querySelector('parsererror');
+        if (error) throw new Error(error.textContent.split('\n')[0]);
+        const serializer = new XMLSerializer();
+        let xml = serializer.serializeToString(doc);
+        // Basic formatting
+        let formatted = '';
+        let indent = 0;
+        xml.split(/>\s*</).forEach(node => {
+            if (node.match(/^\/\w/)) indent--;
+            formatted += '  '.repeat(Math.max(0, indent)) + '<' + node + '>\n';
+            if (!node.match(/^[/?]/) && !node.match(/\/$/) && !node.includes('<!--')) indent++;
+        });
+        formatted = formatted.replace(/^</, '').replace(/>$\n/, '');
+        document.getElementById('xmlInput').value = formatted.trim();
+    } catch (e) {
+        document.getElementById('parseError').innerHTML = `<div class="error-msg">❌ ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function xmlToJson(node) {
+    if (node.nodeType === 3) {
+        const text = node.textContent.trim();
+        return text || null;
+    }
+    if (node.nodeType !== 1) return null;
+
+    const obj = {};
+    if (node.attributes && node.attributes.length) {
+        obj['@attributes'] = {};
+        for (let a of node.attributes) obj['@attributes'][a.name] = a.value;
+    }
+
+    const children = Array.from(node.childNodes).filter(c => c.nodeType === 1 || (c.nodeType === 3 && c.textContent.trim()));
+    if (children.length === 0) return Object.keys(obj).length ? obj : null;
+    if (children.length === 1 && children[0].nodeType === 3) {
+        const val = children[0].textContent.trim();
+        if (Object.keys(obj).length) { obj['#text'] = val; return obj; }
+        return val;
+    }
+
+    children.forEach(c => {
+        if (c.nodeType === 1) {
+            const child = xmlToJson(c);
+            if (obj[c.tagName]) {
+                if (!Array.isArray(obj[c.tagName])) obj[c.tagName] = [obj[c.tagName]];
+                obj[c.tagName].push(child);
+            } else {
+                obj[c.tagName] = child;
+            }
+        } else if (c.nodeType === 3 && c.textContent.trim()) {
+            obj['#text'] = c.textContent.trim();
+        }
+    });
+    return obj;
+}
+
+function convertToJson() {
+    const input = document.getElementById('xmlInput').value;
+    const output = document.getElementById('outputArea');
+    const errEl = document.getElementById('parseError');
+    errEl.innerHTML = '';
+
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(input, 'text/xml');
+        const error = doc.querySelector('parsererror');
+        if (error) throw new Error(error.textContent.split('\n')[0]);
+
+        const root = doc.documentElement;
+        const json = { [root.tagName]: xmlToJson(root) };
+        const jsonStr = JSON.stringify(json, null, 2);
+        output.innerHTML = escapeHtml(jsonStr)
+            .replace(/"([^"]+)":/g, '<span class="xml-attr">"$1"</span>:')
+            .replace(/: "([^"]*)"/g, ': <span class="xml-val">"$1"</span>');
+    } catch (e) {
+        errEl.innerHTML = `<div class="error-msg">❌ 转换错误: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function copyOutput() {
+    const text = document.getElementById('outputArea').innerText;
+    navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+}
+    </script>
+</body>
+</html>

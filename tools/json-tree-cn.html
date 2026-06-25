@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON树形查看器</title>
+    <meta name="description" content="在线JSON数据可视化树形查看器，支持折叠展开、格式化、压缩">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌲</text></svg>">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #e6e6e6;
+            --text-secondary: #a6a6a6;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); margin-bottom: 1rem; text-align: center; }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; }
+        .layout { display: flex; gap: 1.5rem; }
+        .panel { flex: 1; background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); min-height: 500px; display: flex; flex-direction: column; }
+        .panel h2 { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+        textarea {
+            flex: 1; width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--bg-tertiary); color: var(--text-primary); font-family: 'Courier New', monospace;
+            font-size: 0.9rem; resize: vertical; min-height: 400px;
+        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+        button {
+            background: var(--accent); color: white; border: none; padding: 0.6rem 1.2rem;
+            border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.3s; font-size: 0.9rem;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        button.secondary:hover { background: var(--border); }
+        .tree-area {
+            flex: 1; overflow: auto; font-family: 'Courier New', monospace; font-size: 0.9rem;
+            background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; min-height: 400px;
+        }
+        .tree-node { margin-left: 1.2rem; }
+        .tree-key { color: #ff6b6b; }
+        .tree-string { color: #4caf50; }
+        .tree-number { color: #ff9800; }
+        .tree-bool { color: #2196f3; }
+        .tree-null { color: #9e9e9e; }
+        .tree-toggle {
+            cursor: pointer; user-select: none; color: var(--text-secondary); font-size: 0.8rem;
+            display: inline-block; width: 1rem; text-align: center;
+        }
+        .tree-toggle:hover { color: var(--accent); }
+        .tree-collapsed { display: none; }
+        .tree-bracket { color: var(--text-secondary); }
+        .tree-count { color: var(--text-secondary); font-size: 0.8rem; }
+        .error-msg { color: var(--danger); padding: 1rem; background: rgba(244,67,54,0.1); border-radius: 8px; margin-top: 0.5rem; }
+        .stats { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem; }
+        @media (max-width: 768px) {
+            .layout { flex-direction: column; }
+            textarea { min-height: 250px; }
+        }
+    </style>
+    <script src="i18n.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🌲 JSON树形查看器</h1>
+        <p class="subtitle">将JSON数据可视化为可交互的树形结构</p>
+
+        <div class="layout">
+            <div class="panel">
+                <h2>JSON输入</h2>
+                <textarea id="jsonInput" placeholder="在此粘贴JSON数据..."></textarea>
+                <div class="btn-row">
+                    <button onclick="parseAndRender()">解析</button>
+                    <button class="secondary" onclick="formatJson()">格式化</button>
+                    <button class="secondary" onclick="minifyJson()">压缩</button>
+                    <button class="secondary" onclick="copyJson()">复制</button>
+                    <button class="secondary" onclick="expandAll()">全部展开</button>
+                    <button class="secondary" onclick="collapseAll()">全部折叠</button>
+                </div>
+                <div id="stats" class="stats"></div>
+            </div>
+            <div class="panel">
+                <h2>树形视图</h2>
+                <div id="treeOutput" class="tree-area">
+                    <p style="color:var(--text-secondary)">点击「解析」按钮查看树形结构...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sampleJson = {
+            "name": "张三",
+            "age": 28,
+            "isActive": true,
+            "address": {
+                "city": "北京",
+                "district": "朝阳区",
+                "zip": "100000"
+            },
+            "hobbies": ["阅读", "编程", "摄影"],
+            "scores": {"数学": 95, "英语": 88, "物理": 92},
+            "contacts": [
+                {"type": "email", "value": "zhangsan@example.com"},
+                {"type": "phone", "value": "13800138000"}
+            ],
+            "metadata": null
+        };
+
+        document.getElementById('jsonInput').value = JSON.stringify(sampleJson, null, 2);
+
+        function getJsonStats(data, depth = 0) {
+            let objects = 0, arrays = 0, strings = 0, numbers = 0, booleans = 0, nulls = 0;
+            function walk(val) {
+                if (val === null) { nulls++; return; }
+                if (Array.isArray(val)) { arrays++; val.forEach(walk); return; }
+                if (typeof val === 'object') { objects++; Object.values(val).forEach(walk); return; }
+                if (typeof val === 'string') strings++;
+                else if (typeof val === 'number') numbers++;
+                else if (typeof val === 'boolean') booleans++;
+            }
+            walk(data);
+            return { objects, arrays, strings, numbers, booleans, nulls, depth };
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        let idCounter = 0;
+
+        function renderNode(key, value, isLast, path) {
+            const id = 'n' + (idCounter++);
+            const comma = isLast ? '' : ',';
+
+            if (value === null) {
+                return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-null">null</span>${comma}</div>`;
+            }
+            if (typeof value === 'boolean') {
+                return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-bool">${value}</span>${comma}</div>`;
+            }
+            if (typeof value === 'number') {
+                return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-number">${value}</span>${comma}</div>`;
+            }
+            if (typeof value === 'string') {
+                return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-string">"${escapeHtml(value)}"</span>${comma}</div>`;
+            }
+
+            if (Array.isArray(value)) {
+                if (value.length === 0) {
+                    return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-bracket">[]</span>${comma}</div>`;
+                }
+                const items = value.map((v, i) => renderNode(null, v, i === value.length - 1, path + '.' + i)).join('');
+                return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-toggle" onclick="toggleNode('${id}')">▼</span> <span class="tree-bracket">[</span> <span class="tree-count">${value.length}项</span></div>
+                    <div class="tree-node" id="${id}">${items}
+                <div class="tree-line"><span class="tree-bracket">]</span>${comma}</div></div>`;
+            }
+
+            if (typeof value === 'object') {
+                const entries = Object.entries(value);
+                if (entries.length === 0) {
+                    return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-bracket">{}</span>${comma}</div>`;
+                }
+                const items = entries.map(([k, v], i) => renderNode(k, v, i === entries.length - 1, path + '.' + k)).join('');
+                return `<div class="tree-line">${key !== null ? `<span class="tree-key">"${escapeHtml(key)}"</span>: ` : ''}<span class="tree-toggle" onclick="toggleNode('${id}')">▼</span> <span class="tree-bracket">{</span> <span class="tree-count">${entries.length}个属性</span></div>
+                    <div class="tree-node" id="${id}">${items}
+                <div class="tree-line"><span class="tree-bracket">}</span>${comma}</div></div>`;
+            }
+            return '';
+        }
+
+        function parseAndRender() {
+            const input = document.getElementById('jsonInput').value.trim();
+            const output = document.getElementById('treeOutput');
+            if (!input) { output.innerHTML = '<p style="color:var(--text-secondary)">请输入JSON数据</p>'; return; }
+
+            try {
+                const data = JSON.parse(input);
+                idCounter = 0;
+                const stats = getJsonStats(data);
+                document.getElementById('stats').textContent = `对象: ${stats.objects} | 数组: ${stats.arrays} | 字符串: ${stats.strings} | 数字: ${stats.numbers} | 布尔: ${stats.booleans} | 空值: ${stats.nulls}`;
+                output.innerHTML = renderNode(null, data, true, '$');
+            } catch (e) {
+                const match = e.message.match(/position (\d+)/);
+                output.innerHTML = `<div class="error-msg">❌ JSON解析错误: ${escapeHtml(e.message)}${match ? `<br>位置: ${match[1]}` : ''}</div>`;
+            }
+        }
+
+        function toggleNode(id) {
+            const node = document.getElementById(id);
+            const toggle = node.previousElementSibling.querySelector('.tree-toggle');
+            if (node.classList.contains('tree-collapsed')) {
+                node.classList.remove('tree-collapsed');
+                toggle.textContent = '▼';
+            } else {
+                node.classList.add('tree-collapsed');
+                toggle.textContent = '▶';
+            }
+        }
+
+        function expandAll() {
+            document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('tree-collapsed'));
+            document.querySelectorAll('.tree-toggle').forEach(t => t.textContent = '▼');
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.tree-node').forEach(n => n.classList.add('tree-collapsed'));
+            document.querySelectorAll('.tree-toggle').forEach(t => t.textContent = '▶');
+        }
+
+        function formatJson() {
+            try {
+                const data = JSON.parse(document.getElementById('jsonInput').value);
+                document.getElementById('jsonInput').value = JSON.stringify(data, null, 2);
+            } catch (e) { alert('JSON格式错误: ' + e.message); }
+        }
+
+        function minifyJson() {
+            try {
+                const data = JSON.parse(document.getElementById('jsonInput').value);
+                document.getElementById('jsonInput').value = JSON.stringify(data);
+            } catch (e) { alert('JSON格式错误: ' + e.message); }
+        }
+
+        function copyJson() {
+            navigator.clipboard.writeText(document.getElementById('jsonInput').value).then(() => alert('已复制'));
+        }
+
+        document.getElementById('jsonInput').addEventListener('input', parseAndRender);
+    </script>
+</body>
+</html>
