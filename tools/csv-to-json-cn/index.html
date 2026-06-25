@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSV 转 JSON 工具 | CSV to JSON</title>
+<meta property="og:title" content="CSV 转 JSON 工具 | CSV to JSON">
+<meta property="og:description" content="CSV 转 JSON 工具 | CSV to JSON - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="CSV转JSON工具，将CSV表格数据快速转换为JSON数组格式">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg-secondary:#161b22;--bg-tertiary:#21262d;--border:#30363d;--text:#c9d1d9;--text-secondary:#8b949e;--accent:#58a6ff;--accent-hover:#79c0ff;--green:#3fb950;--green-bg:rgba(63,185,80,.15);--red:#f85149;--red-bg:rgba(248,81,73,.15);--cyan:#39d2c0;--radius:8px;--radius-sm:6px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--bg-secondary:#fff;--bg-tertiary:#f0f2f5;--border:#d0d7de;--text:#1f2328;--text-secondary:#656d76;--accent:#0969da;--accent-hover:#0550ae;--green:#1a7f37;--green-bg:rgba(26,127,55,.1);--red:#cf222e;--red-bg:rgba(207,34,46,.1);--cyan:#0598bc}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;padding:16px}
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;padding:24px 0 8px;font-size:1.5rem;background:linear-gradient(135deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sub{text-align:center;color:var(--text-secondary);font-size:.85rem;margin-bottom:20px}
+.toolbar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.btn{padding:8px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-tertiary);color:var(--text);cursor:pointer;font-size:.82rem;transition:var(--transition)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}
+.sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:calc(100vh - 200px)}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
+.panel-header{padding:8px 12px;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-secondary);display:flex;justify-content:space-between;align-items:center}
+textarea.code-input{width:100%;flex:1;min-height:400px;padding:12px;border:none;background:var(--bg);color:var(--text);font-family:'Fira Code',Consolas,monospace;font-size:.85rem;line-height:1.6;resize:none;outline:none;tab-size:2}
+.output-area{flex:1;overflow:auto;padding:12px;font-family:'Fira Code',Consolas,monospace;font-size:.85rem;line-height:1.6;min-height:400px;white-space:pre-wrap;word-break:break-all}
+.info-bar{font-size:.75rem;color:var(--text-secondary)}
+.error-msg{color:var(--red);font-size:.85rem;padding:12px;background:var(--red-bg);border:1px solid var(--red);border-radius:var(--radius-sm);margin-bottom:12px;display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:8px 20px;border-radius:var(--radius);font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+.options{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding:10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;align-items:center}
+.options label{display:flex;align-items:center;gap:4px;color:var(--text-secondary)}
+.options input[type="checkbox"]{accent-color:var(--accent)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text-secondary);font-size:.75rem;background:var(--bg-secondary);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>🔄 CSV 转 JSON</h1>
+<p class="sub">将CSV表格数据转换为JSON数组格式</p>
+<div id="error" class="error-msg"></div>
+<div class="options">
+<label><input type="checkbox" id="hasHeader" checked> 首行为表头</label>
+<label>分隔符:
+<select id="delimiter" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-tertiary);color:var(--text);font-size:.8rem">
+<option value=",">, (逗号)</option>
+<option value="	">	 (Tab)</option>
+<option value=";">; (分号)</option>
+<option value="|">| (管道)</option>
+</select>
+</label>
+<label><input type="checkbox" id="trimValues" checked> 去除首尾空格</label>
+<label><input type="checkbox" id="autoType"> 自动类型转换</label>
+</div>
+<div class="toolbar">
+<button class="btn btn-primary" onclick="convert()">🔄 转换</button>
+<button class="btn" onclick="loadSample()">📋 示例数据</button>
+<button class="btn" onclick="clearAll()">🗑️ 清空</button>
+<div class="sep"></div>
+<button class="btn btn-green" onclick="copyOutput()">📋 复制</button>
+<button class="btn" onclick="downloadJSON()">📥 下载JSON</button>
+</div>
+<div class="layout">
+<div class="panel">
+<div class="panel-header"><span>输入 CSV</span><span class="info-bar" id="inputInfo"></span></div>
+<textarea class="code-input" id="input" placeholder='粘贴CSV数据，例如：
+name,age,city
+张三,25,北京
+李四,30,上海
+王五,28,广州'></textarea>
+</div>
+<div class="panel">
+<div class="panel-header"><span>输出 JSON</span><span class="info-bar" id="outputInfo"></span></div>
+<div class="output-area" id="output"><span style="color:var(--text-secondary)">点击"转换"将CSV转为JSON</span></div>
+</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var jsonData=[];
+function showError(msg){var e=document.getElementById('error');e.textContent=msg;e.style.display='block';setTimeout(function(){e.style.display='none'},5000)}
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2000)}
+function parseCSVLine(line,delimiter){
+var result=[];var current='';var inQuote=false;
+for(var i=0;i<line.length;i++){
+var c=line[i];
+if(inQuote){
+if(c==='"'){if(i+1<line.length&&line[i+1]==='"'){current+='"';i++}else{inQuote=false}}
+else{current+=c}
+}else{
+if(c==='"'){inQuote=true}
+else if(c===delimiter){result.push(current);current=''}
+else{current+=c}
+}
+}
+result.push(current);
+return result;
+}
+function convert(){
+var text=document.getElementById('input').value.trim();
+if(!text){showError('请输入CSV数据');return;}
+var delimiter=document.getElementById('delimiter').value;
+var hasHeader=document.getElementById('hasHeader').checked;
+var trimValues=document.getElementById('trimValues').checked;
+var autoType=document.getElementById('autoType').checked;
+var lines=text.split('\n').filter(function(l){return l.trim()});
+if(!lines.length){showError('CSV数据为空');return;}
+var rows=lines.map(function(l){return parseCSVLine(l,delimiter)});
+var headers=hasHeader?rows[0]:rows[0].map(function(_,i){return 'col'+(i+1)});
+jsonData=rows.slice(hasHeader?1:0).map(function(row){
+var obj={};
+headers.forEach(function(h,k){
+var val=row[k]||'';
+if(trimValues)val=val.trim();
+if(autoType){
+if(val==='true')val=true;
+else if(val==='false')val=false;
+else if(val==='null')val=null;
+else if(val!==''&&!isNaN(val))val=Number(val);
+}
+obj[h]=val;
+});
+return obj;
+});
+document.getElementById('output').textContent=JSON.stringify(jsonData,null,2);
+document.getElementById('inputInfo').textContent=lines.length+'行';
+document.getElementById('outputInfo').textContent=jsonData.length+'条记录';
+document.getElementById('error').style.display='none';
+toast('转换成功');
+}
+function loadSample(){
+document.getElementById('input').value='name,age,city,score,active\n张三,25,北京,92,true\n李四,30,上海,88,true\n王五,28,广州,95,false\n赵六,35,深圳,78,true\n钱七,22,杭州,91,true';
+convert();
+}
+function clearAll(){document.getElementById('input').value='';document.getElementById('output').innerHTML='<span style="color:var(--text-secondary)">点击"转换"将CSV转为JSON</span>';jsonData=[];document.getElementById('inputInfo').textContent='';document.getElementById('outputInfo').textContent=''}
+function copyOutput(){navigator.clipboard.writeText(JSON.stringify(jsonData,null,2)).then(function(){toast('已复制到剪贴板')})}
+function downloadJSON(){
+var blob=new Blob([JSON.stringify(jsonData,null,2)],{type:'application/json'});
+var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='data.json';a.click();
+}
+</script>
+</body>
+</html>

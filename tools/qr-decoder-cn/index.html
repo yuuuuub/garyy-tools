@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html style="scroll-behavior:smooth" lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二维码解码工具 | QR Decoder</title>
+<meta property="og:title" content="二维码解码工具 | QR Decoder">
+<meta property="og:description" content="二维码解码工具 | QR Decoder - Gary's Tools">
+<meta property="og:image" content="https://garyy.top/og-image.png">
+<meta name="description" content="二维码解码工具，上传图片识别二维码内容，支持拖拽上传和粘贴">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
+<script src="../i18n.js" defer></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg-secondary:#161b22;--bg-tertiary:#21262d;--border:#30363d;--text:#c9d1d9;--text-secondary:#8b949e;--accent:#58a6ff;--accent-hover:#79c0ff;--green:#3fb950;--green-bg:rgba(63,185,80,.15);--red:#f85149;--red-bg:rgba(248,81,73,.15);--cyan:#39d2c0;--radius:8px;--radius-sm:6px;--transition:.2s ease}
+[data-theme="light"]{--bg:#f6f8fa;--bg-secondary:#fff;--bg-tertiary:#f0f2f5;--border:#d0d7de;--text:#1f2328;--text-secondary:#656d76;--accent:#0969da;--accent-hover:#0550ae;--green:#1a7f37;--green-bg:rgba(26,127,55,.1);--red:#cf222e;--red-bg:rgba(207,34,46,.1);--cyan:#0598bc}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;padding:16px}
+.container{max-width:600px;margin:0 auto}
+h1{text-align:center;padding:24px 0 8px;font-size:1.5rem;background:linear-gradient(135deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sub{text-align:center;color:var(--text-secondary);font-size:.85rem;margin-bottom:20px}
+.card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:.9rem;text-align:center;transition:.2s}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.drop-zone{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:12px}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:rgba(88,166,255,.05)}
+.drop-zone p{color:var(--text-secondary);margin-top:8px;font-size:.9rem}
+.drop-zone .icon{font-size:48px;margin-bottom:8px}
+.btn{padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent)}
+.btn-group{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.preview-img{max-width:100%;max-height:300px;border-radius:8px;margin:12px 0;display:none}
+.result-box{background:rgba(88,166,255,.05);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:12px;word-break:break-all;display:none}
+.result-box a{color:var(--accent-hover);text-decoration:underline}
+.result-box .label{font-size:.8rem;color:var(--text-secondary);margin-bottom:6px}
+.hidden{display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;padding:8px 16px;border-radius:8px;font-size:.85rem;opacity:0;transition:.3s;z-index:100}
+.toast.show{opacity:1}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+body,.container{animation:fadeIn .4s ease-out}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text-secondary);font-size:.75rem;background:var(--bg-secondary);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container">
+<h1>📷 二维码解码工具</h1>
+<p class="sub">上传图片识别二维码内容</p>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab('upload')">图片上传</div>
+<div class="tab" onclick="switchTab('url')">URL输入</div>
+</div>
+
+<div id="uploadSection" class="card">
+<div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+<div class="icon">📁</div>
+<p>点击选择二维码图片或拖拽到此处</p>
+<p style="font-size:.75rem;margin-top:4px">支持 JPG / PNG / GIF / WebP</p>
+</div>
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+<img class="preview-img" id="previewImg">
+<div class="btn-group">
+<button class="btn btn-primary" id="decodeBtn" onclick="decodeFromUpload()" disabled>🔍 识别</button>
+<button class="btn btn-outline" onclick="clearAll()">🗑️ 清空</button>
+</div>
+</div>
+
+<div id="urlSection" class="card hidden">
+<div style="margin-bottom:12px">
+<input type="text" id="imageUrl" placeholder="输入图片URL地址" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.9rem;outline:none">
+</div>
+<div class="btn-group">
+<button class="btn btn-primary" onclick="decodeFromURL()">🔍 识别</button>
+<button class="btn btn-outline" onclick="clearAll()">🗑️ 清空</button>
+</div>
+</div>
+
+<div class="result-box" id="resultBox">
+<div class="label">识别结果</div>
+<div id="resultContent" style="font-size:.95rem"></div>
+<div class="btn-group" style="margin-top:12px">
+<button class="btn btn-outline" onclick="copyResult()">📋 复制</button>
+<a class="btn btn-outline" id="resultLink" href="#" target="_blank" style="display:none;text-decoration:none">🔗 打开链接</a>
+</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var resultText='';
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2000)}
+function switchTab(tab){
+document.querySelectorAll('.tabs .tab').forEach(function(t,i){t.classList.toggle('active',i===(tab==='upload'?0:1))});
+document.getElementById('uploadSection').classList.toggle('hidden',tab!=='upload');
+document.getElementById('urlSection').classList.toggle('hidden',tab!=='url');
+}
+var dropZone=document.getElementById('dropZone');
+dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.classList.add('dragover')});
+dropZone.addEventListener('dragleave',function(){dropZone.classList.remove('dragover')});
+dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0])});
+document.addEventListener('paste',function(e){
+var items=e.clipboardData&&e.clipboardData.items;
+if(!items)return;
+for(var i=0;i<items.length;i++){
+if(items[i].type.indexOf('image')!==-1){
+handleFile(items[i].getAsFile());break;
+}
+}
+});
+var currentImageData=null;
+function handleFile(file){
+if(!file||!file.type.startsWith('image/')){toast('请选择图片文件');return;}
+var reader=new FileReader();
+reader.onload=function(e){
+currentImageData=e.target.result;
+document.getElementById('previewImg').src=currentImageData;
+document.getElementById('previewImg').style.display='block';
+document.getElementById('decodeBtn').disabled=false;
+};
+reader.readAsDataURL(file);
+}
+function decodeFromUpload(){
+if(!currentImageData){toast('请先选择图片');return;}
+decodeImage(currentImageData);
+}
+function decodeFromURL(){
+var url=document.getElementById('imageUrl').value.trim();
+if(!url){toast('请输入图片URL');return;}
+decodeImage(url);
+}
+function decodeImage(src){
+toast('正在识别...');
+var img=new Image();
+img.crossOrigin='anonymous';
+img.onload=function(){
+var canvas=document.createElement('canvas');
+canvas.width=img.width;canvas.height=img.height;
+var ctx=canvas.getContext('2d');
+ctx.drawImage(img,0,0);
+var imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+var code=decodeQR(imageData);
+if(code){
+resultText=code;
+document.getElementById('resultContent').textContent=code;
+document.getElementById('resultBox').style.display='block';
+var linkBtn=document.getElementById('resultLink');
+if(/^https?:\/\//i.test(code)){linkBtn.href=code;linkBtn.style.display='inline-flex';}
+else{linkBtn.style.display='none';}
+toast('识别成功');
+}else{
+toast('未能识别到二维码，请确保图片清晰');
+}
+};
+img.onerror=function(){toast('图片加载失败')};
+img.src=src;
+}
+function decodeQR(imageData){
+var data=imageData.data;
+var w=imageData.width,h=imageData.height;
+var gray=new Uint8Array(w*h);
+for(var i=0;i<w*h;i++)gray[i]=Math.round(data[i*4]*0.299+data[i*4+1]*0.587+data[i*4+2]*0.114);
+var threshold=128;
+var bw=new Uint8Array(w*h);
+for(var i=0;i<w*h;i++)bw[i]=gray[i]<threshold?1:0;
+var minX=w,maxX=0,minY=h,maxY=0;
+for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+if(bw[y*w+x]){if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}
+}
+if(maxX<=minX||maxY<=minY)return null;
+var size=Math.max(maxX-minX,maxY-minY);
+if(size<21)return null;
+var moduleSize=size/25;
+var grid=[];
+for(var gy=0;gy<25;gy++){
+grid[gy]=[];
+for(var gx=0;gx<25;gx++){
+var px=minX+gx*moduleSize+moduleSize/2;
+var py=minY+gy*moduleSize+moduleSize/2;
+if(px>=0&&px<w&&py>=0&&py<h)grid[gy][gx]=bw[Math.floor(py)*w+Math.floor(px)];
+else grid[gy][gx]=0;
+}
+}
+try{
+var version=3;
+var formatBits=[];
+for(var i=0;i<15;i++)formatBits.push(0);
+var mask=[[0,0],[0,1],[1,0],[1,1]];
+for(var gy=0;gy<6;gy++){formatBits[gy]=grid[8][gy<4?gy:gy+1]?1:0;}
+formatBits[8]=grid[8][8]?1:0;
+var dataBits=[];
+for(var gy=9;gy<25;gy++)for(var gx=8;gx<25;gx++){
+if(gy<8&&gx<8)continue;if(gy<8&&gx>=17)continue;
+if(gy>=17&&gx<9)continue;
+if(grid[gy]&&grid[gy][gx]!==undefined)dataBits.push(grid[gy][gx]);
+}
+var bits='';
+for(var i=0;i<Math.min(dataBits.length,208);i++)bits+=dataBits[i];
+var bytes=[];
+for(var i=0;i+8<=bits.length&&bytes.length<30;i+=8)bytes.push(parseInt(bits.substr(i,8),2));
+var text='';
+for(var i=0;i<bytes.length;i++){
+if(bytes[i]===0)break;
+if(bytes[i]<0x80)text+=String.fromCharCode(bytes[i]);
+else if(bytes[i]<0xE0)text+=String.fromCharCode(((bytes[i]&0x1F)<<6)|(bytes[i+1]&0x3F));
+else text+=String.fromCharCode(((bytes[i]&0x0F)<<12)|((bytes[i+1]&0x3F)<<6)|(bytes[i+2]&0x3F));
+}
+return text||null;
+}catch(e){return null;}
+}
+function copyResult(){navigator.clipboard.writeText(resultText).then(function(){toast('已复制到剪贴板')})}
+function clearAll(){
+currentImageData=null;resultText='';
+document.getElementById('previewImg').style.display='none';
+document.getElementById('decodeBtn').disabled=true;
+document.getElementById('resultBox').style.display='none';
+document.getElementById('imageUrl').value='';
+}
+</script>
+</body>
+</html>
