@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计数器动画工具</title>
+<meta name="description" content="计数器动画工具，创建精美的数字递增和倒计时动画">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔢</text></svg>">
+<meta name="robots" content="index, follow">
+<script src="../i18n.js" defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#3b82f6;--accent2:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#a855f7;--pink:#ec4899;--cyan:#06b6d4;--orange:#f97316;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;--shadow:0 4px 24px rgba(0,0,0,.1)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+.container{max-width:1000px;margin:0 auto}
+h1{font-size:1.8rem;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--text2);text-align:center;margin-bottom:24px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.btn{display:inline-block;padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:.8rem}
+.btn-green{background:var(--green)}
+.btn-red{background:var(--red)}
+.btn-yellow{background:var(--yellow);color:#000}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.grid-4{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+input,textarea,select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;margin-bottom:4px;font-weight:600;font-size:.85rem;color:var(--text2)}
+.counter-card{text-align:center;padding:20px;background:var(--bg);border-radius:var(--radius);transition:transform .2s}
+.counter-card:hover{transform:translateY(-4px)}
+.counter-value{font-size:2.5rem;font-weight:800;line-height:1.2}
+.counter-label{font-size:.85rem;color:var(--text2);margin-top:4px}
+.counter-prefix{font-size:1.2rem;opacity:.6}
+.flip-digit{display:inline-block;width:48px;height:64px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin:0 2px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.flip-digit-inner{position:absolute;width:100%;height:200%;top:0;left:0;display:flex;flex-direction:column;transition:transform .6s cubic-bezier(.4,0,.2,1)}
+.flip-digit-top,.flip-digit-bottom{width:100%;height:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700}
+.countdown-digital{font-family:'Courier New',monospace;font-size:3rem;font-weight:700;letter-spacing:4px;text-align:center;padding:20px}
+.speed-control{display:flex;align-items:center;gap:8px}
+.speed-control input[type=range]{width:120px;margin:0}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+@keyframes pop{0%{transform:scale(.8);opacity:0}50%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+body,.container{animation:fadeIn .4s ease-out}
+@media(max-width:600px){body{padding:10px}.container{max-width:100%}.card{padding:14px}h1{font-size:1.4rem}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.counter-value{font-size:1.8rem}.flip-digit{width:36px;height:48px}.flip-digit-top,.flip-digit-bottom{font-size:1.3rem}}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container" id="app"></div>
+<script>
+document.title='🔢 计数器动画工具';
+const $=id=>document.getElementById(id);
+const APP=$('app');
+const COLORS=['#3b82f6','#3fb950','#f85149','#d29922','#a855f7','#ec4899','#06b6d4','#f97316'];
+
+let counters=[
+  {label:'总用户数',value:125800,prefix:'',suffix:'',color:COLORS[0],icon:'👥'},
+  {label:'总营收',value:3560000,prefix:'¥',suffix:'',color:COLORS[1],icon:'💰'},
+  {label:'增长率',value:23.5,prefix:'',suffix:'%',color:COLORS[2],icon:'📈'},
+  {label:'满意度',value:4.8,prefix:'',suffix:'/5',color:COLORS[4],icon:'⭐'}
+];
+
+let countdownTarget=Date.now()+5*60*60*1000;
+let countdownRunning=false;
+let countdownInterval=null;
+
+let stopwatchTime=0;
+let stopwatchRunning=false;
+let stopwatchInterval=null;
+
+let lapTimes=[];
+
+let pomodoroTime=25*60;
+let pomodoroRunning=false;
+let pomodoroInterval=null;
+let pomodoroMode='work';
+
+function render(){
+  let h=`<h1>🔢 计数器动画工具</h1><p class="subtitle">数字递增、倒计时、秒表动画</p>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:16px">📊 数字计数器</h3>`;
+  h+=`<div class="grid grid-4">`;
+  counters.forEach((c,i)=>{
+    h+=`<div class="counter-card" style="animation:fadeIn .4s ease-out forwards;opacity:0" data-delay="${i*0.1}">`;
+    h+=`<div style="font-size:1.5rem;margin-bottom:4px">${c.icon}</div>`;
+    h+=`<div class="counter-value" style="color:${c.color}"><span class="counter-prefix">${c.prefix}</span><span class="counter" data-target="${c.value}" data-decimals="${c.value%1!==0?1:0}">0</span><span style="font-size:.8rem;opacity:.6">${c.suffix}</span></div>`;
+    h+=`<div class="counter-label">${c.label}</div>`;
+    h+=`</div>`;
+  });
+  h+=`</div></div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:16px">🔢 翻牌计数器</h3>`;
+  h+=`<div style="text-align:center;padding:20px">`;
+  const targetStr=String(counters[0].value).padStart(6,'0');
+  targetStr.split('').forEach((d,i)=>{
+    h+=`<div class="flip-digit" style="animation:pop .3s ease-out forwards;opacity:0" data-delay="${i*0.05}">`;
+    h+=`<div class="flip-digit-inner" id="flip${i}" style="transform:translateY(0)"><div class="flip-digit-top" style="color:var(--text)">${d}</div><div class="flip-digit-bottom" style="color:var(--text)">${d}</div></div>`;
+    h+=`</div>`;
+  });
+  h+=`</div></div>`;
+
+  h+=`<div class="grid grid-2">`;
+  h+=`<div class="card"><h3 style="margin-bottom:16px">⏱️ 倒计时</h3>`;
+  h+=`<div class="countdown-digital" id="countdownDisplay" style="color:var(--accent)">${formatTime(countdownTarget-Date.now())}</div>`;
+  h+=`<div class="flex" style="justify-content:center;margin-bottom:12px">`;
+  h+=`<input type="number" id="cdMinutes" value="5" style="width:80px;text-align:center" placeholder="分钟"> min`;
+  h+=`</div>`;
+  h+=`<div class="flex" style="justify-content:center"><button class="btn btn-sm btn-green" onclick="startCountdown()">▶ 开始</button><button class="btn btn-sm btn-red" onclick="stopCountdown()">⏹ 停止</button><button class="btn btn-sm" onclick="resetCountdown()">↺ 重置</button></div>`;
+  h+=`</div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:16px">🏁 秒表</h3>`;
+  h+=`<div class="countdown-digital" id="stopwatchDisplay" style="color:var(--green)">00:00:00.000</div>`;
+  h+=`<div class="flex" style="justify-content:center"><button class="btn btn-sm btn-green" onclick="startStopwatch()">▶ 开始</button><button class="btn btn-sm btn-yellow" onclick="lapStopwatch()">📍 计次</button><button class="btn btn-sm btn-red" onclick="stopStopwatch()">⏹ 停止</button><button class="btn btn-sm" onclick="resetStopwatch()">↺ 重置</button></div>`;
+  if(lapTimes.length){
+    h+=`<div style="margin-top:12px;max-height:150px;overflow-y:auto">`;
+    lapTimes.forEach((lap,i)=>{h+=`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:.8rem;border-bottom:1px solid var(--border)"><span>第${i+1}圈</span><span style="color:var(--accent)">${formatStopwatch(lap)}</span></div>`;});
+    h+=`</div>`;
+  }
+  h+=`</div></div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:16px">🍅 番茄钟</h3>`;
+  h+=`<div class="countdown-digital" id="pomodoroDisplay" style="color:${pomodoroMode==='work'?'var(--red)':'var(--green)'}">${formatPomodoro(pomodoroTime)}</div>`;
+  h+=`<div style="text-align:center;margin-bottom:12px"><span class="badge" style="background:${pomodoroMode==='work'?'var(--red)':'var(--green)'}22;color:${pomodoroMode==='work'?'var(--red)':'var(--green)'}">${pomodoroMode==='work'?'🍅 工作中':'☕ 休息中'}</span></div>`;
+  h+=`<div class="flex" style="justify-content:center"><button class="btn btn-sm btn-green" onclick="startPomodoro()">▶ 开始</button><button class="btn btn-sm btn-red" onclick="stopPomodoro()">⏹ 停止</button><button class="btn btn-sm" onclick="resetPomodoro()">↺ 重置</button></div>`;
+  h+=`</div>`;
+
+  h+=`<div class="card"><h3 style="margin-bottom:12px">⚙️ 自定义计数器</h3>`;
+  h+=`<div class="grid grid-2">`;
+  counters.forEach((c,i)=>{
+    h+=`<div style="margin-bottom:8px"><label>${c.icon} ${c.label}</label><div class="flex"><input type="number" value="${c.value}" style="margin:0" onchange="counters[${i}].value=parseFloat(this.value);animateCounter(${i})"><input value="${c.prefix}" style="width:50px;margin:0" onchange="counters[${i}].prefix=this.value;render()"><input value="${c.suffix}" style="width:50px;margin:0" onchange="counters[${i}].suffix=this.value;render()"></div></div>`;
+  });
+  h+=`</div></div>`;
+  APP.innerHTML=h;
+  animateCounters();
+}
+
+function formatTime(ms){
+  if(ms<=0) return'00:00:00';
+  const h=Math.floor(ms/3600000);
+  const m=Math.floor((ms%3600000)/60000);
+  const s=Math.floor((ms%60000)/1000);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function formatStopwatch(ms){
+  const m=Math.floor(ms/60000);
+  const s=Math.floor((ms%60000)/1000);
+  const cs=Math.floor((ms%1000)/10);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+}
+
+function formatPomodoro(s){
+  const m=Math.floor(s/60);
+  const sec=s%60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function startCountdown(){
+  if(countdownRunning) return;
+  const mins=parseInt($('cdMinutes').value)||5;
+  countdownTarget=Date.now()+mins*60*1000;
+  countdownRunning=true;
+  countdownInterval=setInterval(()=>{
+    const rem=countdownTarget-Date.now();
+    const el=$('countdownDisplay');
+    if(el) el.textContent=formatTime(rem);
+    if(rem<=0){stopCountdown();if(el)el.textContent='00:00:00';}
+  },100);
+  render();
+}
+function stopCountdown(){countdownRunning=false;if(countdownInterval)clearInterval(countdownInterval);}
+function resetCountdown(){stopCountdown();countdownTarget=Date.now()+5*60*1000;render();}
+
+let swStart=0;
+function startStopwatch(){
+  if(stopwatchRunning) return;
+  stopwatchRunning=true;
+  swStart=Date.now()-stopwatchTime;
+  stopwatchInterval=setInterval(()=>{
+    stopwatchTime=Date.now()-swStart;
+    const el=$('stopwatchDisplay');
+    if(el) el.textContent=formatStopwatch(stopwatchTime)+`.${String(stopwatchTime%1000).padStart(3,'0')}`;
+  },10);
+}
+function stopStopwatch(){stopwatchRunning=false;if(stopwatchInterval)clearInterval(stopwatchInterval);}
+function resetStopwatch(){stopStopwatch();stopwatchTime=0;lapTimes=[];render();}
+function lapStopwatch(){if(stopwatchRunning)lapTimes.push(stopwatchTime);render();}
+
+let pomodoroSeconds=25*60;
+function startPomodoro(){
+  if(pomodoroRunning) return;
+  pomodoroRunning=true;
+  pomodoroInterval=setInterval(()=>{
+    pomodoroSeconds--;
+    const el=$('pomodoroDisplay');
+    if(el) el.textContent=formatPomodoro(pomodoroSeconds);
+    if(pomodoroSeconds<=0){
+      stopPomodoro();
+      if(pomodoroMode==='work'){pomodoroMode='休息';pomodoroSeconds=5*60;}
+      else{pomodoroMode='work';pomodoroSeconds=25*60;}
+      render();
+    }
+  },1000);
+}
+function stopPomodoro(){pomodoroRunning=false;if(pomodoroInterval)clearInterval(pomodoroInterval);}
+function resetPomodoro(){stopPomodoro();pomodoroMode='work';pomodoroSeconds=25*60;render();}
+
+function animateCounters(){
+  document.querySelectorAll('.counter[data-target]').forEach(el=>{
+    const target=parseFloat(el.dataset.target);
+    const decimals=parseInt(el.dataset.decimals)||0;
+    const duration=1500;
+    const start=performance.now();
+    function update(now){
+      const p=Math.min((now-start)/duration,1);
+      const eased=1-Math.pow(1-p,3);
+      const current=eased*target;
+      el.textContent=decimals>0?current.toFixed(decimals):Math.round(current).toLocaleString();
+      if(p<1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  });
+}
+
+function animateCounter(i){
+  const el=document.querySelectorAll('.counter')[i];
+  if(!el) return;
+  const target=counters[i].value;
+  const decimals=target%1!==0?1:0;
+  const duration=1000;
+  const start=performance.now();
+  function update(now){
+    const p=Math.min((now-start)/duration,1);
+    const eased=1-Math.pow(1-p,3);
+    el.textContent=decimals>0?(eased*target).toFixed(decimals):Math.round(eased*target).toLocaleString();
+    if(p<1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+render();
+</script>
+</body>
+</html>
