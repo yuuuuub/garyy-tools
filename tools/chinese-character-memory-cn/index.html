@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>汉字记忆训练 - 在线汉字记忆游戏</title>
+<meta name="description" content="汉字记忆训练 - 通过配对游戏记忆汉字，支持拼音、部首、释义多种模式">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+<style>
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --blue: #3b82f6;
+  --green: #238636;
+  --red: #ef4444;
+  --radius: 10px;
+  --transition: 0.2s ease;
+}
+[data-theme="light"] {
+  --bg: #f6f8fa;
+  --card: #fff;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text2: #656d76;
+  --blue: #0969da;
+  --green: #1a7f37;
+  --red: #cf222e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  min-height: 100vh;
+  padding: 16px;
+}
+.container { max-width: 800px; margin: auto; }
+h1 { text-align: center; padding: 24px 0 8px; font-size: 1.5rem; }
+.sub { text-align: center; color: var(--text2); font-size: .85rem; margin-bottom: 20px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.btn {
+  display: inline-block;
+  padding: 10px 24px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .9rem;
+  margin-top: 12px;
+  transition: var(--transition);
+}
+.btn:hover { opacity: .85; }
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.btn-secondary {
+  background: var(--border);
+  color: var(--text);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+.cell {
+  aspect-ratio: 1;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  cursor: pointer;
+  transition: all .2s;
+  user-select: none;
+}
+.cell:hover { border-color: var(--blue); }
+.cell.flipped { background: var(--blue); color: #fff; border-color: var(--blue); }
+.cell.matched { background: var(--green); color: #fff; border-color: var(--green); }
+.cell.wrong { background: var(--red); color: #fff; border-color: var(--red); animation: shake .3s; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.stats {
+  display: flex;
+  justify-content: space-around;
+  margin: 12px 0;
+  font-size: .9rem;
+}
+.stat { text-align: center; }
+.stat-value { font-size: 1.2rem; font-weight: bold; color: var(--blue); }
+.mode-select {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.mode-btn {
+  padding: 8px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .85rem;
+  transition: var(--transition);
+}
+.mode-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.mode-btn:hover { border-color: var(--blue); }
+.level-select {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.level-btn {
+  padding: 6px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .8rem;
+}
+.level-btn.active {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.result-message {
+  text-align: center;
+  font-size: 1.1rem;
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--bg);
+  border-radius: 8px;
+  display: none;
+}
+.result-message.show { display: block; }
+.history {
+  margin-top: 16px;
+}
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: .85rem;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body, .container { animation: fadeIn .4s ease-out; }
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999">
+  <a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a>
+</div>
+<div class="container">
+  <h1>🧠 汉字记忆训练</h1>
+  <p class="sub">通过配对游戏记忆汉字，支持多种记忆模式</p>
+
+  <div class="card">
+    <div class="mode-select">
+      <button class="mode-btn active" onclick="setMode('pinyin')">汉字-拼音</button>
+      <button class="mode-btn" onclick="setMode('meaning')">汉字-释义</button>
+      <button class="mode-btn" onclick="setMode('radical')">汉字-部首</button>
+      <button class="mode-btn" onclick="setMode('stroke')">汉字-笔画</button>
+    </div>
+
+    <div class="level-select">
+      <button class="level-btn" onclick="setLevel(4)">4对</button>
+      <button class="level-btn active" onclick="setLevel(6)">6对</button>
+      <button class="level-btn" onclick="setLevel(8)">8对</button>
+      <button class="level-btn" onclick="setLevel(10)">10对</button>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" onclick="startGame()">开始游戏</button>
+      <button class="btn btn-secondary" onclick="resetGame()">重新开始</button>
+      <button class="btn btn-secondary" onclick="toggleTheme()">🌓 切换主题</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-value" id="moves">0</div><div>步数</div></div>
+      <div class="stat"><div class="stat-value" id="matches">0/0</div><div>已配对</div></div>
+      <div class="stat"><div class="stat-value" id="time">00:00</div><div>时间</div></div>
+      <div class="stat"><div class="stat-value" id="best">-</div><div>最佳记录</div></div>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <div class="result-message" id="resultMessage">
+    🎉 恭喜完成！
+    <div id="finalStats"></div>
+  </div>
+
+  <div class="card history" id="historyCard" style="display:none">
+    <h3 style="margin-bottom:12px">游戏记录</h3>
+    <div id="history"></div>
+  </div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var characters = [
+  {char:'一',pinyin:'yī',meaning:'一个',radical:'一',stroke:1},
+  {char:'二',pinyin:'èr',meaning:'两个',radical:'二',stroke:2},
+  {char:'三',pinyin:'sān',meaning:'三个',radical:'一',stroke:3},
+  {char:'四',pinyin:'sì',meaning:'四个',radical:'囗',stroke:5},
+  {char:'五',pinyin:'wǔ',meaning:'五个',radical:'二',stroke:4},
+  {char:'六',pinyin:'liù',meaning:'六个',radical:'八',stroke:4},
+  {char:'七',pinyin:'qī',meaning:'七个',radical:'一',stroke:2},
+  {char:'八',pinyin:'bā',meaning:'八个',radical:'八',stroke:2},
+  {char:'九',pinyin:'jiǔ',meaning:'九个',radical:'乙',stroke:2},
+  {char:'十',pinyin:'shí',meaning:'十个',radical:'十',stroke:2},
+  {char:'大',pinyin:'dà',meaning:'大的',radical:'大',stroke:3},
+  {char:'小',pinyin:'xiǎo',meaning:'小的',radical:'小',stroke:3},
+  {char:'多',pinyin:'duō',meaning:'很多',radical:'夕',stroke:6},
+  {char:'少',pinyin:'shǎo',meaning:'很少',radical:'小',stroke:4},
+  {char:'上',pinyin:'shàng',meaning:'上面',radical:'一',stroke:3},
+  {char:'下',pinyin:'xià',meaning:'下面',radical:'一',stroke:3},
+  {char:'人',pinyin:'rén',meaning:'人类',radical:'人',stroke:2},
+  {char:'口',pinyin:'kǒu',meaning:'嘴巴',radical:'口',stroke:3},
+  {char:'日',pinyin:'rì',meaning:'太阳',radical:'日',stroke:4},
+  {char:'月',pinyin:'yuè',meaning:'月亮',radical:'月',stroke:4},
+  {char:'水',pinyin:'shuǐ',meaning:'水',radical:'水',stroke:4},
+  {char:'火',pinyin:'huǒ',meaning:'火',radical:'火',stroke:4},
+  {char:'木',pinyin:'mù',meaning:'树木',radical:'木',stroke:4},
+  {char:'金',pinyin:'jīn',meaning:'金属',radical:'金',stroke:8},
+  {char:'土',pinyin:'tǔ',meaning:'泥土',radical:'土',stroke:3},
+  {char:'山',pinyin:'shān',meaning:'山',radical:'山',stroke:3},
+  {char:'石',pinyin:'shí',meaning:'石头',radical:'石',stroke:5},
+  {char:'田',pinyin:'tián',meaning:'田地',radical:'田',stroke:5},
+  {char:'王',pinyin:'wáng',meaning:'国王',radical:'王',stroke:4},
+  {char:'马',pinyin:'mǎ',meaning:'马',radical:'马',stroke:3},
+  {char:'鸟',pinyin:'niǎo',meaning:'鸟',radical:'鸟',stroke:5},
+  {char:'鱼',pinyin:'yú',meaning:'鱼',radical:'鱼',stroke:8},
+  {char:'牛',pinyin:'niú',meaning:'牛',radical:'牛',stroke:4},
+  {char:'羊',pinyin:'yáng',meaning:'羊',radical:'羊',stroke:6},
+  {char:'竹',pinyin:'zhú',meaning:'竹子',radical:'竹',stroke:6},
+  {char:'米',pinyin:'mǐ',meaning:'大米',radical:'米',stroke:6},
+  {char:'麦',pinyin:'mài',meaning:'小麦',radical:'麦',stroke:7},
+  {char:'豆',pinyin:'dòu',meaning:'豆子',radical:'豆',stroke:7},
+  {char:'车',pinyin:'chē',meaning:'车',radical:'车',stroke:4},
+  {char:'门',pinyin:'mén',meaning:'门',radical:'门',stroke:3}
+];
+
+var mode = 'pinyin';
+var levelPairs = 6;
+var cards = [];
+var flippedCards = [];
+var matchedPairs = 0;
+var moves = 0;
+var timer = null;
+var seconds = 0;
+var gameActive = false;
+var history = [];
+var bestScores = {};
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(function(btn, i) {
+    btn.classList.toggle('active', btn.textContent.includes(getModeLabel(m)));
+  });
+}
+
+function getModeLabel(m) {
+  var labels = {pinyin:'拼音',meaning:'释义',radical:'部首',stroke:'笔画'};
+  return labels[m] || m;
+}
+
+function setLevel(n) {
+  levelPairs = n;
+  document.querySelectorAll('.level-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.textContent.includes(n + '对'));
+  });
+}
+
+function startGame() {
+  var selected = characters.slice().sort(function() { return Math.random() - 0.5; }).slice(0, levelPairs);
+  cards = [];
+  selected.forEach(function(char) {
+    var pairValue = getPairValue(char);
+    cards.push({type:'char', value:char.char, id:char.char, pairValue:pairValue});
+    cards.push({type:'pair', value:pairValue, id:char.char, pairValue:pairValue});
+  });
+  cards = shuffleArray(cards);
+  flippedCards = [];
+  matchedPairs = 0;
+  moves = 0;
+  seconds = 0;
+  gameActive = true;
+  if(timer) clearInterval(timer);
+  timer = setInterval(function() {
+    seconds++;
+    document.getElementById('time').textContent = formatTime(seconds);
+  }, 1000);
+  render();
+}
+
+function getPairValue(char) {
+  switch(mode) {
+    case 'pinyin': return char.pinyin;
+    case 'meaning': return char.meaning;
+    case 'radical': return char.radical;
+    case 'stroke': return char.stroke + '画';
+    default: return char.pinyin;
+  }
+}
+
+function resetGame() {
+  if(timer) clearInterval(timer);
+  gameActive = false;
+  cards = [];
+  flippedCards = [];
+  matchedPairs = 0;
+  moves = 0;
+  seconds = 0;
+  document.getElementById('result').innerHTML = '';
+  document.getElementById('resultMessage').classList.remove('show');
+  document.getElementById('moves').textContent = '0';
+  document.getElementById('matches').textContent = '0/0';
+  document.getElementById('time').textContent = '00:00';
+}
+
+function render() {
+  var html = '<div class="grid">';
+  cards.forEach(function(card, index) {
+    var isFlipped = flippedCards.some(function(fc) { return fc.index === index; });
+    var isMatched = matchedPairs > 0 && cards.some(function(c) { return c.id === card.id && c.type !== card.type && c.matched; });
+    var isWrong = flippedCards.some(function(fc) { return fc.index === index && fc.wrong; });
+    var cls = 'cell';
+    if(isFlipped) cls += ' flipped';
+    if(isMatched) cls += ' matched';
+    if(isWrong) cls += ' wrong';
+    html += '<div class="' + cls + '" onclick="flipCard(' + index + ')">';
+    if(isFlipped || isMatched) {
+      html += card.value;
+    } else {
+      html += '?';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  document.getElementById('result').innerHTML = html;
+  document.getElementById('moves').textContent = moves;
+  document.getElementById('matches').textContent = matchedPairs + '/' + levelPairs;
+}
+
+function flipCard(index) {
+  if(!gameActive) return;
+  if(flippedCards.length >= 2) return;
+  if(flippedCards.some(function(fc) { return fc.index === index; })) return;
+  if(cards[index].matched) return;
+
+  flippedCards.push({index: index, card: cards[index]});
+  render();
+
+  if(flippedCards.length === 2) {
+    moves++;
+    checkMatch();
+  }
+}
+
+function checkMatch() {
+  var c1 = flippedCards[0].card;
+  var c2 = flippedCards[1].card;
+  if(c1.id === c2.id && c1.type !== c2.type) {
+    matchedPairs++;
+    cards[flippedCards[0].index].matched = true;
+    cards[flippedCards[1].index].matched = true;
+    flippedCards = [];
+    render();
+    if(matchedPairs === levelPairs) {
+      gameComplete();
+    }
+  } else {
+    flippedCards[0].wrong = true;
+    flippedCards[1].wrong = true;
+    render();
+    setTimeout(function() {
+      flippedCards = [];
+      render();
+    }, 600);
+  }
+}
+
+function gameComplete() {
+  clearInterval(timer);
+  gameActive = false;
+  var key = mode + '_' + levelPairs;
+  if(!bestScores[key] || moves < bestScores[key]) {
+    bestScores[key] = moves;
+  }
+  document.getElementById('best').textContent = bestScores[key] + '步';
+  document.getElementById('resultMessage').classList.add('show');
+  document.getElementById('finalStats').innerHTML =
+    '<div style="margin-top:8px">步数: ' + moves + ' | 时间: ' + formatTime(seconds) + '</div>';
+
+  history.unshift({mode:getModeLabel(mode), pairs:levelPairs, moves:moves, time:formatTime(seconds), date:new Date().toLocaleString()});
+  if(history.length > 10) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  if(history.length === 0) {
+    document.getElementById('historyCard').style.display = 'none';
+    return;
+  }
+  document.getElementById('historyCard').style.display = 'block';
+  var html = '';
+  history.forEach(function(h) {
+    html += '<div class="history-item">';
+    html += '<span>' + h.mode + ' ' + h.pairs + '对</span>';
+    html += '<span>' + h.moves + '步 ' + h.time + '</span>';
+    html += '<span style="color:var(--text2)">' + h.date + '</span>';
+    html += '</div>';
+  });
+  document.getElementById('history').innerHTML = html;
+}
+
+function toggleTheme() {
+  var html = document.documentElement;
+  var current = html.getAttribute('data-theme');
+  html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+}
+
+function shuffleArray(arr) {
+  var a = arr.slice();
+  for(var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var temp = a[i];
+    a[i] = a[j];
+    a[j] = temp;
+  }
+  return a;
+}
+
+function formatTime(s) {
+  var m = Math.floor(s / 60);
+  var sec = s % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+setLevel(6);
+</script>
+</body>
+</html>
