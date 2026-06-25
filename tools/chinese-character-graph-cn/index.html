@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>汉字关系图</title><meta name="description" content="汉字关系图 - 可视化汉字的部首、笔画、结构关系网络"><style>:root{--transition:0.2s ease;--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--yellow:#f59e0b;--purple:#a855f7;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e;--yellow:#9a6700;--purple:#8250df}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;min-height:100vh;padding:16px}.container{max-width:900px;margin:auto}h1{text-align:center;padding:24px 0 8px;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.input-group{margin-bottom:12px}.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:4px}.input-group input,.input-group select{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem}.input-group input:focus{border-color:var(--blue);outline:none}.btn{display:inline-block;padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;margin:4px}.btn:hover{opacity:.85}.graph-container{width:100%;height:500px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);position:relative;overflow:hidden;cursor:grab}.graph-container:active{cursor:grabbing}canvas{display:block}.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.8rem}.legend-item{display:flex;align-items:center;gap:6px}.legend-dot{width:12px;height:12px;border-radius:50%}.node-info{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.85rem;pointer-events:none;display:none;z-index:10;max-width:200px;box-shadow:0 4px 12px rgba(0,0,0,.3)}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}</style><meta property="og:title" content="汉字关系图"><meta property="og:description" content="汉字关系图 - Gary's Tools"><meta property="og:image" content="https://garyy.top/og-image.png"><meta name="robots" content="index, follow"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🕸️</text></svg>">
+</head><body>
+<div style="position:fixed;top:8px;left:8px;z-index:9999"><a href="../index.html" style="text-decoration:none;color:var(--text2);font-size:.75rem;background:var(--card);padding:4px 10px;border-radius:8px;border:1px solid var(--border)">← 首页</a></div>
+<div class="container"><h1>🕸️ 汉字关系图</h1><p class="sub">可视化汉字的部首、笔画、结构关系网络</p>
+<div class="card">
+<div class="input-group"><label>输入汉字（每个字空格分隔）</label><input type="text" id="charInput" value="龙凤虎福喜财安康富贵祥和顺明山水火木" placeholder="输入汉字"></div>
+<div class="controls">
+<button class="btn" onclick="buildGraph()">生成关系图</button>
+<select id="layoutMode" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+<option value="radical">按部首分组</option>
+<option value="stroke">按笔画分组</option>
+<option value="structure">按结构分组</option>
+</select>
+<button class="btn" onclick="resetView()" style="background:var(--green)">重置视图</button>
+</div>
+</div>
+<div class="card" style="position:relative">
+<canvas id="graphCanvas" width="860" height="500"></canvas>
+<div class="node-info" id="tooltip"></div>
+</div>
+<div class="card">
+<h3 style="margin-bottom:8px">图例</h3>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>汉字节点</div>
+<div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>部首节点</div>
+<div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>笔画组</div>
+<div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>结构组</div>
+</div>
+</div></div>
+<script src="../i18n.js" defer></script>
+<script>
+var canvas,ctx;var nodes=[];var edges=[];var dragging=null;var dragOff={x:0,y:0};var hoveredNode=null;
+var charDB={'龙':{r:'龙',s:5,st:'独体'},'凤':{r:'几',s:4,st:'半包围'},'虎':{r:'虍',s:8,st:'半包围'},'福':{r:'礻',s:15,st:'左右'},'喜':{r:'口',s:12,st:'上下'},'财':{r:'贝',s:7,st:'左右'},'安':{r:'宀',s:6,st:'上下'},'康':{r:'广',s:11,st:'半包围'},'富':{r:'宀',s:12,st:'上下'},'贵':{r:'贝',s:9,st:'上下'},'祥':{r:'礻',s:10,st:'左右'},'和':{r:'口',s:8,st:'左右'},'顺':{r:'页',s:9,st:'左右'},'明':{r:'日',s:8,st:'左右'},'山':{r:'山',s:3,st:'独体'},'水':{r:'水',s:4,st:'独体'},'火':{r:'火',s:4,st:'独体'},'木':{r:'木',s:4,st:'独体'},'花':{r:'艹',s:7,st:'上下'},'草':{r:'艹',s:9,st:'上下'},'春':{r:'日',s:9,st:'上下'},'风':{r:'风',s:4,st:'半包围'},'雨':{r:'雨',s:8,st:'独体'},'雪':{r:'雨',s:11,st:'上下'},'天':{r:'大',s:4,st:'独体'},'地':{r:'土',s:6,st:'左右'},'人':{r:'人',s:2,st:'独体'},'大':{r:'大',s:3,st:'独体'},'中':{r:'丨',s:4,st:'独体'},'国':{r:'囗',s:8,st:'全包围'},'家':{r:'宀',s:10,st:'上下'},'学':{r:'子',s:8,st:'上下'},'文':{r:'文',s:4,st:'独体'},'爱':{r:'爫',s:10,st:'上下'},'心':{r:'心',s:4,st:'独体'},'光':{r:'儿',s:6,st:'上下'},'美':{r:'大',s:9,st:'上下'},'好':{r:'女',s:6,st:'左右'},'长':{r:'长',s:4,st:'独体'},'高':{r:'高',s:10,st:'上下'},'快':{r:'忄',s:7,st:'左右'},'多':{r:'夕',s:6,st:'上下'},'有':{r:'月',s:6,st:'半包围'},'生':{r:'生',s:5,st:'独体'}};
+function init(){canvas=document.getElementById('graphCanvas');ctx=canvas.getContext('2d');canvas.addEventListener('mousedown',onDown);canvas.addEventListener('mousemove',onMove);canvas.addEventListener('mouseup',onUp);canvas.addEventListener('mouseleave',onUp);buildGraph();}
+function buildGraph(){
+var input=document.getElementById('charInput').value.trim();var mode=document.getElementById('layoutMode').value;
+var chars=[];for(var i=0;i<input.length;i++){var c=input[i];if(c.charCodeAt(0)>=0x4e00&&c.charCodeAt(0)<=0x9fff&&charDB[c])chars.push(c);}
+nodes=[];edges=[];var groups={};var W=canvas.width,H=canvas.height;
+chars.forEach(function(c){
+var d=charDB[c];var grp=mode==='radical'?d.r:mode==='stroke'?Math.floor(d.s/5)*5+'画':d.st;
+if(!groups[grp])groups[grp]=[];groups[grp].push(c);});
+var gKeys=Object.keys(groups);var gCount=gKeys.length;
+gKeys.forEach(function(gk,gi){
+var gc=groups[gk];var angle=gi/gCount*Math.PI*2;var cx=W/2+Math.cos(angle)*150;var cy=H/2+Math.sin(angle)*150;
+var groupColor=mode==='radical'?'#238636':mode==='stroke'?'#f59e0b':'#a855f7';
+nodes.push({x:cx,y:cy,r:20,label:gk,color:groupColor,type:'group',vx:0,vy:0,fixed:true});
+gc.forEach(function(c,ci){
+var a2=ci/gc.length*Math.PI*2;var dist=60+gc.length*5;
+var nx=cx+Math.cos(a2)*dist;var ny=cy+Math.sin(a2)*dist;
+nodes.push({x:nx,y:ny,r:14,label:c,color:'#3b82f6',type:'char',vx:0,vy:0,fixed:false,data:charDB[c]});
+edges.push({from:nodes.length-1,to:nodes.indexOf(nodes.find(function(n){return n.label===gk&&n.type==='group'})),color:groupColor});});});
+animate();}
+function animate(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+edges.forEach(function(e){
+ctx.beginPath();ctx.moveTo(nodes[e.from].x,nodes[e.from].y);ctx.lineTo(nodes[e.to].x,nodes[e.to].y);
+ctx.strokeStyle=e.color+'40';ctx.lineWidth=1.5;ctx.stroke();});
+nodes.forEach(function(n){
+ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fillStyle=n.color;ctx.fill();
+ctx.fillStyle='#fff';ctx.font=(n.type==='group'?'bold 12px':'11px')+" -apple-system,'PingFang SC',sans-serif";
+ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n.label,n.x,n.y);});
+requestAnimationFrame(animate);}
+function onDown(e){var rect=canvas.getBoundingClientRect();var mx=(e.clientX-rect.left)*(canvas.width/rect.width);var my=(e.clientY-rect.top)*(canvas.height/rect.height);
+for(var i=nodes.length-1;i>=0;i--){var n=nodes[i];if(n.fixed)continue;var dx=mx-n.x,dy=my-n.y;if(dx*dx+dy*dy<n.r*n.r){dragging=n;dragOff={x:dx,y:dy};break;}}}
+function onMove(e){
+var rect=canvas.getBoundingClientRect();var mx=(e.clientX-rect.left)*(canvas.width/rect.width);var my=(e.clientY-rect.top)*(canvas.height/rect.height);
+if(dragging){dragging.x=mx-dragOff.x;dragging.y=my-dragOff.y;return;}
+var tooltip=document.getElementById('tooltip');hoveredNode=null;
+for(var i=nodes.length-1;i>=0;i--){var n=nodes[i];var dx=mx-n.x,dy=my-n.y;if(dx*dx+dy*dy<n.r*n.r){hoveredNode=n;break;}}
+if(hoveredNode&&hoveredNode.type==='char'){
+tooltip.style.display='block';tooltip.style.left=(e.clientX-tooltip.parentElement.getBoundingClientRect().left+10)+'px';
+tooltip.style.top=(e.clientY-tooltip.parentElement.getBoundingClientRect().top+10)+'px';
+tooltip.innerHTML='<b>'+hoveredNode.label+'</b><br>拼音：'+getPinyin(hoveredNode.label)+'<br>部首：'+hoveredNode.data.r+'<br>笔画：'+hoveredNode.data.s+'<br>结构：'+hoveredNode.data.st';}
+else{tooltip.style.display='none';}}
+function onUp(){dragging=null;}
+function getPinyin(c){var map={'龙':'lóng','凤':'fèng','虎':'hǔ','福':'fú','喜':'xǐ','财':'cái','安':'ān','康':'kāng','富':'fù','贵':'guì','祥':'xiáng','和':'hé','顺':'shùn','明':'míng','山':'shān','水':'shuǐ','火':'huǒ','木':'mù','花':'huā','草':'cǎo','春':'chūn','风':'fēng','雨':'yǔ','雪':'xuě','天':'tiān','地':'dì','人':'rén','大':'dà','中':'zhōng','国':'guó','家':'jiā','学':'xué','文':'wén','爱':'ài','心':'xīn','光':'guāng','美':'měi','好':'hǎo','长':'cháng','高':'gāo','快':'kuài','多':'duō','有':'yǒu','生':'shēng'};return map[c]||'?';}
+function resetView(){buildGraph();}
+init();
+</script>
+<button onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:20px;right:80px;width:40px;height:40px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:1.1rem;opacity:0;transition:opacity .3s;z-index:99;box-shadow:0 2px 10px rgba(0,0,0,.3)" id="btt" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=window.scrollY>300?.8:0">↑</button><script>window.addEventListener("scroll",function(){var b=document.getElementById("btt");if(b)b.style.opacity=window.scrollY>300?.8:0});</script>
+</body></html>
