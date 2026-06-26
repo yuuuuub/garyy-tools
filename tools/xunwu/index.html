@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>寻物占卜 - 易经六爻</title><meta name="description" content="寻物占卜 - 基于易经六爻卦象的在线寻物占卜工具"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>"><meta name="robots" content="index, follow"><style>:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--radius:10px}[data-theme="light"]{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--blue:#0969da;--green:#1a7f37;--red:#cf222e}*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;line-height:1.6}.container{max-width:600px;margin:auto}h1{text-align:center;padding:20px 0;font-size:1.5rem}.sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}.section-title{font-size:1rem;font-weight:600;margin-bottom:12px;color:var(--blue)}input[type=text],select{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.95rem;outline:none;margin-bottom:10px;font-family:inherit}input:focus,select:focus{border-color:var(--blue)}.btn{padding:10px 24px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600;width:100%;margin-top:8px}.btn:hover{opacity:.85}.result{margin-top:16px}.gua-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin:10px 0}.gua-name{font-size:1.5rem;font-weight:700;color:var(--blue);margin-bottom:8px;text-align:center}.gua-lines{text-align:center;font-size:2rem;letter-spacing:4px;margin:12px 0}.gua-info{font-size:.9rem;line-height:1.8;margin-top:12px}.gua-info p{margin:6px 0}.tag{display:inline-block;padding:3px 10px;background:var(--blue);color:#fff;border-radius:12px;font-size:.75rem;margin:2px}.history-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0;cursor:pointer}.history-item:hover{border-color:var(--blue)}.history-question{font-size:.9rem;font-weight:500}.history-answer{font-size:.8rem;color:var(--text2);margin-top:4px}.empty{text-align:center;padding:30px;color:var(--text2);font-size:.9rem}</style></head><body>
+<div class="container">
+<h1>🔮 寻物占卜</h1>
+<p class="sub">基于易经六爻卦象 · 在线寻物占卜</p>
+
+<div class="card">
+<div class="section-title">📝 输入占卜信息</div>
+<input type="text" id="question" placeholder="请描述你要寻找的物品...">
+<select id="method">
+<option value="coin">铜钱起卦（三枚铜钱）</option>
+<option value="time">时间起卦</option>
+<option value="number">数字起卦</option>
+<option value="random">随机起卦</option>
+</select>
+<div id="numberInput" style="display:none">
+<input type="text" id="numInput" placeholder="输入两个数字，如 3 和 7">
+</div>
+<button class="btn" onclick="divination()">🔮 开始占卜</button>
+</div>
+
+<div id="result" style="display:none"></div>
+
+<div class="card">
+<div class="section-title">📜 占卜历史</div>
+<div id="history"><div class="empty">暂无占卜记录</div></div>
+</div>
+</div>
+
+<script src="../i18n.js" defer></script>
+<script>
+var history=JSON.parse(localStorage.getItem('xunwu_history')||'[]');
+var guaData={
+'乾':{symbol:'☰☰',name:'乾为天',meaning:'大吉，所求皆遂',element:'金',direction:'西北',advice:'乾卦象征天道刚健，所问之事主大吉。寻物可得，失而复回。',fortune:'大吉'},
+'坤':{symbol:'☷☷',name:'坤为地',meaning:'顺从配合，宜静待时机',element:'土',direction:'西南',advice:'坤卦象征大地厚德载物，所问之事宜耐心等待，不可急躁。',fortune:'中吉'},
+'屯':{symbol:'☳☵',name:'水雷屯',meaning:'创业维艰，需克服困难',element:'水',direction:'北',advice:'屯卦象征万事开头难，虽有困难但终能克服，坚持就是胜利。',fortune:'中平'},
+'蒙':{symbol:'☶☵',name:'山水蒙',meaning:'启蒙学习，虚心求教',element:'水',direction:'东北',advice:'蒙卦象征蒙昧待启，宜虚心学习，不可自以为是。',fortune:'中平'},
+'需':{symbol:'☵☰',name:'水天需',meaning:'等待时机，耐心准备',element:'水',direction:'北',advice:'需卦象征等待时机，时机未到不可强求，耐心等待终有收获。',fortune:'中平'},
+'讼':{symbol:'☰☵',name:'天水讼',meaning:'争讼不利，宜和解',element:'水',direction:'北',advice:'讼卦象征争讼之事，宜退让和解，不可意气用事。',fortune:'小凶'},
+'师':{symbol:'☷☵',name:'地水师',meaning:'纪律严明，统帅有力',element:'水',direction:'北',advice:'师卦象征统帅之道，行事要有章法纪律，不可散漫。',fortune:'中吉'},
+'比':{symbol:'☵☷',name:'水地比',meaning:'亲近合作，团结互助',element:'水',direction:'北',advice:'比卦象征亲和力，与人合作有利，宜广结善缘。',fortune:'大吉'},
+'小畜':{symbol:'☴☰',name:'风天小畜',meaning:'蓄积力量，小有收获',element:'木',direction:'东南',advice:'小畜卦象征蓄积，不宜大动作，小步快走为佳。',fortune:'小吉'},
+'履':{symbol:'☰☱',name:'天泽履',meaning:'谨慎行事，如履薄冰',element:'金',direction:'西',advice:'履卦象征行事谨慎，处事要小心，不可鲁莽。',fortune:'中平'},
+'泰':{symbol:'☷☰',name:'地天泰',meaning:'天地交泰，万事亨通',element:'土',direction:'西南',advice:'泰卦象征通泰顺遂，所问之事大吉大利。',fortune:'大吉'},
+'否':{symbol:'☰☷',name:'天地否',meaning:'闭塞不通，宜守待变',element:'金',direction:'西',advice:'否卦象征阻塞不通，当前不宜行动，静待时变。',fortune:'小凶'},
+'同人':{symbol:'☰☲',name:'天火同人',meaning:'志同道合，广结善缘',element:'火',direction:'南',advice:'同人卦象征同心协力，与人合作有利，宜广结善缘。',fortune:'大吉'},
+'大有':{symbol:'☲☰',name:'火天大有',meaning:'盛大富有，前途光明',element:'火',direction:'南',advice:'大有卦象征丰盛富有，所问之事前景光明，大吉。',fortune:'大吉'},
+'谦':{symbol:'☷☶',name:'地山谦',meaning:'谦虚谨慎，有终有成',element:'土',direction:'西南',advice:'谦卦象征谦虚，行事谦逊有礼终能成功。',fortune:'大吉'},
+'豫':{symbol:'☳☷',name:'雷地豫',meaning:'顺时而动，安乐自在',element:'木',direction:'东',advice:'豫卦象征安乐，适时行动有利，不可懈怠。',fortune:'中吉'},
+'随':{symbol:'☱☳',name:'泽雷随',meaning:'随顺变化，因势利导',element:'金',direction:'西',advice:'随卦象征随顺，顺应形势变化为佳。',fortune:'中吉'},
+'蛊':{symbol:'☶☴',name:'山风蛊',meaning:'拨乱反正，革新除弊',element:'木',direction:'东南',advice:'蛊卦象征整饬，需要改革创新，去除陈弊。',fortune:'中平'},
+'临':{symbol:'☷☱',name:'地泽临',meaning:'居高临下，教导治理',element:'土',direction:'西南',advice:'临卦象征居高临下，以身作则，教导有方。',fortune:'大吉'},
+'观':{symbol:'☴☷',name:'风地观',meaning:'观察审视，深思熟虑',element:'木',direction:'东南',advice:'观卦象征观察，宜多观察多思考，不可轻举妄动。',fortune:'中平'},
+'噬嗑':{symbol:'☲☳',name:'火雷噬嗑',meaning:'果断决断，清除障碍',element:'火',direction:'南',advice:'噬嗑卦象征决断，有障碍需果断清除。',fortune:'中吉'},
+'贲':{symbol:'☶☲',name:'山火贲',meaning:'文饰美化，注重外表',element:'火',direction:'南',advice:'贲卦象征文饰，注重外在修饰和仪表。',fortune:'小吉'},
+'剥':{symbol:'☶☷',name:'山地剥',meaning:'剥落衰败，宜保守',element:'土',direction:'东北',advice:'剥卦象征剥落，当前运势不佳，宜保守行事。',fortune:'小凶'},
+'复':{symbol:'☷☳',name:'地雷复',meaning:'一阳来复，生机重现',element:'土',direction:'西南',advice:'复卦象征复苏，否极泰来，事情将有转机。',fortune:'中吉'},
+'无妄':{symbol:'☰☳',name:'天雷无妄',meaning:'真实无虚，坦诚待人',element:'金',direction:'西',advice:'无妄卦象征真实，待人处事要真诚坦率。',fortune:'中吉'},
+'大畜':{symbol:'☶☰',name:'山天大畜',meaning:'蓄积大德，厚积薄发',element:'土',direction:'东北',advice:'大畜卦象征积蓄，厚积薄发，不可急于求成。',fortune:'大吉'},
+'颐':{symbol:'☶☳',name:'山雷颐',meaning:'养生修身，节制有度',element:'土',direction:'东北',advice:'颐卦象征养身，注意养生保健，饮食有节。',fortune:'中平'},
+'大过':{symbol:'☱☴',name:'泽风大过',meaning:'非常之时行非常之事',element:'金',direction:'西',advice:'大过卦象征非常，当前需要大胆行动，但要小心。',fortune:'中吉'},
+'坎':{symbol:'☵☵',name:'坎为水',meaning:'险阻重重，以险化险',element:'水',direction:'北',advice:'坎卦象征险阻，当前困难重重，需要以智慧化解。',fortune:'小凶'},
+'离':{symbol:'☲☲',name:'离为火',meaning:'光明附丽，附丽正道',element:'火',direction:'南',advice:'离卦象征光明，附丽正道，依附正确的人和事。',fortune:'中吉'},
+'咸':{symbol:'☱☶',name:'泽山咸',meaning:'感应相通，心灵交融',element:'金',direction:'西',advice:'咸卦象征感应，人与人之间心灵相通，感情融洽。',fortune:'大吉'},
+'恒':{symbol:'☳☴',name:'雷风恒',meaning:'恒久不变，持之以恒',element:'木',direction:'东',advice:'恒卦象征恒久，做事要有恒心，不可半途而废。',fortune:'中吉'},
+'遁':{symbol:'☰☶',name:'天山遁',meaning:'退避隐遁，以退为进',element:'金',direction:'西',advice:'遁卦象征退避，当前宜退让，不可硬碰硬。',fortune:'中平'},
+'大壮':{symbol:'☳☰',name:'雷天大壮',meaning:'壮大强盛，势不可挡',element:'木',direction:'东',advice:'大壮卦象征强盛，当前气势如虹，可大胆行动。',fortune:'大吉'},
+'晋':{symbol:'☲☷',name:'火地晋',meaning:'日出地上，进步升迁',element:'火',direction:'南',advice:'晋卦象征进步，事业上升，前途光明。',fortune:'大吉'},
+'明夷':{symbol:'☷☲',name:'地火明夷',meaning:'光明受阻，韬光养晦',element:'火',direction:'南',advice:'明夷卦象征光明受阻，宜韬光养晦，暗中努力。',fortune:'小凶'},
+'家人':{symbol:'☴☲',name:'风火家人',meaning:'家庭和睦，内外和谐',element:'木',direction:'东南',advice:'家人卦象征家庭，注重家庭和谐，内外兼顾。',fortune:'大吉'},
+'睽':{symbol:'☲☱',name:'火泽睽',meaning:'意见分歧，求同存异',element:'火',direction:'南',advice:'睽卦象征分歧，虽有不同意见但可求同存异。',fortune:'中平'},
+'蹇':{symbol:'☵☶',name:'水山蹇',meaning:'行路艰难，宜反省自省',element:'水',direction:'北',advice:'蹇卦象征困难，前进受阻，宜反省自身寻找出路。',fortune:'小凶'},
+'解':{symbol:'☳☵',name:'雷水解',meaning:'困难化解，雨过天晴',element:'木',direction:'东',advice:'解卦象征解除困难，问题正在化解，前途光明。',fortune:'大吉'},
+'损':{symbol:'☶☱',name:'山泽损',meaning:'减损有益，先舍后得',element:'土',direction:'东北',advice:'损卦象征减损，适当放弃一些东西反而能获得更大收益。',fortune:'中吉'},
+'益':{symbol:'☴☳',name:'风雷益',meaning:'增益发展，利人利己',element:'木',direction:'东南',advice:'益卦象征增益，当前做事有利，可大胆发展。',fortune:'大吉'},
+'夬':{symbol:'☱☰',name:'泽天夬',meaning:'果断决断，刚中有柔',element:'金',direction:'西',advice:'夬卦象征决断，做事果断但要留有余地。',fortune:'中吉'},
+'姤':{symbol:'☰☴',name:'天风姤',meaning:'偶遇机缘，不期而遇',element:'金',direction:'西',advice:'姤卦象征偶遇，可能有意外的相遇或机会。',fortune:'中吉'},
+'萃':{symbol:'☱☷',name:'泽地萃',meaning:'聚集汇合，众志成城',element:'金',direction:'西',advice:'萃卦象征聚集，团结力量大，合作共赢。',fortune:'大吉'},
+'升':{symbol:'☷☴',name:'地风升',meaning:'上升进步，步步高升',element:'土',direction:'西南',advice:'升卦象征上升，事业稳步上升，前途看好。',fortune:'大吉'},
+'困':{symbol:'☱☵',name:'泽水困',meaning:'困境重重，以静制动',element:'金',direction:'西',advice:'困卦象征困难，当前处于困境，宜静待时机。',fortune:'小凶'},
+'井':{symbol:'☵☴',name:'水风井',meaning:'汲取养分，源源不断',element:'水',direction:'北',advice:'井卦象征汲取，不断学习积累，充实自己。',fortune:'中吉'},
+'革':{symbol:'☱☲',name:'泽火革',meaning:'变革创新，除旧布新',element:'金',direction:'西',advice:'革卦象征变革，需要改革创新，破旧立新。',fortune:'大吉'},
+'鼎':{symbol:'☲☴',name:'火风鼎',meaning:'烹饪转化，正位大吉',element:'火',direction:'南',advice:'鼎卦象征烹饪转化，正位得当，大吉大利。',fortune:'大吉'},
+'震':{symbol:'☳☳',name:'震为雷',meaning:'震动警醒，戒慎恐惧',element:'木',direction:'东',advice:'震卦象征震动，需要警惕戒慎，不可大意。',fortune:'中平'},
+'艮':{symbol:'☶☶',name:'艮为山',meaning:'静止不动，知止而止',element:'土',direction:'东北',advice:'艮卦象征止步，当前不宜行动，静观其变。',fortune:'中平'},
+'渐':{symbol:'☴☶',name:'风山渐',meaning:'循序渐进，步步为营',element:'木',direction:'东南',advice:'渐卦象征渐进，做事要循序渐进，不可急躁。',fortune:'中吉'},
+'归妹':{symbol:'☳☱',name:'雷泽归妹',meaning:'顺应归宿，回归正道',element:'木',direction:'东',advice:'归妹卦象征回归，回归正道，顺应自然。',fortune:'中平'},
+'丰':{symbol:'☳☲',name:'雷火丰',meaning:'丰盛隆盛，光明正大',element:'木',direction:'东',advice:'丰卦象征丰盛，当前运势极佳，光明正大行事。',fortune:'大吉'},
+'旅':{symbol:'☲☶',name:'火山旅',meaning:'旅途漂泊，寄人篱下',element:'火',direction:'南',advice:'旅卦象征旅途，适合旅行出差，但需小心谨慎。',fortune:'中平'},
+'巽':{symbol:'☴☴',name:'巽为风',meaning:'顺风而行，温和柔顺',element:'木',direction:'东南',advice:'巽卦象征顺风，顺应形势，温和处事有利。',fortune:'中吉'},
+'兑':{symbol:'☱☱',name:'兑为泽',meaning:'喜悦和乐，人际融洽',element:'金',direction:'西',advice:'兑卦象征喜悦，人际和谐，心情愉悦。',fortune:'大吉'},
+'涣':{symbol:'☴☵',name:'风水涣',meaning:'涣散消解，化解障碍',element:'木',direction:'东南',advice:'涣卦象征涣散，困难正在消解，障碍即将清除。',fortune:'中吉'},
+'节':{symbol:'☵☱',name:'水泽节',meaning:'节制有度，适可而止',element:'水',direction:'北',advice:'节卦象征节制，做事要有度，不可过分。',fortune:'中平'},
+'中孚':{symbol:'☴☱',name:'风泽中孚',meaning:'诚信为本，以诚待人',element:'木',direction:'东南',advice:'中孚卦象征诚信，以真诚之心待人处事。',fortune:'大吉'},
+'小过':{symbol:'☳☶',name:'雷山小过',meaning:'小事可为，大事不宜',element:'木',direction:'东',advice:'小过卦象征小事，小事可做但不宜做大事。',fortune:'中平'},
+'既济':{symbol:'☵☲',name:'水火既济',meaning:'水火既济，功成业就',element:'水',direction:'北',advice:'既济卦象征成功，事情已经完成，宜守成。',fortune:'大吉'},
+'未济':{symbol:'☲☵',name:'火水未济',meaning:'未完成，继续努力',element:'火',direction:'南',advice:'未济卦象征未完成，事情尚未结束，需继续努力。',fortune:'中平'}
+};
+
+document.getElementById('method').addEventListener('change',function(){
+  document.getElementById('numberInput').style.display=this.value==='number'?'block':'none';
+});
+
+function divination(){
+  var q=document.getElementById('question').value.trim();
+  if(!q){alert('请输入你要寻找的物品');return;}
+  var method=document.getElementById('method').value;
+  var guaName,gua;
+  
+  if(method==='coin'){
+    guaName=coinDivination();
+  }else if(method==='time'){
+    guaName=timeDivination();
+  }else if(method==='number'){
+    var nums=document.getElementById('numInput').value.trim().split(/[,，\s]+/).map(Number);
+    if(nums.length<2||nums.some(isNaN)){alert('请输入两个有效数字');return;}
+    guaName=numberDivination(nums[0],nums[1]);
+  }else{
+    guaName=randomDivination();
+  }
+  
+  gua=guaData[guaName];
+  if(!gua){alert('占卜失败，请重试');return;}
+  
+  var now=new Date();
+  var timeStr=now.toLocaleString('zh-CN');
+  
+  var html='<div class="card result">';
+  html+='<div class="section-title">🔮 占卜结果</div>';
+  html+='<div class="gua-card">';
+  html+='<div class="gua-name">'+gua.name+'</div>';
+  html+='<div class="gua-lines">'+gua.symbol+'</div>';
+  html+='<div style="text-align:center"><span class="tag">'+gua.fortune+'</span> <span class="tag">'+gua.element+'</span> <span class="tag">'+gua.direction+'</span></div>';
+  html+='<div class="gua-info">';
+  html+='<p><strong>卦象：</strong>'+gua.meaning+'</p>';
+  html+='<p><strong>寻物指导：</strong>'+gua.advice+'</p>';
+  html+='<p><strong>占卜时间：</strong>'+timeStr+'</p>';
+  html+='<p><strong>占卜方法：</strong>'+getMethodName(method)+'</p>';
+  html+='<p><strong>所问之事：</strong>'+q+'</p>';
+  html+='</div></div></div>';
+  
+  document.getElementById('result').innerHTML=html;
+  document.getElementById('result').style.display='block';
+  
+  // 保存历史
+  history.unshift({question:q,gua:gua.name,time:timeStr,fortune:gua.fortune});
+  if(history.length>20)history=history.slice(0,20);
+  localStorage.setItem('xunwu_history',JSON.stringify(history));
+  renderHistory();
+}
+
+function getMethodName(m){
+  var names={coin:'铜钱起卦',time:'时间起卦',number:'数字起卦',random:'随机起卦'};
+  return names[m]||m;
+}
+
+function coinDivination(){
+  var guas=['乾','坤','屯','蒙','需','讼','师','比','小畜','履','泰','否','同人','大有','谦','豫','随','蛊','临','观','噬嗑','贲','剥','复','无妄','大畜','颐','大过','坎','离','咸','恒','遁','大壮','晋','明夷','家人','睽','蹇','解','损','益','夬','姤','萃','升','困','井','革','鼎','震','艮','渐','归妹','丰','旅','巽','兑','涣','节','中孚','小过','既济','未济'];
+  var idx=Math.floor(Math.random()*guas.length);
+  return guas[idx];
+}
+
+function timeDivination(){
+  var now=new Date();
+  var h=now.getHours();
+  var m=now.getMinutes();
+  var guas=['乾','坤','屯','蒙','需','讼','师','比','小畜','履','泰','否','同人','大有','谦','豫','随','蛊','临','观','噬嗑','贲','剥','复','无妄','大畜','颐','大过','坎','离','咸','恒','遁','大壮','晋','明夷','家人','睽','蹇','解','损','益','夬','姤','萃','升','困','井','革','鼎','震','艮','渐','归妹','丰','旅','巽','兑','涣','节','中孚','小过','既济','未济'];
+  var idx=(h*60+m)%64;
+  return guas[idx];
+}
+
+function numberDivination(n1,n2){
+  var guas=['乾','坤','屯','蒙','需','讼','师','比','小畜','履','泰','否','同人','大有','谦','豫','随','蛊','临','观','噬嗑','贲','剥','复','无妄','大畜','颐','大过','坎','离','咸','恒','遁','大壮','晋','明夷','家人','睽','蹇','解','损','益','夬','姤','萃','升','困','井','革','鼎','震','艮','渐','归妹','丰','旅','巽','兑','涣','节','中孚','小过','既济','未济'];
+  var idx=(n1+n2)%64;
+  return guas[idx];
+}
+
+function randomDivination(){
+  var guas=['乾','坤','屯','蒙','需','讼','师','比','小畜','履','泰','否','同人','大有','谦','豫','随','蛊','临','观','噬嗑','贲','剥','复','无妄','大畜','颐','大过','坎','离','咸','恒','遁','大壮','晋','明夷','家人','睽','蹇','解','损','益','夬','姤','萃','升','困','井','革','鼎','震','艮','渐','归妹','丰','旅','巽','兑','涣','节','中孚','小过','既济','未济'];
+  var idx=Math.floor(Math.random()*guas.length);
+  return guas[idx];
+}
+
+function renderHistory(){
+  var el=document.getElementById('history');
+  if(history.length===0){el.innerHTML='<div class="empty">暂无占卜记录</div>';return;}
+  var html='';
+  history.forEach(function(h,i){
+    html+='<div class="history-item" onclick="showHistory('+i+')">';
+    html+='<div class="history-question">'+h.gua+' - '+h.question+'</div>';
+    html+='<div class="history-answer">'+h.time+' · '+h.fortune+'</div>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+function showHistory(i){
+  var h=history[i];
+  if(!h)return;
+  var gua=guaData[h.gua];
+  if(!gua){alert('卦象数据丢失');return;}
+  var html='<div class="card result">';
+  html+='<div class="section-title">🔮 历史记录</div>';
+  html+='<div class="gua-card">';
+  html+='<div class="gua-name">'+gua.name+'</div>';
+  html+='<div class="gua-lines">'+gua.symbol+'</div>';
+  html+='<div class="gua-info">';
+  html+='<p><strong>卦象：</strong>'+gua.meaning+'</p>';
+  html+='<p><strong>寻物指导：</strong>'+gua.advice+'</p>';
+  html+='<p><strong>占卜时间：</strong>'+h.time+'</p>';
+  html+='<p><strong>所问之事：</strong>'+h.question+'</p>';
+  html+='</div></div></div>';
+  document.getElementById('result').innerHTML=html;
+  document.getElementById('result').style.display='block';
+}
+
+renderHistory();
+</script></body></html>
