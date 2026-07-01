@@ -576,4 +576,25 @@ if (location.pathname.indexOf('/tools/') === 0) {
   document.body.appendChild(themeBtn);
 }
 
+// === 反馈评分组件 ===
+var feedbackHtml=document.createElement('div');
+feedbackHtml.id='garyy-feedback';
+feedbackHtml.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:12px;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.85rem;max-width:90vw;transition:opacity .3s';
+feedbackHtml.innerHTML='<span style="color:var(--text2)">这个工具有用吗？</span><span id="garyy-fb-btns" style="display:flex;gap:6px"><button onclick="garyyFeedback(1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👍</button><button onclick="garyyFeedback(0)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👎</button></span><button onclick="this.parentElement.style.display=\'none\'" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:.8rem">✕</button>';
+document.body.appendChild(feedbackHtml);
+
+window.garyyFeedback=function(score){
+  var path=location.pathname.replace('/tools/','').replace('/','');
+  var data=JSON.parse(localStorage.getItem('garyy_feedback')||'{}');
+  data[path]={score:score,time:Date.now()};
+  localStorage.setItem('garyy_feedback',JSON.stringify(data));
+  document.getElementById('garyy-fb-btns').innerHTML='<span style="color:var(--green)">谢谢反馈！</span>';
+  setTimeout(function(){var el=document.getElementById('garyy-feedback');if(el)el.style.display='none'},2000);
+};
+
+// 检查是否已反馈过
+var fbPath=location.pathname.replace('/tools/','').replace('/','');
+var fbData=JSON.parse(localStorage.getItem('garyy_feedback')||'{}');
+if(fbData[fbPath]){var el=document.getElementById('garyy-feedback');if(el)el.style.display='none'}
+
 })();
