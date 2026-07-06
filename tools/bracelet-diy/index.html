@@ -235,13 +235,88 @@ createApp({
 
     function showToast(text){ toast.text=text; toast.visible=true; setTimeout(()=>{toast.visible=false},1800) }
 
+    /* ====== 手链串排列 ====== */
+    // 画布中心手链圆环参数
+    function getBraceletRadius() {
+      const w = canvas.getWidth()
+      const h = canvas.getHeight()
+      return Math.min(w, h) * 0.35
+    }
+    // 手链细绳
+    let braceletRing = null
+
+    function drawBraceletRing() {
+      if (braceletRing) canvas.remove(braceletRing)
+      const cx = canvas.getWidth() / 2
+      const cy = canvas.getHeight() / 2
+      const br = getBraceletRadius()
+      braceletRing = new fabric.Circle({
+        left: cx - br, top: cy - br,
+        radius: br,
+        fill: 'transparent',
+        stroke: '#E0D8CF',
+        strokeWidth: 1.5,
+        strokeDashArray: [4, 3],
+        selectable: false,
+        evented: false,
+        excludeFromExport: false,
+        // 薄绳不参与珠子判断
+        isRing: true,
+      })
+      canvas.add(braceletRing)
+      canvas.sendToBack(braceletRing)
+    }
+
+    // 将所有珠子按顺序排列到圆环上
+    function layoutBeadsOnRing() {
+      const beads = canvas.getObjects().filter(o => o.beadId)
+      const count = beads.length
+      if (count === 0) { drawBraceletRing(); return }
+      const cx = canvas.getWidth() / 2
+      const cy = canvas.getHeight() / 2
+      const br = getBraceletRadius()
+      // 动态调整半径：珠子越多圈越大，保证不重叠
+      const maxR = Math.min(canvas.getWidth(), canvas.getHeight()) * 0.42
+      const minR = Math.min(canvas.getWidth(), canvas.getHeight()) * 0.22
+      // 每颗珠子占约60px弧长估算
+      const estimatedRadius = Math.max(minR, Math.min(maxR, (count * 32) / (2 * Math.PI)))
+      const r = estimatedRadius
+
+      beads.forEach((b, i) => {
+        const angle = (2 * Math.PI * i / count) - Math.PI / 2
+        const tx = cx + r * Math.cos(angle)
+        const ty = cy + r * Math.sin(angle)
+        b.animate({ left: tx, top: ty }, {
+          duration: 350,
+          easing: fabric.util.ease.easeOutCubic,
+          onChange: canvas.renderAll.bind(canvas),
+        })
+      })
+
+      // 更新手链绳半径
+      if (braceletRing) canvas.remove(braceletRing)
+      braceletRing = new fabric.Circle({
+        left: cx - r, top: cy - r,
+        radius: r,
+        fill: 'transparent',
+        stroke: '#E0D8CF',
+        strokeWidth: 1.5,
+        strokeDashArray: [4, 3],
+        selectable: false,
+        evented: false,
+        excludeFromExport: false,
+        isRing: true,
+      })
+      canvas.add(braceletRing)
+      canvas.sendToBack(braceletRing)
+    }
+
     /* ====== 核心：用Fabric.js原生图形绘制珠子 ====== */
     function addBead(bead) {
       if (!canvas) return
       const r = bead.radius
       const [mainColor, highlightColor, borderColor] = bead.colors
 
-      // 创建圆形组
       const circle = new fabric.Circle({
         radius: r,
         fill: mainColor,
@@ -252,7 +327,6 @@ createApp({
         shadow: new fabric.Shadow({ color:'rgba(0,0,0,0.1)', blur:6, offsetY:2 })
       })
 
-      // 高光椭圆
       const highlight = new fabric.Ellipse({
         rx: r * 0.35,
         ry: r * 0.22,
@@ -266,7 +340,6 @@ createApp({
         evented: false,
       })
 
-      // 银隔片用椭圆
       let mainShape
       if (bead.id === 'silver_spacer') {
         mainShape = new fabric.Ellipse({
@@ -282,11 +355,12 @@ createApp({
         circle.set('visible', false)
       }
 
+      // 初始位置设在画布中心（随后由layout动画移到圆环）
       const group = new fabric.Group(
         bead.id === 'silver_spacer' ? [mainShape, highlight] : [circle, highlight],
         {
-          left: Math.random() * (canvas.getWidth() - r*2 - 60) + 30 + r,
-          top: Math.random() * (canvas.getHeight() - r*2 - 60) + 30 + r,
+          left: canvas.getWidth() / 2,
+          top: canvas.getHeight() / 2,
           beadId: bead.id,
           beadName: bead.name,
           hasControls: false,
@@ -298,7 +372,8 @@ createApp({
       )
 
       canvas.add(group)
-      canvas.renderAll()
+      // 添加后重新排列所有珠子到圆环
+      layoutBeadsOnRing()
       showToast('已添加 ' + bead.name)
     }
 
@@ -307,7 +382,8 @@ createApp({
       const target = canvas.findTarget(e.e)
       if (target && target.beadId) {
         canvas.remove(target)
-        canvas.renderAll()
+        // 删除后重新排列
+        setTimeout(()=>{ layoutBeadsOnRing(); canvas.renderAll() }, 50)
         showToast('已删除 ' + target.beadName)
         updateOrderText()
       }
@@ -319,6 +395,7 @@ createApp({
       const objs = canvas.getObjects().filter(o=>o.beadId)
       if (objs.length===0) return showToast('画布已为空')
       objs.forEach(o=>canvas.remove(o))
+      drawBraceletRing()
       canvas.renderAll()
       showToast('已清空画布')
       updateOrderText()
@@ -399,9 +476,14 @@ createApp({
         canvas.on('object:added', updateOrderText)
         canvas.on('object:removed', updateOrderText)
 
+        // 初始绘制手链绳
+        drawBraceletRing()
+        canvas.renderAll()
+
         const ro = new ResizeObserver(() => {
           canvas.setWidth(box.clientWidth)
           canvas.setHeight(box.clientHeight||520)
+          layoutBeadsOnRing()
           canvas.renderAll()
         })
         ro.observe(box)
