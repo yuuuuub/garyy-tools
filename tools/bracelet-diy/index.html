@@ -46,11 +46,25 @@ body{font-family:'PingFang SC','Helvetica Neue','Microsoft YaHei',sans-serif;bac
 .main{width:100%;max-width:1400px;display:flex;gap:24px;padding:0 40px 40px;flex:1;min-height:0}
 
 /* ====== 左侧面板 ====== */
-.panel-left{width:260px;min-width:260px;display:flex;flex-direction:column;gap:18px;flex-shrink:0}
+.panel-left{width:260px;min-width:260px;display:flex;flex-direction:column;gap:16px;flex-shrink:0}
 .panel-title{font-size:13px;font-weight:600;color:var(--text);padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .panel-title-left{display:flex;align-items:center;gap:8px}
 .panel-title-left::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--green-gray)}
 .panel-title .count{font-size:11px;color:var(--text-sub);font-weight:400}
+
+/* 手链款式选择 */
+.style-list{display:flex;gap:8px;flex-wrap:wrap}
+.style-card{
+  flex:1;min-width:70px;padding:10px 6px;border-radius:var(--radius);
+  border:1.5px solid var(--border);background:var(--white);
+  cursor:pointer;transition:all .2s ease;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.style-card:hover{border-color:var(--green-gray);background:var(--green-gray-lighter)}
+.style-card.active{border-color:var(--green-gray);background:var(--green-gray-lighter);box-shadow:0 0 0 2px rgba(184,196,190,.3)}
+.style-icon{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.style-icon svg{width:100%;height:100%}
+.style-name{font-size:11px;color:var(--text);font-weight:500;white-space:nowrap}
 
 /* 珠子列表 */
 .bead-list{display:flex;flex-direction:column;gap:8px}
@@ -170,6 +184,17 @@ body{font-family:'PingFang SC','Helvetica Neue','Microsoft YaHei',sans-serif;bac
 
   <main class="main">
     <aside class="panel-left">
+      <div class="panel-title">
+        <div class="panel-title-left">手链款式</div>
+      </div>
+      <div class="style-list">
+        <div class="style-card" v-for="s in styleTypes" :key="s.id"
+             :class="{active: currentStyle===s.id}" @click="switchStyle(s.id)">
+          <div class="style-icon" v-html="s.icon"></div>
+          <div class="style-name">{{ s.name }}</div>
+        </div>
+      </div>
+
       <div class="panel-title">
         <div class="panel-title-left">珠子素材库</div>
         <span class="count">点击添加</span>
@@ -299,6 +324,69 @@ createApp({
         fill:'#D0D0D0', highlight:'#F0F0F0', stroke:'#B0B0B0' },
     ])
 
+    // ====== 手链款式 ======
+    const styleTypes = ref([
+      { id:'circle', name:'经典单圈', icon:'<svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="#B8C4BE" stroke-width="1.5" stroke-dasharray="3 2"/></svg>' },
+      { id:'double', name:'双圈手串', icon:'<svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="#B8C4BE" stroke-width="1.2" stroke-dasharray="3 2"/><circle cx="18" cy="18" r="9" fill="none" stroke="#D6DED9" stroke-width="1" stroke-dasharray="2 2"/></svg>' },
+      { id:'mala', name:'108佛珠', icon:'<svg viewBox="0 0 36 36"><ellipse cx="18" cy="18" rx="15" ry="10" fill="none" stroke="#B8C4BE" stroke-width="1.5" stroke-dasharray="3 2"/></svg>' },
+      { id:'teardrop', name:'水滴形', icon:'<svg viewBox="0 0 36 36"><path d="M18 4 C18 4 30 16 30 22 C30 28 24 32 18 32 C12 32 6 28 6 22 C6 16 18 4 18 4Z" fill="none" stroke="#B8C4BE" stroke-width="1.5" stroke-dasharray="3 2"/></svg>' },
+      { id:'cshape', name:'简约C形', icon:'<svg viewBox="0 0 36 36"><path d="M10 6 A14 14 0 1 1 10 30" fill="none" stroke="#B8C4BE" stroke-width="1.5" stroke-linecap="round"/></svg>' },
+    ])
+    const currentStyle = ref('circle')
+
+    function switchStyle(id) {
+      currentStyle.value = id
+      drawRing()
+      layoutBeads()
+    }
+
+    // 根据款式计算珠子位置
+    function getShapePoint(t, cx, cy, rr) {
+      // t: 0~1 的参数
+      const style = currentStyle.value
+      let x, y
+      switch (style) {
+        case 'double': {
+          // 双圈：内圈和外圈交替
+          const ring = Math.floor(t * 2) % 2
+          const angle = (t * 2 * Math.PI) - Math.PI / 2
+          const r = ring === 0 ? rr : rr * 0.6
+          x = cx + r * Math.cos(angle)
+          y = cy + r * Math.sin(angle)
+          break
+        }
+        case 'mala': {
+          // 108佛珠：椭圆
+          const angle = t * 2 * Math.PI - Math.PI / 2
+          x = cx + rr * 1.3 * Math.cos(angle)
+          y = cy + rr * 0.75 * Math.sin(angle)
+          break
+        }
+        case 'teardrop': {
+          // 水滴形参数方程
+          const angle = t * 2 * Math.PI - Math.PI / 2
+          const r = rr * (1 + 0.3 * Math.sin(angle / 2))
+          x = cx + r * Math.cos(angle)
+          y = cy + r * Math.sin(angle) * 1.1
+          break
+        }
+        case 'cshape': {
+          // C形：270度弧线
+          const angle = t * 1.5 * Math.PI - Math.PI / 4
+          x = cx + rr * Math.cos(angle)
+          y = cy + rr * Math.sin(angle)
+          break
+        }
+        default: {
+          // 经典圆形
+          const angle = t * 2 * Math.PI - Math.PI / 2
+          x = cx + rr * Math.cos(angle)
+          y = cy + rr * Math.sin(angle)
+        }
+      }
+      return { x, y }
+    }
+
     const canvasBox = ref(null)
     let canvas = null
     let ringObj = null
@@ -390,24 +478,77 @@ createApp({
       if (ringObj) { canvas.remove(ringObj); ringObj = null }
       const cx = canvas.width / 2, cy = canvas.height / 2
       const rr = Math.min(canvas.width, canvas.height) * 0.38
-      ringObj = new fabric.Circle({
-        left: cx - rr, top: cy - rr, radius: rr,
-        fill: 'transparent', stroke: '#DDD5CC', strokeWidth: 1.5,
-        strokeDashArray: [5, 4],
-        selectable: false, evented: false,
-        hasControls: false, hasBorders: false,
-      })
+      const style = currentStyle.value
+
+      let shape
+      switch (style) {
+        case 'double': {
+          const g = new fabric.Group([
+            new fabric.Circle({ left:cx-rr, top:cy-rr, radius:rr, fill:'transparent', stroke:'#DDD5CC', strokeWidth:1.5, strokeDashArray:[5,4] }),
+            new fabric.Circle({ left:cx-rr*0.6, top:cy-rr*0.6, radius:rr*0.6, fill:'transparent', stroke:'#E8E2DB', strokeWidth:1, strokeDashArray:[3,3] }),
+          ], { selectable:false, evented:false })
+          shape = g
+          break
+        }
+        case 'mala': {
+          shape = new fabric.Ellipse({
+            left: cx - rr*1.3, top: cy - rr*0.75,
+            rx: rr*1.3, ry: rr*0.75,
+            fill:'transparent', stroke:'#DDD5CC', strokeWidth:1.5, strokeDashArray:[5,4],
+            selectable:false, evented:false,
+          })
+          break
+        }
+        case 'teardrop': {
+          const pts = []
+          for (let i = 0; i <= 60; i++) {
+            const t = i / 60
+            const p = getShapePoint(t, cx, cy, rr)
+            pts.push({ x: p.x, y: p.y })
+          }
+          shape = new fabric.Polyline(pts, {
+            fill:'transparent', stroke:'#DDD5CC', strokeWidth:1.5, strokeDashArray:[5,4],
+            selectable:false, evented:false, objectCaching:false,
+          })
+          break
+        }
+        case 'cshape': {
+          const pts = []
+          for (let i = 0; i <= 45; i++) {
+            const t = i / 45
+            const p = getShapePoint(t, cx, cy, rr)
+            pts.push({ x: p.x, y: p.y })
+          }
+          shape = new fabric.Polyline(pts, {
+            fill:'transparent', stroke:'#DDD5CC', strokeWidth:2, strokeDashArray:[5,4],
+            strokeLineCap:'round', selectable:false, evented:false, objectCaching:false,
+          })
+          break
+        }
+        default: {
+          shape = new fabric.Circle({
+            left: cx-rr, top: cy-rr, radius: rr,
+            fill:'transparent', stroke:'#DDD5CC', strokeWidth:1.5, strokeDashArray:[5,4],
+            selectable:false, evented:false,
+          })
+        }
+      }
+
+      ringObj = shape
       canvas.add(ringObj)
       canvas.sendToBack(ringObj)
     }
 
-    // ====== 排列到圆环 ======
+    // ====== 排列到手链形状 ======
     function layoutBeads() {
       if (!canvas) return
       const count = beadList.length
       if (count === 0) { drawRing(); return }
       const cx = canvas.width / 2, cy = canvas.height / 2
       const rr = Math.min(canvas.width, canvas.height) * 0.38
+
+      // C形只用部分弧度
+      const arcFraction = currentStyle.value === 'cshape' ? 0.75 : 1
 
       // 按角度排序
       beadList.sort((a, b) => {
@@ -417,10 +558,9 @@ createApp({
       })
 
       beadList.forEach((obj, i) => {
-        const angle = (2 * Math.PI * i / count) - Math.PI / 2
-        const tx = cx + rr * Math.cos(angle)
-        const ty = cy + rr * Math.sin(angle)
-        obj.animate({ left: tx - obj.radius, top: ty - obj.radius }, {
+        const t = (i / count) * arcFraction
+        const p = getShapePoint(t, cx, cy, rr)
+        obj.animate({ left: p.x - obj.radius, top: p.y - obj.radius }, {
           duration: 300,
           easing: fabric.util.ease.easeOutCubic,
           onChange: canvas.renderAll.bind(canvas),
@@ -565,12 +705,12 @@ createApp({
     })
 
     return {
-      beadTypes, canvasBox,
+      beadTypes, canvasBox, styleTypes, currentStyle,
       beadCounts, beadCountMap, totalBeads, totalPrice,
       orderedBeads, history, priceBounce,
       orderDetail, orderModal, toast,
       getBeadName, getBeadPrice,
-      addBead, clearCanvas, exportPNG, showOrder, copyOrder, undo,
+      addBead, clearCanvas, exportPNG, showOrder, copyOrder, undo, switchStyle,
     }
   }
 }).mount('#app')
