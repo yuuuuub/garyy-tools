@@ -151,7 +151,7 @@ body{font-family:'PingFang SC','Helvetica Neue','Microsoft YaHei',sans-serif;bac
         </div>
       </div>
       <div class="canvas-box" ref="canvasBox">
-        <canvas ref="fabricCanvas" id="braceletCanvas"></canvas>
+        <canvas id="braceletCanvas"></canvas>
       </div>
       <div class="canvas-tip">
         点击左侧珠子添加到手链 · 拖拽珠子自由调整位置 · 双击珠子删除 · 价格自动结算
@@ -175,181 +175,135 @@ body{font-family:'PingFang SC','Helvetica Neue','Microsoft YaHei',sans-serif;bac
 </div>
 
 <script>
-const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue
+const { createApp, ref, computed, onMounted, nextTick } = Vue
 
 createApp({
   setup() {
-    /*
-     * 珠子配置
-     * gradient: 左侧卡片CSS渐变
-     * colors: [主色, 高光, 边框] → Fabric.js绘制
-     * radius: 珠子圆半径
-     */
     const beadTypes = ref([
       { id:'white_quartz', name:'白水晶', price:8, radius:26,
         gradient:'radial-gradient(circle at 35% 30%,#fff 0%,#F0EDE8 40%,#D8D2C8 100%)',
-        colors:['#F0EDE8','#FFFFFF','#C8C0B5'] },
+        fill:'#F0EDE8', highlight:'#FFFFFF', stroke:'#C8C0B5' },
       { id:'amethyst', name:'紫水晶', price:15, radius:26,
         gradient:'radial-gradient(circle at 35% 30%,#E0D0F0 0%,#B89DD0 50%,#8B6BAF 100%)',
-        colors:['#B89DD0','#E0D0F0','#9B80B5'] },
+        fill:'#B89DD0', highlight:'#E0D0F0', stroke:'#9B80B5' },
       { id:'red_agate', name:'红玛瑙', price:12, radius:26,
         gradient:'radial-gradient(circle at 35% 30%,#E8A8A0 0%,#C87868 50%,#A05040 100%)',
-        colors:['#C87868','#E8A8A0','#B06858'] },
+        fill:'#C87868', highlight:'#E8A8A0', stroke:'#B06858' },
       { id:'sandalwood', name:'檀木圆珠', price:6, radius:26,
         gradient:'radial-gradient(circle at 35% 30%,#A08060 0%,#7D5E3D 50%,#5A3D20 100%)',
-        colors:['#7D5E3D','#A08060','#5A3D20'] },
+        fill:'#7D5E3D', highlight:'#A08060', stroke:'#5A3D20' },
       { id:'silver_spacer', name:'银隔片', price:3, radius:26,
         gradient:'radial-gradient(circle at 35% 30%,#F0F0F0 0%,#D0D0D0 50%,#A8A8A8 100%)',
-        colors:['#D0D0D0','#F0F0F0','#B0B0B0'] },
+        fill:'#D0D0D0', highlight:'#F0F0F0', stroke:'#B0B0B0' },
     ])
 
-    const fabricCanvas = ref(null)
     const canvasBox = ref(null)
     let canvas = null
-    // 手链绳圆环对象
     let ringObj = null
-    // 当前珠子列表（保序）
     let beadList = []
 
-    const toast = reactive({ visible:false, text:'' })
+    const toast = ref({ visible:false, text:'' })
     const orderModal = ref(false)
     const orderDetail = ref('')
     const orderText = ref('')
 
-    /* ====== 统计 ====== */
     const beadCounts = computed(() => {
       const counts = {}
-      beadList.forEach(o => { counts[o.beadId] = (counts[o.beadId]||0)+1 })
+      beadList.forEach(o => { if(o.beadId) counts[o.beadId] = (counts[o.beadId]||0)+1 })
       return counts
     })
     const totalBeads = computed(() => beadList.length)
     const totalPrice = computed(() => {
       let t = 0
       beadList.forEach(o => {
-        const b = beadTypes.value.find(x=>x.id===o.beadId)
-        if (b) t += b.price
+        if(o.beadId) { const b = beadTypes.value.find(x=>x.id===o.beadId); if(b) t+=b.price }
       })
       return t
     })
 
     function getBeadName(id){ const b=beadTypes.value.find(x=>x.id===id); return b?b.name:id }
     function getBeadPrice(id){ const b=beadTypes.value.find(x=>x.id===id); return b?b.price:0 }
-    function showToast(text){ toast.text=text; toast.visible=true; setTimeout(()=>{toast.visible=false},1800) }
+    function showToast(msg){ toast.value={visible:true,text:msg}; setTimeout(()=>{toast.value.visible=false},1800) }
 
     /* ====== 手链绳 ====== */
     function drawRing() {
       if (!canvas) return
       if (ringObj) { canvas.remove(ringObj); ringObj = null }
-      const cx = canvas.width / 2
-      const cy = canvas.height / 2
-      // 圆环半径 = min(宽高) * 0.38
+      const cx = canvas.width / 2, cy = canvas.height / 2
       const rr = Math.min(canvas.width, canvas.height) * 0.38
       ringObj = new fabric.Circle({
-        left: cx - rr,
-        top: cy - rr,
-        radius: rr,
-        fill: 'transparent',
-        stroke: '#DDD5CC',
-        strokeWidth: 1.5,
+        left: cx - rr, top: cy - rr, radius: rr,
+        fill: 'transparent', stroke: '#DDD5CC', strokeWidth: 1.5,
         strokeDashArray: [5, 4],
-        selectable: false,
-        evented: false,
-        hasControls: false,
-        hasBorders: false,
+        selectable: false, evented: false,
+        hasControls: false, hasBorders: false,
       })
       canvas.add(ringObj)
       canvas.sendToBack(ringObj)
     }
 
-    /* ====== 排列珠子到圆环（仅添加/删除时调用，拖拽后不再回弹） ====== */
+    /* ====== 排列到圆环 ====== */
     function layoutBeads() {
       if (!canvas) return
       const count = beadList.length
       if (count === 0) { drawRing(); return }
-      const cx = canvas.width / 2
-      const cy = canvas.height / 2
+      const cx = canvas.width / 2, cy = canvas.height / 2
       const rr = Math.min(canvas.width, canvas.height) * 0.38
-      // 均匀分布在圆环上
       beadList.forEach((obj, i) => {
         const angle = (2 * Math.PI * i / count) - Math.PI / 2
         const tx = cx + rr * Math.cos(angle)
         const ty = cy + rr * Math.sin(angle)
-        // 用 Fabric.js left/top 定位（Group 的 left/top 是左上角）
-        const w = obj.getScaledWidth()
-        const h = obj.getScaledHeight()
-        obj.set({ left: tx - w/2, top: ty - h/2 })
+        obj.set({ left: tx - obj.radius, top: ty - obj.radius })
+        obj.setCoords()
       })
       drawRing()
       canvas.renderAll()
     }
 
-    /* ====== 添加珠子 ====== */
+    /* ====== 添加珠子（用简单 Circle，确保可拖拽） ====== */
     function addBead(bead) {
       if (!canvas) return
       const r = bead.radius
-      const [mainColor, highlightColor, borderColor] = bead.colors
 
-      // 主珠体
-      const body = new fabric.Circle({
+      // 用径向渐变模拟珠子质感
+      const grad = new fabric.Gradient({
+        type: 'radial',
+        coords: { x1: r*0.3, y1: r*0.25, x2: r, y2: r, r1: 0, r2: r },
+        colorStops: [
+          { offset: 0, color: bead.highlight },
+          { offset: 0.5, color: bead.fill },
+          { offset: 1, color: bead.stroke },
+        ]
+      })
+
+      const circle = new fabric.Circle({
         radius: r,
-        fill: mainColor,
-        stroke: borderColor,
+        fill: grad,
+        stroke: bead.stroke,
         strokeWidth: 1.2,
-        originX: 'center',
-        originY: 'center',
-      })
-      // 高光
-      const hl = new fabric.Ellipse({
-        rx: r * 0.38, ry: r * 0.22,
-        fill: highlightColor,
-        opacity: 0.5,
-        originX: 'center', originY: 'center',
-        left: -r * 0.18, top: -r * 0.28,
-        selectable: false, evented: false,
-      })
-      // 阴影
-      const shadow = new fabric.Circle({
-        radius: r,
-        fill: 'rgba(0,0,0,0)',
-        stroke: 'rgba(0,0,0,0)',
-        originX: 'center', originY: 'center',
-        shadow: new fabric.Shadow({ color:'rgba(0,0,0,0.12)', blur:8, offsetY:3 }),
-        selectable: false, evented: false,
-      })
-
-      let shapes
-      if (bead.id === 'silver_spacer') {
-        // 银隔片：扁椭圆
-        const spacer = new fabric.Ellipse({
-          rx: r * 0.55, ry: r,
-          fill: mainColor,
-          stroke: borderColor,
-          strokeWidth: 1.2,
-          originX: 'center', originY: 'center',
-        })
-        shapes = [shadow, spacer, hl]
-      } else {
-        shapes = [shadow, body, hl]
-      }
-
-      const group = new fabric.Group(shapes, {
         left: canvas.width / 2 - r,
         top: canvas.height / 2 - r,
+        shadow: new fabric.Shadow({ color:'rgba(0,0,0,0.12)', blur:6, offsetX:0, offsetY:2 }),
+        // 关键：确保可拖拽
+        selectable: true,
+        evented: true,
         hasControls: false,
         hasBorders: false,
-        // 自定义标记
+        // 自定义数据
         beadId: bead.id,
         beadName: bead.name,
+        beadPrice: bead.price,
       })
 
-      canvas.add(group)
-      beadList.push(group)
+      canvas.add(circle)
+      beadList.push(circle)
       layoutBeads()
       showToast('已添加 ' + bead.name)
     }
 
     /* ====== 双击删除 ====== */
     function onDblClick(opt) {
+      if (!canvas) return
       const target = canvas.findTarget(opt.e)
       if (target && target.beadId) {
         const idx = beadList.indexOf(target)
@@ -376,8 +330,8 @@ createApp({
     /* ====== 导出PNG ====== */
     function exportPNG() {
       if (beadList.length === 0) return showToast('画布为空，无法导出')
-      // 导出时隐藏绳子
       if (ringObj) ringObj.set('visible', false)
+      canvas.discardActiveObject()
       canvas.renderAll()
       const url = canvas.toDataURL({ format:'png', multiplier:2, backgroundColor:'#FFFFFF' })
       if (ringObj) ringObj.set('visible', true)
@@ -437,22 +391,19 @@ createApp({
     onMounted(() => {
       nextTick(() => {
         const box = canvasBox.value
-        const w = box.clientWidth
-        const h = box.clientHeight || 520
-
         canvas = new fabric.Canvas('braceletCanvas', {
-          width: w,
-          height: h,
+          width: box.clientWidth,
+          height: box.clientHeight || 520,
           backgroundColor: '#FFFFFF',
           selection: false,
           stopContextMenu: true,
+          preserveObjectStacking: true,
         })
 
         drawRing()
         canvas.renderAll()
 
         canvas.on('mouse:dblclick', onDblClick)
-        canvas.on('object:moving', () => canvas.renderAll())
 
         const ro = new ResizeObserver(() => {
           canvas.setWidth(box.clientWidth)
@@ -465,7 +416,7 @@ createApp({
     })
 
     return {
-      beadTypes, fabricCanvas, canvasBox,
+      beadTypes, canvasBox,
       beadCounts, totalBeads, totalPrice,
       orderText, orderDetail, orderModal, toast,
       getBeadName, getBeadPrice,
@@ -474,14 +425,5 @@ createApp({
   }
 }).mount('#app')
 </script>
-
-<!--
-使用说明：
-1. 直接浏览器打开 index.html 即可运行
-2. 修改珠子大小：beadTypes 中 radius 属性（当前26）
-3. 修改手链圆环大小：drawRing 中 0.38 系数（越大圈越大）
-4. 新增珠子：在 beadTypes 数组添加对象
-5. 扩展：吊坠/手围/刻字等可在 showOrder 中追加费用
--->
 </body>
 </html>
