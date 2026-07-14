@@ -195,6 +195,37 @@ body{font-family:'PingFang SC','Helvetica Neue','Microsoft YaHei',sans-serif;bac
         </div>
       </div>
 
+      <!-- 手围选择 -->
+      <div class="panel-title">
+        <div class="panel-title-left">手围尺寸</div>
+      </div>
+      <div class="style-list">
+        <div class="style-card" v-for="sz in wristSizes" :key="sz.id"
+             :class="{active: currentWrist===sz.id}" @click="currentWrist=sz.id"
+             style="min-width:55px;padding:8px 4px">
+          <div class="style-name" style="font-size:12px;font-weight:600;color:var(--text)">{{ sz.label }}</div>
+          <div class="style-name" style="font-size:10px;color:var(--text-sub)">{{ sz.cm }}</div>
+        </div>
+      </div>
+
+      <!-- 推荐搭配 -->
+      <div class="panel-title">
+        <div class="panel-title-left">推荐搭配</div>
+      </div>
+      <div class="bead-list">
+        <div class="bead-card" v-for="combo in combos" :key="combo.id"
+             @click="applyCombo(combo)" style="padding:8px 12px">
+          <div class="bead-info" style="flex:1">
+            <div class="bead-name">{{ combo.name }}</div>
+            <div class="bead-meta">
+              <span class="bead-price">¥{{ combo.price }}</span>
+              <span class="bead-unit">· {{ combo.desc }}</span>
+            </div>
+          </div>
+          <div class="bead-add-hint" style="opacity:1;color:var(--green-gray)">套用</div>
+        </div>
+      </div>
+
       <div class="panel-title">
         <div class="panel-title-left">珠子素材库</div>
         <span class="count">点击添加</span>
@@ -333,6 +364,69 @@ createApp({
       { id:'cshape', name:'简约C形', icon:'<svg viewBox="0 0 36 36"><path d="M10 6 A14 14 0 1 1 10 30" fill="none" stroke="#B8C4BE" stroke-width="1.5" stroke-linecap="round"/></svg>' },
     ])
     const currentStyle = ref('circle')
+
+    // 手围尺寸
+    const wristSizes = ref([
+      { id:'xs', label:'XS', cm:'14-15cm', beads:14 },
+      { id:'s', label:'S', cm:'15-16cm', beads:15 },
+      { id:'m', label:'M', cm:'16-17cm', beads:16 },
+      { id:'l', label:'L', cm:'17-18cm', beads:17 },
+      { id:'xl', label:'XL', cm:'18-19cm', beads:18 },
+    ])
+    const currentWrist = ref('m')
+
+    // 推荐搭配方案
+    const combos = ref([
+      { id:'c1', name:'冰清玉洁', price:128, style:'circle', wrist:'m',
+        desc:'白水晶+银隔片',
+        beads:[{id:'white_quartz',n:12},{id:'silver_spacer',n:4}] },
+      { id:'c2', name:'紫气东来', price:210, style:'circle', wrist:'m',
+        desc:'紫水晶+白水晶+银隔片',
+        beads:[{id:'amethyst',n:8},{id:'white_quartz',n:4},{id:'silver_spacer',n:4}] },
+      { id:'c3', name:'鸿运当头', price:180, style:'circle', wrist:'m',
+        desc:'红玛瑙+檀木+银隔片',
+        beads:[{id:'red_agate',n:8},{id:'sandalwood',n:4},{id:'silver_spacer',n:4}] },
+      { id:'c4', name:'禅意檀香', price:108, style:'circle', wrist:'m',
+        desc:'檀木圆珠+银隔片',
+        beads:[{id:'sandalwood',n:14},{id:'silver_spacer',n:2}] },
+      { id:'c5', name:'多彩糖果', price:168, style:'double', wrist:'m',
+        desc:'五彩混搭双圈',
+        beads:[{id:'white_quartz',n:4},{id:'amethyst',n:4},{id:'red_agate',n:4},{id:'sandalwood',n:4},{id:'silver_spacer',n:4}] },
+    ])
+
+    function applyCombo(combo) {
+      // 先清空
+      beadList.forEach(o => canvas.remove(o))
+      beadList = []
+      // 设置款式和手围
+      currentStyle.value = combo.style
+      currentWrist.value = combo.wrist
+      // 添加珠子
+      combo.beads.forEach(b => {
+        const bead = beadTypes.value.find(x=>x.id===b.id)
+        if (!bead) return
+        for (let i = 0; i < b.n; i++) {
+          const r = bead.radius
+          const grad = new fabric.Gradient({
+            type:'radial',
+            coords:{x1:r*0.3,y1:r*0.25,x2:r,y2:r,r1:0,r2:r},
+            colorStops:[{offset:0,color:bead.highlight},{offset:0.5,color:bead.fill},{offset:1,color:bead.stroke}]
+          })
+          const circle = new fabric.Circle({
+            radius:r, fill:grad, stroke:bead.stroke, strokeWidth:1.2,
+            left:canvas.width/2-r, top:canvas.height/2-r,
+            shadow:new fabric.Shadow({color:'rgba(0,0,0,0.12)',blur:6,offsetX:0,offsetY:2}),
+            selectable:true, evented:true, hasControls:false, hasBorders:false,
+            beadId:bead.id, beadName:bead.name, beadPrice:bead.price,
+          })
+          canvas.add(circle)
+          beadList.push(circle)
+        }
+      })
+      layoutBeads()
+      triggerPriceBounce()
+      showToast('已套用「' + combo.name + '」')
+    }
 
     function switchStyle(id) {
       currentStyle.value = id
@@ -646,7 +740,12 @@ createApp({
       if (beadList.length === 0) { showToast('请先添加珠子', '⚠'); return }
       const counts = beadCounts.value
       const ids = Object.keys(counts)
+      const styleName = styleTypes.value.find(s=>s.id===currentStyle.value)?.name || ''
+      const wristName = wristSizes.value.find(s=>s.id===currentWrist.value)
       let lines = ['━━━━━━━━━━━━━━━━━━━━━━━━', '', '    手串定制订单清单', '', '━━━━━━━━━━━━━━━━━━━━━━━━', '']
+      lines.push('  款式：' + styleName)
+      if (wristName) lines.push('  手围：' + wristName.label + '（' + wristName.cm + '）')
+      lines.push('')
       ids.forEach(id => {
         const b = beadTypes.value.find(x => x.id === id)
         if (b) {
@@ -706,11 +805,12 @@ createApp({
 
     return {
       beadTypes, canvasBox, styleTypes, currentStyle,
+      wristSizes, currentWrist, combos,
       beadCounts, beadCountMap, totalBeads, totalPrice,
       orderedBeads, history, priceBounce,
       orderDetail, orderModal, toast,
       getBeadName, getBeadPrice,
-      addBead, clearCanvas, exportPNG, showOrder, copyOrder, undo, switchStyle,
+      addBead, clearCanvas, exportPNG, showOrder, copyOrder, undo, switchStyle, applyCombo,
     }
   }
 }).mount('#app')
