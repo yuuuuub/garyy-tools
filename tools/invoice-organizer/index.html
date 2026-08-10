@@ -4,718 +4,328 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>发票智能整理 - garyy-tools</title>
-<meta name="description" content="上传PDF发票，自动解析字段、分类、重命名，一键导出Excel台账和归档压缩包">
+<meta name="description" content="输入邮箱授权码，自动抓取邮件发票附件，解析归档，一键下载Excel台账和PDF压缩包">
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        bg: '#0d1117', card: '#161b22', border: '#30363d',
-        text: '#e6edf3', text2: '#8b949e',
-        blue: '#3b82f6', green: '#238636', red: '#ef4444', gold: '#f59e0b',
-      }
-    }
-  }
+  theme: { extend: { colors: {
+    bg:'#0d1117', card:'#161b22', border:'#30363d',
+    text:'#e6edf3', text2:'#8b949e',
+    blue:'#3b82f6', green:'#238636', red:'#ef4444', gold:'#f59e0b',
+  }}}
 }
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
 <style>
 :root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#3b82f6;--green:#238636;--red:#ef4444;--gold:#f59e0b;--radius:10px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
-.container{max-width:960px;margin:0 auto;padding-bottom:60px}
-header{text-align:center;padding:28px 0 16px}
-h1{font-size:1.4rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
-.sub{color:var(--text2);font-size:.82rem}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
-.drop-zone{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s}
-.drop-zone:hover,.drop-zone.dragover{border-color:var(--blue);background:rgba(59,130,246,.05)}
-.drop-zone .icon{font-size:42px;margin-bottom:8px}
-.drop-zone .hint{color:var(--text2);font-size:.85rem;margin-top:4px}
-input[type=text],input[type=password],select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:.9rem;width:100%;outline:none;transition:border .2s}
-input:focus,select:focus{border-color:var(--blue)}
-.btn{padding:10px 20px;border-radius:8px;border:none;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.container{max-width:620px;margin:0 auto;padding-bottom:50px}
+header{text-align:center;padding:24px 0 14px}
+h1{font-size:1.35rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
+.sub{color:var(--text2);font-size:.8rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px}
+.form-group{margin-bottom:18px}
+.form-group:last-child{margin-bottom:0}
+.form-label{display:block;font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:6px}
+.form-label .req{color:var(--red)}
+.form-input{width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:8px;font-size:.9rem;color:var(--text);background:var(--bg);outline:none;transition:border .2s}
+.form-input:focus{border-color:var(--blue)}
+.form-hint{font-size:.72rem;color:var(--text2);margin-top:5px;line-height:1.4}
+.quick-dates{display:flex;gap:8px;margin-bottom:12px}
+.quick-btn{flex:1;padding:9px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:.78rem;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;text-align:center}
+.quick-btn:hover{border-color:var(--blue);color:var(--blue)}
+.quick-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08)}
+.date-row{display:flex;gap:10px;align-items:flex-end}
+.date-field{flex:1}
+.date-field input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);background:var(--bg);outline:none}
+.date-field input:focus{border-color:var(--blue)}
+.date-field label{display:block;font-size:.7rem;color:var(--text2);margin-bottom:4px}
+.btn{width:100%;padding:13px;border:none;border-radius:8px;font-size:.92rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-primary{background:var(--blue);color:#fff}
-.btn-primary:hover{background:#2563eb}
-.btn-green{background:var(--green);color:#fff}
-.btn-green:hover{opacity:.88}
-.btn-gold{background:var(--gold);color:#000}
-.btn-gold:hover{opacity:.88}
+.btn-primary:hover:not(:disabled){background:#2563eb}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:16px}
-.stat-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
-.stat-value{font-size:1.3rem;font-weight:700}
-.stat-label{font-size:.72rem;color:var(--text2);margin-top:2px}
-table{width:100%;border-collapse:collapse;font-size:.82rem}
-th{background:var(--bg);padding:8px 6px;text-align:left;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1}
-td{padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
-tr:hover td{background:rgba(59,130,246,.04)}
-.table-wrap{max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:8px}
-.status-normal{color:var(--green)}
-.status-review{color:var(--gold)}
-.status-failed{color:var(--red)}
-.progress-bar-bg{background:var(--border);border-radius:100px;height:8px;overflow:hidden}
-.progress-bar{height:100%;background:var(--blue);border-radius:100px;transition:width .3s;width:0%}
+.btn-green{background:var(--green);color:#fff;width:auto;padding:11px 18px;font-size:.85rem}
+.btn-green:hover:not(:disabled){opacity:.88}
+.btn-gold{background:var(--gold);color:#000;width:auto;padding:11px 18px;font-size:.85rem}
+.btn-gold:hover:not(:disabled){opacity:.88}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.stat-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center}
+.stat-value{font-size:1.15rem;font-weight:700}
+.stat-label{font-size:.68rem;color:var(--text2);margin-top:2px}
+.progress-bg{background:var(--border);border-radius:100px;height:8px;overflow:hidden;margin-bottom:10px}
+.progress-bar{height:100%;background:var(--blue);border-radius:100px;transition:width .4s;width:0%}
 .progress-bar.done{background:var(--green)}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:600}
-.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa}
-.badge-green{background:rgba(35,134,54,.15);color:#4ade80}
-.badge-gold{background:rgba(245,158,11,.15);color:#fbbf24}
-.badge-red{background:rgba(239,68,68,.15);color:#f87171}
-.badge-gray{background:rgba(139,148,158,.15);color:#8b949e}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fadeIn .3s ease-out}
-.hidden{display:none!important}
-.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+.progress-bar.err{background:var(--red)}
+.progress-info{display:flex;justify-content:space-between;font-size:.82rem}
+.progress-msg{font-size:.76rem;color:var(--text2);margin-top:5px}
+.error-box{margin-top:12px;padding:10px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:.78rem;color:#f87171;display:none}
+.error-box.active{display:block}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.status-online{background:var(--green)}
+.status-offline{background:var(--red)}
+.spinner{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:600px){body{padding:10px}.container{padding-bottom:30px}.card{padding:14px}.table-wrap{font-size:.72rem}}
+.hidden{display:none!important}
+.download-row{display:flex;gap:10px}
+.badge{display:inline-block;padding:3px 9px;border-radius:4px;font-size:.72rem;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa}
+@media(max-width:560px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .quick-dates{flex-direction:column}
+  .card{padding:14px}
+  .download-row{flex-direction:column}
+}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
     <h1>📧 发票智能整理</h1>
-    <p class="sub">上传 PDF 发票 → 自动解析字段 → 分类重命名 → 导出 Excel 台账 + 归档 ZIP</p>
+    <p class="sub">输入邮箱授权码，自动抓取邮件发票，解析归档，一键下载台账与附件</p>
   </header>
 
-  <!-- 上传区 -->
-  <div class="card" id="uploadCard">
-    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-      <div class="icon">📄</div>
-      <div style="font-size:.95rem;font-weight:600">点击选择或拖拽 PDF 发票文件到此处</div>
-      <div class="hint">支持多选 · PDF 格式 · 自动解析增值税电子发票/铁路客票/通行费等</div>
+  <!-- 后端状态 -->
+  <div class="card" style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between">
+    <span style="font-size:.8rem">
+      <span class="status-dot status-offline" id="statusDot"></span>
+      <span id="statusText">检测后端服务中...</span>
+    </span>
+    <button onclick="checkBackend()" style="background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:.72rem;cursor:pointer">刷新</button>
+  </div>
+
+  <!-- 表单 -->
+  <div class="card" id="formCard">
+    <div class="form-group">
+      <label class="form-label">邮箱账号 <span class="req">*</span></label>
+      <input type="email" id="email" class="form-input" placeholder="例如：yourname@163.com" autocomplete="off">
+      <div class="form-hint">支持 163 / QQ / 126 / Outlook 等主流邮箱</div>
     </div>
-    <input type="file" id="fileInput" accept=".pdf" multiple style="display:none">
-    <div id="fileList" style="margin-top:12px"></div>
+
+    <div class="form-group">
+      <label class="form-label">邮箱授权码 <span class="req">*</span></label>
+      <input type="password" id="password" class="form-input" placeholder="邮箱设置中开启IMAP后获取的授权码" autocomplete="off">
+      <div class="form-hint">授权码非邮箱登录密码，需在邮箱网页端「设置 → IMAP/SMTP」中开启并生成</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">时间范围 <span class="req">*</span></label>
+      <div class="quick-dates">
+        <button type="button" class="quick-btn" data-days="30">近一个月</button>
+        <button type="button" class="quick-btn" data-days="15">近 15 天</button>
+        <button type="button" class="quick-btn" data-days="7">近 7 天</button>
+      </div>
+      <div class="date-row">
+        <div class="date-field">
+          <label>开始日期</label>
+          <input type="date" id="startDate">
+        </div>
+        <div class="date-field">
+          <label>结束日期</label>
+          <input type="date" id="endDate">
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary" id="startBtn" onclick="startArchive()">
+      <span id="btnText">开始归档</span>
+    </button>
+    <div class="error-box" id="errorBox"></div>
   </div>
 
   <!-- 进度 -->
   <div class="card hidden" id="progressCard">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:.88rem;font-weight:600" id="progressStage">正在处理...</span>
-      <span style="font-size:.88rem;font-weight:700;color:var(--blue)" id="progressPercent">0%</span>
+    <div class="progress-bg"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-info">
+      <span style="font-weight:600" id="progressStage">准备中...</span>
+      <span style="font-weight:700;color:var(--blue)" id="progressPercent">0%</span>
     </div>
-    <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
-    <div style="font-size:.78rem;color:var(--text2);margin-top:6px" id="progressMsg"></div>
-  </div>
-
-  <!-- 统计 -->
-  <div class="stats-grid hidden" id="statsGrid"></div>
-
-  <!-- 操作按钮 -->
-  <div class="card hidden" id="actionCard">
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-green" onclick="exportExcel()">📊 导出 Excel 台账</button>
-      <button class="btn btn-gold" onclick="downloadZip()">📁 下载归档 ZIP</button>
-      <button class="btn btn-primary" onclick="resetAll()">🔄 重新上传</button>
+    <div class="progress-msg" id="progressMsg">正在初始化...</div>
+    <div class="stats-grid hidden" id="statsGrid">
+      <div class="stat-item"><div class="stat-value" id="statEmails">0</div><div class="stat-label">邮件</div></div>
+      <div class="stat-item"><div class="stat-value" id="statAttachments">0</div><div class="stat-label">附件</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:var(--blue)" id="statInvoices">0</div><div class="stat-label">发票</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:var(--green);font-size:.95rem" id="statAmount">¥0</div><div class="stat-label">总金额</div></div>
     </div>
   </div>
 
-  <!-- 结果表格 -->
-  <div class="card hidden" id="tableCard">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="font-weight:600;font-size:.92rem">发票明细</span>
-      <input type="text" id="searchInput" placeholder="搜索销方/号码/类型..." style="width:240px;font-size:.82rem;padding:6px 10px" oninput="renderTable()">
+  <!-- 下载 -->
+  <div class="card hidden" id="downloadCard">
+    <div class="download-row">
+      <button class="btn btn-green" onclick="downloadFile('excel')">📊 下载 Excel 台账</button>
+      <button class="btn btn-gold" onclick="downloadFile('zip')">📁 下载归档 ZIP</button>
     </div>
-    <div class="table-wrap">
-      <table id="resultTable">
-        <thead>
-          <tr>
-            <th>#</th><th>实际日期</th><th>开票日期</th><th>分类</th><th>发票类型</th>
-            <th>销方名称</th><th>路线</th><th>金额</th><th>税额</th><th>价税合计</th>
-            <th>状态</th><th>归档文件名</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
+  </div>
+
+  <!-- 使用说明 -->
+  <div class="card" style="padding:14px 18px">
+    <div style="font-size:.76rem;color:var(--text2);line-height:1.6">
+      <strong style="color:var(--text)">使用说明</strong><br>
+      1. 本工具需在本地运行后端服务。打开终端执行：<code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--blue)">cd ~/Documents/invoice && python3 web_app.py</code><br>
+      2. 后端启动后，上方状态显示为绿色"后端已连接"<br>
+      3. 输入邮箱账号和授权码，选择时间范围，点击"开始归档"<br>
+      4. 发票文件名规则：日期_类型_金额_销方名称.pdf · 铁路客票含出发→到达路线<br>
+      5. 所有数据处理在本地完成，不上传到任何服务器
     </div>
   </div>
 </div>
 
 <script>
-// ==================== 全局状态 ====================
-let invoices = [];
-let pdfFiles = []; // {file, arrayBuffer}
+const API_BASE = 'http://localhost:8080';
+let currentTaskId = null;
+let pollTimer = null;
+let backendOnline = false;
 
-// ==================== 分类规则 ====================
-const CATEGORY_RULES = [
-  {category:'餐饮',keywords:['餐饮','餐厅','饭店','餐费','宴请','食堂','饮食','美食','小吃','茶餐']},
-  {category:'住宿',keywords:['住宿','酒店','宾馆','旅店','住宿费','房费','公寓','民宿']},
-  {category:'交通',keywords:['出租','客运','机票','航空','火车','高铁','动车','交通运输','网约车','打车','代驾','铁路','客票','电子客票','出行']},
-  {category:'通行费',keywords:['通行费','高速','路桥','过路费','过桥费']},
-  {category:'办公用品',keywords:['办公','文具','纸张','打印','耗材','复印']},
-  {category:'通讯',keywords:['通讯','电信','话费','移动','联通','宽带']},
-  {category:'水电费',keywords:['电费','水费','燃气','供暖','采暖']},
-  {category:'其他',keywords:[]},
-];
+// ---- 日期工具 ----
+function fmt(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`}
+function setQuickRange(days){const end=new Date();const start=new Date();start.setDate(start.getDate()-days);document.getElementById('startDate').value=fmt(start);document.getElementById('endDate').value=fmt(end)}
 
-// ==================== 文本预处理 ====================
-function normalizeText(text) {
-  if (!text) return '';
-  text = text.replace(/(?<=[\u4e00-\u9fa5])\s+(?=[\u4e00-\u9fa5])/g, '');
-  text = text.replace(/(?<=[\u4e00-\u9fa5])\s+(?=[\dA-Za-z])/g, '');
-  text = text.replace(/(?<=[\dA-Za-z])\s+(?=[\u4e00-\u9fa5])/g, '');
-  text = text.replace(/（/g,'(').replace(/）/g,')');
-  text = text.replace(/：/g,':').replace(/，/g,',');
-  text = text.replace(/￥/g,'¥').replace(/＊/g,'*');
-  text = text.replace(/[ \t]+/g, ' ');
-  text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  return text.trim();
-}
+// 默认近一个月
+setQuickRange(30);
+document.querySelector('.quick-btn[data-days="30"]').classList.add('active');
 
-function parseAmount(s) {
-  if (!s) return 0;
-  const c = String(s).replace(/[¥￥,，\s元]/g, '');
-  const v = parseFloat(c);
-  return isNaN(v) ? 0 : Math.round(v * 100) / 100;
-}
-
-// ==================== 发票字段提取 ====================
-function extractInvoiceCode(text) {
-  const m = text.match(/发票代码[:：\s]*(\d{10,12})/);
-  return m ? m[1] : (text.match(/(\d{10,12})/)?.[1] || '');
-}
-
-function extractInvoiceNumber(text) {
-  const m = text.match(/发票号码[:：\s]*(\d{8,20})/);
-  return m ? m[1] : (text.match(/(\d{20})/)?.[1] || text.match(/(\d{8})/)?.[1] || '');
-}
-
-function extractDate(text) {
-  const m = text.match(/开票日期[:：\s]*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  if (m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
-  const m2 = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  if (m2) return `${m2[1]}-${String(+m2[2]).padStart(2,'0')}-${String(+m2[3]).padStart(2,'0')}`;
-  const m3 = text.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (m3) return `${m3[1]}-${String(+m3[2]).padStart(2,'0')}-${String(+m3[3]).padStart(2,'0')}`;
-  return '';
-}
-
-function extractCheckCode(text) {
-  const m = text.match(/校验码[:：\s]*([\d]{4,20})/);
-  return m ? m[1] : '';
-}
-
-function extractType(text) {
-  if (/增值税电子专用发票/.test(text)) return '增值税电子专用发票';
-  if (/增值税电子普通发票/.test(text)) return '增值税电子普通发票';
-  if (/增值税普通发票/.test(text)) return '增值税普通发票';
-  if (/增值税专用发票/.test(text)) return '增值税专用发票';
-  if (/全电发票/.test(text)) return '全电发票';
-  if (/铁路电子客票/.test(text)) return '铁路电子客票';
-  if (/通行费/.test(text)) return '通行费发票';
-  if (/航空运输电子客票/.test(text)) return '航空运输电子客票';
-  return '电子发票';
-}
-
-function extractAmounts(text) {
-  let withoutTax = 0, tax = 0, total = 0;
-
-  // 价税合计（优先匹配）
-  const tm = text.match(/价税合计[^¥]*¥?([\d,.]+)/);
-  if (tm) total = parseAmount(tm[1]);
-
-  // 金额/税额 - 尝试多种模式
-  // 模式1: 金额 ¥xxx 税额 ¥xxx
-  const am1 = text.match(/金额[^¥]*¥?([\d,.]+)\s*税额[^¥]*¥?([\d,.]+)/);
-  if (am1) {
-    withoutTax = parseAmount(am1[1]);
-    tax = parseAmount(am1[2]);
-  }
-
-  // 模式2: ¥/￥ 后面跟数字
-  if (!withoutTax && !tax) {
-    const amounts = [...text.matchAll(/¥\s*([\d,]+\.?\d*)/g)].map(m => parseAmount(m[1]));
-    if (amounts.length >= 3) {
-      amounts.sort((a,b) => a - b);
-      withoutTax = amounts[0];
-      tax = amounts[1];
-      total = total || amounts[amounts.length - 1];
-    } else if (amounts.length >= 1) {
-      total = total || amounts[amounts.length - 1];
-    }
-  }
-
-  // 如果只有价税合计，推算
-  if (total && !withoutTax && !tax) {
-    withoutTax = Math.round(total / 1.03 * 100) / 100;
-    tax = Math.round((total - withoutTax) * 100) / 100;
-  }
-
-  // 验证：不含税 + 税 ≈ 合计
-  if (withoutTax && tax && total) {
-    if (Math.abs(withoutTax + tax - total) > 1) {
-      // 可能匹配错误，只用 total
-      withoutTax = 0; tax = 0;
-    }
-  }
-
-  return { withoutTax, tax, total: total || (withoutTax + tax) };
-}
-
-function extractParties(text) {
-  let buyer = '', seller = '';
-
-  // 方案A: 标准 "名称:" 标签
-  const m = text.match(/名称[:：]\s*([\u4e00-\u9fa5A-Za-z()（）·\-\d]{4,50}?)(?:\s|纳税人识别号|统一社会信用代码|¥|$)/);
-  if (m) buyer = m[1].trim();
-
-  const m2 = text.match(/名称[:：]\s*[\u4e00-\u9fa5A-Za-z()（）·\-\d]{4,50}?\s*名称[:：]\s*([\u4e00-\u9fa5A-Za-z()（）·\-\d]{4,50}?)(?:\s|纳税人识别号|统一社会信用代码|¥|$)/);
-  if (m2) seller = m2[1].trim();
-
-  // 方案B: 通过税号定位
-  if (!buyer || !seller) {
-    const taxNums = [...text.matchAll(/([\dA-Z]{15,20})/g)].map(m => m[1]);
-    if (taxNums.length >= 2) {
-      // 找税号前的名称
-      const idx1 = text.indexOf(taxNums[0]);
-      const idx2 = text.indexOf(taxNums[1]);
-      const before1 = text.substring(Math.max(0, idx1 - 40), idx1);
-      const before2 = text.substring(idx1 + 15, idx2 > idx1 ? idx2 : idx1 + 60);
-
-      if (!buyer) {
-        const bm = before1.match(/([\u4e00-\u9fa5A-Za-z()（）·\-]{4,40})$/);
-        if (bm) buyer = bm[1].trim();
-      }
-      if (!seller) {
-        const sm = before2.match(/([\u4e00-\u9fa5A-Za-z()（）·\-]{4,40})$/);
-        if (sm) seller = sm[1].trim();
-      }
-    }
-  }
-
-  // 方案C: 公司后缀模式
-  if (!buyer || !seller) {
-    const suffix = '(?:股份有限公司|有限责任公司|有限公司|合伙企业|合作社|工作室|经营部|服务部|商行|商社|餐厅|饭店|酒店|宾馆|旅社|研究院|研究所|事务所|中心|工厂|商店|馆|店|厂|行|社|站|场|铺|坊|部|堂|院|所)';
-    const pat = new RegExp(`([\\u4e00-\\u9fa5A-Za-z()（）·\\-]{4,40}?${suffix})([\\u4e00-\\u9fa5A-Za-z()（）·\\-]{4,40}?${suffix})(?=\\s*[\\dA-Z]{15,20})`);
-    const m3 = text.match(pat);
-    if (m3) {
-      if (!buyer) buyer = m3[1];
-      if (!seller) seller = m3[2];
-    }
-  }
-
-  // 铁路客票特殊处理
-  if (/中国铁路/.test(text) || /铁路电子客票/.test(text)) {
-    seller = '中国铁路';
-  }
-
-  return { buyer: buyer || '未知', seller: seller || '未知' };
-}
-
-function classify(text, inv) {
-  for (const rule of CATEGORY_RULES) {
-    if (rule.category === '其他') continue;
-    for (const kw of rule.keywords) {
-      if (text.includes(kw) || (inv.seller_name && inv.seller_name.includes(kw))) {
-        return rule.category;
-      }
-    }
-  }
-  return '其他';
-}
-
-// ==================== 铁路客票特殊处理 ====================
-function extractTravelDate(rawText) {
-  const patterns = [
-    /(\d{4})年(\d{1,2})月(\d{1,2})日\s*\d{1,2}:\d{2}开/,
-    /(\d{4})年(\d{1,2})月(\d{1,2})日\s+\d{1,2}:\d{2}开/,
-  ];
-  for (const pat of patterns) {
-    const m = rawText.match(pat);
-    if (m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
-  }
-  return '';
-}
-
-function extractRoute(rawText) {
-  // 方案1: 按行匹配 "中文 车次 中文"
-  for (const line of rawText.split('\n')) {
-    const l = line.trim();
-    const m = l.match(/^([\u4e00-\u9fa5]{2,6})\s+[A-Z]\d+\s+([\u4e00-\u9fa5]{2,6})$/);
-    if (m) return `${m[1].replace(/站$/,'')}→${m[2].replace(/站$/,'')}`;
-  }
-  // 方案2: 宽松匹配
-  const m = rawText.match(/([\u4e00-\u9fa5]{2,5})\s+[A-Z]\d{3,5}\s+([\u4e00-\u9fa5]{2,5})/);
-  if (m) {
-    const dep = m[1].replace(/站$/,''), arr = m[2].replace(/站$/,'');
-    if (!dep.includes('税务局') && !dep.includes('财政')) return `${dep}→${arr}`;
-  }
-  return '';
-}
-
-// ==================== PDF 文本提取 ====================
-async function extractPdfText(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-  let fullText = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const text = content.items.map(item => item.str).join(' ');
-    fullText += text + '\n';
-  }
-  return fullText;
-}
-
-// ==================== 主解析函数 ====================
-function parseInvoice(rawText, fileName) {
-  const norm = normalizeText(rawText);
-  const inv = {
-    invoice_code: '', invoice_number: '', invoice_date: '', check_code: '',
-    buyer_name: '', seller_name: '', invoice_type: '',
-    amount_without_tax: 0, tax_amount: 0, total_amount: 0,
-    category: '', status: 'normal', remark: '',
-    service_date: '', route: '', archive_filename: '',
-    source_file: fileName,
-  };
-
-  if (!norm.trim()) {
-    inv.status = 'failed';
-    inv.remark = 'PDF文本为空（可能为扫描件）';
-    return inv;
-  }
-
-  inv.invoice_code = extractInvoiceCode(norm);
-  inv.invoice_number = extractInvoiceNumber(norm);
-  inv.invoice_date = extractDate(norm);
-  inv.check_code = extractCheckCode(norm);
-  inv.invoice_type = extractType(norm);
-  const parties = extractParties(norm);
-  inv.buyer_name = parties.buyer;
-  inv.seller_name = parties.seller;
-  const amounts = extractAmounts(norm);
-  inv.amount_without_tax = amounts.withoutTax;
-  inv.tax_amount = amounts.tax;
-  inv.total_amount = amounts.total;
-  inv.category = classify(norm, inv);
-
-  // 铁路客票特殊处理
-  if (inv.seller_name === '中国铁路' || inv.invoice_type === '铁路电子客票') {
-    const td = extractTravelDate(rawText);
-    inv.service_date = td || inv.invoice_date;
-    inv.route = extractRoute(rawText);
-  } else {
-    inv.service_date = inv.invoice_date;
-  }
-
-  // 评估状态
-  const hasNumber = inv.invoice_number || inv.invoice_code;
-  const hasAmount = inv.total_amount > 0;
-  const hasDate = inv.invoice_date;
-  const hasSeller = inv.seller_name && inv.seller_name !== '未知';
-
-  if (!hasNumber && !hasAmount) {
-    inv.status = 'failed';
-    inv.remark = '关键信息缺失';
-  } else if (!hasAmount || !hasDate || !hasSeller) {
-    inv.status = 'review';
-    inv.remark = '部分字段缺失，需人工复核';
-  }
-
-  // 生成归档文件名
-  inv.archive_filename = generateArchiveName(inv);
-
-  return inv;
-}
-
-function generateArchiveName(inv) {
-  const sd = inv.service_date || inv.invoice_date || '无日期';
-  const ds = sd.replace(/-/g, '');
-  const cat = inv.category || '其他';
-  const amt = inv.total_amount === Math.floor(inv.total_amount)
-    ? `${inv.total_amount}.00` : inv.total_amount.toFixed(2);
-  let seller = inv.seller_name || '未知';
-  seller = seller.replace(/[/\\:*?"<>|]/g, '_').replace(/[()（）]/g, '');
-
-  let fn;
-  if (inv.route && cat === '交通') {
-    fn = `${ds}_交通_${inv.route}_${amt}_${seller}.pdf`;
-  } else {
-    fn = `${ds}_${cat}_${amt}_${seller}.pdf`;
-  }
-  return fn.replace(/[()（）]/g, '').replace(/_{2,}/g, '_');
-}
-
-// ==================== 文件上传处理 ====================
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  handleFiles(e.dataTransfer.files);
+document.querySelectorAll('.quick-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    setQuickRange(parseInt(this.dataset.days));
+  });
 });
-fileInput.addEventListener('change', e => handleFiles(e.target.files));
+['startDate','endDate'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{
+    document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));
+  });
+});
 
-function handleFiles(files) {
-  const pdfs = [...files].filter(f => f.name.toLowerCase().endsWith('.pdf'));
-  if (!pdfs.length) return;
-  pdfFiles = pdfs;
-  showFileList();
-  processAll();
+// ---- 后端检测 ----
+async function checkBackend(){
+  const dot=document.getElementById('statusDot');
+  const text=document.getElementById('statusText');
+  dot.className='status-dot status-offline';
+  text.textContent='检测后端服务中...';
+  backendOnline=false;
+  try{
+    const resp=await fetch(`${API_BASE}/api/ping`,{method:'GET'});
+    if(resp.ok){
+      const data=await resp.json();
+      if(data.status==='ok'){
+        dot.className='status-dot status-online';
+        text.textContent='后端已连接 (localhost:8080)';
+        text.style.color='var(--green)';
+        backendOnline=true;
+        return;
+      }
+    }
+  }catch(e){}
+  dot.className='status-dot status-offline';
+  text.textContent='后端未连接 - 请先启动本地服务';
+  text.style.color='var(--red)';
 }
+checkBackend();
 
-function showFileList() {
-  const el = document.getElementById('fileList');
-  if (!pdfFiles.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div style="font-size:.82rem;color:var(--text2);margin-bottom:6px">已选择 ${pdfFiles.length} 个 PDF 文件</div>` +
-    pdfFiles.map((f,i) => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">${i+1}. ${f.name} <span style="color:var(--text2)">(${(f.size/1024).toFixed(0)} KB)</span></div>`).join('');
-}
+// ---- 错误提示 ----
+function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.classList.add('active')}
+function hideError(){document.getElementById('errorBox').classList.remove('active')}
 
-// ==================== 批量处理 ====================
-async function processAll() {
-  invoices = [];
-  const total = pdfFiles.length;
+// ---- 开始归档 ----
+function startArchive(){
+  hideError();
+  if(!backendOnline){
+    showError('后端服务未连接，请先在终端执行: cd ~/Documents/invoice && python3 web_app.py');
+    return;
+  }
+  const email=document.getElementById('email').value.trim();
+  const password=document.getElementById('password').value.trim();
+  const startDate=document.getElementById('startDate').value;
+  const endDate=document.getElementById('endDate').value;
+  if(!email){showError('请输入邮箱账号');return}
+  if(!password){showError('请输入邮箱授权码');return}
+  if(!startDate||!endDate){showError('请选择时间范围');return}
+  if(startDate>endDate){showError('开始日期不能晚于结束日期');return}
+
+  const btn=document.getElementById('startBtn');
+  btn.disabled=true;
+  document.getElementById('btnText').innerHTML='<span class="spinner"></span> 归档中...';
   document.getElementById('progressCard').classList.remove('hidden');
-  document.getElementById('actionCard').classList.add('hidden');
-  document.getElementById('tableCard').classList.add('hidden');
+  document.getElementById('downloadCard').classList.add('hidden');
   document.getElementById('statsGrid').classList.add('hidden');
+  document.getElementById('progressBar').classList.remove('done','err');
+  updateProgress(0,'初始化','正在准备...');
 
-  for (let i = 0; i < total; i++) {
-    const pct = Math.round(((i) / total) * 100);
-    updateProgress(pct, '解析发票', `正在解析 ${i+1}/${total}：${pdfFiles[i].name}`);
-
-    try {
-      const rawText = await extractPdfText(pdfFiles[i]);
-      const inv = parseInvoice(rawText, pdfFiles[i].name);
-      // 保存 file 引用用于 ZIP 打包
-      inv._file = pdfFiles[i];
-      invoices.push(inv);
-    } catch (err) {
-      invoices.push({
-        invoice_code: '', invoice_number: '', invoice_date: '', check_code: '',
-        buyer_name: '', seller_name: '', invoice_type: '',
-        amount_without_tax: 0, tax_amount: 0, total_amount: 0,
-        category: '其他', status: 'failed', remark: `解析失败: ${err.message}`,
-        service_date: '', route: '', archive_filename: '',
-        source_file: pdfFiles[i].name, _file: pdfFiles[i],
-      });
-    }
-  }
-
-  // 去重：发票代码+发票号码
-  const seen = new Set();
-  invoices = invoices.filter(inv => {
-    const key = `${inv.invoice_code}_${inv.invoice_number}`;
-    if (!inv.invoice_code && !inv.invoice_number) return true; // 无号码的不去重
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  // 处理重名
-  const usedNames = new Set();
-  invoices.forEach(inv => {
-    let fn = inv.archive_filename || '未命名.pdf';
-    if (usedNames.has(fn)) {
-      const base = fn.replace(/\.pdf$/, '');
-      let c = 2;
-      while (usedNames.has(`${base}_${c}.pdf`)) c++;
-      fn = `${base}_${c}.pdf`;
-    }
-    inv.archive_filename = fn;
-    usedNames.add(fn);
-  });
-
-  updateProgress(100, '完成', `共解析 ${invoices.length} 张发票`);
-  document.getElementById('progressBar').classList.add('done');
-  showStats();
-  renderTable();
-  document.getElementById('actionCard').classList.remove('hidden');
-  document.getElementById('tableCard').classList.remove('hidden');
+  fetch(`${API_BASE}/api/archive`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email,password,start_date:startDate,end_date:endDate})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.error){showError(data.error);resetBtn();return}
+    currentTaskId=data.task_id;
+    pollStatus();
+  })
+  .catch(()=>{showError('请求失败，请确认后端服务正在运行');resetBtn()});
 }
 
-function updateProgress(pct, stage, msg) {
-  document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('progressPercent').textContent = pct + '%';
-  if (stage) document.getElementById('progressStage').textContent = stage;
-  if (msg) document.getElementById('progressMsg').textContent = msg;
+// ---- 轮询状态 ----
+function pollStatus(){
+  if(!currentTaskId)return;
+  fetch(`${API_BASE}/api/status/${currentTaskId}`)
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status==='not_found'){showError('任务不存在或已过期');resetBtn();return}
+      updateProgress(data.progress||0,data.stage||'',data.message||'');
+      if(data.stats&&data.stats.emails!==undefined){
+        document.getElementById('statsGrid').classList.remove('hidden');
+        document.getElementById('statEmails').textContent=data.stats.emails||0;
+        document.getElementById('statAttachments').textContent=data.stats.attachments||0;
+        document.getElementById('statInvoices').textContent=data.stats.invoices||0;
+        if(data.stats.total_amount!==undefined){
+          document.getElementById('statAmount').textContent='¥'+(data.stats.total_amount||0).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+        }
+      }
+      if(data.status==='completed'){
+        clearTimeout(pollTimer);
+        document.getElementById('progressBar').classList.add('done');
+        document.getElementById('progressBar').style.width='100%';
+        document.getElementById('progressPercent').textContent='100%';
+        document.getElementById('downloadCard').classList.remove('hidden');
+        resetBtn();
+      }else if(data.status==='failed'){
+        clearTimeout(pollTimer);
+        document.getElementById('progressBar').classList.add('err');
+        showError(data.error||'归档失败，请重试');
+        resetBtn();
+      }else{
+        pollTimer=setTimeout(pollStatus,800);
+      }
+    })
+    .catch(()=>{pollTimer=setTimeout(pollStatus,2000)});
 }
 
-// ==================== 统计 ====================
-function showStats() {
-  const total = invoices.length;
-  const normal = invoices.filter(i => i.status === 'normal').length;
-  const review = invoices.filter(i => i.status === 'review').length;
-  const failed = invoices.filter(i => i.status === 'failed').length;
-  const totalAmount = invoices.reduce((s, i) => s + (i.total_amount || 0), 0);
-
-  // 分类统计
-  const cats = {};
-  invoices.forEach(i => {
-    const c = i.category || '其他';
-    if (!cats[c]) cats[c] = {count: 0, amount: 0};
-    cats[c].count++;
-    cats[c].amount += i.total_amount || 0;
-  });
-
-  const catBadges = Object.entries(cats).map(([c, v]) =>
-    `<span class="badge badge-blue">${c} ${v.count}张</span>`).join(' ');
-
-  const grid = document.getElementById('statsGrid');
-  grid.classList.remove('hidden');
-  grid.innerHTML = `
-    <div class="stat-item"><div class="stat-value" style="color:var(--blue)">${total}</div><div class="stat-label">发票总数</div></div>
-    <div class="stat-item"><div class="stat-value" style="color:var(--green)">${normal}</div><div class="stat-label">正常</div></div>
-    <div class="stat-item"><div class="stat-value" style="color:var(--gold)">${review + failed}</div><div class="stat-label">需复核</div></div>
-    <div class="stat-item"><div class="stat-value" style="color:var(--green)">¥${totalAmount.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="stat-label">总金额</div></div>
-    <div class="stat-item" style="grid-column:1/-1;text-align:left;padding:10px 12px">${catBadges}</div>
-  `;
+function updateProgress(pct,stage,msg){
+  document.getElementById('progressBar').style.width=pct+'%';
+  document.getElementById('progressPercent').textContent=pct+'%';
+  if(stage)document.getElementById('progressStage').textContent=stage;
+  if(msg)document.getElementById('progressMsg').textContent=msg;
 }
 
-// ==================== 表格渲染 ====================
-function renderTable() {
-  const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
-  const filtered = search
-    ? invoices.filter(i =>
-        (i.seller_name||'').toLowerCase().includes(search) ||
-        (i.invoice_number||'').toLowerCase().includes(search) ||
-        (i.invoice_type||'').toLowerCase().includes(search) ||
-        (i.category||'').toLowerCase().includes(search))
-    : invoices;
-
-  // 按实际日期排序
-  filtered.sort((a, b) => (a.service_date||'').localeCompare(b.service_date||''));
-
-  const statusMap = {normal:['badge-green','正常'], review:['badge-gold','复核'], failed:['badge-red','失败']};
-  const catBadge = {餐饮:'badge-gold',交通:'badge-blue',住宿:'badge-green',通行费:'badge-blue','办公用品':'badge-gray',通讯:'badge-gray','水电费':'badge-gray',其他:'badge-gray'};
-
-  const tbody = document.getElementById('tableBody');
-  tbody.innerHTML = filtered.map((inv, i) => {
-    const [sc, st] = statusMap[inv.status] || ['badge-gray','未知'];
-    const cc = catBadge[inv.category] || 'badge-gray';
-    return `<tr class="fade-in">
-      <td style="color:var(--text2)">${i+1}</td>
-      <td>${inv.service_date || '-'}</td>
-      <td style="color:var(--text2)">${inv.invoice_date || '-'}</td>
-      <td><span class="badge ${cc}">${inv.category||'-'}</span></td>
-      <td style="color:var(--text2)">${inv.invoice_type || '-'}</td>
-      <td title="${inv.buyer_name}">${inv.seller_name || '-'}</td>
-      <td>${inv.route || '-'}</td>
-      <td>${inv.amount_without_tax ? inv.amount_without_tax.toFixed(2) : '-'}</td>
-      <td>${inv.tax_amount ? inv.tax_amount.toFixed(2) : '-'}</td>
-      <td style="font-weight:600;color:var(--gold)">${inv.total_amount ? '¥'+inv.total_amount.toFixed(2) : '-'}</td>
-      <td><span class="badge ${sc}">${st}</span></td>
-      <td style="color:var(--text2);font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${inv.archive_filename}">${inv.archive_filename||'-'}</td>
-    </tr>`;
-  }).join('');
+function resetBtn(){
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('btnText').textContent='重新归档';
 }
 
-// ==================== Excel 导出 ====================
-function exportExcel() {
-  const sorted = [...invoices].sort((a,b) => (a.service_date||'').localeCompare(b.service_date||''));
-
-  const data = sorted.map((inv, i) => ({
-    '序号': i + 1,
-    '实际发生日期': inv.service_date || '',
-    '开票日期': inv.invoice_date || '',
-    '发票号码': inv.invoice_number || '',
-    '发票代码': inv.invoice_code || '',
-    '发票类型': inv.invoice_type || '',
-    '分类': inv.category || '',
-    '销方名称': inv.seller_name || '',
-    '购方名称': inv.buyer_name || '',
-    '路线': inv.route || '',
-    '不含税金额': inv.amount_without_tax || 0,
-    '税额': inv.tax_amount || 0,
-    '价税合计': inv.total_amount || 0,
-    '校验码': inv.check_code || '',
-    '状态': {normal:'正常',review:'人工复核',failed:'识别失败'}[inv.status] || inv.status,
-    '归档文件名': inv.archive_filename || '',
-    '来源文件': inv.source_file || '',
-    '备注': inv.remark || '',
-  }));
-
-  const ws = XLSX.utils.json_to_sheet(data);
-  // 列宽
-  ws['!cols'] = [
-    {wch:5},{wch:14},{wch:14},{wch:22},{wch:16},{wch:20},{wch:8},
-    {wch:35},{wch:30},{wch:16},{wch:14},{wch:12},{wch:14},
-    {wch:22},{wch:8},{wch:45},{wch:30},{wch:20},
-  ];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '发票台账');
-
-  const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
-  XLSX.writeFile(wb, `发票台账_${ts}.xlsx`);
+// ---- 下载 ----
+function downloadFile(type){
+  if(!currentTaskId)return;
+  const a=document.createElement('a');
+  a.href=`${API_BASE}/api/download/${type}/${currentTaskId}`;
+  a.download='';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
-// ==================== ZIP 下载 ====================
-async function downloadZip() {
-  const btn = event.target.closest('button');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner"></span> 打包中...';
-  btn.disabled = true;
-
-  try {
-    const zip = new JSZip();
-    const archiveFolder = zip.folder('发票归档');
-
-    for (const inv of invoices) {
-      if (!inv._file) continue;
-      const fn = inv.archive_filename || inv.source_file;
-      const arrayBuffer = await inv._file.arrayBuffer();
-      archiveFolder.file(fn, arrayBuffer);
-    }
-
-    // 同时加入 Excel
-    const sorted = [...invoices].sort((a,b) => (a.service_date||'').localeCompare(b.service_date||''));
-    const data = sorted.map((inv, i) => ({
-      '序号': i + 1, '实际发生日期': inv.service_date || '', '开票日期': inv.invoice_date || '',
-      '发票号码': inv.invoice_number || '', '发票代码': inv.invoice_code || '',
-      '发票类型': inv.invoice_type || '', '分类': inv.category || '',
-      '销方名称': inv.seller_name || '', '购方名称': inv.buyer_name || '',
-      '路线': inv.route || '', '不含税金额': inv.amount_without_tax || 0,
-      '税额': inv.tax_amount || 0, '价税合计': inv.total_amount || 0,
-      '校验码': inv.check_code || '',
-      '状态': {normal:'正常',review:'人工复核',failed:'识别失败'}[inv.status] || inv.status,
-      '归档文件名': inv.archive_filename || '', '来源文件': inv.source_file || '', '备注': inv.remark || '',
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '发票台账');
-    const excelBuffer = XLSX.write(wb, {type:'array', bookType:'xlsx'});
-    const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    zip.file(`发票台账_${ts}.xlsx`, excelBuffer);
-
-    const blob = await zip.generateAsync({type:'blob'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `发票归档_${ts}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    alert('打包失败: ' + err.message);
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
-}
-
-// ==================== 重置 ====================
-function resetAll() {
-  invoices = [];
-  pdfFiles = [];
-  document.getElementById('fileInput').value = '';
-  document.getElementById('fileList').innerHTML = '';
-  document.getElementById('progressCard').classList.add('hidden');
-  document.getElementById('actionCard').classList.add('hidden');
-  document.getElementById('tableCard').classList.add('hidden');
-  document.getElementById('statsGrid').classList.add('hidden');
-  document.getElementById('progressBar').classList.remove('done');
-  document.getElementById('progressBar').style.width = '0%';
-}
+// 回车提交
+document.getElementById('password').addEventListener('keypress',e=>{if(e.key==='Enter')startArchive()});
 </script>
 </body>
 </html>
