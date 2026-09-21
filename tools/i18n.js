@@ -597,24 +597,44 @@ if (location.pathname.indexOf('/tools/') === 0) {
 
 // === 反馈评分组件 ===
 // 放在右下角上方，避免遮挡页面主要内容；与 Home/主题按钮分层
+// 用 addEventListener 替代 inline onclick，避免 CSP 风险；✕ 关闭持久化，刷新后不再出现
+var DISMISS_KEY='garyy_feedback_dismissed';
 var feedbackHtml=document.createElement('div');
 feedbackHtml.id='garyy-feedback';
 feedbackHtml.style.cssText='position:fixed;bottom:72px;right:20px;background:var(--card, var(--bg-card, #161b22));border:1px solid var(--border, #30363d);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.8rem;max-width:260px;transition:opacity .3s';
-feedbackHtml.innerHTML='<span style="color:var(--text2, var(--text-secondary, #8b949e))">这个工具有用吗？</span><span id="garyy-fb-btns" style="display:flex;gap:6px"><button onclick="garyyFeedback(1)" style="background:none;border:1px solid var(--border, #30363d);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👍</button><button onclick="garyyFeedback(0)" style="background:none;border:1px solid var(--border, #30363d);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👎</button></span><button onclick="this.parentElement.style.display=\'none\'" style="background:none;border:none;color:var(--text2, var(--text-secondary, #8b949e));cursor:pointer;font-size:.8rem">✕</button>';
+feedbackHtml.innerHTML='<span style="color:var(--text2, var(--text-secondary, #8b949e))">这个工具有用吗？</span><span id="garyy-fb-btns" style="display:flex;gap:6px"><button id="garyy-fb-up" style="background:none;border:1px solid var(--border, #30363d);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👍</button><button id="garyy-fb-down" style="background:none;border:1px solid var(--border, #30363d);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👎</button></span><button id="garyy-fb-close" style="background:none;border:none;color:var(--text2, var(--text-secondary, #8b949e));cursor:pointer;font-size:.8rem">✕</button>';
 document.body.appendChild(feedbackHtml);
 
+var fbPath=location.pathname.replace('/tools/','').replace('/','');
+
 window.garyyFeedback=function(score){
-  var path=location.pathname.replace('/tools/','').replace('/','');
   var data=JSON.parse(localStorage.getItem('garyy_feedback')||'{}');
-  data[path]={score:score,time:Date.now()};
+  data[fbPath]={score:score,time:Date.now()};
   localStorage.setItem('garyy_feedback',JSON.stringify(data));
-  document.getElementById('garyy-fb-btns').innerHTML='<span style="color:var(--green)">谢谢反馈！</span>';
+  var btns=document.getElementById('garyy-fb-btns');
+  if(btns)btns.innerHTML='<span style="color:var(--green)">谢谢反馈！</span>';
   setTimeout(function(){var el=document.getElementById('garyy-feedback');if(el)el.style.display='none'},2000);
 };
 
-// 检查是否已反馈过
-var fbPath=location.pathname.replace('/tools/','').replace('/','');
+// 用 addEventListener 绑定点击事件（替代 inline onclick，避免 CSP 风险）
+var upBtn=document.getElementById('garyy-fb-up');
+var downBtn=document.getElementById('garyy-fb-down');
+var closeBtn=document.getElementById('garyy-fb-close');
+if(upBtn)upBtn.addEventListener('click',function(){window.garyyFeedback(1)});
+if(downBtn)downBtn.addEventListener('click',function(){window.garyyFeedback(0)});
+if(closeBtn)closeBtn.addEventListener('click',function(){
+  // 持久化关闭状态：记录到 dismiss 列表，刷新后不再显示
+  var dismissed=JSON.parse(localStorage.getItem(DISMISS_KEY)||'[]');
+  if(dismissed.indexOf(fbPath)<0)dismissed.push(fbPath);
+  localStorage.setItem(DISMISS_KEY,JSON.stringify(dismissed));
+  feedbackHtml.style.display='none';
+});
+
+// 检查是否已反馈过或已关闭
 var fbData=JSON.parse(localStorage.getItem('garyy_feedback')||'{}');
-if(fbData[fbPath]){var el=document.getElementById('garyy-feedback');if(el)el.style.display='none'}
+var dismissedList=JSON.parse(localStorage.getItem(DISMISS_KEY)||'[]');
+if(fbData[fbPath]||dismissedList.indexOf(fbPath)>=0){
+  feedbackHtml.style.display='none';
+}
 
 })();
