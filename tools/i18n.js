@@ -528,7 +528,7 @@ function createToggle(){
   }
   var btn = document.createElement('div');
   btn.id = 'garyy-lang-toggle';
-  btn.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:99999;background:var(--bg-card,#1f2937);color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:20px;padding:6px 14px;font-size:.8rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:all .2s';
+  btn.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:99999;background:var(--card, var(--bg-card, #1f2937));color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:20px;padding:6px 14px;font-size:.8rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;transition:all .2s';
   btn.innerHTML = '<span style="font-size:1rem">🌐</span> <span id="garyy-lang-label">' + (currentLang === 'zh-CN' ? '中文' : 'EN') + '</span>';
   btn.addEventListener('click', function(){
     var newLang = currentLang === 'zh-CN' ? 'en' : 'zh-CN';
@@ -563,7 +563,7 @@ if (location.pathname.indexOf('/tools/') === 0) {
   var themeBtn = document.createElement('button');
   var savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
   themeBtn.id = 'garyy-theme-btn';
-  themeBtn.style.cssText = 'position:fixed;bottom:20px;right:' + (currentLang === 'en' ? '100px' : '90px') + ';z-index:99998;background:var(--bg-card,#1f2937);color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;transition:all .2s;line-height:1';
+  themeBtn.style.cssText = 'position:fixed;bottom:20px;right:' + (currentLang === 'en' ? '100px' : '90px') + ';z-index:99998;background:var(--card, var(--bg-card, #1f2937));color:var(--text,#e5e7eb);border:1px solid var(--border,#374151);border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;transition:all .2s;line-height:1';
   themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
   themeBtn.onmouseenter = function(){this.style.borderColor='#3b82f6';};
   themeBtn.onmouseleave = function(){this.style.borderColor='#374151';};
@@ -579,8 +579,8 @@ if (location.pathname.indexOf('/tools/') === 0) {
 // === 反馈评分组件 ===
 var feedbackHtml=document.createElement('div');
 feedbackHtml.id='garyy-feedback';
-feedbackHtml.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:12px;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.85rem;max-width:90vw;transition:opacity .3s';
-feedbackHtml.innerHTML='<span style="color:var(--text2)">这个工具有用吗？</span><span id="garyy-fb-btns" style="display:flex;gap:6px"><button onclick="garyyFeedback(1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👍</button><button onclick="garyyFeedback(0)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👎</button></span><button onclick="this.parentElement.style.display=\'none\'" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:.8rem">✕</button>';
+feedbackHtml.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card, var(--bg-card, #161b22));border:1px solid var(--border, #30363d);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:12px;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.85rem;max-width:90vw;transition:opacity .3s';
+feedbackHtml.innerHTML='<span style="color:var(--text2, var(--text-secondary, #8b949e))">这个工具有用吗？</span><span id="garyy-fb-btns" style="display:flex;gap:6px"><button onclick="garyyFeedback(1)" style="background:none;border:1px solid var(--border, #30363d);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👍</button><button onclick="garyyFeedback(0)" style="background:none;border:1px solid var(--border, #30363d);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem">👎</button></span><button onclick="this.parentElement.style.display=\'none\'" style="background:none;border:none;color:var(--text2, var(--text-secondary, #8b949e));cursor:pointer;font-size:.8rem">✕</button>';
 document.body.appendChild(feedbackHtml);
 
 window.garyyFeedback=function(score){
