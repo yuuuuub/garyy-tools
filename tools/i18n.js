@@ -29,6 +29,25 @@ function applyTheme(theme){
 
 applyTheme(detectTheme());
 
+// 全局可访问性：恢复被各工具页 `outline:none` 移除的 focus 可见性
+// 仅在键盘 focus 时显示（:focus-visible），鼠标点击不显示，避免视觉污染
+(function(){
+  var style = document.createElement('style');
+  style.id = 'garyy-a11y-focus';
+  style.textContent = [
+    'a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible, summary:focus-visible {',
+    '  outline: 2px solid #58a6ff !important;',
+    '  outline-offset: 2px !important;',
+    '  border-radius: 4px;',
+    '}',
+    // 兼容旧浏览器：无 :focus-visible 时降级到 :focus，但鼠标点击也会显示
+    'a:focus:not(:focus-visible), button:focus:not(:focus-visible), input:focus:not(:focus-visible), textarea:focus:not(:focus-visible) { outline: none !important; }',
+    // 暗色主题用更亮的蓝
+    '[data-theme="dark"] a:focus-visible, [data-theme="dark"] button:focus-visible, [data-theme="dark"] input:focus-visible, [data-theme="dark"] textarea:focus-visible { outline-color: #4493f8 !important; }'
+  ].join('\n');
+  (document.head || document.documentElement).appendChild(style);
+})();
+
 var COMMON = {
   '搜索': 'Search',
   '搜索工具...': 'Search tools...',
