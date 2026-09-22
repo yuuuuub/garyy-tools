@@ -1,5 +1,16 @@
+// 百度 OCR 识别八字文字 API
+// 修复: imageBase64 大小限制(防 DOS)、token 缓存健壮性、错误日志
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB 上限
+
 let cachedToken = null;
 let tokenExpiry = 0;
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+  });
+}
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -14,22 +25,15 @@ export async function onRequest(context) {
     });
   }
 
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  };
-
   if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: '方法不允许' }), { status: 405, headers });
+    return json({ error: '方法不允许' }, 405);
   }
 
   const apiKey = env.BAIDU_OCR_API_KEY;
   const secretKey = env.BAIDU_OCR_SECRET_KEY;
 
   if (!apiKey || !secretKey) {
-    return new Response(JSON.stringify({
-      error: '请在 Cloudflare Pages 环境变量中设置 BAIDU_OCR_API_KEY 和 BAIDU_OCR_SECRET_KEY',
-    }), { status: 500, headers });
+    return json({ error: '请在 Cloudflare Pages 环境变量中设置 BAIDU_OCR_API_KEY 和 BAIDU_OCR_SECRET_KEY' }, 500);
   }
 
   try {
@@ -37,10 +41,17 @@ export async function onRequest(context) {
     const { imageBase64 } = body;
 
     if (!imageBase64) {
-      return new Response(JSON.stringify({ error: '缺少 imageBase64 参数' }), { status: 400, headers });
+      return json({ error: '缺少 imageBase64 参数' }, 400);
     }
 
-    if (!cachedToken || Date.now() >= tokenExpiry) {
+    // 输入大小限制（防 DOS）
+    if (typeof imageBase64 !== 'string' || imageBase64.length > MAX_IMAGE_SIZE) {
+      return json({ error: `图片数据过大，上限 ${MAX_IMAGE_SIZE / 1024 / 1024}MB` }, 413);
+    }
+
+    // token 缓存：失效前 5 分钟提前刷新
+    const now = Date.now();
+    if (!cachedToken || now >= tokenExpiry) {
       const tokenRes = await fetch(
         `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${apiKey}&client_secret=${secretKey}`,
         { method: 'POST' }
@@ -48,13 +59,14 @@ export async function onRequest(context) {
       const tokenData = await tokenRes.json();
 
       if (!tokenData.access_token) {
-        return new Response(JSON.stringify({
-          error: `百度鉴权失败：${tokenData.error_description || tokenData.error || '未知错误'}`,
-        }), { status: 500, headers });
+        console.error('Baidu token auth failed:', tokenData.error_description || tokenData.error);
+        return json({ error: `百度鉴权失败：${tokenData.error_description || tokenData.error || '未知错误'}` }, 500);
       }
 
       cachedToken = tokenData.access_token;
-      tokenExpiry = Date.now() + Math.max(60, (tokenData.expires_in || 3600) - 300) * 1000;
+      // 提前 5 分钟过期，避免边界失效
+      const ttl = Math.max(60, (tokenData.expires_in || 3600) - 300);
+      tokenExpiry = now + ttl * 1000;
     }
 
     // 调用 OCR
@@ -73,17 +85,15 @@ export async function onRequest(context) {
     const ocrData = await ocrRes.json();
 
     if (ocrData.error_code) {
-      return new Response(JSON.stringify({
-        error: `百度 OCR 错误：${ocrData.error_msg}`,
-      }), { status: 500, headers });
+      console.error('Baidu OCR error:', ocrData.error_code, ocrData.error_msg);
+      return json({ error: `百度 OCR 错误：${ocrData.error_msg}` }, 500);
     }
 
     const words = ocrData.words_result?.map(w => w.words) || [];
-    return new Response(JSON.stringify({ rawText: words.join('\n') }), { headers });
+    return json({ rawText: words.join('\n') });
 
   } catch (e) {
-    return new Response(JSON.stringify({
-      error: `请求失败：${e.message}`,
-    }), { status: 500, headers });
+    console.error('Baidu OCR request failed:', e.message);
+    return json({ error: `请求失败：${e.message}` }, 500);
   }
 }
