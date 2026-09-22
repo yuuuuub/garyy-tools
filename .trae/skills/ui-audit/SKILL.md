@@ -61,10 +61,6 @@ description: "Audits web tool UI across 4 dimensions: consistency, anti-AI-flavo
 - [ ] 空状态有引导（无数据时给出"如何产生数据"提示，不是空白）
 - [ ] 移动端点击目标 ≥ 44×44px
 
-**已全局豁免项**（i18n.js 已全局修复，不重复扣分）：
-- focus 可见性：i18n.js 注入 `:focus-visible` 全局 CSS（第 32-49 行），所有工具页键盘 Tab 时显示蓝色 focus ring
-- 重复"← 首页"按钮：已批量删除（207 处），返回首页入口保留在右下角"🏠 Home"
-
 **扣分项**：每条不达标 -3 分，最低 0 分。
 
 ### 维度 4：信息架构 (Information Architecture) — 25 分
